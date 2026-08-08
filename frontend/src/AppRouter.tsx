@@ -20,6 +20,8 @@ import JobsPage from './pages/JobsPage';
 import SampleReportPage from './pages/SampleReportPage';
 import PremiumCheckoutPage from './pages/PremiumCheckoutPage';
 import OrdersPage from './pages/OrdersPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import { backendUrl, isIcDemoEnabled } from './env';
@@ -94,6 +96,8 @@ export function AppRouter() {
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/how-it-works" element={<MethodologyPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
 
           {/* Free Trial */}
           <Route path="/free-trial" element={<FreeTrialPage />} />
