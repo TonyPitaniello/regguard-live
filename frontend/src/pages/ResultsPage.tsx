@@ -7,9 +7,12 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import SendResultsForm from '../components/SendResultsForm';
-import { buildSummaryFromAnalysis, AnalysisData } from '../components/ResultsViewerModal';
-import { areEstimatesUnverified, isRiskScoreHidden } from '../components/honesty';
-import { ensureClientHonesty } from '../components/ensureClientHonesty';
+import CitationBadge from '../components/CitationBadge';
+import { buildSummaryFromAnalysis, AnalysisData, CriticalPathItem } from '../components/ResultsViewerModal';
+
+function criticalPathTask(item: CriticalPathItem): string {
+  return typeof item === 'string' ? item : item.task;
+}
 
 export default function ResultsPage() {
   const navigate = useNavigate();
@@ -29,7 +32,7 @@ export default function ResultsPage() {
     const storedId = sessionStorage.getItem('researchId');
     if (stored) {
       try {
-        const parsed = ensureClientHonesty(JSON.parse(stored) as AnalysisData);
+        const parsed = JSON.parse(stored);
         setAnalysis(parsed);
         setResearchId(storedId || parsed.research_id || null);
         setLoading(false);
@@ -113,9 +116,6 @@ export default function ResultsPage() {
     );
   }
 
-  const hideRisk = isRiskScoreHidden(analysis);
-  const unverifiedEstimates = areEstimatesUnverified(analysis);
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="max-w-6xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
@@ -128,13 +128,6 @@ export default function ResultsPage() {
           <p className="text-sm text-gray-500 mt-2">
             Analysis completed: {new Date(analysis.timestamp).toLocaleDateString()}
           </p>
-          {(analysis.preview || hideRisk || unverifiedEstimates) && (
-            <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              <strong className="text-amber-50">Preview / unverified estimates.</strong>{' '}
-              Risk scores are not parcel-verified GIS data. Dollar and day figures are not AHJ quotes —
-              confirm before bidding.
-            </div>
-          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -142,39 +135,35 @@ export default function ResultsPage() {
             <div className="text-3xl font-black text-blue-400 mb-2">
               {analysis.summary.total_environmental_risks}
             </div>
-            <p className="text-gray-300">Checklist topics</p>
+            <p className="text-gray-300">Environmental Issues Found</p>
           </div>
           <div className="bg-gradient-to-br from-orange-600/20 to-orange-900/20 border border-orange-500/30 rounded-lg p-6">
             <div className="text-3xl font-black text-orange-400 mb-2">
-              {hideRisk ? '—' : analysis.summary.high_risk_count}
+              {analysis.summary.high_risk_count}
             </div>
-            <p className="text-gray-300">{hideRisk ? 'Verified high risks' : 'High/Critical Risks'}</p>
+            <p className="text-gray-300">High/Critical Risks</p>
           </div>
           <div
             className={`bg-gradient-to-br ${
-              hideRisk
-                ? 'from-amber-600/20 to-amber-900/20 border-amber-500/30'
-                : analysis.environmental_screening.risk_level === 'LOW'
-                  ? 'from-green-600/20 to-green-900/20 border-green-500/30'
-                  : analysis.environmental_screening.risk_level === 'MEDIUM'
-                    ? 'from-yellow-600/20 to-yellow-900/20 border-yellow-500/30'
-                    : 'from-red-600/20 to-red-900/20 border-red-500/30'
+              analysis.environmental_screening.risk_level === 'LOW'
+                ? 'from-green-600/20 to-green-900/20 border-green-500/30'
+                : analysis.environmental_screening.risk_level === 'MEDIUM'
+                  ? 'from-yellow-600/20 to-yellow-900/20 border-yellow-500/30'
+                  : 'from-red-600/20 to-red-900/20 border-red-500/30'
             } border rounded-lg p-6`}
           >
             <div
               className={`text-2xl font-black mb-2 ${
-                hideRisk
-                  ? 'text-amber-300'
-                  : analysis.environmental_screening.risk_level === 'LOW'
-                    ? 'text-green-400'
-                    : analysis.environmental_screening.risk_level === 'MEDIUM'
-                      ? 'text-yellow-400'
-                      : 'text-red-400'
+                analysis.environmental_screening.risk_level === 'LOW'
+                  ? 'text-green-400'
+                  : analysis.environmental_screening.risk_level === 'MEDIUM'
+                    ? 'text-yellow-400'
+                    : 'text-red-400'
               }`}
             >
-              {hideRisk ? 'Unavailable' : `${analysis.environmental_screening.risk_level} Risk`}
+              {analysis.environmental_screening.risk_level} Risk
             </div>
-            <p className="text-gray-300">{hideRisk ? 'Risk score (not verified)' : 'Overall Assessment'}</p>
+            <p className="text-gray-300">Overall Assessment</p>
           </div>
         </div>
 
@@ -200,15 +189,9 @@ export default function ResultsPage() {
                       {finding.category.replace(/_/g, ' ')}
                     </h3>
                     <span
-                      className={`px-3 py-1 rounded text-sm font-semibold ${
-                        hideRisk || finding.risk_level === 'PRELIMINARY'
-                          ? 'text-amber-800 bg-amber-50'
-                          : getRiskColor(finding.risk_level)
-                      }`}
+                      className={`px-3 py-1 rounded text-sm font-semibold ${getRiskColor(finding.risk_level)}`}
                     >
-                      {hideRisk || finding.risk_level === 'PRELIMINARY'
-                        ? 'PRELIMINARY'
-                        : finding.risk_level}
+                      {finding.risk_level}
                     </span>
                   </div>
                   <p className="text-gray-300 mb-4">{finding.description}</p>
@@ -223,6 +206,11 @@ export default function ResultsPage() {
                       ))}
                     </ul>
                   </div>
+                  <CitationBadge
+                    data_sources={finding.data_sources}
+                    verified={false}
+                    source_label={(finding.data_sources || [])[0]}
+                  />
                 </div>
               ))}
             </div>
@@ -234,7 +222,7 @@ export default function ResultsPage() {
             onClick={() => toggleSection('critical')}
             className="w-full flex items-center justify-between bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/30 rounded-lg p-6 mb-4 hover:border-red-500/50 transition"
           >
-            <h2 className="text-2xl font-bold text-white">Critical Path (Top Priority)</h2>
+            <h2 className="text-2xl font-bold text-white">Pre-bid punch list (critical)</h2>
             {expandedSections.critical ? (
               <ChevronUp className="w-5 h-5 text-gray-400" />
             ) : (
@@ -244,33 +232,32 @@ export default function ResultsPage() {
 
           {expandedSections.critical && (
             <div className="space-y-3">
-              {analysis.punch_list.critical_path.map((task, idx) => (
-                <div key={idx} className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <span className="text-red-400 font-bold mr-3">{idx + 1}.</span>
-                    <p className="text-gray-200">{task}</p>
+              <p className="text-xs text-gray-400 px-1">
+                Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
+              </p>
+              {analysis.punch_list.critical_path.map((task, idx) => {
+                const meta = typeof task === 'string' ? { task } : task;
+                return (
+                  <div key={idx} className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
+                    <div className="flex items-start">
+                      <span className="text-red-400 font-bold mr-3">{idx + 1}.</span>
+                      <div className="flex-1">
+                        <p className="text-gray-200">{criticalPathTask(task)}</p>
+                        <CitationBadge
+                          source_url={meta.source_url}
+                          source_label={meta.source_label}
+                          verified={meta.verified}
+                          cost_verified={meta.cost_verified}
+                          estimated_cost={meta.estimated_cost}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
-
-        {(analysis.punch_list?.inspection_sequence || analysis.summary?.inspection_sequence || []).length >
-          0 && (
-          <section className="mb-8 bg-slate-800/40 border border-slate-700/50 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-3">Inspection sequence</h2>
-            <ol className="list-decimal list-inside space-y-2 text-gray-200">
-              {(
-                analysis.punch_list?.inspection_sequence ||
-                analysis.summary?.inspection_sequence ||
-                []
-              ).map((step, idx) => (
-                <li key={idx}>{step}</li>
-              ))}
-            </ol>
-          </section>
-        )}
 
         <section className="mb-8">
           <button
@@ -280,9 +267,7 @@ export default function ResultsPage() {
             <div>
               <h2 className="text-2xl font-bold text-white">Full Action Plan</h2>
               <p className="text-sm text-gray-400 mt-1">
-                {analysis.summary.total_punch_list_items} items • Est.{' '}
-                {analysis.summary.estimated_timeline}
-                {unverifiedEstimates ? ' (unverified)' : ''}
+                {analysis.summary.total_punch_list_items} items • Est. {analysis.summary.estimated_timeline}
               </p>
             </div>
             {expandedSections.punchList ? (
@@ -307,13 +292,17 @@ export default function ResultsPage() {
                   <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
                     <span>📅 {item.timeline}</span>
                     <span>👤 {item.responsible_party}</span>
-                    {item.estimated_cost && (
-                      <span>
-                        💰 ${item.estimated_cost.toLocaleString()}
-                        {unverifiedEstimates || item.cost_verified === false ? ' (unverified)' : ''}
-                      </span>
-                    )}
+                    {item.estimated_cost ? (
+                      <span>💰 ${item.estimated_cost.toLocaleString()}</span>
+                    ) : null}
                   </div>
+                  <CitationBadge
+                    source_url={item.source_url}
+                    source_label={item.source_label}
+                    verified={item.verified}
+                    cost_verified={item.cost_verified}
+                    estimated_cost={item.estimated_cost}
+                  />
                 </div>
               ))}
             </div>
@@ -322,28 +311,21 @@ export default function ResultsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Timeline</h3>
-              {unverifiedEstimates && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-300 border border-amber-500/40 rounded px-1.5 py-0.5">
-                  Unverified
-                </span>
-              )}
-            </div>
+            <h3 className="text-lg font-bold text-white mb-4">Timeline</h3>
             <p className="text-2xl font-black text-blue-400">{analysis.summary.estimated_timeline}</p>
+            <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
           </div>
           <div className="bg-slate-800/30 border border-slate-700/50 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Estimated Cost</h3>
-              {unverifiedEstimates && (
-                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-300 border border-amber-500/40 rounded px-1.5 py-0.5">
-                  Unverified
-                </span>
-              )}
-            </div>
+            <h3 className="text-lg font-bold text-white mb-4">Estimated Cost</h3>
             <p className="text-2xl font-black text-green-400">
               ${analysis.summary.estimated_total_cost.toLocaleString()}
             </p>
+            <CitationBadge
+              verified={Boolean(analysis.punch_list?.estimates_verified)}
+              cost_verified={Boolean(analysis.punch_list?.estimates_verified)}
+              estimated_cost={analysis.summary.estimated_total_cost}
+              source_label="Rollup of line items"
+            />
           </div>
         </div>
 
@@ -392,7 +374,6 @@ export default function ResultsPage() {
           <SendResultsForm
             researchId={researchId}
             summary={buildSummaryFromAnalysis(analysis)}
-            analysis={analysis}
             defaultEmail={defaultEmail}
           />
         </section>

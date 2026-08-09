@@ -25,6 +25,63 @@ class PunchListItem:
     estimated_cost: Optional[float] = None
     notes: str = ""
     depends_on: Optional[List[str]] = None  # Task IDs this depends on
+    source_url: Optional[str] = None
+    source_label: Optional[str] = None
+    verified: bool = False
+    cost_verified: bool = False
+
+
+# Citeable AHJ anchors for reverse-benchmark metros (link required to mark verified).
+_AHJ_CITATIONS: Dict[str, Dict[str, tuple]] = {
+    "plano, tx": {
+        "building": (
+            "https://www.plano.gov/269/Building-Inspections",
+            "City of Plano Building Inspections",
+        ),
+        "fees": (
+            "https://www.plano.gov/269/Building-Inspections",
+            "City of Plano — electrical permit fee schedule ($75 total)",
+        ),
+    },
+    "dallas, tx": {
+        "building": (
+            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+            "City of Dallas Building Inspection",
+        ),
+        "fees": (
+            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+            "City of Dallas Building Inspection fee info",
+        ),
+    },
+    "austin, tx": {
+        "building": (
+            "https://www.austintexas.gov/department/development-services",
+            "City of Austin Development Services",
+        ),
+        "fees": (
+            "https://www.austintexas.gov/development-services/fees",
+            "Austin Development Services fees",
+        ),
+    },
+}
+
+
+def _normalize_location_key(location: str) -> str:
+    text = (location or "").strip().lower()
+    text = text.replace("texas", "tx")
+    for city in ("plano", "dallas", "austin"):
+        if city in text and ("tx" in text or "texas" in (location or "").lower() or "," in text):
+            return f"{city}, tx"
+    return text
+
+
+def _http_source(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    v = value.strip()
+    if v.startswith("http://") or v.startswith("https://"):
+        return v
+    return None
 
 
 class PunchListGenerator:
@@ -61,8 +118,9 @@ class PunchListGenerator:
                 "punch_list": [PunchListItem, ...],
                 "timeline_summary": "8-12 weeks",
                 "estimated_total_cost": 50000,
-                "critical_path": [task_ids],
-                "milestones": [...]
+                "critical_path": [{task, source_url, verified, ...}],
+                "milestones": [...],
+                "estimates_verified": False,
             }
         """
         
@@ -92,6 +150,8 @@ class PunchListGenerator:
         # Set task IDs for dependency tracking
         for i, item in enumerate(punch_list):
             item.task_id = f"task_{i:03d}"
+
+        self._attach_citations(punch_list, location, environmental_risks)
         
         # Calculate timeline and costs
         timeline = self._calculate_timeline(punch_list)
@@ -107,7 +167,58 @@ class PunchListGenerator:
             "critical_path": critical_path,
             "milestones": self._generate_milestones(punch_list),
             "who_to_call": self._generate_contacts(location),
+            "estimates_verified": False,
         }
+
+    def _attach_citations(
+        self,
+        punch_list: List[PunchListItem],
+        location: str,
+        environmental_risks: Dict[str, Any],
+    ) -> None:
+        """Attach citeable links where known; leave others explicitly unverified."""
+        ahj = _AHJ_CITATIONS.get(_normalize_location_key(location), {})
+        building = ahj.get("building")
+        fees = ahj.get("fees")
+
+        finding_urls: List[tuple] = []
+        for finding in environmental_risks.get("findings") or []:
+            for src in finding.get("data_sources") or []:
+                url = _http_source(str(src))
+                if url:
+                    finding_urls.append((url, str(src)))
+
+        for item in punch_list:
+            task_l = (item.task or "").lower()
+            notes_l = (item.notes or "").lower()
+
+            if building and any(
+                k in task_l for k in ("permit", "municipal", "ahj", "building department", "application")
+            ):
+                item.source_url, item.source_label = building
+                item.verified = True
+                if fees and any(k in task_l or k in notes_l for k in ("fee", "cost", "electrical")):
+                    item.source_url, item.source_label = fees
+                    item.cost_verified = "plano" in _normalize_location_key(location)
+                continue
+
+            if fees and any(k in task_l for k in ("fee", "permit cost", "electrical permit")):
+                item.source_url, item.source_label = fees
+                item.verified = True
+                item.cost_verified = "plano" in _normalize_location_key(location)
+                continue
+
+            if finding_urls and any(
+                k in notes_l for k in ("wetland", "flood", "endangered", "nepa", "noise", "environmental")
+            ):
+                item.source_url, item.source_label = finding_urls[0]
+                item.verified = True
+                continue
+
+            # Default: honest unverified — UI must show the badge
+            if not item.source_url:
+                item.verified = False
+                item.cost_verified = False
     
     def _generate_initial_permitting_tasks(self, location: str, project_type: str) -> List[PunchListItem]:
         """Initial permit coordination tasks"""
@@ -157,6 +268,10 @@ class PunchListGenerator:
             risk_level = finding.get("risk_level")
             
             if risk_level in ["HIGH", "CRITICAL"]:
+                sources = finding.get("data_sources") or []
+                http_srcs = [_http_source(str(s)) for s in sources]
+                http_srcs = [u for u in http_srcs if u]
+                label = str(sources[0]) if sources else None
                 # Add action items from finding
                 for action in finding.get("action_items", []):
                     tasks.append(PunchListItem(
@@ -165,7 +280,11 @@ class PunchListGenerator:
                         responsible_party=self._get_responsible_party(category),
                         timeline=self._get_timeline_for_category(category),
                         estimated_cost=self._estimate_cost_for_action(category, action),
-                        notes=f"Related to {category} risk"
+                        notes=f"Related to {category} risk",
+                        source_url=http_srcs[0] if http_srcs else None,
+                        source_label=label,
+                        verified=bool(http_srcs),
+                        cost_verified=False,
                     ))
         
         return tasks
@@ -344,10 +463,20 @@ class PunchListGenerator:
         week_count = len(set(item.timeline for item in punch_list))
         return f"{week_count}-{week_count + 4} weeks"
     
-    def _identify_critical_path(self, punch_list: List[PunchListItem]) -> List[str]:
-        """Identify critical path tasks"""
-        critical_items = [item.task for item in punch_list if item.priority == "CRITICAL"]
-        return critical_items[:5]  # Top 5 critical items
+    def _identify_critical_path(self, punch_list: List[PunchListItem]) -> List[Dict[str, Any]]:
+        """Identify critical path tasks with citation metadata for the UI."""
+        critical_items = [item for item in punch_list if item.priority == "CRITICAL"]
+        out: List[Dict[str, Any]] = []
+        for item in critical_items[:5]:
+            out.append({
+                "task": item.task,
+                "source_url": item.source_url,
+                "source_label": item.source_label,
+                "verified": bool(item.verified and item.source_url),
+                "cost_verified": bool(item.cost_verified),
+                "estimated_cost": item.estimated_cost,
+            })
+        return out
     
     def _generate_milestones(self, punch_list: List[PunchListItem]) -> List[Dict[str, str]]:
         """Generate project milestones"""
@@ -372,6 +501,7 @@ class PunchListGenerator:
     
     def _item_to_dict(self, item: PunchListItem) -> Dict[str, Any]:
         """Convert PunchListItem to dictionary"""
+        verified = bool(item.verified and _http_source(item.source_url))
         return {
             "priority": item.priority,
             "task": item.task,
@@ -380,6 +510,10 @@ class PunchListGenerator:
             "estimated_cost": item.estimated_cost,
             "notes": item.notes,
             "depends_on": item.depends_on or [],
+            "source_url": item.source_url if verified else item.source_url,
+            "source_label": item.source_label,
+            "verified": verified,
+            "cost_verified": bool(item.cost_verified and verified),
         }
 
 

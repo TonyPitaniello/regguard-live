@@ -213,9 +213,14 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
         "",
     ])
     
-    # Add top 5 critical path items
+    # Add top 5 critical path items (string or {task, verified, source_url})
     for i, task in enumerate(analysis['punch_list']['critical_path'][:5], 1):
-        lines.append(f"{i}. {task}")
+        if isinstance(task, dict):
+            label = task.get("task") or ""
+            cite = " [sourced]" if task.get("verified") and task.get("source_url") else " [unverified]"
+            lines.append(f"{i}. {label}{cite}")
+        else:
+            lines.append(f"{i}. {task} [unverified]")
     
     lines.extend([
         "",
@@ -310,7 +315,17 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
     )
     
     for task in analysis['punch_list']['critical_path'][:5]:
-        html += f"<li>{task}</li>"
+        if isinstance(task, dict):
+            label = task.get("task") or ""
+            if task.get("verified") and task.get("source_url"):
+                html += (
+                    f'<li>{label} '
+                    f'<a href="{task["source_url"]}" target="_blank" rel="noopener noreferrer">source</a></li>'
+                )
+            else:
+                html += f"<li>{label} <em>(unverified)</em></li>"
+        else:
+            html += f"<li>{task} <em>(unverified)</em></li>"
     
     html += """
                 </ol>

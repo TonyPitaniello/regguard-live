@@ -59,8 +59,10 @@ export function buildClientInstantAnalysis(input: {
       responsible_party: 'Project owner / permitting lead',
       timeline: 'Week 1',
       estimated_cost: 500,
-      cost_verified: false,
       notes: 'Instant preview — unverified estimate',
+      verified: false,
+      cost_verified: false,
+      source_label: 'Instant preview',
     },
     {
       priority: 'HIGH',
@@ -70,6 +72,9 @@ export function buildClientInstantAnalysis(input: {
       estimated_cost: 1500,
       cost_verified: false,
       notes: `Project type: ${projectType}`,
+      verified: false,
+      cost_verified: false,
+      source_label: 'Instant preview',
     },
     {
       priority: 'MEDIUM',
@@ -79,6 +84,9 @@ export function buildClientInstantAnalysis(input: {
       estimated_cost: 5000,
       cost_verified: false,
       notes: '',
+      verified: false,
+      cost_verified: false,
+      source_label: 'Instant preview',
     },
   ];
 
@@ -118,7 +126,16 @@ export function buildClientInstantAnalysis(input: {
       timeline_summary: '30–120 days (instant estimate)',
       estimated_total_cost: totalCost,
       estimates_unverified: true,
-      critical_path: punchList.filter((i) => i.priority === 'HIGH').map((i) => i.task),
+      critical_path: punchList
+        .filter((i) => i.priority === 'HIGH')
+        .map((i) => ({
+          task: i.task,
+          verified: false,
+          cost_verified: false,
+          source_label: 'Instant preview',
+          estimated_cost: i.estimated_cost,
+        })),
+      estimates_verified: false,
       milestones: [
         { week: '1', milestone: 'AHJ + utility contacts confirmed' },
         { week: '4', milestone: 'Application package drafted' },

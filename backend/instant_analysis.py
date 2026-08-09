@@ -113,6 +113,9 @@ def build_instant_fallback_analysis(
             "estimated_cost": 500,
             "cost_verified": False,
             "notes": "Instant preview — deepen with full research package",
+            "verified": False,
+            "cost_verified": False,
+            "source_label": "Instant preview",
         },
         {
             "priority": "HIGH",
@@ -122,6 +125,9 @@ def build_instant_fallback_analysis(
             "estimated_cost": 1500,
             "cost_verified": False,
             "notes": f"Project type: {project_type}",
+            "verified": False,
+            "cost_verified": False,
+            "source_label": "Instant preview",
         },
         {
             "priority": "MEDIUM",
@@ -131,6 +137,9 @@ def build_instant_fallback_analysis(
             "estimated_cost": 5000,
             "cost_verified": False,
             "notes": "Required for most utility + AHJ packages",
+            "verified": False,
+            "cost_verified": False,
+            "source_label": "Instant preview",
         },
         {
             "priority": "MEDIUM",
@@ -140,6 +149,9 @@ def build_instant_fallback_analysis(
             "estimated_cost": 3000,
             "cost_verified": False,
             "notes": "Upgrade for full screening detail",
+            "verified": False,
+            "cost_verified": False,
+            "source_label": "Instant preview",
         },
     ]
 
@@ -165,7 +177,18 @@ def build_instant_fallback_analysis(
             "timeline_summary": "30–120 days (instant estimate)",
             "estimated_total_cost": sum(i.get("estimated_cost", 0) for i in punch_items),
             "estimates_unverified": True,
-            "critical_path": [i["task"] for i in punch_items if i["priority"] == "HIGH"],
+            "critical_path": [
+                {
+                    "task": i["task"],
+                    "verified": False,
+                    "cost_verified": False,
+                    "source_label": "Instant preview",
+                    "estimated_cost": i.get("estimated_cost"),
+                }
+                for i in punch_items
+                if i["priority"] == "HIGH"
+            ],
+            "estimates_verified": False,
             "milestones": [
                 {"week": "1", "milestone": "AHJ + utility contacts confirmed"},
                 {"week": "4", "milestone": "Application package drafted"},
