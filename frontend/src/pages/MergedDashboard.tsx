@@ -59,15 +59,18 @@ export function PlatformDashboard() {
             RegGuard
           </p>
           <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-400 mb-3">
-            Site diligence in seconds — not weeks
+            Pre-bid site diligence — in seconds
           </h2>
           <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
-            Enter a site (or tap the mic). Get permitting risks and a contractor punch list — no credit card.
+            Enter an address. RegGuard pulls local permitting rules, key state/federal flags, and a contractor punch list you can forward — no credit card.
           </p>
         </div>
 
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
+          <p className="text-center text-gray-400 text-sm mt-4">
+            Works for commercial, industrial, data centers, solar/battery, and utility projects.
+          </p>
         </div>
       </section>
 
