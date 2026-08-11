@@ -83,6 +83,9 @@ async def create_checkout_session(
     tier: str,
     success_url: str = "https://localhost:5173/checkout/success",
     cancel_url: str = "https://localhost:5173/checkout/cancel",
+    email: Optional[str] = None,
+    name: Optional[str] = None,
+    trial_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a Stripe Checkout Session for the specified tier.
@@ -132,17 +135,30 @@ async def create_checkout_session(
             ]
             mode = "payment"
 
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            mode=mode,
-            line_items=line_items,
-            success_url=success_url + "?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=cancel_url,
-            metadata={
-                "user_id": user_id,
-                "tier": tier,
-            },
-        )
+        email_clean = (email or "").strip().lower()
+        metadata = {
+            "user_id": user_id,
+            "tier": tier,
+        }
+        if email_clean:
+            metadata["email"] = email_clean
+        if name:
+            metadata["name"] = name.strip()
+        if trial_id:
+            metadata["trial_id"] = trial_id
+
+        create_kwargs: Dict[str, Any] = {
+            "payment_method_types": ["card"],
+            "mode": mode,
+            "line_items": line_items,
+            "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            "cancel_url": cancel_url,
+            "metadata": metadata,
+        }
+        if email_clean:
+            create_kwargs["customer_email"] = email_clean
+
+        session = stripe.checkout.Session.create(**create_kwargs)
 
         logger.info(f"✅ Checkout session created: {session.id} for user {user_id} tier={tier} mode={mode}")
 

@@ -1086,6 +1086,9 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             tier=body.tier,
             success_url=success_url,
             cancel_url=cancel_url,
+            email=body.email,
+            name=body.name,
+            trial_id=body.trial_id,
         )
         return result
     except ValueError as e:
@@ -1093,6 +1096,37 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
     except Exception as e:
         logger.exception("Tier checkout creation failed")
         raise HTTPException(status_code=500, detail="Failed to create checkout session") from e
+
+
+@app.get("/orders", tags=["Payments"])
+async def list_orders(email: str = "") -> Dict[str, Any]:
+    """Return completed orders for an email (used by My Orders / checkout success)."""
+    from order_service import list_orders_for_email
+
+    email_clean = (email or "").strip().lower()
+    if not email_clean:
+        return {"orders": []}
+    return {"orders": list_orders_for_email(email_clean)}
+
+
+@app.get("/checkout/confirm", tags=["Payments"])
+async def confirm_checkout(session_id: str = "") -> Dict[str, Any]:
+    """
+    Confirm a Stripe Checkout session after redirect and record the order.
+    Idempotent — safe to call from the success page.
+    """
+    from order_service import confirm_stripe_session
+
+    sid = (session_id or "").strip()
+    if not sid:
+        raise HTTPException(status_code=400, detail="session_id is required")
+    try:
+        return await confirm_stripe_session(sid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Checkout confirm failed")
+        raise HTTPException(status_code=500, detail="Failed to confirm checkout session") from e
 
 
 @app.post("/auth/create-checkout-session")
@@ -1184,10 +1218,37 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
     
     # Handle checkout.session.completed event
     if event.get("type") == "checkout.session.completed":
-        session_id = event.get("data", {}).get("object", {}).get("id")
+        session_obj = event.get("data", {}).get("object", {}) or {}
+        session_id = session_obj.get("id")
         if not session_id:
             raise HTTPException(status_code=400, detail="No session ID in event")
-        
+
+        metadata = session_obj.get("metadata") or {}
+        tier = (metadata.get("tier") or "").strip()
+
+        # Tier checkout (Contractor Pro / IC Project / etc.) — persist order
+        if tier:
+            try:
+                from order_service import fulfill_checkout_session
+
+                order = await fulfill_checkout_session(session_obj)
+                logger.info(
+                    "Checkout completed for tier=%s email=%s order=%s",
+                    tier,
+                    order.get("email"),
+                    order.get("order_id"),
+                )
+                return {
+                    "status": "success",
+                    "tier": tier,
+                    "order_id": order.get("order_id"),
+                    "email": order.get("email") or "",
+                }
+            except Exception as e:
+                logger.exception("Tier order fulfillment failed")
+                raise HTTPException(status_code=500, detail="Webhook processing failed") from e
+
+        # Legacy signup checkout (email + company_name metadata)
         try:
             result = await handle_checkout_session_completed(session_id)
             logger.info(f"Checkout completed for {result['email']}")

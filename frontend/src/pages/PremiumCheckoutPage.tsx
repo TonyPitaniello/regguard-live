@@ -294,6 +294,10 @@ function PaymentForm({
       const trialId = sessionStorage.getItem('trialId') || 'unknown';
       const userId = sessionStorage.getItem('userId') || email || 'anonymous';
 
+      // Persist email so /checkout/success can load orders after Stripe redirect
+      sessionStorage.setItem('userEmail', email.trim().toLowerCase());
+      if (name.trim()) sessionStorage.setItem('userName', name.trim());
+
       const response = await fetch(backendUrl('/checkout'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -301,8 +305,8 @@ function PaymentForm({
           trial_id: trialId,
           user_id: userId,
           tier,
-          email,
-          name,
+          email: email.trim().toLowerCase(),
+          name: name.trim(),
           success_url: `${window.location.origin}/checkout/success`,
           cancel_url: `${window.location.origin}/checkout/${tier}`,
         }),

@@ -28,21 +28,77 @@ interface Order {
   expires_at: string;
 }
 
+function tierLabel(tier: string): string {
+  switch ((tier || '').toLowerCase()) {
+    case 'contractor_pro':
+      return 'Contractor Pro';
+    case 'ic_project':
+    case 'ic_consultant':
+      return 'IC Project Report';
+    case 'ic_annual':
+      return 'IC Annual';
+    case 'sponsor':
+      return 'Sponsor';
+    default:
+      return tier || 'Order';
+  }
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const userEmail = sessionStorage.getItem('userEmail') || '';
+  const [userEmail, setUserEmail] = useState(
+    () => (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') || '' : '')
+  );
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
-    fetchOrders();
+    void bootstrapOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  const bootstrapOrders = async () => {
     try {
       setLoading(true);
+      setError('');
+
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id') || '';
+
+      // After Stripe redirect: confirm session → create order even if webhook lagged
+      if (sessionId) {
+        const confirmRes = await fetch(
+          backendUrl(`/checkout/confirm?session_id=${encodeURIComponent(sessionId)}`)
+        );
+        if (confirmRes.ok) {
+          const confirmData = await confirmRes.json();
+          const emailFromSession = (confirmData.email || '').trim().toLowerCase();
+          if (emailFromSession) {
+            sessionStorage.setItem('userEmail', emailFromSession);
+            setUserEmail(emailFromSession);
+          }
+          setConfirmed(true);
+        } else {
+          const detail = await confirmRes.json().catch(() => ({}));
+          console.warn('Checkout confirm failed', detail);
+        }
+      }
+
+      const email = (
+        sessionStorage.getItem('userEmail') ||
+        userEmail ||
+        ''
+      ).trim().toLowerCase();
+      if (email && email !== userEmail) setUserEmail(email);
+
+      if (!email) {
+        setOrders([]);
+        setError('No email on file for this checkout. Open the link from the email you used at payment.');
+        return;
+      }
+
       const response = await fetch(
-        backendUrl(`/orders?email=${encodeURIComponent(userEmail)}`)
+        backendUrl(`/orders?email=${encodeURIComponent(email)}`)
       );
 
       if (!response.ok) throw new Error('Failed to fetch orders');
@@ -100,6 +156,13 @@ export default function OrdersPage() {
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {confirmed && orders.length > 0 && (
+          <div className="flex gap-3 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg mb-8">
+            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+            <p className="text-emerald-100">Payment confirmed — your order is below.</p>
+          </div>
+        )}
+
         {error && (
           <div className="flex gap-3 p-4 bg-red-500/20 border border-red-500/30 rounded-lg mb-8">
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -130,6 +193,7 @@ export default function OrdersPage() {
                 onDownload={downloadPDF}
                 formatDate={formatDate}
                 getDaysRemaining={getDaysRemaining}
+                tierLabel={tierLabel}
               />
             ))}
           </div>
@@ -148,17 +212,22 @@ function OrderCard({
   onDownload,
   formatDate,
   getDaysRemaining,
+  tierLabel,
 }: {
   order: Order;
   onDownload: (pdf: PDF) => void;
   formatDate: (date: string) => string;
   getDaysRemaining: (date: string) => number;
+  tierLabel: (tier: string) => string;
 }) {
   const daysRemaining = getDaysRemaining(order.expires_at);
   const tierColors = {
     free: 'from-gray-500 to-slate-500',
     premium: 'from-blue-600 to-purple-600',
     enterprise: 'from-indigo-600 to-purple-600',
+    contractor_pro: 'from-emerald-600 to-green-600',
+    ic_project: 'from-blue-600 to-indigo-600',
+    ic_consultant: 'from-blue-600 to-indigo-600',
   };
 
   const tierColor = tierColors[order.tier as keyof typeof tierColors] || tierColors.premium;
@@ -171,7 +240,7 @@ function OrderCard({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h2 className="text-2xl font-bold text-white">
-                {order.tier.toUpperCase()} Plan
+                {tierLabel(order.tier)}
               </h2>
               <span
                 className={`px-3 py-1 rounded text-sm font-semibold ${
