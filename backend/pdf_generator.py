@@ -87,7 +87,7 @@ class RegGuardPDF(FPDF):
         
         # RegGuard footer
         self.set_x(140)
-        self.cell(50, 10, "© 2026 RegGuard", align="R")
+        self.cell(50, 10, "(c) 2026 RegGuard", align="R")
     
     def add_section_title(self, title: str):
         """Add section title with styling"""
@@ -164,7 +164,7 @@ class ResearchMemoPDF(RegGuardPDF):
                 self.set_font("Helvetica", "B", 10)
                 self.set_text_color(*self.color_primary)
                 category = finding.get("category", "").replace("_", " ").title()
-                self.cell(0, 6, f"• {category}", ln=True)
+                self.cell(0, 6, f"- {category}", ln=True)
                 
                 self.set_font("Helvetica", "", 9)
                 self.set_text_color(50, 50, 50)
@@ -183,19 +183,29 @@ class ResearchMemoPDF(RegGuardPDF):
                 self.multi_cell(180, 5, f"{i}. {action}")
                 self.ln(2)
             
-            # Upgrade CTA
-            self.ln(10)
-            self.set_fill_color(*self.color_accent)
-            self.set_text_color(255, 255, 255)
-            self.set_font("Helvetica", "B", 11)
-            self.multi_cell(
-                180,
-                8,
-                "NEXT: Contractor Pro ($149/mo) or IC Project Report ($1,500) — confirm fees with the AHJ before bidding.",
-                align="C",
-                border=1,
-                fill=True
-            )
+            # Upgrade CTA (skip for paid IC Project packages)
+            if not analysis_data.get("skip_upgrade_cta"):
+                self.ln(10)
+                self.set_fill_color(*self.color_accent)
+                self.set_text_color(255, 255, 255)
+                self.set_font("Helvetica", "B", 11)
+                self.multi_cell(
+                    180,
+                    8,
+                    "NEXT: Contractor Pro ($149/mo) or IC Project Report ($1,500) - confirm fees with the AHJ before bidding.",
+                    align="C",
+                    border=1,
+                    fill=True
+                )
+            else:
+                self.ln(8)
+                self.set_font("Helvetica", "I", 9)
+                self.set_text_color(100, 100, 100)
+                self.multi_cell(
+                    180,
+                    5,
+                    "IC Project Report - planning diligence package. Confirm all fees, codes, and filings with the local AHJ before bid or permit submittal.",
+                )
             
             # Generate file
             if output_path is None:
@@ -377,7 +387,7 @@ class PermitPackagePDF(RegGuardPDF):
             self.set_text_color(50, 50, 50)
             
             for permit in permits:
-                self.cell(10, 7, "✓")
+                self.cell(10, 7, "[x]")
                 self.cell(170, 7, permit, ln=True)
             
             self.ln(5)

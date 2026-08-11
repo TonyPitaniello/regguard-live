@@ -8,13 +8,24 @@ export const QueueLanding: React.FC = () => {
       {/* Hero Section */}
       <section className="hero">
         <div className="hero-content">
-          <h1>Auto-Fill Interconnection Forms in Seconds</h1>
+          <p className="queue-demo-banner" style={{
+            display: 'inline-block',
+            marginBottom: '1rem',
+            padding: '0.4rem 0.75rem',
+            border: '1px solid rgba(255,255,255,0.35)',
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+            letterSpacing: '0.02em',
+          }}>
+            Preview / demo tools — not a live RTO queue filing product
+          </p>
+          <h1>Interconnection form preview (demo)</h1>
           <p>
-            RegGuard Queue automates FERC 556/557, PJM NextGen, MISO, and more.
-            Get your project through the interconnection queue 10x faster.
+            Experiment with draft auto-fill helpers for common interconnection form layouts.
+            This is not a live RTO filing portal — you still submit on the official RTO system.
           </p>
           <Link to="/queue/upload" className="btn-hero">
-            ⚡ Get Started Free
+            Try demo auto-fill
           </Link>
         </div>
         <div className="hero-illustration">
@@ -24,22 +35,22 @@ export const QueueLanding: React.FC = () => {
 
       {/* How It Works */}
       <section className="how-it-works">
-        <h2>How RegGuard Queue Works</h2>
+        <h2>How the demo works</h2>
         <div className="steps">
           <div className="step">
             <div className="step-number">1</div>
-            <h3>Upload Your Project</h3>
+            <h3>Upload sample project details</h3>
             <p>Paste project details or upload a PDF with your project information</p>
           </div>
           <div className="step">
             <div className="step-number">2</div>
-            <h3>AI Auto-Fills Form</h3>
-            <p>Claude AI analyzes your data and fills out the interconnection form</p>
+            <h3>Preview auto-filled fields</h3>
+            <p>AI drafts field values for review — treat every field as unverified until you check it</p>
           </div>
           <div className="step">
             <div className="step-number">3</div>
-            <h3>Download & Submit</h3>
-            <p>Review the auto-filled form, download as PDF, and submit to the RTO</p>
+            <h3>Download draft for your records</h3>
+            <p>Export a draft PDF. Official filing, fees, and queue position stay on the RTO portal.</p>
           </div>
         </div>
       </section>
@@ -77,22 +88,22 @@ export const QueueLanding: React.FC = () => {
 
       {/* Benefits */}
       <section className="benefits">
-        <h2>Why Developers Choose RegGuard Queue</h2>
+        <h2>What this demo is for</h2>
         <div className="benefits-grid">
           <div className="benefit">
             <div className="benefit-icon">⚡</div>
-            <h3>10x Faster</h3>
-            <p>Auto-fill forms in seconds instead of hours</p>
+            <h3>Draft faster</h3>
+            <p>Get a starting draft of common form fields in seconds</p>
           </div>
           <div className="benefit">
             <div className="benefit-icon">🎯</div>
-            <h3>95%+ Accuracy</h3>
-            <p>AI-powered extraction with human review</p>
+            <h3>Human review required</h3>
+            <p>Every field must be verified before any official filing</p>
           </div>
           <div className="benefit">
             <div className="benefit-icon">💰</div>
-            <h3>Save $5-10k</h3>
-            <p>Eliminate consultant fees for form preparation</p>
+            <h3>Prep aid only</h3>
+            <p>Does not replace IC consultants or RTO filing fees</p>
           </div>
           <div className="benefit">
             <div className="benefit-icon">📱</div>

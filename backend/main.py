@@ -1109,6 +1109,47 @@ async def list_orders(email: str = "") -> Dict[str, Any]:
     return {"orders": list_orders_for_email(email_clean)}
 
 
+@app.get("/orders/{order_id}/pdfs/{pdf_type}", tags=["Payments"])
+async def download_order_pdf(
+    order_id: str,
+    pdf_type: str,
+    email: str = "",
+    token: str = "",
+) -> Response:
+    """Stream an IC Project PDF; regenerates from stored analysis if cache was wiped."""
+    from ic_project_fulfillment import PDF_TYPES, ensure_pdf_bytes
+
+    oid = (order_id or "").strip()
+    ptype = (pdf_type or "").strip().lower()
+    if not oid:
+        raise HTTPException(status_code=400, detail="order_id is required")
+    if ptype not in PDF_TYPES:
+        raise HTTPException(status_code=400, detail=f"pdf_type must be one of {list(PDF_TYPES)}")
+
+    data, err = ensure_pdf_bytes(
+        oid,
+        ptype,
+        email=(email or "").strip().lower(),
+        token=(token or "").strip(),
+    )
+    if err == "Order not found":
+        raise HTTPException(status_code=404, detail=err)
+    if err in ("Email does not match order", "Invalid or missing download token"):
+        raise HTTPException(status_code=403, detail=err)
+    if err or not data:
+        raise HTTPException(status_code=404, detail=err or "PDF not available")
+
+    filename = f"regguard_{ptype}_{oid[:8]}.pdf"
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "private, max-age=300",
+        },
+    )
+
+
 @app.get("/checkout/confirm", tags=["Payments"])
 async def confirm_checkout(session_id: str = "") -> Dict[str, Any]:
     """
@@ -1515,6 +1556,24 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     except Exception as job_err:
         logger.warning(f"Free-trial auto-save job failed (non-blocking): {job_err}")
 
+    # IC Project: after paid research, generate real PDF package on open IC order
+    ic_pdfs_ready = False
+    if paid and isinstance(analysis, dict):
+        try:
+            from ic_project_fulfillment import fulfill_ic_project_artifacts, find_open_ic_order
+
+            email_for_ic = (getattr(request_body, "email", None) or "").strip().lower()
+            if email_for_ic and find_open_ic_order(email_for_ic):
+                fulfilled = await fulfill_ic_project_artifacts(email_for_ic, analysis)
+                ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
+                if ic_pdfs_ready:
+                    message = (
+                        "IC Project Report PDFs ready — download Research Memo, "
+                        "Punch List, and Permit Package from My Orders."
+                    )
+        except Exception as ic_err:
+            logger.warning("IC Project PDF fulfillment failed (non-blocking): %s", ic_err)
+
     return {
         "trial_id": trial_id,
         "status": status,
@@ -1525,6 +1584,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "job_id": job_id,
         "research_depth": research_depth,
         "paid": paid,
+        "ic_pdfs_ready": ic_pdfs_ready,
     }
 
 

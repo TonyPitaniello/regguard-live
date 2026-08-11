@@ -37,14 +37,16 @@ const TIERS = {
     price: '$1,500',
     price_cents: 150000,
     mode: 'payment' as const,
-    description: 'One-time full project report package',
+    description:
+      'One-time planning diligence PDF package (memo + punch list + permit worksheet). Not an official AHJ filing.',
     features: [
       'Research memo (PDF)',
       'Contractor punch list (PDF)',
-      'Permit application package',
-      'Same-day delivery',
+      'Permit package worksheet (PDF) — planning aid, not official filing',
+      'Strongest citeable coverage: Dallas / Plano / Austin TX',
+      'Generated after you run a site lookup with this email',
     ],
-    delivery_time: 'Within 24 hours',
+    delivery_time: 'After your first paid site lookup',
     color: 'from-blue-600 to-indigo-600',
   },
   ic_annual: {
@@ -239,6 +241,12 @@ function CheckoutFormStep({
             <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 text-sm text-purple-200">
               <p>✓ {tierInfo.mode === 'payment' ? 'One-time payment' : 'Recurring billing'}</p>
               <p>✓ {tierInfo.delivery_time}</p>
+              {(tier === 'ic_project' || tier === 'ic_annual') && (
+                <p className="mt-2 text-purple-100/90">
+                  After payment, run a site lookup with this email — your Project Report PDFs
+                  appear in My Orders.
+                </p>
+              )}
             </div>
             <button onClick={onBack} className="mt-4 text-sm text-gray-400 hover:text-white">
               Change plan

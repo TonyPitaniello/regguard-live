@@ -253,6 +253,15 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
       setProgressStep('punch');
 
       if (payload.paid) sessionStorage.setItem('regguardPaid', '1');
+      if (payload.ic_pdfs_ready) {
+        sessionStorage.setItem('icPdfsReady', '1');
+        // Soft nudge: buyer can open My Orders for the three PDF downloads
+        window.setTimeout(() => {
+          if (window.confirm('Your IC Project Report PDFs are ready. Open My Orders to download?')) {
+            window.location.href = '/orders';
+          }
+        }, 600);
+      }
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
         const analysisData = {

@@ -44,6 +44,29 @@ function tierLabel(tier: string): string {
   }
 }
 
+function isIcTier(tier: string): boolean {
+  const t = (tier || '').toLowerCase();
+  return t === 'ic_project' || t === 'ic_consultant' || t === 'ic_annual';
+}
+
+function pdfIsPreparing(pdf: PDF): boolean {
+  const name = (pdf.name || '').toLowerCase();
+  const url = (pdf.url || '').trim();
+  const status = ((pdf as PDF & { status?: string }).status || '').toLowerCase();
+  return (
+    name.includes('preparing') ||
+    status === 'preparing' ||
+    !url ||
+    url.includes('sample-report')
+  );
+}
+
+function orderPdfsPreparing(order: Order): boolean {
+  if (!isIcTier(order.tier)) return false;
+  if (!order.pdfs || order.pdfs.length === 0) return true;
+  return order.pdfs.some(pdfIsPreparing);
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,6 +79,35 @@ export default function OrdersPage() {
   useEffect(() => {
     void bootstrapOrders();
   }, []);
+
+  // Poll while IC PDFs are still preparing (after research generates them)
+  useEffect(() => {
+    const needsPoll = orders.some(orderPdfsPreparing);
+    if (!needsPoll || !userEmail) return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      if (n > 12) {
+        window.clearInterval(id);
+        return;
+      }
+      void refreshOrdersQuiet(userEmail);
+    }, 5000);
+    return () => window.clearInterval(id);
+  }, [orders, userEmail]);
+
+  const refreshOrdersQuiet = async (email: string) => {
+    try {
+      const response = await fetch(
+        backendUrl(`/orders?email=${encodeURIComponent(email)}`)
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setOrders(data.orders || []);
+    } catch {
+      /* ignore poll errors */
+    }
+  };
 
   const bootstrapOrders = async () => {
     try {
@@ -165,7 +217,33 @@ export default function OrdersPage() {
         {confirmed && orders.length > 0 && (
           <div className="flex gap-3 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg mb-8">
             <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <p className="text-emerald-100">Payment confirmed — your order is below.</p>
+            <div className="text-emerald-100">
+              <p>Payment confirmed — your order is below.</p>
+              {orders.some(orderPdfsPreparing) && (
+                <p className="mt-2 text-sm text-emerald-200/90">
+                  Next step: run a site lookup with this same email. Your Research Memo, Punch List,
+                  and Permit Package PDFs appear here when that research finishes.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {orders.some(orderPdfsPreparing) && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-blue-500/15 border border-blue-500/30 rounded-lg mb-8">
+            <div className="flex gap-3">
+              <Clock className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
+              <p className="text-blue-100 text-sm">
+                IC Project PDFs are preparing. Run a site lookup (same email) to generate them —
+                this page refreshes automatically.
+              </p>
+            </div>
+            <a
+              href="/"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+            >
+              Run site lookup
+            </a>
           </div>
         )}
 
@@ -336,30 +414,45 @@ function OrderCard({
             <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
               Download Files
             </h3>
-            <div className="grid sm:grid-cols-3 gap-3">
-              {order.pdfs.map((pdf) => (
-                <button
-                  key={pdf.type}
-                  onClick={() => onDownload(pdf)}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 border border-purple-500/30 hover:border-purple-500/50 rounded-lg transition text-purple-300 hover:text-purple-200 font-semibold"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="truncate">{pdf.name}</span>
-                </button>
-              ))}
-            </div>
-            {daysRemaining < 3 && (
-              <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                <p className="text-sm text-orange-300">
-                  ⚠️ Downloads expire in {daysRemaining} days. Download now to save offline.
+            {orderPdfsPreparing(order) ? (
+              <div className="p-4 bg-slate-700/40 border border-slate-600/40 rounded-lg mb-4">
+                <p className="text-gray-300 text-sm">
+                  PDFs generate after you run a site lookup with the same email used at checkout.
+                  Planning diligence package — confirm fees and filings with the AHJ before bid.
                 </p>
+                <a
+                  href="/"
+                  className="inline-block mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg"
+                >
+                  Run site lookup →
+                </a>
               </div>
-            )}
+            ) : null}
+            <div className="grid sm:grid-cols-3 gap-3">
+              {order.pdfs.map((pdf) => {
+                const preparing = pdfIsPreparing(pdf);
+                return (
+                  <button
+                    key={pdf.type}
+                    onClick={() => !preparing && onDownload(pdf)}
+                    disabled={preparing}
+                    className={`flex items-center justify-center gap-2 px-4 py-3 border rounded-lg transition font-semibold ${
+                      preparing
+                        ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
+                        : 'bg-purple-600/20 hover:bg-purple-600/30 border-purple-500/30 hover:border-purple-500/50 text-purple-300 hover:text-purple-200'
+                    }`}
+                  >
+                    <Download className="w-4 h-4" />
+                    <span className="truncate">{pdf.name}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <div className="p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg text-center">
             <p className="text-gray-400 text-sm">
-              📧 Check your email for download links. They should arrive within 1 hour.
+              Run a site lookup with your purchase email to generate downloadable PDFs.
             </p>
           </div>
         )}

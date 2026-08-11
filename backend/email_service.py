@@ -34,6 +34,84 @@ class EmailService:
         """Send research result to user email. Returns dict with status and email_id."""
         raise NotImplementedError
 
+    async def send_order_pdfs_ready(
+        self,
+        to_email: str,
+        order_id: str,
+        pdfs: list,
+    ) -> bool:
+        """Notify buyer that IC Project PDF downloads are ready."""
+        raise NotImplementedError
+
+    async def send_ic_next_step(
+        self,
+        to_email: str,
+        order_id: str,
+        download_token: str,
+    ) -> bool:
+        """Tell IC buyer the next step after payment (run site lookup)."""
+        raise NotImplementedError
+
+    def _build_ic_next_step_html(self, order_id: str, download_token: str) -> str:
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        short_id = (order_id or "")[:8]
+        return f"""
+<!DOCTYPE html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Payment received — one step left</h1>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      Order #{short_id} is ready for your site. Run a site lookup with <strong>this same email</strong>
+      to generate your Research Memo, Punch List, and Permit Package Worksheet PDFs.
+    </p>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      These are planning diligence PDFs (not an official AHJ filing). Strongest citeable coverage today:
+      Dallas / Plano / Austin TX — confirm all fees and filings with the local AHJ.
+    </p>
+    <p style="margin:20px 0;">
+      <a href="{app_url}/" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        Run site lookup
+      </a>
+    </p>
+    <p style="margin-top:16px;">
+      <a href="{app_url}/orders" style="color:#1d4ed8;">Open My Orders</a>
+    </p>
+    <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com</p>
+  </div>
+</body></html>
+"""
+
+    def _build_order_pdfs_html(self, order_id: str, pdfs: list) -> str:
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        links = ""
+        for p in pdfs or []:
+            name = p.get("name") or p.get("type") or "PDF"
+            url = p.get("url") or f"{app_url}/orders"
+            links += (
+                f'<p style="margin:12px 0;">'
+                f'<a href="{url}" style="display:inline-block;background:#1d4ed8;color:#fff;'
+                f'padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;">'
+                f"Download {name}</a></p>"
+            )
+        short_id = (order_id or "")[:8]
+        return f"""
+<!DOCTYPE html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Your IC Project Report is ready</h1>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      Order #{short_id} includes your research memo, contractor punch list, and permit package worksheet.
+      These are planning diligence PDFs — confirm fees and filings with the local AHJ before bid or submittal.
+    </p>
+    {links}
+    <p style="margin-top:24px;">
+      <a href="{app_url}/orders" style="color:#1d4ed8;">Open My Orders</a>
+    </p>
+    <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com</p>
+  </div>
+</body></html>
+"""
+
 
 class SendGridEmailService(EmailService):
     """SendGrid email service"""
@@ -356,6 +434,55 @@ RegGuard © 2026
             logger.error(f"❌ Error sending result via SendGrid: {str(e)}")
             raise
 
+    async def send_order_pdfs_ready(
+        self,
+        to_email: str,
+        order_id: str,
+        pdfs: list,
+    ) -> bool:
+        if not self.sg or not self.Mail:
+            logger.error("❌ SendGrid not configured")
+            return False
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject="Your Reg Guard IC Project Report PDFs are ready",
+                html_content=self._build_order_pdfs_html(order_id, pdfs),
+            )
+            response = self.sg.send(message)
+            ok = 200 <= response.status_code < 300
+            if ok:
+                logger.info("✅ IC PDF ready email sent to %s via SendGrid", to_email)
+            else:
+                logger.error("SendGrid IC PDF email failed: %s", response.status_code)
+            return ok
+        except Exception as e:
+            logger.error("SendGrid send_order_pdfs_ready failed: %s", e)
+            return False
+
+    async def send_ic_next_step(
+        self,
+        to_email: str,
+        order_id: str,
+        download_token: str,
+    ) -> bool:
+        if not self.sg or not self.Mail:
+            logger.error("❌ SendGrid not configured")
+            return False
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject="Reg Guard IC Project — run your site lookup to generate PDFs",
+                html_content=self._build_ic_next_step_html(order_id, download_token),
+            )
+            response = self.sg.send(message)
+            return 200 <= response.status_code < 300
+        except Exception as e:
+            logger.error("SendGrid send_ic_next_step failed: %s", e)
+            return False
+
 
 class ResendEmailService(EmailService):
     """Resend email service (alternative to SendGrid)"""
@@ -486,6 +613,53 @@ class ResendEmailService(EmailService):
         except Exception as e:
             logger.error(f"❌ Error sending email via Resend: {e}")
             logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
+
+    async def send_order_pdfs_ready(
+        self,
+        to_email: str,
+        order_id: str,
+        pdfs: list,
+    ) -> bool:
+        if not self.resend:
+            logger.error("❌ Resend not configured")
+            return False
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": "Your Reg Guard IC Project Report PDFs are ready",
+                "html": self._build_order_pdfs_html(order_id, pdfs),
+            })
+            ok = bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+            if ok:
+                logger.info("✅ IC PDF ready email sent to %s via Resend", to_email)
+            else:
+                logger.error("Resend IC PDF email failed: %s", response)
+            return ok
+        except Exception as e:
+            logger.error("Resend send_order_pdfs_ready failed: %s", e)
+            return False
+
+    async def send_ic_next_step(
+        self,
+        to_email: str,
+        order_id: str,
+        download_token: str,
+    ) -> bool:
+        if not self.resend:
+            logger.error("❌ Resend not configured")
+            return False
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": "Reg Guard IC Project — run your site lookup to generate PDFs",
+                "html": self._build_ic_next_step_html(order_id, download_token),
+            })
+            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+        except Exception as e:
+            logger.error("Resend send_ic_next_step failed: %s", e)
             return False
 
     async def send_research_result(
