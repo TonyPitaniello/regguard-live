@@ -349,13 +349,25 @@ export default function ResultsPage() {
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={() => navigate('/checkout/contractor_pro')}
+              onClick={() => {
+                const email = (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
+                sessionStorage.setItem('pendingDeepUnlock', '1');
+                navigate(
+                  `/checkout/contractor_pro${email ? `?email=${encodeURIComponent(email)}` : ''}`
+                );
+              }}
               className="bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold py-3 px-6 rounded-lg transition"
             >
               Get Contractor Pro — $149/mo
             </button>
             <button
-              onClick={() => navigate('/checkout/ic_project')}
+              onClick={() => {
+                const email = (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
+                sessionStorage.setItem('pendingDeepUnlock', '1');
+                navigate(
+                  `/checkout/ic_project${email ? `?email=${encodeURIComponent(email)}` : ''}`
+                );
+              }}
               className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition"
             >
               Order IC Report — $1,500

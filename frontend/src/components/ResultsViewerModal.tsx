@@ -4,7 +4,8 @@
  */
 
 import { useEffect, useState } from 'react';
-import { X, ChevronDown, ChevronUp, Copy, Check, Share2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles } from 'lucide-react';
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
 
@@ -90,6 +91,10 @@ interface ResultsViewerModalProps {
   researchId?: string | null;
   defaultEmail?: string;
   defaultPhone?: string;
+  /** Paid entitlement but current results are still free-depth — offer one-click deepen */
+  canUnlockDeeper?: boolean;
+  onUnlockDeeper?: () => void;
+  unlockLoading?: boolean;
 }
 
 function buildShareText(analysis: AnalysisData): string {
@@ -157,7 +162,11 @@ export default function ResultsViewerModal({
   researchId,
   defaultEmail = '',
   defaultPhone = '',
+  canUnlockDeeper = false,
+  onUnlockDeeper,
+  unlockLoading = false,
 }: ResultsViewerModalProps) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState({
     environmental: true,
     punchList: true,
@@ -181,6 +190,35 @@ export default function ResultsViewerModal({
   const summary = buildSummaryFromAnalysis(analysis);
   const effectiveResearchId = researchId || analysis.research_id || null;
   const shareText = buildShareText(analysis);
+  const depth = (analysis.research_depth || '').toLowerCase();
+  const isDeep = depth === 'pro' || depth === 'pro_partial';
+  const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
+    .trim()
+    .toLowerCase();
+
+  const goCheckout = (tier: 'contractor_pro' | 'ic_project') => {
+    // Persist site so return after payment can deepen the same lookup
+    try {
+      const pi = analysis.project_info;
+      sessionStorage.setItem(
+        'lastResearchForm',
+        JSON.stringify({
+          address: pi.address || '',
+          city: pi.city || '',
+          state: pi.state || '',
+          zip: pi.zip || '',
+          projectType: pi.type || 'commercial',
+          email: emailForCheckout,
+        })
+      );
+      if (emailForCheckout) sessionStorage.setItem('userEmail', emailForCheckout);
+      sessionStorage.setItem('pendingDeepUnlock', '1');
+    } catch {
+      /* ignore */
+    }
+    const q = emailForCheckout ? `?email=${encodeURIComponent(emailForCheckout)}` : '';
+    navigate(`/checkout/${tier}${q}`);
+  };
 
   const toggle = (key: keyof typeof expanded) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -331,6 +369,56 @@ export default function ResultsViewerModal({
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
             Forward only what you can defend.
           </p>
+
+          {/* Free results → upgrade / paid → unlock deeper on this site */}
+          {!isDeep && (
+            <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-white font-bold text-base">
+                    {canUnlockDeeper
+                      ? 'You are paid — unlock deeper research on this site'
+                      : 'This is a free lookup preview'}
+                  </h3>
+                  <p className="text-gray-300 text-sm mt-1">
+                    {canUnlockDeeper
+                      ? 'Re-run with your paid email to load Contractor Pro deep scout research, richer citations, and a fuller action plan.'
+                      : 'Upgrade with this same email, then deepen these results — Contractor Pro for ongoing deep research, or IC Project for the full PDF package.'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                {canUnlockDeeper && onUnlockDeeper ? (
+                  <button
+                    type="button"
+                    onClick={onUnlockDeeper}
+                    disabled={unlockLoading}
+                    className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
+                  >
+                    {unlockLoading ? 'Running deep research…' : 'Unlock deeper results on this site'}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('contractor_pro')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                    >
+                      Switch to Contractor Pro — $149/mo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('ic_project')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
+                    >
+                      Get IC Project Report — $1,500
+                    </button>
+                  </>
+                )}
+              </div>
+            </section>
+          )}
 
           {analysis.pro_summary_markdown ? (
             <section className="bg-slate-800/40 border border-emerald-500/20 rounded-lg p-4">

@@ -283,8 +283,14 @@ function PaymentForm({
 }) {
   const stripe = useStripe();
   const elements = useElements();
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [email, setEmail] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const q = new URLSearchParams(window.location.search).get('email');
+    return (q || sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
+  });
+  const [name, setName] = useState(() =>
+    typeof window !== 'undefined' ? sessionStorage.getItem('userName') || '' : ''
+  );
   const [loading, setLoading] = useState(false);
   const [cardError, setCardError] = useState('');
 
@@ -302,10 +308,17 @@ function PaymentForm({
     try {
       const trialId = sessionStorage.getItem('trialId') || 'unknown';
       const userId = sessionStorage.getItem('userId') || email || 'anonymous';
+      const emailNorm = email.trim().toLowerCase();
 
       // Persist email so /checkout/success can load orders after Stripe redirect
-      sessionStorage.setItem('userEmail', email.trim().toLowerCase());
+      sessionStorage.setItem('userEmail', emailNorm);
+      sessionStorage.setItem('pendingDeepUnlock', '1');
+      sessionStorage.setItem('regguardTier', tier);
       if (name.trim()) sessionStorage.setItem('userName', name.trim());
+
+      const successUrl =
+        `${window.location.origin}/checkout/success` +
+        `?unlock=1&email=${encodeURIComponent(emailNorm)}`;
 
       const response = await fetch(backendUrl('/checkout'), {
         method: 'POST',
@@ -314,10 +327,10 @@ function PaymentForm({
           trial_id: trialId,
           user_id: userId,
           tier,
-          email: email.trim().toLowerCase(),
+          email: emailNorm,
           name: name.trim(),
-          success_url: `${window.location.origin}/checkout/success`,
-          cancel_url: `${window.location.origin}/checkout/${tier}`,
+          success_url: successUrl,
+          cancel_url: `${window.location.origin}/checkout/${tier}?email=${encodeURIComponent(emailNorm)}`,
         }),
       });
 
@@ -415,20 +428,37 @@ function PaymentForm({
 function SuccessStep({ tier }: { tier: TierKey }) {
   const tierInfo = TIERS[tier];
   const navigate = useNavigate();
+  const email =
+    (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') : '') || '';
 
   return (
     <div className="text-center">
       <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-6" />
       <h2 className="text-3xl font-black text-white mb-4">Payment Successful!</h2>
       <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
-        Thank you! Your {tierInfo.name} purchase has been processed.
+        Thank you! Your {tierInfo.name} purchase has been processed. Re-run your site lookup with
+        this same email to unlock deeper research results.
       </p>
-      <button
-        onClick={() => navigate('/orders')}
-        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
-      >
-        View My Orders
-      </button>
+      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+        <button
+          onClick={() => {
+            sessionStorage.setItem('pendingDeepUnlock', '1');
+            const q = email
+              ? `?unlock=1&email=${encodeURIComponent(email)}`
+              : '?unlock=1';
+            navigate(`/${q}`);
+          }}
+          className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+        >
+          Unlock deeper results
+        </button>
+        <button
+          onClick={() => navigate('/orders')}
+          className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+        >
+          View My Orders
+        </button>
+      </div>
     </div>
   );
 }

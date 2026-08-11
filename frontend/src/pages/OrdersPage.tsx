@@ -135,6 +135,7 @@ export default function OrdersPage() {
           } else {
             sessionStorage.setItem('regguardPaid', '1');
           }
+          sessionStorage.setItem('pendingDeepUnlock', '1');
           setConfirmed(true);
         } else {
           const detail = await confirmRes.json().catch(() => ({}));
@@ -215,17 +216,33 @@ export default function OrdersPage() {
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {confirmed && orders.length > 0 && (
-          <div className="flex gap-3 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg mb-8">
-            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-            <div className="text-emerald-100">
-              <p>Payment confirmed — your order is below.</p>
-              {orders.some(orderPdfsPreparing) && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg mb-8">
+            <div className="flex gap-3">
+              <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <div className="text-emerald-100">
+                <p>Payment confirmed — your order is below.</p>
                 <p className="mt-2 text-sm text-emerald-200/90">
-                  Next step: run a site lookup with this same email. Your Research Memo, Punch List,
-                  and Permit Package PDFs appear here when that research finishes.
+                  Next: unlock deeper research on your site (same email).{' '}
+                  {orders.some(orderPdfsPreparing)
+                    ? 'IC Project PDFs generate after that confirmed lookup.'
+                    : 'Contractor Pro deep scout results appear in the results window.'}
                 </p>
-              )}
+              </div>
             </div>
+            <a
+              href={`/?unlock=1${userEmail ? `&email=${encodeURIComponent(userEmail)}` : ''}`}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem('pendingDeepUnlock', '1');
+                  sessionStorage.setItem('regguardPaid', '1');
+                } catch {
+                  /* ignore */
+                }
+              }}
+            >
+              Unlock deeper results
+            </a>
           </div>
         )}
 

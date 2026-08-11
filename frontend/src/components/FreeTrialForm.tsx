@@ -10,13 +10,11 @@ import { LocationPicker } from './LocationPicker';
 import { backendUrl } from '../env';
 import ResultsViewerModal, { AnalysisData } from './ResultsViewerModal';
 import { buildClientInstantAnalysis } from './buildClientInstantAnalysis';
-import { ensureClientHonesty } from './ensureClientHonesty';
 import {
   VOICE_FILL_EVENT,
   VOICE_SUBMIT_EVENT,
   type VoiceFillDetail,
 } from '../voiceFillParse';
-import { getOwnerKey, setJobsEmail } from '../jobsOwner';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -41,14 +39,55 @@ function initialEmailFromStorage(): string {
   return (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
 }
 
+function readLastResearchForm(): Partial<{
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  projectType: string;
+  email: string;
+}> {
+  try {
+    const raw = sessionStorage.getItem('lastResearchForm');
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return {
+      address: typeof parsed.address === 'string' ? parsed.address : undefined,
+      city: typeof parsed.city === 'string' ? parsed.city : undefined,
+      state: typeof parsed.state === 'string' ? parsed.state : undefined,
+      zip: typeof parsed.zip === 'string' ? parsed.zip : undefined,
+      projectType: typeof parsed.projectType === 'string' ? parsed.projectType : undefined,
+      email: typeof parsed.email === 'string' ? parsed.email : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function persistLastResearchForm(data: {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  projectType: string;
+  email: string;
+}) {
+  try {
+    sessionStorage.setItem('lastResearchForm', JSON.stringify(data));
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function FreeTrialForm({ showHero = false }: { showHero?: boolean }) {
+  const saved = typeof window !== 'undefined' ? readLastResearchForm() : {};
   const [formData, setFormData] = useState({
-    address: '',
-    city: '',
-    state: '',
-    zip: '',
-    projectType: 'data-center',
-    email: initialEmailFromStorage(),
+    address: saved.address || '',
+    city: saved.city || '',
+    state: saved.state || '',
+    zip: saved.zip || '',
+    projectType: saved.projectType || 'data-center',
+    email: initialEmailFromStorage() || saved.email || '',
     phone: '',
   });
   const [externalLocation, setExternalLocation] = useState<{
@@ -56,7 +95,16 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
     city?: string;
     state?: string;
     zip?: string;
-  } | null>(null);
+  } | null>(
+    saved.address
+      ? {
+          address: saved.address,
+          city: saved.city,
+          state: saved.state,
+          zip: saved.zip,
+        }
+      : null
+  );
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<ProgressStep>('geocode');
@@ -64,6 +112,11 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
   const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
   const [researchId, setResearchId] = useState<string | null>(null);
   const [voiceHint, setVoiceHint] = useState('');
+  const [paidEntitled, setPaidEntitled] = useState(
+    () => typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1'
+  );
+  const [unlockBanner, setUnlockBanner] = useState(false);
+  const autoUnlockTried = useRef(false);
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
 
@@ -90,106 +143,28 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
   };
 
   const showResults = useCallback((analysisPayload: AnalysisData, id: string, email?: string) => {
-    const honest = ensureClientHonesty({ ...analysisPayload, research_id: id });
-    sessionStorage.setItem('analysisResults', JSON.stringify(honest));
+    const analysisWithId: AnalysisData = { ...analysisPayload, research_id: id };
+    sessionStorage.setItem('analysisResults', JSON.stringify(analysisWithId));
     sessionStorage.setItem('researchId', id);
-    const mail = email || formDataRef.current.email;
-    if (mail) {
-      sessionStorage.setItem('userEmail', mail);
-      setJobsEmail(mail);
+    const mail = (email || formDataRef.current.email || '').trim().toLowerCase();
+    if (mail) sessionStorage.setItem('userEmail', mail);
+    const d = formDataRef.current;
+    persistLastResearchForm({
+      address: d.address,
+      city: d.city,
+      state: d.state,
+      zip: d.zip,
+      projectType: d.projectType,
+      email: mail || d.email,
+    });
+    const depth = String(analysisWithId.research_depth || '').toLowerCase();
+    if (depth === 'pro' || depth === 'pro_partial') {
+      sessionStorage.removeItem('pendingDeepUnlock');
+      setUnlockBanner(false);
     }
     setResearchId(id);
-    setAnalysis(honest);
+    setAnalysis(analysisWithId);
     setResultsOpen(true);
-
-    // Persist for shareable /r/{id} — non-blocking
-    void fetch(backendUrl('/research/persist'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ analysis: honest, research_id: id }),
-    })
-      .then(async (res) => {
-        if (!res.ok) return;
-        const meta = await res.json();
-        if (meta?.share_url && meta?.research_id) {
-          const withShare = {
-            ...honest,
-            research_id: meta.research_id as string,
-            share_url: meta.share_url as string,
-          };
-          sessionStorage.setItem('analysisResults', JSON.stringify(withShare));
-          sessionStorage.setItem('researchId', meta.research_id);
-          setResearchId(meta.research_id);
-          setAnalysis(withShare as AnalysisData);
-
-          // Upsert Saved Job (client) so /jobs works even if server auto-save missed
-          if (mail) {
-            const p = withShare.project_info;
-            void fetch(backendUrl('/jobs'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                owner_email: mail,
-                owner_key: getOwnerKey(),
-                address: p.address,
-                city: p.city,
-                state: p.state,
-                zip: p.zip,
-                project_type: p.type || formDataRef.current.projectType,
-                last_research_id: meta.research_id,
-                share_url: meta.share_url,
-                summary_snapshot: {
-                  estimated_timeline: withShare.summary?.estimated_timeline,
-                  estimated_total_cost: withShare.summary?.estimated_total_cost,
-                  risk_level: withShare.environmental_screening?.risk_level,
-                  preview: Boolean(withShare.preview),
-                  punch_count: withShare.summary?.total_punch_list_items,
-                },
-              }),
-            }).catch(() => undefined);
-          }
-        }
-      })
-      .catch(() => {
-        /* persist failure must not block results UI */
-      });
-  }, []);
-
-  // Prefill from Saved Jobs "Re-run research"
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('regguard_job_prefill');
-      if (!raw) return;
-      sessionStorage.removeItem('regguard_job_prefill');
-      const pre = JSON.parse(raw) as {
-        address?: string;
-        city?: string;
-        state?: string;
-        zip?: string;
-        projectType?: string;
-        email?: string;
-      };
-      setFormData((prev) => ({
-        ...prev,
-        address: pre.address || prev.address,
-        city: pre.city || prev.city,
-        state: pre.state || prev.state,
-        zip: pre.zip || prev.zip,
-        projectType: pre.projectType || prev.projectType,
-        email: pre.email || prev.email,
-      }));
-      if (pre.address) {
-        setExternalLocation({
-          address: pre.address,
-          city: pre.city,
-          state: pre.state,
-          zip: pre.zip,
-        });
-      }
-      if (pre.email) setJobsEmail(pre.email);
-    } catch {
-      /* ignore bad prefill */
-    }
   }, []);
 
   const runResearch = useCallback(async () => {
@@ -217,7 +192,10 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
       if (ent.ok) {
         const entData = await ent.json();
         paid = Boolean(entData.paid || entData.deep_research);
-        if (paid) sessionStorage.setItem('regguardPaid', '1');
+        if (paid) {
+          sessionStorage.setItem('regguardPaid', '1');
+          setPaidEntitled(true);
+        }
         const tiers = Array.isArray(entData.tiers)
           ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
           : [];
@@ -289,7 +267,10 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
 
       setProgressStep('punch');
 
-      if (payload.paid) sessionStorage.setItem('regguardPaid', '1');
+      if (payload.paid) {
+        sessionStorage.setItem('regguardPaid', '1');
+        setPaidEntitled(true);
+      }
       if (payload.ic_pdfs_ready) {
         sessionStorage.setItem('icPdfsReady', '1');
         // Soft nudge: buyer can open My Orders for the three PDF downloads
@@ -301,19 +282,15 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
       }
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
-        const analysisData = {
-          ...(payload.analysis_data as AnalysisData),
-          ...(payload.share_url ? { share_url: payload.share_url as string } : {}),
-          ...(payload.research_id ? { research_id: payload.research_id as string } : {}),
-        };
-        if (payload.research_depth && !analysisData.research_depth) {
-          analysisData.research_depth = String(payload.research_depth);
+        const analysis = payload.analysis_data as AnalysisData;
+        if (payload.research_depth && !analysis.research_depth) {
+          analysis.research_depth = String(payload.research_depth);
         }
         const clientId =
           (payload.research_id as string) ||
-          analysisData.research_id ||
+          (analysis.research_id as string) ||
           generateClientResearchId();
-        showResults(analysisData, clientId, emailNorm);
+        showResults(analysis, clientId, emailNorm);
       } else {
         const clientId = (payload.trial_id as string) || generateClientResearchId();
         showResults(
@@ -351,6 +328,68 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
     e.preventDefault();
     await runResearch();
   };
+
+  // After checkout: restore site + offer / auto deepen research
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const unlock =
+      params.get('unlock') === '1' || sessionStorage.getItem('pendingDeepUnlock') === '1';
+    if (!unlock) return;
+
+    const last = readLastResearchForm();
+    const email =
+      (params.get('email') || sessionStorage.getItem('userEmail') || last.email || '').trim().toLowerCase();
+
+    if (last.address || last.city || last.zip || email) {
+      setFormData((prev) => ({
+        ...prev,
+        address: last.address || prev.address,
+        city: last.city || prev.city,
+        state: last.state || prev.state,
+        zip: last.zip || prev.zip,
+        projectType: last.projectType || prev.projectType,
+        email: email || prev.email,
+      }));
+      if (last.address) {
+        setExternalLocation({
+          address: last.address,
+          city: last.city,
+          state: last.state,
+          zip: last.zip,
+        });
+      }
+    }
+
+    setUnlockBanner(true);
+
+    void (async () => {
+      if (!email) return;
+      try {
+        const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(email)}`));
+        if (!ent.ok) return;
+        const entData = await ent.json();
+        const paid = Boolean(entData.paid || entData.deep_research);
+        if (!paid) return;
+        sessionStorage.setItem('regguardPaid', '1');
+        setPaidEntitled(true);
+        // Auto-deepen once when we have a restored site
+        if (
+          !autoUnlockTried.current &&
+          (last.address || formDataRef.current.address) &&
+          (last.city || formDataRef.current.city) &&
+          (last.state || formDataRef.current.state) &&
+          (last.zip || formDataRef.current.zip)
+        ) {
+          autoUnlockTried.current = true;
+          window.setTimeout(() => {
+            void runResearch();
+          }, 400);
+        }
+      } catch {
+        /* banner still available */
+      }
+    })();
+  }, [runResearch]);
 
   // Voice fill → form state
   useEffect(() => {
@@ -404,6 +443,23 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
               </span>
             ) : null}
           </p>
+        </div>
+      )}
+
+      {unlockBanner && (
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10">
+          <p className="text-emerald-100 text-sm">
+            Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro /
+            IC research results.
+          </p>
+          <button
+            type="button"
+            onClick={() => void runResearch()}
+            disabled={loading}
+            className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold whitespace-nowrap disabled:opacity-60"
+          >
+            {loading ? 'Deepening…' : 'Unlock deeper results'}
+          </button>
         </div>
       )}
 
@@ -524,11 +580,19 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
             disabled={loading}
             className="w-full px-6 py-4 min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Analyzing site…' : 'Get Free Research Results'}
+            {loading
+              ? paidEntitled
+                ? 'Running deep research…'
+                : 'Analyzing site…'
+              : paidEntitled
+                ? 'Run deep research on this site'
+                : 'Get Free Research Results'}
           </button>
 
           <p className="text-gray-400 text-sm text-center leading-relaxed">
-            No credit card. Results in seconds. Text or email yourself from the results window.
+            {paidEntitled
+              ? 'Paid access active for this email — results include deeper scout research.'
+              : 'No credit card. Results in seconds. Upgrade from the results window for deeper research.'}
           </p>
         </form>
       </div>
@@ -541,6 +605,16 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
           researchId={researchId}
           defaultEmail={formData.email}
           defaultPhone={formData.phone}
+          canUnlockDeeper={
+            paidEntitled &&
+            analysis.research_depth !== 'pro' &&
+            analysis.research_depth !== 'pro_partial'
+          }
+          onUnlockDeeper={() => {
+            setResultsOpen(false);
+            void runResearch();
+          }}
+          unlockLoading={loading}
         />
       )}
     </div>
