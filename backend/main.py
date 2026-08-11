@@ -1556,21 +1556,42 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     except Exception as job_err:
         logger.warning(f"Free-trial auto-save job failed (non-blocking): {job_err}")
 
-    # IC Project: after paid research, generate real PDF package on open IC order
+    # IC Project: only after deep research + explicit generate_ic_report opt-in
     ic_pdfs_ready = False
+    ic_pending = False
     if paid and isinstance(analysis, dict):
         try:
             from ic_project_fulfillment import fulfill_ic_project_artifacts, find_open_ic_order
 
             email_for_ic = (getattr(request_body, "email", None) or "").strip().lower()
-            if email_for_ic and find_open_ic_order(email_for_ic):
-                fulfilled = await fulfill_ic_project_artifacts(email_for_ic, analysis)
-                ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
-                if ic_pdfs_ready:
+            open_ic = find_open_ic_order(email_for_ic) if email_for_ic else None
+            if open_ic:
+                want_ic = bool(getattr(request_body, "generate_ic_report", False))
+                depth = str(analysis.get("research_depth") or research_depth or "")
+                is_preview = bool(analysis.get("preview"))
+                deep_ok = depth == "pro" and not is_preview
+                if want_ic and deep_ok:
+                    fulfilled = await fulfill_ic_project_artifacts(email_for_ic, analysis)
+                    ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
+                    if ic_pdfs_ready:
+                        message = (
+                            "IC Project Report PDFs ready — download Research Memo, "
+                            "Punch List, and Permit Package from My Orders."
+                        )
+                elif want_ic and not deep_ok:
+                    ic_pending = True
                     message = (
-                        "IC Project Report PDFs ready — download Research Memo, "
-                        "Punch List, and Permit Package from My Orders."
+                        "Deep research did not fully complete — IC PDFs were not generated yet. "
+                        "Retry the site lookup to produce your Project Report package."
                     )
+                else:
+                    ic_pending = True
+                    # Lookup ran without consuming the one-shot IC slot
+                    if "IC Project" not in (message or ""):
+                        message = (
+                            (message or "Analysis ready.")
+                            + " IC Project PDFs were not generated (confirm Generate IC Report on the form)."
+                        )
         except Exception as ic_err:
             logger.warning("IC Project PDF fulfillment failed (non-blocking): %s", ic_err)
 
@@ -1585,6 +1606,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "research_depth": research_depth,
         "paid": paid,
         "ic_pdfs_ready": ic_pdfs_ready,
+        "ic_pending": ic_pending,
     }
 
 

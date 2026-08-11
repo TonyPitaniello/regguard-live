@@ -21,6 +21,8 @@ class FreeTrialRequest(BaseModel):
     email: str
     zip: Optional[str] = None
     phone: Optional[str] = None
+    # Explicit opt-in: consume IC Project Report slot for this address
+    generate_ic_report: Optional[bool] = False
 
 
 class FreeTrialResponse(BaseModel):

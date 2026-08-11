@@ -239,7 +239,7 @@ export default function OrdersPage() {
               </p>
             </div>
             <a
-              href="/"
+              href={`/${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
             >
               Run site lookup
@@ -423,6 +423,14 @@ function OrderCard({
                 <a
                   href="/"
                   className="inline-block mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg"
+                  onClick={(e) => {
+                    const email =
+                      (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || '';
+                    if (email) {
+                      e.preventDefault();
+                      window.location.href = `/?email=${encodeURIComponent(email)}`;
+                    }
+                  }}
                 >
                   Run site lookup →
                 </a>

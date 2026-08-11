@@ -33,6 +33,14 @@ const PROGRESS_LABELS: Record<ProgressStep, string> = {
   punch: 'Building punch list…',
 };
 
+function initialEmailFromStorage(): string {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = (params.get('email') || '').trim().toLowerCase();
+  if (fromQuery) return fromQuery;
+  return (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
+}
+
 export default function FreeTrialForm({ showHero = false }: { showHero?: boolean }) {
   const [formData, setFormData] = useState({
     address: '',
@@ -40,7 +48,7 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
     state: '',
     zip: '',
     projectType: 'data-center',
-    email: '',
+    email: initialEmailFromStorage(),
     phone: '',
   });
   const [externalLocation, setExternalLocation] = useState<{
@@ -201,15 +209,39 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
 
     // Paid users get deeper research — allow longer wait
     let paid = sessionStorage.getItem('regguardPaid') === '1';
+    let icReportPending = ['ic_project', 'ic_consultant', 'ic_annual'].includes(
+      (sessionStorage.getItem('regguardTier') || '').toLowerCase()
+    );
     try {
       const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(emailNorm)}`));
       if (ent.ok) {
         const entData = await ent.json();
         paid = Boolean(entData.paid || entData.deep_research);
         if (paid) sessionStorage.setItem('regguardPaid', '1');
+        const tiers = Array.isArray(entData.tiers)
+          ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
+          : [];
+        const primary = String(entData.primary_tier || '').toLowerCase();
+        const tier = tiers.find((t) =>
+          ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)
+        ) || primary;
+        if (['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)) {
+          sessionStorage.setItem('regguardTier', tier);
+        }
+        icReportPending = Boolean(entData.ic_report_pending) ||
+          ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier);
       }
     } catch {
       /* keep cached flag */
+    }
+
+    // Confirm before consuming the one-shot IC Project Report slot
+    let generateIcReport = false;
+    if (paid && icReportPending) {
+      generateIcReport = window.confirm(
+        `Generate your IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
+          'This uses your one-time IC Project report for this purchase. Click Cancel to research without generating PDFs.'
+      );
     }
 
     const progressTimers = [
@@ -231,6 +263,7 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
           project_type: data.projectType,
           email: emailNorm,
           phone: data.phone || undefined,
+          generate_ic_report: generateIcReport,
         }),
       });
       window.clearTimeout(timeoutId);

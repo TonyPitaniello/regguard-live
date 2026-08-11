@@ -123,111 +123,48 @@ export const QueueLanding: React.FC = () => {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="pricing">
-        <h2>Simple Pricing</h2>
-        <div className="pricing-grid">
-          <div className="pricing-card free">
-            <h3>Free</h3>
-            <div className="price">$0</div>
-            <p className="period">1 form/month</p>
-            <ul className="features">
-              <li>✓ 1 auto-filled form</li>
-              <li>✓ FERC forms only</li>
-              <li>✓ PDF download</li>
-              <li>✗ API access</li>
-            </ul>
-            <button className="btn-pricing">Get Started</button>
-          </div>
-
-          <div className="pricing-card pro">
-            <h3>Pro</h3>
-            <div className="price">$99<span>/mo</span></div>
-            <p className="period">Most popular</p>
-            <ul className="features">
-              <li>✓ Unlimited forms</li>
-              <li>✓ All RTOs (PJM, MISO, ERCOT)</li>
-              <li>✓ PDF + batch exports</li>
-              <li>✓ 100 API calls/month</li>
-              <li>✓ Email support</li>
-            </ul>
-            <button className="btn-pricing btn-highlight">Start Pro Trial</button>
-          </div>
-
-          <div className="pricing-card enterprise">
-            <h3>Enterprise</h3>
-            <div className="price">Custom</div>
-            <p className="period">For teams</p>
-            <ul className="features">
-              <li>✓ Unlimited everything</li>
-              <li>✓ White-label option</li>
-              <li>✓ Custom integrations</li>
-              <li>✓ Priority support</li>
-              <li>✓ SLA guarantee</li>
-            </ul>
-            <button className="btn-pricing">Contact Sales</button>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section */}
       <section className="cta">
-        <h2>Start Automating Your Interconnection Forms Today</h2>
-        <p>Join 100+ renewable energy developers saving time and money</p>
+        <h2>Try the interconnection form draft demo</h2>
+        <p>
+          Preview only — not a live RTO filing product. For citeable site diligence PDFs,
+          use Reg Guard IC Project Report or Contractor Pro.
+        </p>
         <Link to="/queue/upload" className="btn-cta">
-          ⚡ Get Started (Free)
+          Open demo auto-fill
         </Link>
+        <p style={{ marginTop: '1rem' }}>
+          <Link to="/checkout/ic_project" style={{ color: 'inherit', textDecoration: 'underline' }}>
+            View IC Project Report
+          </Link>
+        </p>
       </section>
 
       {/* FAQ */}
       <section className="faq">
-        <h2>Frequently Asked Questions</h2>
+        <h2>Demo FAQ</h2>
         <div className="faq-grid">
           <details className="faq-item">
-            <summary>What forms does RegGuard Queue support?</summary>
+            <summary>Does this file with an RTO?</summary>
             <p>
-              We support FERC Form 556/557, PJM NextGen, MISO interconnection applications,
-              and more. We add new forms regularly based on customer demand.
+              No. This is a draft helper for common interconnection form layouts. Official
+              filing, fees, and queue position stay on the RTO portal.
             </p>
           </details>
 
           <details className="faq-item">
-            <summary>How accurate is the auto-fill?</summary>
+            <summary>How should I treat auto-filled fields?</summary>
             <p>
-              Our AI achieves 95%+ accuracy on well-structured project data. You can always
-              review and edit before submission. We flag any fields that need review.
+              Treat every field as unverified until you check it. Download drafts are for
+              your records and prep — not an official submittal package.
             </p>
           </details>
 
           <details className="faq-item">
-            <summary>Is my data secure?</summary>
+            <summary>Where do I get a paid diligence report?</summary>
             <p>
-              Yes. We use enterprise-grade encryption, never store raw documents, and comply
-              with GDPR and SOC 2. Your data is never shared with third parties.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>Can I integrate with my existing systems?</summary>
-            <p>
-              Pro and Enterprise customers get API access. We support webhooks, batch processing,
-              and custom integrations with your project management tools.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>What if the form isn't filled correctly?</summary>
-            <p>
-              Our editor lets you fix any field before downloading. We also provide detailed
-              accuracy reports and flag fields that need your attention.
-            </p>
-          </details>
-
-          <details className="faq-item">
-            <summary>Can I export to other formats?</summary>
-            <p>
-              Pro customers can download as PDF or Excel. Enterprise customers get XML, JSON,
-              and custom format exports.
+              Use Contractor Pro or IC Project Report for citeable site diligence PDFs
+              (planning worksheets — confirm fees and filings with the local AHJ).
             </p>
           </details>
         </div>

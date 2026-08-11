@@ -52,9 +52,13 @@ class EmailService:
         """Tell IC buyer the next step after payment (run site lookup)."""
         raise NotImplementedError
 
-    def _build_ic_next_step_html(self, order_id: str, download_token: str) -> str:
+    def _build_ic_next_step_html(self, order_id: str, download_token: str, to_email: str = "") -> str:
+        from urllib.parse import quote
+
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         short_id = (order_id or "")[:8]
+        email_q = quote((to_email or "").strip().lower())
+        lookup_url = f"{app_url}/?email={email_q}" if email_q else f"{app_url}/"
         return f"""
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
@@ -69,7 +73,7 @@ class EmailService:
       Dallas / Plano / Austin TX — confirm all fees and filings with the local AHJ.
     </p>
     <p style="margin:20px 0;">
-      <a href="{app_url}/" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+      <a href="{lookup_url}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
         Run site lookup
       </a>
     </p>
@@ -475,7 +479,7 @@ RegGuard © 2026
                 from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 to_emails=to_email,
                 subject="Reg Guard IC Project — run your site lookup to generate PDFs",
-                html_content=self._build_ic_next_step_html(order_id, download_token),
+                html_content=self._build_ic_next_step_html(order_id, download_token, to_email),
             )
             response = self.sg.send(message)
             return 200 <= response.status_code < 300
@@ -655,7 +659,7 @@ class ResendEmailService(EmailService):
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
                 "subject": "Reg Guard IC Project — run your site lookup to generate PDFs",
-                "html": self._build_ic_next_step_html(order_id, download_token),
+                "html": self._build_ic_next_step_html(order_id, download_token, to_email),
             })
             return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
         except Exception as e:

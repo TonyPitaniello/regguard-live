@@ -74,14 +74,18 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
     email_l = _normalize_email(email)
     paid = has_paid_access(email_l)
     tiers: list[str] = []
+    ic_report_pending = False
     if email_l:
         try:
             from order_service import list_orders_for_email
+            from ic_project_fulfillment import is_ic_tier, pdfs_are_ready
 
             for order in list_orders_for_email(email_l):
                 tier = (order.get("tier") or "").strip().lower()
                 if tier in PAID_TIERS and tier not in tiers:
                     tiers.append(tier)
+                if is_ic_tier(tier) and not pdfs_are_ready(order.get("pdfs")):
+                    ic_report_pending = True
         except Exception:
             pass
     return {
@@ -90,4 +94,5 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
         "deep_research": paid,
         "tiers": tiers,
         "primary_tier": tiers[0] if tiers else ("free" if email_l else "anonymous"),
+        "ic_report_pending": ic_report_pending,
     }
