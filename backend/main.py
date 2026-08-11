@@ -1352,21 +1352,34 @@ async def test_supabase() -> Dict[str, Any]:
             "email_service_available": False,
         }
 
+@app.get("/entitlement", tags=["Payments"])
+async def get_entitlement(email: str = "") -> Dict[str, Any]:
+    """Return whether an email has paid access (Contractor Pro / IC deep research)."""
+    from entitlement import access_summary
+
+    return access_summary(email)
+
+
 @app.post("/free-trial")
 async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     """
     Free trial: create trial record, return IMMEDIATE analysis for in-app modal,
     and queue email in background. Never blocks the UI on email/DB failure.
     Always returns analysis_data (instant fallback if deep screen fails/times out).
+
+    Paid emails (Contractor Pro / IC) run the deeper Universal Scout + action-plan path.
     """
     from free_trial_handler import handle_free_trial
     from option_a_integration import run_option_a_analysis
     from instant_analysis import build_instant_fallback_analysis
     from jurisdiction import geocode_profile_from_address
+    from entitlement import has_paid_access
 
     trial_id = ""
     status = "success"
     message = "Analysis ready — results are displayed in the app."
+    paid = has_paid_access(getattr(request_body, "email", None))
+    research_depth = "pro" if paid else "free"
 
     # Step 1: Best-effort trial record + background email (never block results)
     try:
@@ -1388,19 +1401,38 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     try:
         profile = geocode_profile_from_address(request_body.address)
         if profile:
-            analysis = await asyncio.wait_for(
-                run_option_a_analysis(
-                    address=request_body.address,
-                    city=profile.city,
-                    state=profile.state_short,
-                    zip_code=profile.zip5,
-                    latitude=profile.latitude,
-                    longitude=profile.longitude,
-                    project_type=request_body.project_type,
-                ),
-                timeout=22.0,
-            )
-            message = "Analysis ready — results are displayed in the app."
+            if paid:
+                from pro_deep_analysis import run_pro_deep_analysis
+
+                logger.info("Paid entitlement — running Contractor Pro deep research")
+                analysis = await asyncio.wait_for(
+                    run_pro_deep_analysis(
+                        address=request_body.address,
+                        city=profile.city,
+                        state=profile.state_short,
+                        zip_code=profile.zip5,
+                        latitude=profile.latitude,
+                        longitude=profile.longitude,
+                        project_type=request_body.project_type,
+                    ),
+                    timeout=120.0,
+                )
+                message = "Contractor Pro deep research ready — citeable punch list in the app."
+                research_depth = analysis.get("research_depth") or "pro"
+            else:
+                analysis = await asyncio.wait_for(
+                    run_option_a_analysis(
+                        address=request_body.address,
+                        city=profile.city,
+                        state=profile.state_short,
+                        zip_code=profile.zip5,
+                        latitude=profile.latitude,
+                        longitude=profile.longitude,
+                        project_type=request_body.project_type,
+                    ),
+                    timeout=22.0,
+                )
+                message = "Analysis ready — results are displayed in the app."
             status = "success"
     except asyncio.TimeoutError:
         logger.warning("Deep analysis timed out — using instant fallback")
@@ -1418,6 +1450,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         )
         message = "Instant preview ready in the app. Deeper research continues in the background."
         status = "success"
+        if paid:
+            analysis["research_depth"] = "pro_partial"
 
     # Absolute guarantee: never return without analysis_data
     if not analysis or not isinstance(analysis, dict):
@@ -1489,6 +1523,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "research_id": research_id,
         "share_url": analysis.get("share_url"),
         "job_id": job_id,
+        "research_depth": research_depth,
+        "paid": paid,
     }
 
 

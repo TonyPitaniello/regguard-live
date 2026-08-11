@@ -36,6 +36,9 @@ export interface AnalysisData {
   timestamp: string;
   research_id?: string;
   preview?: boolean;
+  research_depth?: string;
+  pro_summary_markdown?: string;
+  pro_source_urls?: string[];
   project_info: {
     address: string;
     city: string;
@@ -243,6 +246,13 @@ export default function ResultsViewerModal({
               {analysis.project_info.address} • {analysis.project_info.city},{' '}
               {analysis.project_info.state} {analysis.project_info.zip}
             </p>
+            {(analysis.research_depth === 'pro' || analysis.research_depth === 'pro_partial') && (
+              <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                {analysis.research_depth === 'pro'
+                  ? 'Contractor Pro — deep research'
+                  : 'Contractor Pro — partial deep research'}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -321,6 +331,30 @@ export default function ResultsViewerModal({
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
             Forward only what you can defend.
           </p>
+
+          {analysis.pro_summary_markdown ? (
+            <section className="bg-slate-800/40 border border-emerald-500/20 rounded-lg p-4">
+              <h3 className="text-sm font-bold text-emerald-300 mb-2">Deep research action plan</h3>
+              <pre className="whitespace-pre-wrap text-xs text-gray-300 max-h-64 overflow-y-auto font-sans">
+                {analysis.pro_summary_markdown.slice(0, 6000)}
+              </pre>
+              {(analysis.pro_source_urls || []).length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {analysis.pro_source_urls.slice(0, 6).map((url) => (
+                    <a
+                      key={url}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-emerald-300 underline truncate max-w-[240px]"
+                    >
+                      {url.replace(/^https?:\/\//, '').slice(0, 48)}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </section>
+          ) : null}
 
           {/* Critical path / punch list highlights */}
           <section>

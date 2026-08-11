@@ -77,6 +77,12 @@ export default function OrdersPage() {
             sessionStorage.setItem('userEmail', emailFromSession);
             setUserEmail(emailFromSession);
           }
+          if (confirmData.order?.tier) {
+            sessionStorage.setItem('regguardPaid', '1');
+            sessionStorage.setItem('regguardTier', String(confirmData.order.tier));
+          } else {
+            sessionStorage.setItem('regguardPaid', '1');
+          }
           setConfirmed(true);
         } else {
           const detail = await confirmRes.json().catch(() => ({}));

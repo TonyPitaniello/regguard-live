@@ -196,14 +196,30 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
       return;
     }
 
+    const emailNorm = data.email.trim().toLowerCase();
+    sessionStorage.setItem('userEmail', emailNorm);
+
+    // Paid users get deeper research — allow longer wait
+    let paid = sessionStorage.getItem('regguardPaid') === '1';
+    try {
+      const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(emailNorm)}`));
+      if (ent.ok) {
+        const entData = await ent.json();
+        paid = Boolean(entData.paid || entData.deep_research);
+        if (paid) sessionStorage.setItem('regguardPaid', '1');
+      }
+    } catch {
+      /* keep cached flag */
+    }
+
     const progressTimers = [
-      window.setTimeout(() => setProgressStep('screen'), 900),
-      window.setTimeout(() => setProgressStep('punch'), 2200),
+      window.setTimeout(() => setProgressStep('screen'), paid ? 2000 : 900),
+      window.setTimeout(() => setProgressStep('punch'), paid ? 8000 : 2200),
     ];
 
     try {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 45000);
+      const timeoutId = window.setTimeout(() => controller.abort(), paid ? 130000 : 45000);
 
       const response = await fetch(backendUrl('/free-trial'), {
         method: 'POST',
@@ -213,7 +229,7 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
           address: `${data.address}, ${data.city}, ${data.state}, ${data.zip}`,
           zip: data.zip,
           project_type: data.projectType,
-          email: data.email,
+          email: emailNorm,
           phone: data.phone || undefined,
         }),
       });
@@ -236,17 +252,22 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
 
       setProgressStep('punch');
 
+      if (payload.paid) sessionStorage.setItem('regguardPaid', '1');
+
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
         const analysisData = {
           ...(payload.analysis_data as AnalysisData),
           ...(payload.share_url ? { share_url: payload.share_url as string } : {}),
           ...(payload.research_id ? { research_id: payload.research_id as string } : {}),
         };
+        if (payload.research_depth && !analysisData.research_depth) {
+          analysisData.research_depth = String(payload.research_depth);
+        }
         const clientId =
           (payload.research_id as string) ||
           analysisData.research_id ||
           generateClientResearchId();
-        showResults(analysisData, clientId, data.email);
+        showResults(analysisData, clientId, emailNorm);
       } else {
         const clientId = (payload.trial_id as string) || generateClientResearchId();
         showResults(
@@ -331,6 +352,11 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
           <p className="text-gray-300 text-base md:text-lg">
             One site. Seconds to a punch list. Or tap the mic and just say the address.
+            {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
+              <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">
+                Contractor Pro active — this email runs deep scout research (may take up to ~2 min).
+              </span>
+            ) : null}
           </p>
         </div>
       )}
