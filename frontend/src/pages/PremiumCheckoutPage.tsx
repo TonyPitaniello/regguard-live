@@ -55,14 +55,15 @@ const TIERS = {
     price: '$15,000/year',
     price_cents: 1500000,
     mode: 'subscription' as const,
-    description: 'Annual subscription for unlimited IC project reports',
+    description:
+      'Annual access to regenerate IC Project Report PDFs for additional sites (planning worksheets, not official AHJ filings)',
     features: [
-      'Unlimited project reports',
-      'Priority same-day turnaround',
-      'Portfolio monitoring alerts',
-      'Dedicated account support',
+      'Regenerate Project Report PDFs for new site addresses',
+      'Same research memo + punch list + permit worksheet package',
+      'Strongest citeable coverage: Dallas / Plano / Austin TX',
+      'Email support via support@regguardagent.com',
     ],
-    delivery_time: 'Instant access',
+    delivery_time: 'After each confirmed site lookup',
     color: 'from-indigo-600 to-blue-600',
   },
   sponsor: {

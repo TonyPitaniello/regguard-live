@@ -112,8 +112,8 @@ export const QueueLanding: React.FC = () => {
           </div>
           <div className="benefit">
             <div className="benefit-icon">🔐</div>
-            <h3>Secure</h3>
-            <p>Enterprise-grade security and encryption</p>
+            <h3>Your review</h3>
+            <p>You stay in control — nothing is filed without you</p>
           </div>
           <div className="benefit">
             <div className="benefit-icon">♻️</div>

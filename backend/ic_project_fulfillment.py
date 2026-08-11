@@ -292,9 +292,22 @@ async def fulfill_ic_project_artifacts(
     if not order_id:
         return None
 
-    if pdfs_are_ready(order.get("pdfs")) and not force and order_id in _PDF_BYTES:
+    new_address = str((analysis.get("project_info") or {}).get("address") or "").strip().lower()
+    old_address = str(order.get("address") or "").strip().lower()
+    address_changed = bool(new_address and old_address and new_address != old_address)
+
+    if pdfs_are_ready(order.get("pdfs")) and not force and not address_changed and order_id in _PDF_BYTES:
         logger.info("IC fulfill skipped — PDFs already ready for order %s", order_id)
         return order
+
+    # Allow regenerate when caller forces, or buyer researched a different site
+    if pdfs_are_ready(order.get("pdfs")) and (force or address_changed):
+        logger.info(
+            "IC regenerate order=%s force=%s address_changed=%s",
+            order_id,
+            force,
+            address_changed,
+        )
 
     try:
         byte_map = generate_ic_pdf_bytes(analysis)

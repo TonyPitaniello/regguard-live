@@ -1571,7 +1571,19 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 is_preview = bool(analysis.get("preview"))
                 deep_ok = depth == "pro" and not is_preview
                 if want_ic and deep_ok:
-                    fulfilled = await fulfill_ic_project_artifacts(email_for_ic, analysis)
+                    from ic_project_fulfillment import pdfs_are_ready as _pdfs_ready
+
+                    already = _pdfs_ready(open_ic.get("pdfs"))
+                    tier_ic = str(open_ic.get("tier") or "").lower()
+                    # ic_annual (and replace on ic_project) may regenerate for a new address
+                    force = already and tier_ic in (
+                        "ic_annual",
+                        "ic_project",
+                        "ic_consultant",
+                    )
+                    fulfilled = await fulfill_ic_project_artifacts(
+                        email_for_ic, analysis, force=force
+                    )
                     ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
                     if ic_pdfs_ready:
                         message = (

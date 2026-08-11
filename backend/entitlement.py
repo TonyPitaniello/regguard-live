@@ -84,7 +84,8 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
                 tier = (order.get("tier") or "").strip().lower()
                 if tier in PAID_TIERS and tier not in tiers:
                     tiers.append(tier)
-                if is_ic_tier(tier) and not pdfs_are_ready(order.get("pdfs")):
+                if is_ic_tier(tier):
+                    # IC buyers can generate or replace PDFs via explicit confirm
                     ic_report_pending = True
         except Exception:
             pass

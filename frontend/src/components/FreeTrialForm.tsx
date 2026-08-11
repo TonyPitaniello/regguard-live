@@ -238,9 +238,13 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
     // Confirm before consuming the one-shot IC Project Report slot
     let generateIcReport = false;
     if (paid && icReportPending) {
+      const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
+      const annual = tier === 'ic_annual';
       generateIcReport = window.confirm(
-        `Generate your IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
-          'This uses your one-time IC Project report for this purchase. Click Cancel to research without generating PDFs.'
+        `Generate IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
+          (annual
+            ? 'This will create or replace the PDFs on your IC Annual order for this address. Cancel to research without updating PDFs.'
+            : 'This will create or replace the PDFs on your IC Project purchase for this address. Cancel to research without generating PDFs.')
       );
     }
 
