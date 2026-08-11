@@ -20,6 +20,34 @@ def _normalize_email(email: Optional[str]) -> str:
     return (email or "").strip().lower()
 
 
+def _stripe_paid_for_email(email_l: str) -> bool:
+    """Fallback: active Stripe subscription or recent paid Checkout for this email."""
+    import os
+
+    key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    if not key:
+        return False
+    try:
+        import stripe
+
+        stripe.api_key = key
+        customers = stripe.Customer.list(email=email_l, limit=5)
+        for cust in customers.data:
+            subs = stripe.Subscription.list(customer=cust.id, status="all", limit=10)
+            for sub in subs.data:
+                if getattr(sub, "status", "") in ("active", "trialing", "past_due"):
+                    return True
+            sessions = stripe.checkout.Session.list(customer=cust.id, limit=10)
+            for sess in sessions.data:
+                if getattr(sess, "payment_status", "") == "paid":
+                    return True
+                if getattr(sess, "status", "") == "complete":
+                    return True
+    except Exception as e:
+        logger.warning("Stripe entitlement fallback failed for %s: %s", email_l, e)
+    return False
+
+
 def has_paid_access(email: Optional[str]) -> bool:
     """True if this email has a completed paid order (Pro / IC / etc.)."""
     email_l = _normalize_email(email)
@@ -35,6 +63,10 @@ def has_paid_access(email: Optional[str]) -> bool:
                 return True
     except Exception as e:
         logger.warning("entitlement check failed for %s: %s", email_l, e)
+
+    # Survive Render restarts when in-memory orders were cleared
+    if _stripe_paid_for_email(email_l):
+        return True
     return False
 
 
