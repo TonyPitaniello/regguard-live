@@ -466,7 +466,7 @@ export default function FreeTrialForm({
 
   return (
     <div id="free-trial-form">
-      {showHero && (
+      {!resultsOpen && showHero && (
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
           <p className="text-gray-300 text-base md:text-lg">
@@ -485,7 +485,7 @@ export default function FreeTrialForm({
         </div>
       )}
 
-      {unlockBanner && (
+      {!resultsOpen && unlockBanner && (
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10">
           <p className="text-emerald-100 text-sm">
             Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro /
@@ -502,12 +502,13 @@ export default function FreeTrialForm({
         </div>
       )}
 
+      {!resultsOpen && (
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10">
         <form onSubmit={handleSubmit} className="space-y-5" noValidate>
           <LocationPicker
             onLocationSelect={handleLocationSelect}
             disabled={loading}
-            collapseMap={resultsOpen}
+            collapseMap={false}
             externalValues={externalLocation}
           />
 
@@ -640,11 +641,20 @@ export default function FreeTrialForm({
           </p>
         </form>
       </div>
+      )}
 
       {analysis && (
         <ResultsViewerModal
           isOpen={resultsOpen}
-          onClose={() => setResultsOpen(false)}
+          onClose={() => {
+            setResultsOpen(false);
+            window.requestAnimationFrame(() => {
+              document.getElementById('free-trial-form')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
+            });
+          }}
           analysis={analysis}
           researchId={researchId}
           defaultEmail={formData.email}

@@ -1,9 +1,9 @@
 /**
- * ResultsViewerModal — large overlay showing free-trial analysis + text/email send.
+ * ResultsViewerModal — full-page results panel (document scroll, not a nested modal).
  * Stays on the current page (homepage / free-trial); does not require /results navigation.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, RefreshCw } from 'lucide-react';
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
@@ -321,16 +321,21 @@ export default function ResultsViewerModal({
   const [packetLoading, setPacketLoading] = useState(false);
   const [recheckLoading, setRecheckLoading] = useState(false);
   const [liveAnalysis, setLiveAnalysis] = useState<AnalysisData | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  // Lock body scroll while modal is open so the form/map behind cannot float with page scroll
+  // Page-scroll takeover: bring results to the top of the viewport (form scrolls away)
   useEffect(() => {
     if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+    const id = window.requestAnimationFrame(() => {
+      const el = rootRef.current;
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Standalone / iOS PWA: also pin window scroll in case scrollIntoView is ignored
+      const top = el.getBoundingClientRect().top + window.scrollY - 8;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [isOpen, analysis]);
 
   useEffect(() => {
     setLiveAnalysis(null);
@@ -529,16 +534,15 @@ export default function ResultsViewerModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4"
-      role="dialog"
-      aria-modal="true"
+      ref={rootRef}
+      id="results-viewer"
+      className="w-full scroll-mt-3"
+      role="region"
       aria-labelledby="results-modal-title"
     >
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-purple-500/30 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90 shrink-0 z-10">
+      <div className="w-full flex flex-col bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-purple-500/30 rounded-2xl shadow-2xl">
+        {/* Header — scrolls away with the page (not a frozen overlay) */}
+        <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90">
           <div>
             <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
               Your Site Diligence Analysis
@@ -565,8 +569,8 @@ export default function ResultsViewerModal({
           </button>
         </div>
 
-        {/* Text / Email + social share — always visible without scrolling results */}
-        <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 shrink-0 space-y-3">
+        {/* Text / Email + social share — scrolls with results (page scroll) */}
+        <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
           <SendResultsForm
             researchId={effectiveResearchId}
             summary={summary}
@@ -638,8 +642,8 @@ export default function ResultsViewerModal({
           </div>
         </div>
 
-        {/* Scrollable body — punch list first (citeable pre-bid artifact) */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-6 space-y-6">
+        {/* Results body — page scroll (no nested overflow panel) */}
+        <div className="px-5 sm:px-8 py-6 space-y-6">
           <p className="text-xs text-gray-400">
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
             Forward only what you can defend.
