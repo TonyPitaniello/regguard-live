@@ -202,7 +202,7 @@ function freeRunUrl(): string {
   return `${APP_URL}?utm_source=bid_receipt`;
 }
 
-/** Default share object: Bid Risk Receipt text (contingency + 3 killers + CTA). */
+/** SMS/chat-forwardable receipt — short, CYA, not an ad. */
 function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
   const p = analysis.project_info;
   const ahj = analysis.ahj_card?.name || 'Local AHJ';
@@ -219,47 +219,35 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
 
   const bandLine =
     band?.pct_low != null && band?.pct_high != null
-      ? `Contingency band: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%) — planning aid, not a quote`
-      : `Timeline: ${analysis.summary?.estimated_timeline || 'Confirm with AHJ'}`;
+      ? `Contingency: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%) — planning aid, NOT a quote`
+      : `Confirm contingency with AHJ before bid`;
 
   const killerLines = killers
     .slice(0, 3)
     .map((k, i) => {
       const ver = k.verified && k.source_url ? 'Source' : 'Unverified';
       const pri = (k.priority || 'NOTE').toUpperCase();
-      const pe = k.planning_exposure;
-      const exp =
-        pe?.usd_mid != null
-          ? ` | planning exposure ~$${Number(pe.usd_low || 0).toLocaleString()}–$${Number(pe.usd_high || 0).toLocaleString()} (not guaranteed savings)`
-          : '';
-      return `${i + 1}. [${pri}] [${ver}] ${k.title || 'Item'}${exp}`;
+      const title = (k.title || 'Item').slice(0, 90);
+      return `${i + 1}. [${pri}] [${ver}] ${title}`;
     })
     .join('\n');
 
-  const who = (generatedFor || '').trim();
+  const who = (generatedFor || '').trim() || 'Estimator';
   const isDc = Boolean(
     analysis.dc_positioning ||
       analysis.planning_exposure_summary?.data_center_mode ||
       /data.?center|colo/i.test(analysis.project_info?.type || '')
   );
-  const expTotal = analysis.planning_exposure_summary?.usd_mid_total;
+
   return [
-    isDc
-      ? `Reg Guard BID RISK RECEIPT (data center / large-load parallel tracks)`
-      : `Reg Guard BID RISK RECEIPT`,
-    `Site: ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    `FLAGGED BEFORE BID — ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
     `AHJ: ${ahj}`,
     bandLine,
-    killerLines ? `Top margin killers:\n${killerLines}` : '',
-    expTotal
-      ? `Sum of planning-exposure mids: ~$${Number(expTotal).toLocaleString()} — NOT guaranteed savings`
-      : '',
-    isDc
-      ? 'Does not run interconnection studies or file AHJ applications — pre-bid diligence stamp only.'
-      : '',
-    who ? `Generated for: ${who}` : '',
-    `Re-check before bid. Forward this receipt — then run YOUR address free:`,
-    freeRunUrl(),
+    killerLines ? `Top 3 risk flags:\n${killerLines}` : '',
+    isDc ? 'Note: AHJ + utility often run parallel (not an interconnect study).' : '',
+    `— ${who} · Reg Guard Bid Risk Receipt`,
+    `Planning aid only. Confirm with AHJ. Not a filing.`,
+    `Own site: ${freeRunUrl()}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -962,34 +950,48 @@ export default function ResultsViewerModal({
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
-                    Bid Risk Receipt
+                    Flagged before bid day
                   </p>
                   <h3 className="text-lg font-bold text-white mt-0.5">
-                    Contingency + top 3 margin killers
+                    Bid Risk Receipt — forward to GC / owner
                   </h3>
                   <p className="text-gray-400 text-sm mt-1">
-                    Forwardable one-pager. Stamp: re-check before bid.
-                    {view.dc_positioning
-                      ? ' Data center mode: AHJ + utility parallel tracks.'
-                      : ''}
+                    Site-specific CYA stamp: big contingency + 3 risk flags. Planning aid —
+                    not a quote, not a filing.
+                    {view.dc_positioning ? ' Parallel AHJ + utility clocks.' : ''}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void downloadBidReceipt()}
-                  disabled={packetLoading}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 shrink-0"
-                >
-                  <Download className="w-4 h-4" />
-                  {packetLoading ? 'Building…' : 'Export Receipt PDF'}
-                </button>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void copyShareText('text')}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy forward text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidReceipt()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-white/10 border border-emerald-500/40 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {packetLoading ? 'Building…' : 'PDF for thread'}
+                  </button>
+                </div>
               </div>
+              <p className="text-xs text-gray-400 mb-2">
+                {view.project_info.address} · {view.ahj_card?.name || 'Local AHJ'}
+              </p>
               {view.contingency_band && (
-                <p className="text-2xl font-black text-emerald-400 mb-3">
+                <p className="text-4xl font-black text-emerald-400 mb-1 tracking-tight">
                   +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
-                  <span className="text-sm font-semibold text-gray-300 ml-2">
-                    mid {view.contingency_band.pct_mid}%
-                  </span>
+                </p>
+              )}
+              {view.contingency_band && (
+                <p className="text-sm text-gray-300 mb-3">
+                  mid {view.contingency_band.pct_mid}% · planning aid — not a quote
                 </p>
               )}
               <ol className="space-y-2 list-decimal pl-5">
@@ -999,13 +1001,14 @@ export default function ResultsViewerModal({
                       {k.priority || 'NOTE'}
                     </span>
                     <span className="text-white font-medium">{k.title}</span>
-                    {k.detail && <p className="text-gray-400 text-xs mt-0.5">{k.detail}</p>}
+                    {k.detail && (
+                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
+                    )}
                     {k.planning_exposure?.usd_mid != null && (
                       <p className="text-emerald-300/90 text-xs mt-1">
                         Planning exposure ~$
                         {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
-                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()}{' '}
-                        (mid ${Number(k.planning_exposure.usd_mid).toLocaleString()}) — not
+                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
                         guaranteed savings
                       </p>
                     )}
@@ -1017,22 +1020,15 @@ export default function ResultsViewerModal({
                   </li>
                 ))}
               </ol>
-              {view.planning_exposure_summary?.usd_mid_total != null && (
-                <p className="text-xs text-amber-200/90 mt-3">
-                  Sum of planning-exposure mids: ~$
-                  {Number(view.planning_exposure_summary.usd_mid_total).toLocaleString()} —{' '}
-                  {view.planning_exposure_summary.disclaimer ||
-                    'heuristic only, not guaranteed savings'}
-                </p>
-              )}
-              {view.dc_positioning?.pitch && (
-                <p className="text-xs text-indigo-200/90 mt-2 border-t border-indigo-500/20 pt-2">
-                  {view.dc_positioning.pitch}
-                </p>
-              )}
-              <p className="text-xs text-gray-500 mt-3">
-                Generated for {emailForCheckout || 'this lookup'} · Run your site:{' '}
-                <span className="text-emerald-300">{freeRunUrl()}</span>
+              <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
+                Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
+                <button
+                  type="button"
+                  onClick={openWhatsApp}
+                  className="text-emerald-300 underline font-semibold"
+                >
+                  WhatsApp forward
+                </button>
               </p>
             </section>
           )}
