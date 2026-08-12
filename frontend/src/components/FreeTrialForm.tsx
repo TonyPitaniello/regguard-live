@@ -199,7 +199,7 @@ export default function FreeTrialForm({
     setProgressStep('geocode');
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
-      setError('Please fill in address, city, state, ZIP, and email');
+      setError('Please confirm the address or finish filling in all fields of the address');
       setLoading(false);
       return;
     }
