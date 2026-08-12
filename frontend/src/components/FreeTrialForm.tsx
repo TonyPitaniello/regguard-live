@@ -436,12 +436,17 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
           <p className="text-gray-300 text-base md:text-lg">
-            One site. Seconds to a punch list. Or tap the mic and just say the address.
+            One DFW/Austin site. Seconds to a citeable punch list you can forward.
+            Or tap the mic and say the address.
             {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
               <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">
-                Contractor Pro active — this email runs deep scout research (may take up to ~2 min).
+                Paid access active — this email runs deep scout research (may take up to ~2 min).
               </span>
-            ) : null}
+            ) : (
+              <span className="block mt-1 text-gray-400 text-sm">
+                Free preview shows top actions — forward the list to unlock more, or upgrade for deep research.
+              </span>
+            )}
           </p>
         </div>
       )}

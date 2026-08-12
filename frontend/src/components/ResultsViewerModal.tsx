@@ -11,6 +11,10 @@ import CitationBadge from './CitationBadge';
 
 const APP_URL = 'https://app.regguardagent.com/';
 
+/** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
+const FREE_PUNCH_VISIBLE = 5;
+const FREE_FINDINGS_VISIBLE = 3;
+
 export type PunchListItemData = {
   priority: string;
   task: string;
@@ -101,13 +105,16 @@ function buildShareText(analysis: AnalysisData): string {
   const p = analysis.project_info;
   const risk = analysis.environmental_screening?.risk_level || 'N/A';
   const timeline = analysis.summary?.estimated_timeline || 'TBD';
-  const cost = analysis.summary?.estimated_total_cost;
+  const top = (analysis.punch_list?.critical_path || [])
+    .slice(0, 3)
+    .map((t, i) => `${i + 1}. ${typeof t === 'string' ? t : t.task}`)
+    .join('\n');
   return [
-    `RegGuard site diligence: ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
-    `Risk: ${risk}`,
-    `Timeline: ${timeline}`,
-    cost != null ? `Est. cost: $${Number(cost).toLocaleString()}` : '',
-    `Try RegGuard free: ${APP_URL}`,
+    `RegGuard pre-bid punch list (DFW/Austin focus): ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    `Risk: ${risk} · Timeline: ${timeline}`,
+    top ? `Top actions:\n${top}` : '',
+    'Every line is citeable or marked Unverified — forward only what you can defend.',
+    `Run your site free: ${APP_URL}`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -174,6 +181,10 @@ export default function ResultsViewerModal({
   });
   const [copied, setCopied] = useState<'link' | 'text' | 'facebook' | 'instagram' | null>(null);
   const [toast, setToast] = useState('');
+  const [shareUnlocked, setShareUnlocked] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('shareUnlocked') === '1';
+  });
 
   // Lock body scroll while modal is open so the form/map behind cannot float with page scroll
   useEffect(() => {
@@ -195,6 +206,10 @@ export default function ResultsViewerModal({
   const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
     .trim()
     .toLowerCase();
+  // Soft-lock: free sees limited lines unless they shared OR paid deep research
+  const softLocked = !isDeep && !shareUnlocked;
+  const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
+  const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
 
   const goCheckout = (tier: 'contractor_pro' | 'ic_project') => {
     // Persist site so return after payment can deepen the same lookup
@@ -220,6 +235,17 @@ export default function ResultsViewerModal({
     navigate(`/checkout/${tier}${q}`);
   };
 
+  const grantShareUnlock = () => {
+    try {
+      sessionStorage.setItem('shareUnlocked', '1');
+    } catch {
+      /* ignore */
+    }
+    setShareUnlocked(true);
+    setToast('Full free punch list unlocked — forward it to a colleague next.');
+    window.setTimeout(() => setToast(''), 4000);
+  };
+
   const toggle = (key: keyof typeof expanded) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -234,6 +260,7 @@ export default function ResultsViewerModal({
       await navigator.clipboard.writeText(shareText);
       setCopied(kind);
       window.setTimeout(() => setCopied(null), 2000);
+      grantShareUnlock();
       if (kind === 'instagram') {
         showToast('Caption copied — paste in Instagram DM or Story');
       } else if (kind === 'facebook') {
@@ -248,6 +275,7 @@ export default function ResultsViewerModal({
 
   const openWhatsApp = () => {
     window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer');
+    grantShareUnlock();
   };
 
   const openFacebook = async () => {
@@ -370,7 +398,7 @@ export default function ResultsViewerModal({
             Forward only what you can defend.
           </p>
 
-          {/* Free results → upgrade / paid → unlock deeper on this site */}
+          {/* Free results → soft-lock / share-to-unlock / paid deepen */}
           {!isDeep && (
             <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
               <div className="flex items-start gap-3 mb-3">
@@ -379,12 +407,16 @@ export default function ResultsViewerModal({
                   <h3 className="text-white font-bold text-base">
                     {canUnlockDeeper
                       ? 'You are paid — unlock deeper research on this site'
-                      : 'This is a free lookup preview'}
+                      : softLocked
+                        ? `Free preview — top ${FREE_PUNCH_VISIBLE} punch lines`
+                        : 'Full free punch list unlocked'}
                   </h3>
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
-                      ? 'Re-run with your paid email to load Contractor Pro deep scout research, richer citations, and a fuller action plan.'
-                      : 'Upgrade with this same email, then deepen these results — Contractor Pro for ongoing deep research, or IC Project for the full PDF package.'}
+                      ? 'Re-run with your paid email for Contractor Pro deep scout research and richer citations.'
+                      : softLocked
+                        ? 'Forward/share this punch list to unlock the rest for free — or upgrade for deep research + IC PDFs. Strongest citeable coverage: Dallas / Plano / Austin.'
+                        : 'Upgrade for deep scout research, full cost rollups, and IC Project PDF packages.'}
                   </p>
                 </div>
               </div>
@@ -400,19 +432,28 @@ export default function ResultsViewerModal({
                   </button>
                 ) : (
                   <>
+                    {softLocked && (
+                      <button
+                        type="button"
+                        onClick={() => void copyShareText('text')}
+                        className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
+                      >
+                        Forward punch list — unlock full free list
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => goCheckout('contractor_pro')}
                       className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
                     >
-                      Switch to Contractor Pro — $149/mo
+                      Contractor Pro — $149/mo
                     </button>
                     <button
                       type="button"
                       onClick={() => goCheckout('ic_project')}
                       className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
                     >
-                      Get IC Project Report — $1,500
+                      IC Project Report — $1,500
                     </button>
                   </>
                 )}
@@ -420,7 +461,8 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {analysis.pro_summary_markdown ? (
+          {/* Deep plan — Pro only */}
+          {isDeep && analysis.pro_summary_markdown ? (
             <section className="bg-slate-800/40 border border-emerald-500/20 rounded-lg p-4">
               <h3 className="text-sm font-bold text-emerald-300 mb-2">Deep research action plan</h3>
               <pre className="whitespace-pre-wrap text-xs text-gray-300 max-h-64 overflow-y-auto font-sans">
@@ -442,6 +484,24 @@ export default function ResultsViewerModal({
                 </div>
               )}
             </section>
+          ) : !isDeep ? (
+            <section className="relative overflow-hidden rounded-lg border border-slate-700/60 bg-slate-800/30 p-4">
+              <div className="blur-sm select-none pointer-events-none opacity-50">
+                <h3 className="text-sm font-bold text-emerald-300 mb-2">Deep research action plan</h3>
+                <p className="text-xs text-gray-400">
+                  Contractor Pro unlocks a citeable scout action plan with AHJ source links for this site…
+                </p>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
+                <button
+                  type="button"
+                  onClick={() => (canUnlockDeeper && onUnlockDeeper ? onUnlockDeeper() : goCheckout('contractor_pro'))}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  Unlock deep action plan
+                </button>
+              </div>
+            </section>
           ) : null}
 
           {/* Critical path / punch list highlights */}
@@ -460,7 +520,7 @@ export default function ResultsViewerModal({
             </button>
             {expanded.critical && (
               <div className="space-y-2">
-                {(analysis.punch_list?.critical_path || []).slice(0, 5).map((task, idx) => {
+                {(analysis.punch_list?.critical_path || []).slice(0, Math.min(5, punchVisible)).map((task, idx) => {
                   const meta = typeof task === 'string' ? { task } : task;
                   return (
                     <div key={idx} className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
@@ -478,7 +538,7 @@ export default function ResultsViewerModal({
                     </div>
                   );
                 })}
-                {(analysis.punch_list?.punch_list || []).slice(0, 8).map((item, idx) => (
+                {(analysis.punch_list?.punch_list || []).slice(0, punchVisible).map((item, idx) => (
                   <div key={`pl-${idx}`} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
                     <div className="flex justify-between gap-2 mb-1">
                       <p className="text-white text-sm font-semibold">{item.task}</p>
@@ -490,7 +550,7 @@ export default function ResultsViewerModal({
                     </div>
                     <p className="text-xs text-gray-400">
                       {item.timeline} • {item.responsible_party}
-                      {item.estimated_cost != null && item.estimated_cost > 0
+                      {!softLocked && item.estimated_cost != null && item.estimated_cost > 0
                         ? ` • $${item.estimated_cost.toLocaleString()}`
                         : ''}
                     </p>
@@ -499,15 +559,44 @@ export default function ResultsViewerModal({
                       source_label={item.source_label}
                       verified={item.verified}
                       cost_verified={item.cost_verified}
-                      estimated_cost={item.estimated_cost}
+                      estimated_cost={softLocked ? undefined : item.estimated_cost}
                     />
                   </div>
                 ))}
+                {softLocked &&
+                  ((analysis.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE ||
+                    (analysis.punch_list?.critical_path || []).length > FREE_PUNCH_VISIBLE) && (
+                    <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
+                      <p className="text-sm text-purple-100 mb-3">
+                        {Math.max(
+                          0,
+                          (analysis.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE
+                        )}{' '}
+                        more punch lines locked — forward this list or upgrade to unlock.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        <button
+                          type="button"
+                          onClick={() => void copyShareText('text')}
+                          className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+                        >
+                          Forward to unlock
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => goCheckout('contractor_pro')}
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                        >
+                          Unlock with Pro
+                        </button>
+                      </div>
+                    </div>
+                  )}
               </div>
             )}
           </section>
 
-          {/* Timeline & cost — honesty badges */}
+          {/* Timeline & cost — cost rollup soft-locked for free */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
               <h3 className="text-sm font-bold text-gray-400 mb-2">Timeline</h3>
@@ -516,17 +605,35 @@ export default function ResultsViewerModal({
               </p>
               <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
             </div>
-            <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
+            <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5 relative overflow-hidden">
               <h3 className="text-sm font-bold text-gray-400 mb-2">Estimated Cost</h3>
-              <p className="text-2xl font-black text-green-400">
-                ${(analysis.summary.estimated_total_cost || 0).toLocaleString()}
-              </p>
-              <CitationBadge
-                verified={Boolean(analysis.punch_list?.estimates_verified)}
-                cost_verified={Boolean(analysis.punch_list?.estimates_verified)}
-                estimated_cost={analysis.summary.estimated_total_cost}
-                source_label="Rollup of line items"
-              />
+              {softLocked ? (
+                <>
+                  <p className="text-2xl font-black text-green-400 blur-sm select-none">$••,•••</p>
+                  <p className="text-xs text-amber-200/90 mt-2">
+                    Full cost rollup unlocks when you forward the punch list or upgrade.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void copyShareText('text')}
+                    className="mt-3 text-sm font-bold text-emerald-300 underline"
+                  >
+                    Forward to reveal estimate
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-black text-green-400">
+                    ${(analysis.summary.estimated_total_cost || 0).toLocaleString()}
+                  </p>
+                  <CitationBadge
+                    verified={Boolean(analysis.punch_list?.estimates_verified)}
+                    cost_verified={Boolean(analysis.punch_list?.estimates_verified)}
+                    estimated_cost={analysis.summary.estimated_total_cost}
+                    source_label="Rollup of line items"
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -546,7 +653,7 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
-                {(analysis.environmental_screening.findings || []).slice(0, 8).map((finding, idx) => (
+                {(analysis.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => (
                   <div key={idx} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <h4 className="font-bold text-white capitalize">

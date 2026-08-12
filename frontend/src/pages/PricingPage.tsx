@@ -13,14 +13,32 @@ const TIERS = [
     name: 'Free Lookups',
     price: '$0',
     billing: 'Free lead magnet',
-    description: 'Screen a site with no credit card. Results open in-app.',
+    description:
+      'DFW/Austin-first punch list preview. Source or Unverified on every line. Forward to unlock more.',
     features: [
-      'Free site diligence lookup (preview)',
-      'Preliminary checklist — risk scores labeled unverified',
-      'Punch list highlights with estimate badges',
+      'Free site diligence lookup',
+      'Top punch-list actions (soft-locked preview)',
+      'Forward punch list to unlock full free list',
       'Text or email your results',
     ],
     cta: 'Try Free',
+    highlight: false,
+  },
+  {
+    key: 'partner',
+    segment: 'Partner',
+    name: 'Partner / Permit Runner',
+    price: '$79',
+    billing: 'per month',
+    description:
+      'For estimators and permit runners who screen sites for clients and share RegGuard.',
+    features: [
+      'Deep research lookups for client sites',
+      'Forwardable punch lists with your workflow',
+      'Rev-share interest on Pro / IC referrals',
+      'Email onboarding via support@regguardagent.com',
+    ],
+    cta: 'Request Partner Access',
     highlight: false,
   },
   {
@@ -29,12 +47,12 @@ const TIERS = [
     name: 'Contractor Pro',
     price: '$149',
     billing: 'per month',
-    description: 'For contractors who screen sites regularly.',
+    description: 'For contractors who screen DFW/Austin sites weekly.',
     features: [
-      'Unlimited free lookups',
-      'Full punch lists & timelines',
-      'Saved project history',
-      'Priority email support',
+      'Deep scout research on every lookup',
+      'Full punch lists, costs & action plans',
+      'Unlock deeper results after free preview',
+      'Strongest citeable coverage: Dallas / Plano / Austin',
     ],
     cta: 'Start Pro',
     highlight: true,
@@ -106,6 +124,11 @@ export default function PricingPage() {
       }, 100);
       return;
     }
+    if (tierKey === 'partner') {
+      window.location.href =
+        'mailto:support@regguardagent.com?subject=RegGuard%20Partner%20%2479%2Fmo%20access&body=I%20screen%20sites%20for%20clients%20in%20DFW%2FAustin%20and%20want%20Partner%20access.';
+      return;
+    }
     navigate(`/checkout/${tierKey}`);
   };
 
@@ -127,9 +150,10 @@ export default function PricingPage() {
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-black text-white mb-6">Plans for every segment</h1>
+          <h1 className="text-5xl font-black text-white mb-6">Plans that match how you bid</h1>
           <p className="text-xl text-gray-300">
-            Contractors, IC consultants, and sponsors — clear pricing, no hidden fees.
+            Reverse-benchmark pricing: free citeable punch list → Pro deep research → IC PDFs.
+            Beachhead: Dallas / Plano / Austin.
           </p>
         </div>
       </section>

@@ -59,26 +59,31 @@ export function PlatformDashboard() {
             RegGuard
           </p>
           <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-400 mb-3">
-            Pre-bid site diligence — in seconds
+            Pre-bid punch lists you can defend
           </h2>
           <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
-            Enter an address. RegGuard pulls local permitting rules, key state/federal flags, and a contractor punch list you can forward — no credit card.
+            Dallas · Plano · Austin first. Enter an address — get a forwardable contractor punch list
+            with a source on every line, or an honest Unverified. No credit card.
           </p>
         </div>
 
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
-            Works for commercial, industrial, data centers, solar/battery, and utility projects.
+            Built for DFW commercial, industrial, and data-center-adjacent bids — expand from there.
           </p>
         </div>
       </section>
 
       <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
-        <div className="max-w-3xl mx-auto grid sm:grid-cols-3 gap-6 text-center">
+        <div className="max-w-4xl mx-auto grid sm:grid-cols-4 gap-6 text-center">
           <div>
             <p className="text-3xl font-black text-emerald-400 mb-1">$0</p>
-            <p className="text-gray-400 text-sm">Free lookup — results in-app</p>
+            <p className="text-gray-400 text-sm">Free punch-list preview</p>
+          </div>
+          <div>
+            <p className="text-3xl font-black text-white mb-1">$79/mo</p>
+            <p className="text-gray-400 text-sm">Partner / permit runner</p>
           </div>
           <div>
             <p className="text-3xl font-black text-white mb-1">$149/mo</p>
