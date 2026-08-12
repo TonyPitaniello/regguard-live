@@ -1489,6 +1489,23 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     paid = has_paid_access(getattr(request_body, "email", None))
     research_depth = "pro" if paid else "free"
 
+    # Free monthly scan cap (paid bypasses)
+    free_quota: Optional[Dict[str, Any]] = None
+    if not paid:
+        from free_scan_quota import consume_free_scan, get_free_scan_usage
+
+        allowed, free_quota = consume_free_scan(getattr(request_body, "email", None) or "")
+        if not allowed:
+            usage = free_quota or get_free_scan_usage(getattr(request_body, "email", None) or "")
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Free scan limit reached ({usage.get('used')}/{usage.get('limit')} "
+                    f"this month). Upgrade to Partner ($79/mo) or Contractor Pro ($149/mo) "
+                    f"for deeper Universal Scout — or wait until next month."
+                ),
+            )
+
     # Step 1: Best-effort trial record + background email (never block results)
     try:
         response = await handle_free_trial(request_body)
@@ -1710,6 +1727,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "paid": paid,
         "ic_pdfs_ready": ic_pdfs_ready,
         "ic_pending": ic_pending,
+        "free_scan_quota": free_quota,
     }
 
 

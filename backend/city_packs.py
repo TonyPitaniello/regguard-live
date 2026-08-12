@@ -55,6 +55,14 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "severity": "CRITICAL",
                 "source_url": "https://www.plano.gov/269/Building-Inspections",
                 "source_label": "Plano AHJ / confirm ordinance text",
+            },
+            {
+                "id": "plano_dc_large_load",
+                "title": "Data center / large-load path",
+                "detail": "Mission-critical or large electrical load may need zoning/use confirmation + utility interconnection in parallel with building permits — not a standard trade permit only",
+                "priority": "HIGH",
+                "source_url": "https://www.plano.gov/269/Building-Inspections",
+                "source_label": "Confirm with Plano Development / Building Inspections",
             }
         ],
         "documents": [
@@ -94,6 +102,14 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "severity": "HIGH",
                 "source_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
                 "source_label": "Dallas Building Inspection",
+            },
+            {
+                "id": "dallas_dc_ercot",
+                "title": "ERCOT / TDSP large-load timing",
+                "detail": "Data center or industrial large load: treat ERCOT/TDSP interconnection studies as a parallel critical path to City of Dallas permits — schedule contingency early",
+                "priority": "CRITICAL",
+                "source_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+                "source_label": "Confirm utility + Dallas AHJ tracks",
             }
         ],
         "documents": [
@@ -141,6 +157,14 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "severity": "HIGH",
                 "source_url": "https://www.austintexas.gov/department/development-services",
                 "source_label": "Austin Design Criteria",
+            },
+            {
+                "id": "austin_dc_parallel",
+                "title": "Data center: AHJ + utility parallel tracks",
+                "detail": "Large-load / colo sites: Austin Development Services permits and utility interconnection are parallel — Bid Risk Receipt contingency should cover both, not only building fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.austintexas.gov/department/development-services",
+                "source_label": "Austin DSD + serving utility",
             },
         ],
         "documents": [

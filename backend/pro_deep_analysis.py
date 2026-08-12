@@ -253,10 +253,22 @@ async def run_pro_deep_analysis(
         if not isinstance(research_payload, dict):
             research_payload = {}
         merged = _merge_deep_into_analysis(base, research_payload)
+        try:
+            from ahj_smart_confirm import run_paid_ahj_smart_confirm
+
+            merged = run_paid_ahj_smart_confirm(
+                merged,
+                city=city,
+                state=state,
+                zip_code=zip_code,
+            )
+        except Exception as sc_err:
+            logger.warning("Paid AHJ smart confirm skipped: %s", sc_err)
         logger.info(
-            "Pro deep research merged: sources=%s punch=%s",
+            "Pro deep research merged: sources=%s punch=%s smart=%s",
             len(merged.get("pro_source_urls") or []),
             len((merged.get("punch_list") or {}).get("punch_list") or []),
+            (merged.get("smart_confirm") or {}).get("status"),
         )
         return merged
     except Exception as e:

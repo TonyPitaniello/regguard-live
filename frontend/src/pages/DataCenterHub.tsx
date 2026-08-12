@@ -136,15 +136,24 @@ export function DataCenterHub() {
           <div className="text-center space-y-6 mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-500/10 border border-indigo-500/20 rounded-full">
               <Zap className="w-4 h-4 text-indigo-400" />
-              <span className="text-sm font-medium text-indigo-300">Data Center Interconnection Platform</span>
+              <span className="text-sm font-medium text-indigo-300">
+                Essential pre-bid diligence for data center sites
+              </span>
             </div>
             
             <h1 className="text-5xl md:text-6xl font-bold text-white leading-tight">
-              Cut <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">Through Red Tape</span>
+              Reg Guard for{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400">
+                Data Centers
+              </span>
             </h1>
             
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Interconnection studies that would take 18 months? We do them in 90 days. Auto-generate compliant permits for 50+ jurisdictions. Stop fighting bureaucracy. Let AI handle compliance.
+              Data center schedules die when AHJ permits, utility interconnection, and
+              FAST-41 / large-load diligence run as separate surprises. Reg Guard is the
+              pre-bid Bid Risk Receipt: contingency band, local gotchas, and Source or
+              Unverified lines you can forward before the bid goes out — strongest citeable
+              coverage today in Dallas / Plano / Austin.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
@@ -171,16 +180,16 @@ export function DataCenterHub() {
           {/* Stats Row */}
           <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-2xl font-bold text-indigo-400">1,204+</div>
-              <div className="text-sm text-gray-400">Projects Analyzed</div>
+              <div className="text-2xl font-bold text-indigo-400">AHJ + utility</div>
+              <div className="text-sm text-gray-400">Parallel-track risk</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-400">47%</div>
-              <div className="text-sm text-gray-400">Faster Permitting</div>
+              <div className="text-2xl font-bold text-green-400">Bid Risk Receipt</div>
+              <div className="text-sm text-gray-400">Forward before bid day</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-400">90%</div>
-              <div className="text-sm text-gray-400">Compliance Rate</div>
+              <div className="text-2xl font-bold text-purple-400">DFW / Austin</div>
+              <div className="text-sm text-gray-400">Citeable beachhead</div>
             </div>
           </div>
         </div>
@@ -191,10 +200,12 @@ export function DataCenterHub() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-              🔌 Data Center Interconnection Superpowers
+              Why Reg Guard is essential on data center bids
             </h2>
             <p className="text-gray-300 max-w-2xl mx-auto">
-              Automate the hardest parts of electrical interconnection. From feasibility analysis to FERC filing.
+              Large-load schedules fail when city permits, utility interconnection, and
+              federal large-load diligence are treated as one queue. Surface the parallel
+              tracks before bid day — with Source or Unverified honesty.
             </p>
           </div>
 
