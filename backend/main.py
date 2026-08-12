@@ -4111,7 +4111,14 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Di
     from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf
 
     data, generated_for, share_url, mode = _unwrap_analysis_body(analysis_data)
-    if not data.get("fee_card") or not data.get("margin_killers"):
+    band = data.get("contingency_band") or {}
+    if (
+        not data.get("fee_card")
+        or not data.get("margin_killers")
+        or not band
+        or band.get("pct_low") is None
+        or band.get("pct_high") is None
+    ):
         data = enrich_analysis_with_arbitrage(data)
 
     api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
