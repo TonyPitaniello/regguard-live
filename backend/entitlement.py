@@ -8,6 +8,7 @@ from typing import Any, Dict, Optional, Set
 logger = logging.getLogger(__name__)
 
 PAID_TIERS: Set[str] = {
+    "partner",
     "contractor_pro",
     "ic_project",
     "ic_annual",

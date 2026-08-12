@@ -4,7 +4,8 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { Check, ArrowLeft } from 'lucide-react';
+import { Check, ArrowLeft, Download } from 'lucide-react';
+import { backendUrl } from '../env';
 
 const TIERS = [
   {
@@ -35,10 +36,10 @@ const TIERS = [
     features: [
       'Deep research lookups for client sites',
       'Forwardable punch lists with your workflow',
-      'Rev-share interest on Pro / IC referrals',
-      'Email onboarding via support@regguardagent.com',
+      'Saved Jobs + weekly email reminders',
+      'Affiliate referral link (20% commission)',
     ],
-    cta: 'Request Partner Access',
+    cta: 'Start Partner — $79/mo',
     highlight: false,
   },
   {
@@ -124,11 +125,6 @@ export default function PricingPage() {
       }, 100);
       return;
     }
-    if (tierKey === 'partner') {
-      window.location.href =
-        'mailto:support@regguardagent.com?subject=RegGuard%20Partner%20%2479%2Fmo%20access&body=I%20screen%20sites%20for%20clients%20in%20DFW%2FAustin%20and%20want%20Partner%20access.';
-      return;
-    }
     navigate(`/checkout/${tierKey}`);
   };
 
@@ -201,6 +197,33 @@ export default function PricingPage() {
               </button>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
+        <div className="max-w-3xl mx-auto text-center">
+          <h3 className="text-xl font-bold text-white mb-3">See a SAMPLE Plano punch list</h3>
+          <p className="text-gray-400 text-sm mb-6">
+            Labeled SAMPLE PDF — fictional Plano address for buyers. Not a live site report.
+          </p>
+          <a
+            href={backendUrl('/sample/plano-punch-list.pdf')}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Download className="w-4 h-4" />
+            Download SAMPLE Plano PDF
+          </a>
+          <p className="mt-4">
+            <button
+              type="button"
+              onClick={() => navigate('/affiliate')}
+              className="text-purple-300 hover:text-white text-sm font-semibold min-h-[44px]"
+            >
+              Earn 20% with a referral link →
+            </button>
+          </p>
         </div>
       </section>
 

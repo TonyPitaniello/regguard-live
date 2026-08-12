@@ -15,6 +15,23 @@ const stripePromise = loadStripe(
 );
 
 const TIERS = {
+  partner: {
+    name: 'Partner / Permit Runner',
+    segment: 'Partner',
+    price: '$79/month',
+    price_cents: 7900,
+    mode: 'subscription' as const,
+    description:
+      'For permit runners and partners screening DFW / Austin sites for clients',
+    features: [
+      'Deeper scout research on paid email',
+      'Forwardable punch lists with Source / Unverified',
+      'Saved Jobs + weekly reminders',
+      'Email support',
+    ],
+    delivery_time: 'Instant access',
+    color: 'from-teal-600 to-emerald-600',
+  },
   contractor_pro: {
     name: 'Contractor Pro',
     segment: 'Contractor',
@@ -320,6 +337,12 @@ function PaymentForm({
         `${window.location.origin}/checkout/success` +
         `?unlock=1&email=${encodeURIComponent(emailNorm)}`;
 
+      const referralCode =
+        (typeof window !== 'undefined' &&
+          (sessionStorage.getItem('referralCode') ||
+            localStorage.getItem('referralCode'))) ||
+        '';
+
       const response = await fetch(backendUrl('/checkout'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -331,6 +354,7 @@ function PaymentForm({
           name: name.trim(),
           success_url: successUrl,
           cancel_url: `${window.location.origin}/checkout/${tier}?email=${encodeURIComponent(emailNorm)}`,
+          referral_code: referralCode || undefined,
         }),
       });
 

@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import { useState, type ReactNode } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useState, type ReactNode } from 'react';
 import App from './App';
 import { DataCenterRequestForm } from './DataCenterRequestForm';
 import { SalesLeadsDashboard } from './SalesLeadsDashboard';
@@ -22,6 +22,7 @@ import PremiumCheckoutPage from './pages/PremiumCheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
+import AffiliatePage from './pages/AffiliatePage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import { backendUrl, isIcDemoEnabled } from './env';
@@ -65,6 +66,26 @@ function IcDemoDisabledPage() {
   );
 }
 
+/** Capture ?ref= into sessionStorage and ping affiliate click (once). */
+function ReferralCapture() {
+  const [params] = useSearchParams();
+  useEffect(() => {
+    const ref = (params.get('ref') || '').trim().toLowerCase();
+    if (!ref) return;
+    try {
+      sessionStorage.setItem('referralCode', ref);
+      localStorage.setItem('referralCode', ref);
+    } catch {
+      /* ignore */
+    }
+    fetch(backendUrl(`/affiliates/click?code=${encodeURIComponent(ref)}`), {
+      method: 'POST',
+    }).catch(() => undefined);
+  }, [params]);
+  return null;
+}
+
+
 export function AppRouter() {
   // Force rebuild - v4 with all critical UI/UX fixes
   console.log('✅ AppRouter rendering - Clean landing page, no sidebar on /');
@@ -83,6 +104,7 @@ export function AppRouter() {
   return (
     <Router>
       <PlatformLayout user={user} onLogout={handleLogout}>
+        <ReferralCapture />
         <OnboardingSystem />
         <VoiceCommandSystem />
         
@@ -115,6 +137,10 @@ export function AppRouter() {
 
           {/* Sample Report */}
           <Route path="/sample-report" element={<SampleReportPage />} />
+
+          {/* Affiliate */}
+          <Route path="/affiliate" element={<AffiliatePage />} />
+          <Route path="/partner" element={<AffiliatePage />} />
 
           {/* Signup/Stripe Payment Page */}
           <Route path="/signup" element={<SignupPage />} />

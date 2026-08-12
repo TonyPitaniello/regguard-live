@@ -24,6 +24,12 @@ TIER_PRICING = {
         "mode": None,
         "price_id": None,
     },
+    "partner": {
+        "name": "Partner / Permit Runner",
+        "amount_cents": 7900,
+        "mode": "subscription",
+        "price_id": os.getenv("STRIPE_PRICE_PARTNER"),
+    },
     "contractor_pro": {
         "name": "Contractor Pro",
         "amount_cents": 14900,
@@ -86,12 +92,13 @@ async def create_checkout_session(
     email: Optional[str] = None,
     name: Optional[str] = None,
     trial_id: Optional[str] = None,
+    referral_code: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a Stripe Checkout Session for the specified tier.
 
     Uses mode from tier config (`payment` vs `subscription`).
-    For payment mode without price_id, falls back to price_data with unit_amount.
+    Without price_id: one-time uses price_data; subscriptions use recurring price_data.
     """
     if not is_stripe_configured():
         raise ValueError("Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.")
@@ -109,18 +116,25 @@ async def create_checkout_session(
     try:
         tier_config = TIER_PRICING[tier]
         mode = tier_config.get("mode") or "subscription"
-        price_id = tier_config.get("price_id")
+        price_id = (tier_config.get("price_id") or "").strip() or None
         amount_cents = tier_config["amount_cents"]
 
         if price_id:
             line_items = [{"price": price_id, "quantity": 1}]
+        elif mode == "subscription":
+            # Works without Dashboard Price ID (Partner / fallback)
+            line_items = [
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "unit_amount": amount_cents,
+                        "recurring": {"interval": "month"},
+                        "product_data": {"name": tier_config["name"]},
+                    },
+                    "quantity": 1,
+                }
+            ]
         else:
-            # One-time payment (or missing price_id): use inline price_data
-            if mode == "subscription":
-                raise ValueError(
-                    f"Missing Stripe price_id for subscription tier '{tier}'. "
-                    "Set the corresponding STRIPE_PRICE_* env var."
-                )
             line_items = [
                 {
                     "price_data": {
@@ -146,6 +160,8 @@ async def create_checkout_session(
             metadata["name"] = name.strip()
         if trial_id:
             metadata["trial_id"] = trial_id
+        if referral_code:
+            metadata["referral_code"] = str(referral_code).strip().lower()[:64]
 
         create_kwargs: Dict[str, Any] = {
             "payment_method_types": ["card"],

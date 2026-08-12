@@ -43,7 +43,7 @@ if str(_BACKEND_DIR) not in sys.path:
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Body, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
@@ -232,6 +232,42 @@ class TierCheckoutRequest(BaseModel):
     name: Optional[str] = None
     success_url: Optional[str] = None
     cancel_url: Optional[str] = None
+    referral_code: Optional[str] = None
+
+
+class SaveJobRequest(BaseModel):
+    owner_email: str
+    address: str
+    city: Optional[str] = ""
+    state: Optional[str] = ""
+    zip: Optional[str] = ""
+    project_type: Optional[str] = "general"
+    owner_key: Optional[str] = None
+    job_id: Optional[str] = None
+    last_research_id: Optional[str] = None
+    share_url: Optional[str] = None
+    summary_snapshot: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = ""
+    status: Optional[str] = "active"
+
+
+class AttachResearchRequest(BaseModel):
+    research_id: str
+    share_url: Optional[str] = None
+    summary_snapshot: Optional[Dict[str, Any]] = None
+    owner_email: Optional[str] = None
+    owner_key: Optional[str] = None
+
+
+class AffiliateRegisterRequest(BaseModel):
+    email: str
+    name: Optional[str] = ""
+    code: Optional[str] = None
+
+
+class MarkCommissionPaidRequest(BaseModel):
+    commission_id: str
+
 
 
 # ========== Claude memo — Markdown Contractor Action Plan ==========
@@ -1089,6 +1125,7 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             email=body.email,
             name=body.name,
             trial_id=body.trial_id,
+            referral_code=body.referral_code,
         )
         return result
     except ValueError as e:
@@ -3633,30 +3670,6 @@ async def get_research_report_short(research_id: str) -> Dict[str, Any]:
 
 # ========== Saved Jobs (weekly habit) ==========
 
-class SaveJobRequest(BaseModel):
-    owner_email: str
-    address: str
-    city: Optional[str] = ""
-    state: Optional[str] = ""
-    zip: Optional[str] = ""
-    project_type: Optional[str] = "general"
-    owner_key: Optional[str] = None
-    job_id: Optional[str] = None
-    last_research_id: Optional[str] = None
-    share_url: Optional[str] = None
-    summary_snapshot: Optional[Dict[str, Any]] = None
-    notes: Optional[str] = ""
-    status: Optional[str] = "active"
-
-
-class AttachResearchRequest(BaseModel):
-    research_id: str
-    share_url: Optional[str] = None
-    summary_snapshot: Optional[Dict[str, Any]] = None
-    owner_email: Optional[str] = None
-    owner_key: Optional[str] = None
-
-
 @app.post("/jobs", tags=["Jobs"])
 async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
     """Create or upsert a saved job (deduped by email + address)."""
@@ -3743,6 +3756,236 @@ async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Di
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"status": "ok", "job": job}
+
+
+def _require_cron_secret(x_cron_secret: Optional[str] = None) -> None:
+    expected = (os.getenv("CRON_SECRET") or "").strip()
+    if not expected or (x_cron_secret or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
+def _require_admin_secret(x_admin_secret: Optional[str] = None) -> None:
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    if not expected or (x_admin_secret or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin secret")
+
+
+@app.post("/jobs", tags=["Jobs"])
+async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
+    """Create or upsert a saved job (deduped by email + address)."""
+    from jobs_store import upsert_job
+
+    try:
+        job = upsert_job(
+            owner_email=body.owner_email,
+            address=body.address,
+            city=body.city or "",
+            state=body.state or "",
+            zip_code=body.zip or "",
+            project_type=body.project_type or "general",
+            owner_key=body.owner_key,
+            job_id=body.job_id,
+            last_research_id=body.last_research_id,
+            share_url=body.share_url,
+            summary_snapshot=body.summary_snapshot,
+            notes=body.notes or "",
+            status=body.status or "active",
+        )
+        return {"status": "ok", "job": job}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.get("/jobs", tags=["Jobs"])
+async def list_saved_jobs(
+    email: str = "",
+    owner_key: str = "",
+    include_archived: bool = False,
+) -> Dict[str, Any]:
+    """List jobs for an email and/or owner_key (device id)."""
+    from jobs_store import list_jobs
+
+    if not email and not owner_key:
+        raise HTTPException(status_code=400, detail="email or owner_key is required")
+    jobs = list_jobs(
+        email=email or None,
+        owner_key=owner_key or None,
+        include_archived=include_archived,
+    )
+    return {"jobs": jobs, "count": len(jobs)}
+
+
+@app.get("/jobs/{job_id}", tags=["Jobs"])
+async def get_saved_job(
+    job_id: str,
+    email: str = "",
+    owner_key: str = "",
+) -> Dict[str, Any]:
+    from jobs_store import get_job
+
+    job = get_job(job_id, email=email or None, owner_key=owner_key or None)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job": job}
+
+
+@app.delete("/jobs/{job_id}", tags=["Jobs"])
+async def delete_saved_job(
+    job_id: str,
+    email: str = "",
+    owner_key: str = "",
+) -> Dict[str, Any]:
+    from jobs_store import delete_job
+
+    ok = delete_job(job_id, email=email or None, owner_key=owner_key or None)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": "deleted", "job_id": job_id}
+
+
+@app.post("/jobs/{job_id}/attach-research", tags=["Jobs"])
+async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Dict[str, Any]:
+    from jobs_store import attach_research
+
+    job = attach_research(
+        job_id,
+        research_id=body.research_id,
+        share_url=body.share_url,
+        summary_snapshot=body.summary_snapshot,
+        email=body.owner_email,
+        owner_key=body.owner_key,
+    )
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"status": "ok", "job": job}
+
+
+@app.post("/cron/weekly-job-reminders", tags=["Cron"])
+async def cron_weekly_job_reminders(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+) -> Dict[str, Any]:
+    """
+    Send weekly Saved Jobs digest emails.
+    Schedule externally (e.g. cron-job.org) → Render:
+      POST /cron/weekly-job-reminders
+      Header: X-Cron-Secret: $CRON_SECRET
+    """
+    _require_cron_secret(x_cron_secret)
+    from email_service import get_email_service
+    from jobs_store import list_emails_with_active_jobs
+
+    svc = get_email_service()
+    if not svc or not hasattr(svc, "send_weekly_job_reminder"):
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
+    grouped = list_emails_with_active_jobs()
+    sent = 0
+    failed = 0
+    for email, jobs in grouped.items():
+        try:
+            ok = await svc.send_weekly_job_reminder(email, jobs)
+            if ok:
+                sent += 1
+            else:
+                failed += 1
+        except Exception as e:
+            logger.warning("Weekly reminder failed for %s: %s", email, e)
+            failed += 1
+    return {
+        "status": "ok",
+        "recipients": len(grouped),
+        "sent": sent,
+        "failed": failed,
+    }
+
+
+@app.get("/sample/plano-punch-list.pdf", tags=["Samples"])
+async def download_sample_plano_pdf():
+    """Labeled SAMPLE Plano punch-list PDF for pricing / landing."""
+    from fastapi.responses import FileResponse
+
+    from sample_plano_pdf import generate_sample_plano_punch_pdf
+
+    path = generate_sample_plano_punch_pdf()
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="RegGuard_Plano_Punch_List_SAMPLE.pdf",
+    )
+
+
+@app.post("/affiliates/register", tags=["Affiliates"])
+async def register_affiliate_endpoint(body: AffiliateRegisterRequest) -> Dict[str, Any]:
+    from affiliate_store import frontend_referral_url, register_affiliate
+
+    try:
+        aff = register_affiliate(email=body.email, name=body.name or "", code=body.code)
+        return {
+            "status": "ok",
+            "affiliate": aff,
+            "referral_url": frontend_referral_url(aff["code"]),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/affiliates/click", tags=["Affiliates"])
+async def affiliate_click(code: str = "") -> Dict[str, Any]:
+    from affiliate_store import record_click
+
+    ok = record_click(code)
+    return {"status": "ok" if ok else "unknown", "code": (code or "").strip().lower()}
+
+
+@app.get("/affiliates/me", tags=["Affiliates"])
+async def affiliate_me(email: str = "") -> Dict[str, Any]:
+    from affiliate_store import frontend_referral_url, list_affiliates, list_commissions
+
+    email_n = (email or "").strip().lower()
+    if not email_n:
+        raise HTTPException(status_code=400, detail="email is required")
+    aff = next((a for a in list_affiliates() if a.get("email") == email_n), None)
+    if not aff:
+        raise HTTPException(status_code=404, detail="No affiliate for this email")
+    commissions = [c for c in list_commissions() if c.get("affiliate_email") == email_n]
+    unpaid = sum(int(c.get("commission_cents") or 0) for c in commissions if not c.get("paid"))
+    return {
+        "affiliate": aff,
+        "referral_url": frontend_referral_url(aff["code"]),
+        "commissions": commissions,
+        "unpaid_cents": unpaid,
+    }
+
+
+@app.get("/admin/affiliates", tags=["Admin"])
+async def admin_list_affiliates(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from affiliate_store import list_affiliates, list_commissions
+
+    return {
+        "affiliates": list_affiliates(),
+        "commissions": list_commissions(),
+        "unpaid": list_commissions(unpaid_only=True),
+    }
+
+
+@app.post("/admin/affiliates/mark-paid", tags=["Admin"])
+async def admin_mark_commission_paid(
+    body: MarkCommissionPaidRequest,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from affiliate_store import mark_commission_paid
+
+    row = mark_commission_paid(body.commission_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Commission not found")
+    return {"status": "ok", "commission": row}
+
 
 
 def _running_on_vercel() -> bool:

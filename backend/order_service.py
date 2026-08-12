@@ -25,6 +25,7 @@ _ORDERS_BY_EMAIL: Dict[str, List[str]] = {}
 
 # DB CHECK in 008_orders_table uses ic_consultant; app tiers use ic_project / ic_annual
 _TIER_DB_MAP = {
+    "partner": "partner",
     "contractor_pro": "contractor_pro",
     "ic_project": "ic_consultant",
     "ic_annual": "ic_consultant",
@@ -34,6 +35,7 @@ _TIER_DB_MAP = {
 }
 
 _TIER_AMOUNTS = {
+    "partner": 7900,
     "contractor_pro": 14900,
     "ic_project": 150000,
     "ic_annual": 1500000,
@@ -441,9 +443,11 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         "coverage_note": (
             "Strongest citeable coverage today: Dallas / Plano / Austin TX. "
             "Outside those AHJs, items may show as Unverified — confirm with the local AHJ."
-            if normalize_tier(tier) in ("ic_project", "ic_annual", "ic_consultant", "contractor_pro")
+            if normalize_tier(tier)
+            in ("ic_project", "ic_annual", "ic_consultant", "contractor_pro", "partner")
             else ""
         ),
+        "referral_code": (metadata.get("referral_code") or "").strip().lower(),
     }
     remember_order(order)
     persisted = persist_order_supabase(order)
@@ -460,6 +464,23 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         session_id,
         persisted,
     )
+
+
+    # Affiliate attribution (non-blocking)
+    ref = order.get("referral_code") or ""
+    if ref:
+        try:
+            from affiliate_store import attribute_sale
+
+            attribute_sale(
+                referral_code=ref,
+                order_id=order["order_id"],
+                customer_email=email,
+                amount_cents=int(order.get("amount") or 0),
+                tier=order.get("tier") or "",
+            )
+        except Exception as aff_err:
+            logger.warning("Affiliate attribution failed: %s", aff_err)
 
     # IC: email next-step so buyers don't stall on "preparing"
     if email and normalize_tier(order["tier"]) in ("ic_project", "ic_annual", "ic_consultant"):

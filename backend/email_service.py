@@ -8,8 +8,6 @@ import logging
 import traceback
 from typing import Optional
 
-from report_email import build_forwardable_result_html
-
 logger = logging.getLogger(__name__)
 
 
@@ -51,6 +49,50 @@ class EmailService:
     ) -> bool:
         """Tell IC buyer the next step after payment (run site lookup)."""
         raise NotImplementedError
+
+    async def send_weekly_job_reminder(
+        self,
+        to_email: str,
+        jobs: list,
+    ) -> bool:
+        """Weekly Saved Jobs digest — nudge to re-run or bid."""
+        raise NotImplementedError
+
+    def _build_weekly_jobs_html(self, jobs: list) -> str:
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        rows = ""
+        for j in (jobs or [])[:15]:
+            addr = j.get("address") or "Saved site"
+            city = j.get("city") or ""
+            state = j.get("state") or ""
+            loc = f"{city}, {state}".strip(", ")
+            share = j.get("share_url") or f"{app_url}/"
+            rows += (
+                f'<li style="margin:10px 0;color:#333;font-size:14px;">'
+                f'<strong>{addr}</strong>'
+                f'{(" — " + loc) if loc else ""}'
+                f' · <a href="{share}" style="color:#1d4ed8;">Open</a></li>'
+            )
+        if not rows:
+            rows = "<li style='color:#666;'>No active saved jobs — run a free lookup to start.</li>"
+        return f"""
+<!DOCTYPE html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Your Saved Jobs this week</h1>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      Quick reminder from Reg Guard — re-run a lookup before you bid, or share the punch list with your GC.
+    </p>
+    <ul style="padding-left:18px;">{rows}</ul>
+    <p style="margin:20px 0;">
+      <a href="{app_url}/jobs" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        View Saved Jobs
+      </a>
+    </p>
+    <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com · Unsubscribe: reply STOP</p>
+  </div>
+</body></html>
+"""
 
     def _build_ic_next_step_html(self, order_id: str, download_token: str, to_email: str = "") -> str:
         from urllib.parse import quote
@@ -199,19 +241,18 @@ class SendGridEmailService(EmailService):
                         </td>
                     </tr>
                     
-                    <!-- CTA — honest pricing (never $15k for free-trial memo) -->
+                    <!-- CTA -->
                     <tr>
                         <td style="padding: 0 30px 30px 30px; text-align: center;">
-                            <div style="background: #f8fafc; padding: 25px; border-radius: 6px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                            <div style="background: linear-gradient(135deg, #f0f7ff 0%, #f3e8ff 100%); padding: 25px; border-radius: 6px; margin: 20px 0;">
                                 <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1f2937;">
-                                    Open your results in the app
+                                    Ready for the Complete Report?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    Contractor Pro is <strong>$149/mo</strong> for ongoing citeable pre-bid punch lists.
-                                    IC Project Report is <strong>$1,500</strong> one-time — not a $15,000 free-trial upsell.
+                                    The premium report includes actionable punch list, complete permit package, and full environmental assessment.
                                 </p>
-                                <a href="https://app.regguardagent.com/?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
-                                    Open RegGuard
+                                <a href="https://app.regguardagent.com/order?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                                    Upgrade Now ($15,000)
                                 </a>
                             </div>
                         </td>
@@ -221,7 +262,7 @@ class SendGridEmailService(EmailService):
                     <tr style="border-top: 1px solid #e5e7eb;">
                         <td style="padding: 20px 30px; text-align: center; font-size: 12px; color: #888;">
                             <p style="margin: 0;">Questions? Reply to this email or contact <strong>support@regguardagent.com</strong></p>
-                            <p style="margin: 5px 0 0 0;">RegGuard © 2026 · Confirm fees with the AHJ before bidding</p>
+                            <p style="margin: 5px 0 0 0;">RegGuard © 2026</p>
                         </td>
                     </tr>
                 </table>
@@ -237,22 +278,24 @@ class SendGridEmailService(EmailService):
         return f"""{research_memo}
 
 ───────────────────────────────────────────────────────────────
-OPEN RESULTS + PRICING
+UPGRADE TO FULL REPORT ($15,000)
 ───────────────────────────────────────────────────────────────
 
-Open the app: https://app.regguardagent.com/?trial={trial_id}
-Contractor Pro: $149/mo · IC Project Report: $1,500 one-time
-(Free-trial memos are not a $15,000 upgrade funnel.)
+This memo gives you research direction. The premium report includes:
+✓ Actionable punch list (what to do)
+✓ Complete permit package (ready to file)
+✓ Full environmental assessment
+✓ Professional formatting
 
-Confirm every fee with the AHJ before bidding.
+Ready? Get your complete analysis:
+https://app.regguardagent.com/order?trial={trial_id}
+
+Questions? Reply to this email.
 
 RegGuard © 2026
 """
 
     def _build_result_html_email(self, research_data: dict) -> str:
-        """Build forwardable HTML: full punch list + sources + share link."""
-        return build_forwardable_result_html(research_data)
-        # legacy template below kept for reference / unreachable
         """Build professional HTML email for research result delivery"""
         project_info = research_data.get("project_info", {})
         summary = research_data.get("summary", {})
@@ -269,28 +312,6 @@ RegGuard © 2026
         total_cost = summary.get("estimated_total_cost", 0)
         timeline = summary.get("estimated_timeline", "")
         total_items = summary.get("total_punch_list_items", 0)
-        honesty = research_data.get("honesty") or {}
-        unverified = (
-            research_data.get("preview")
-            or summary.get("estimates_unverified")
-            or not honesty.get("cost_verified")
-        )
-        risk_verified = honesty.get("risk_verified") is True
-        cost_label = "Est. Total Cost (unverified)" if unverified else "Est. Total Cost"
-        timeline_label = "Timeline (unverified)" if unverified else "Timeline"
-        honesty_banner = ""
-        if unverified or not risk_verified:
-            honesty_banner = (
-                '<tr><td style="padding: 16px 30px; background: #fff7ed; border-bottom: 1px solid #fed7aa;">'
-                '<p style="margin: 0; font-size: 13px; color: #9a3412; line-height: 1.5;">'
-                '<strong>Preview / unverified estimates.</strong> '
-                'Environmental risk scores are not parcel-verified GIS data. '
-                'Dollar and day figures are not AHJ quotes — confirm before bidding.'
-                '</p></td></tr>'
-            )
-        risk_items_label = "High Risk Items" if risk_verified else "Risk score"
-        risk_items_value = high_risk if risk_verified else "Unavailable"
-        risk_items_color = "#dc2626" if risk_verified else "#9a3412"
 
         return f"""
 <!DOCTYPE html>
@@ -323,7 +344,6 @@ RegGuard © 2026
                         </td>
                     </tr>
                     
-                    {honesty_banner}
                     <!-- Risk Summary -->
                     <tr>
                         <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
@@ -335,17 +355,17 @@ RegGuard © 2026
                                         <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
                                     </td>
                                     <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
-                                        <span style="font-size: 13px; color: {risk_items_color};">{risk_items_label}</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: {risk_items_color}; font-weight: 600;">{risk_items_value}</p>
+                                        <span style="font-size: 13px; color: #dc2626;">High Risk Items</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #dc2626; font-weight: 600;">{high_risk}</p>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 12px 0;">
-                                        <span style="font-size: 13px; color: #6b7280;">{timeline_label}</span>
+                                        <span style="font-size: 13px; color: #6b7280;">Timeline</span>
                                         <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
                                     </td>
                                     <td style="padding: 12px 0 0 20px; text-align: right;">
-                                        <span style="font-size: 13px; color: #6b7280;">{cost_label}</span>
+                                        <span style="font-size: 13px; color: #6b7280;">Est. Total Cost</span>
                                         <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
                                     </td>
                                 </tr>
@@ -487,6 +507,22 @@ RegGuard © 2026
             logger.error("SendGrid send_ic_next_step failed: %s", e)
             return False
 
+    async def send_weekly_job_reminder(self, to_email: str, jobs: list) -> bool:
+        if not self.sg or not self.Mail:
+            return False
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject="Reg Guard — your Saved Jobs this week",
+                html_content=self._build_weekly_jobs_html(jobs),
+            )
+            response = self.sg.send(message)
+            return 200 <= response.status_code < 300
+        except Exception as e:
+            logger.error("SendGrid weekly job reminder failed: %s", e)
+            return False
+
 
 class ResendEmailService(EmailService):
     """Resend email service (alternative to SendGrid)"""
@@ -556,19 +592,18 @@ class ResendEmailService(EmailService):
                         </td>
                     </tr>
                     
-                    <!-- CTA — honest pricing (never $15k for free-trial memo) -->
+                    <!-- CTA -->
                     <tr>
                         <td style="padding: 0 30px 30px 30px; text-align: center;">
-                            <div style="background: #f8fafc; padding: 25px; border-radius: 6px; margin: 20px 0; border: 1px solid #e2e8f0;">
+                            <div style="background: linear-gradient(135deg, #f0f7ff 0%, #f3e8ff 100%); padding: 25px; border-radius: 6px; margin: 20px 0;">
                                 <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1f2937;">
-                                    Open your results in the app
+                                    Ready for the Complete Report?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    Contractor Pro is <strong>$149/mo</strong> for ongoing citeable pre-bid punch lists.
-                                    IC Project Report is <strong>$1,500</strong> one-time — not a $15,000 free-trial upsell.
+                                    The premium report includes actionable punch list, complete permit package, and full environmental assessment.
                                 </p>
-                                <a href="https://app.regguardagent.com/?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
-                                    Open RegGuard
+                                <a href="https://app.regguardagent.com/order?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
+                                    Upgrade Now ($15,000)
                                 </a>
                             </div>
                         </td>
@@ -578,7 +613,7 @@ class ResendEmailService(EmailService):
                     <tr style="border-top: 1px solid #e5e7eb;">
                         <td style="padding: 20px 30px; text-align: center; font-size: 12px; color: #888;">
                             <p style="margin: 0;">Questions? Reply to this email or contact <strong>support@regguardagent.com</strong></p>
-                            <p style="margin: 5px 0 0 0;">RegGuard © 2026 · Confirm fees with the AHJ before bidding</p>
+                            <p style="margin: 5px 0 0 0;">RegGuard © 2026</p>
                         </td>
                     </tr>
                 </table>
@@ -666,6 +701,21 @@ class ResendEmailService(EmailService):
             logger.error("Resend send_ic_next_step failed: %s", e)
             return False
 
+    async def send_weekly_job_reminder(self, to_email: str, jobs: list) -> bool:
+        if not self.resend:
+            return False
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": "Reg Guard — your Saved Jobs this week",
+                "html": self._build_weekly_jobs_html(jobs),
+            })
+            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+        except Exception as e:
+            logger.error("Resend weekly job reminder failed: %s", e)
+            return False
+
     async def send_research_result(
         self,
         to_email: str,
@@ -709,9 +759,6 @@ class ResendEmailService(EmailService):
             raise
 
     def _build_result_html_email(self, research_data: dict) -> str:
-        """Build forwardable HTML: full punch list + sources + share link."""
-        return build_forwardable_result_html(research_data)
-        # legacy template below kept for reference / unreachable
         """Build professional HTML email for research result delivery"""
         project_info = research_data.get("project_info", {})
         summary = research_data.get("summary", {})
@@ -727,28 +774,6 @@ class ResendEmailService(EmailService):
         total_cost = summary.get("estimated_total_cost", 0)
         timeline = summary.get("estimated_timeline", "")
         total_items = summary.get("total_punch_list_items", 0)
-        honesty = research_data.get("honesty") or {}
-        unverified = (
-            research_data.get("preview")
-            or summary.get("estimates_unverified")
-            or not honesty.get("cost_verified")
-        )
-        risk_verified = honesty.get("risk_verified") is True
-        cost_label = "Est. Total Cost (unverified)" if unverified else "Est. Total Cost"
-        timeline_label = "Timeline (unverified)" if unverified else "Timeline"
-        honesty_banner = ""
-        if unverified or not risk_verified:
-            honesty_banner = (
-                '<tr><td style="padding: 16px 30px; background: #fff7ed; border-bottom: 1px solid #fed7aa;">'
-                '<p style="margin: 0; font-size: 13px; color: #9a3412; line-height: 1.5;">'
-                '<strong>Preview / unverified estimates.</strong> '
-                'Environmental risk scores are not parcel-verified GIS data. '
-                'Dollar and day figures are not AHJ quotes — confirm before bidding.'
-                '</p></td></tr>'
-            )
-        risk_items_label = "High Risk Items" if risk_verified else "Risk score"
-        risk_items_value = high_risk if risk_verified else "Unavailable"
-        risk_items_color = "#dc2626" if risk_verified else "#9a3412"
 
         return f"""
 <!DOCTYPE html>
@@ -781,7 +806,6 @@ class ResendEmailService(EmailService):
                         </td>
                     </tr>
                     
-                    {honesty_banner}
                     <!-- Risk Summary -->
                     <tr>
                         <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
@@ -793,17 +817,17 @@ class ResendEmailService(EmailService):
                                         <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
                                     </td>
                                     <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
-                                        <span style="font-size: 13px; color: {risk_items_color};">{risk_items_label}</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: {risk_items_color}; font-weight: 600;">{risk_items_value}</p>
+                                        <span style="font-size: 13px; color: #dc2626;">High Risk Items</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #dc2626; font-weight: 600;">{high_risk}</p>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style="padding: 12px 0;">
-                                        <span style="font-size: 13px; color: #6b7280;">{timeline_label}</span>
+                                        <span style="font-size: 13px; color: #6b7280;">Timeline</span>
                                         <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
                                     </td>
                                     <td style="padding: 12px 0 0 20px; text-align: right;">
-                                        <span style="font-size: 13px; color: #6b7280;">{cost_label}</span>
+                                        <span style="font-size: 13px; color: #6b7280;">Est. Total Cost</span>
                                         <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
                                     </td>
                                 </tr>

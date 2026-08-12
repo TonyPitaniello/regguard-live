@@ -139,6 +139,27 @@ export function PlatformDashboard() {
             >
               Pricing
             </button>
+            <button
+              type="button"
+              onClick={() => navigate('/sample-report')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Sample PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/affiliate')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Affiliates
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/jobs')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Saved Jobs
+            </button>
             <a
               href="mailto:hello@regguard.com"
               className="text-purple-400 hover:text-purple-300 transition inline-flex items-center min-h-[44px]"

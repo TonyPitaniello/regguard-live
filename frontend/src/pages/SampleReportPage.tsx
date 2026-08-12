@@ -4,7 +4,8 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Download } from 'lucide-react';
+import { backendUrl } from '../env';
 
 export default function SampleReportPage() {
   const navigate = useNavigate();
@@ -25,8 +26,20 @@ export default function SampleReportPage() {
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl font-black text-white mb-6">Sample Report</h1>
-          <p className="text-xl text-gray-300">
+          <p className="text-xl text-gray-300 mb-6">
             Here's a real anonymized RegGuard report. This is exactly what you'll receive when you order.
+          </p>
+          <a
+            href={backendUrl('/sample/plano-punch-list.pdf')}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition min-h-[44px]"
+          >
+            <Download className="w-4 h-4" />
+            Download SAMPLE Plano punch list (PDF)
+          </a>
+          <p className="text-gray-500 text-sm mt-3">
+            Labeled SAMPLE — fictional Plano address for buyers. Not a live diligence deliverable.
           </p>
         </div>
       </section>

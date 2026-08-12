@@ -382,6 +382,28 @@ def delete_job(job_id: str, *, email: Optional[str] = None, owner_key: Optional[
     return True
 
 
+
+def list_emails_with_active_jobs() -> Dict[str, List[Dict[str, Any]]]:
+    """Group active saved jobs by owner email (local index) for weekly digests."""
+    _load_index()
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for email, ids in list(_INDEX.items()):
+        email_n = _norm_email(email)
+        if not email_n:
+            continue
+        jobs: List[Dict[str, Any]] = []
+        for jid in ids:
+            job = _read_job(jid)
+            if not job:
+                continue
+            if (job.get("status") or "active") == "archived":
+                continue
+            jobs.append(job)
+        if jobs:
+            out[email_n] = jobs
+    return out
+
+
 def attach_research(
     job_id: str,
     *,
