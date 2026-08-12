@@ -28,6 +28,7 @@ import AffiliatePage from './pages/AffiliatePage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
+import PwaInstallBanner from './components/PwaInstallBanner';
 import { backendUrl, isIcDemoEnabled } from './env';
 import './router-layout.css';
 
@@ -110,6 +111,7 @@ export function AppRouter() {
         <ReferralCapture />
         <OnboardingSystem />
         <VoiceCommandSystem />
+        <PwaInstallBanner />
         
         <Routes>
           {/* Home Dashboard */}
