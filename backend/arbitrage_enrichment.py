@@ -70,6 +70,100 @@ def _extract_fees_from_punch(items: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return out[:8]
 
 
+def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[str, Any]]:
+    """
+    Top bid-risk killers for the 1-page Bid Risk Receipt / share text.
+    Prefer curated gotchas, then Critical/High punch, then fee extracts.
+    """
+    killers: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    def _add(
+        title: str,
+        detail: str,
+        *,
+        kind: str,
+        priority: str = "NOTE",
+        verified: bool = False,
+        source_url: Optional[str] = None,
+        source_label: Optional[str] = None,
+    ) -> None:
+        key = (title or "")[:60].lower()
+        if not title or key in seen or len(killers) >= limit:
+            return
+        seen.add(key)
+        killers.append(
+            {
+                "title": str(title)[:120],
+                "detail": str(detail or "")[:200],
+                "kind": kind,
+                "priority": str(priority or "NOTE").upper(),
+                "verified": bool(verified) and bool(source_url),
+                "source_url": source_url,
+                "source_label": source_label
+                or ("Source" if verified and source_url else "Unverified"),
+            }
+        )
+
+    gotchas = (analysis.get("gotcha_watchlist") or {}).get("items") or []
+    # CRITICAL gotchas first, then any remaining by listed order
+    for g in sorted(
+        [x for x in gotchas if isinstance(x, dict)],
+        key=lambda x: 0 if str(x.get("priority") or "").upper() == "CRITICAL" else 1,
+    ):
+        _add(
+            str(g.get("title") or ""),
+            str(g.get("detail") or ""),
+            kind="gotcha",
+            priority=str(g.get("priority") or "HIGH"),
+            verified=bool(g.get("source_url")),
+            source_url=g.get("source_url"),
+            source_label=g.get("source_label"),
+        )
+
+    items = _punch_items(analysis)
+    for pri in ("CRITICAL", "HIGH"):
+        for it in items:
+            if str(it.get("priority") or "").upper() != pri:
+                continue
+            _add(
+                str(it.get("task") or "")[:120],
+                str(it.get("notes") or it.get("timeline") or "Confirm before bid"),
+                kind="punch",
+                priority=pri,
+                verified=bool(it.get("verified")) and bool(it.get("source_url")),
+                source_url=it.get("source_url"),
+                source_label=it.get("source_label"),
+            )
+
+    for row in (analysis.get("fee_card") or {}).get("fees") or []:
+        if not isinstance(row, dict):
+            continue
+        amt = row.get("amount_usd")
+        amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "TBD"
+        label = str(row.get("label") or "Fee")
+        _add(
+            f"Fee risk: {label[:90]}",
+            f"{amt_s} — {str(row.get('detail') or 'Confirm on AHJ schedule')[:120]}",
+            kind="fee",
+            priority="HIGH",
+            verified=bool(row.get("verified")) and bool(row.get("source_url")),
+            source_url=row.get("source_url"),
+            source_label=row.get("source_label"),
+        )
+
+    if not killers:
+        ahj = analysis.get("ahj_card") or {}
+        _add(
+            "Confirm fees, forms, and timeline with AHJ before bid",
+            f"{ahj.get('name') or 'Local AHJ'} — no high-confidence killers extracted yet.",
+            kind="fallback",
+            priority="NOTE",
+            verified=False,
+        )
+    return killers[:limit]
+
+
 def _build_contingency(
     crit: int,
     high: int,
@@ -179,6 +273,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     out["contingency_band"] = _build_contingency(crit, high, unverified, est)
+    out["margin_killers"] = build_margin_killers(out, limit=3)
 
     # Snapshot for job recheck diffs
     out["arbitrage_snapshot"] = {
@@ -191,6 +286,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "pack_key": pack.get("pack_key"),
         "timeline": str(timeline)[:120],
         "estimated_total_cost": est or None,
+        "killer_titles": [str(k.get("title") or "")[:80] for k in out["margin_killers"]],
     }
 
     logger.info(

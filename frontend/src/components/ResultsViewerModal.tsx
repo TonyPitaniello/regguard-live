@@ -134,6 +134,16 @@ export interface AnalysisData {
     disclaimer?: string;
     drivers?: { critical_items?: number; high_items?: number; unverified_items?: number };
   };
+  /** Top 3 margin killers for Bid Risk Receipt / share text */
+  margin_killers?: Array<{
+    title?: string;
+    detail?: string;
+    kind?: string;
+    priority?: string;
+    verified?: boolean;
+    source_url?: string | null;
+    source_label?: string | null;
+  }>;
   recheck_diff?: {
     change_count?: number;
     changes?: string[];
@@ -157,20 +167,58 @@ interface ResultsViewerModalProps {
   unlockLoading?: boolean;
 }
 
-function buildShareText(analysis: AnalysisData): string {
+function freeRunUrl(): string {
+  try {
+    const ref =
+      sessionStorage.getItem('affiliateCode') ||
+      sessionStorage.getItem('referralCode') ||
+      localStorage.getItem('referralCode');
+    if (ref) return `${APP_URL}?ref=${encodeURIComponent(ref)}&utm_source=bid_receipt`;
+  } catch {
+    /* ignore */
+  }
+  return `${APP_URL}?utm_source=bid_receipt`;
+}
+
+/** Default share object: Bid Risk Receipt text (contingency + 3 killers + CTA). */
+function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
   const p = analysis.project_info;
-  const risk = analysis.environmental_screening?.risk_level || 'N/A';
-  const timeline = analysis.summary?.estimated_timeline || 'TBD';
-  const top = (analysis.punch_list?.critical_path || [])
+  const ahj = analysis.ahj_card?.name || 'Local AHJ';
+  const band = analysis.contingency_band;
+  const killers =
+    analysis.margin_killers && analysis.margin_killers.length > 0
+      ? analysis.margin_killers
+      : (analysis.punch_list?.critical_path || []).slice(0, 3).map((t) => ({
+          title: typeof t === 'string' ? t : t.task,
+          detail: '',
+          priority: 'HIGH',
+          verified: false,
+        }));
+
+  const bandLine =
+    band?.pct_low != null && band?.pct_high != null
+      ? `Contingency band: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%) — planning aid, not a quote`
+      : `Timeline: ${analysis.summary?.estimated_timeline || 'Confirm with AHJ'}`;
+
+  const killerLines = killers
     .slice(0, 3)
-    .map((t, i) => `${i + 1}. ${typeof t === 'string' ? t : t.task}`)
+    .map((k, i) => {
+      const ver = k.verified && k.source_url ? 'Source' : 'Unverified';
+      const pri = (k.priority || 'NOTE').toUpperCase();
+      return `${i + 1}. [${pri}] [${ver}] ${k.title || 'Item'}`;
+    })
     .join('\n');
+
+  const who = (generatedFor || '').trim();
   return [
-    `RegGuard pre-bid punch list (DFW/Austin focus): ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
-    `Risk: ${risk} · Timeline: ${timeline}`,
-    top ? `Top actions:\n${top}` : '',
-    'Every line is citeable or marked Unverified — forward only what you can defend.',
-    `Run your site free: ${APP_URL}`,
+    `Reg Guard BID RISK RECEIPT`,
+    `Site: ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    `AHJ: ${ahj}`,
+    bandLine,
+    killerLines ? `Top margin killers:\n${killerLines}` : '',
+    who ? `Generated for: ${who}` : '',
+    `Re-check before bid. Forward this receipt — then run YOUR address free:`,
+    freeRunUrl(),
   ]
     .filter(Boolean)
     .join('\n');
@@ -265,30 +313,62 @@ export default function ResultsViewerModal({
 
   const summary = buildSummaryFromAnalysis(view);
   const effectiveResearchId = researchId || view.research_id || null;
-  const shareText = buildShareText(view);
-  const depth = (view.research_depth || '').toLowerCase();
-  const isDeep = depth === 'pro' || depth === 'pro_partial';
   const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
     .trim()
     .toLowerCase();
+  const shareText = buildShareText(view, emailForCheckout);
+  const depth = (view.research_depth || '').toLowerCase();
+  const isDeep = depth === 'pro' || depth === 'pro_partial';
   // Soft-lock: free sees limited lines unless they shared OR paid deep research
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
 
-  const downloadBidPacket = async () => {
+  const downloadBidReceipt = async () => {
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/bid-receipt/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis_data: view,
+          generated_for: emailForCheckout || undefined,
+          share_url: freeRunUrl(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Bid Risk Receipt failed');
+      if (data.download_url) {
+        window.open(data.download_url, '_blank', 'noopener,noreferrer');
+        setToast('Bid Risk Receipt PDF ready — forward it');
+        try {
+          sessionStorage.setItem('shareUnlocked', '1');
+        } catch {
+          /* ignore */
+        }
+        setShareUnlocked(true);
+      }
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Bid Risk Receipt failed');
+    } finally {
+      setPacketLoading(false);
+      window.setTimeout(() => setToast(''), 3500);
+    }
+  };
+
+  const downloadBidPacketFull = async () => {
     setPacketLoading(true);
     try {
       const res = await fetch(backendUrl('/bid-packet/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(view),
+        body: JSON.stringify({ analysis_data: view, mode: 'full' }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Bid packet failed');
       if (data.download_url) {
         window.open(data.download_url, '_blank', 'noopener,noreferrer');
-        setToast('Bid packet PDF ready');
+        setToast('Full bid packet PDF ready');
       }
     } catch (err) {
       setToast(err instanceof Error ? err.message : 'Bid packet failed');
@@ -368,7 +448,7 @@ export default function ResultsViewerModal({
       /* ignore */
     }
     setShareUnlocked(true);
-    setToast('Full free punch list unlocked — forward it to a colleague next.');
+    setToast('Full free punch list unlocked — forward the Bid Risk Receipt next.');
     window.setTimeout(() => setToast(''), 4000);
   };
 
@@ -466,11 +546,23 @@ export default function ResultsViewerModal({
           />
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-purple-300/90 mb-2 flex items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-2 flex items-center gap-2">
               <Share2 className="w-3.5 h-3.5" />
-              Share results
+              Share Bid Risk Receipt
+            </p>
+            <p className="text-xs text-gray-400 mb-2">
+              Default share object: contingency band + top 3 margin killers + free-run CTA.
             </p>
             <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void downloadBidReceipt()}
+                disabled={packetLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" />
+                {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+              </button>
               <button
                 type="button"
                 onClick={openWhatsApp}
@@ -498,7 +590,7 @@ export default function ResultsViewerModal({
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-200 text-sm font-semibold hover:bg-purple-500/20 transition"
               >
                 {copied === 'text' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copied === 'text' ? 'Copied' : 'Copy'}
+                {copied === 'text' ? 'Copied receipt' : 'Copy receipt'}
               </button>
               <button
                 type="button"
@@ -541,7 +633,7 @@ export default function ResultsViewerModal({
                     {canUnlockDeeper
                       ? 'Re-run with your paid email for Contractor Pro deep scout research and richer citations.'
                       : softLocked
-                        ? 'Forward/share this punch list to unlock the rest for free — or upgrade for deep research + IC PDFs. Strongest citeable coverage: Dallas / Plano / Austin.'
+                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for deep research + IC PDFs. Strongest citeable coverage: Dallas / Plano / Austin.'
                         : 'Upgrade for deep scout research, full cost rollups, and IC Project PDF packages.'}
                   </p>
                 </div>
@@ -561,10 +653,20 @@ export default function ResultsViewerModal({
                     {softLocked && (
                       <button
                         type="button"
+                        onClick={() => void downloadBidReceipt()}
+                        disabled={packetLoading}
+                        className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
+                      >
+                        {packetLoading ? 'Building receipt…' : 'Forward Bid Risk Receipt — unlock full free list'}
+                      </button>
+                    )}
+                    {softLocked && (
+                      <button
+                        type="button"
                         onClick={() => void copyShareText('text')}
                         className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
                       >
-                        Forward punch list — unlock full free list
+                        Copy receipt text
                       </button>
                     )}
                     <button
@@ -740,15 +842,23 @@ export default function ResultsViewerModal({
                           0,
                           (view.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE
                         )}{' '}
-                        more punch lines locked — forward this list or upgrade to unlock.
+                        more punch lines locked — forward the Bid Risk Receipt or upgrade to unlock.
                       </p>
                       <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        <button
+                          type="button"
+                          onClick={() => void downloadBidReceipt()}
+                          disabled={packetLoading}
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
+                        >
+                          {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
+                        </button>
                         <button
                           type="button"
                           onClick={() => void copyShareText('text')}
                           className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
                         >
-                          Forward to unlock
+                          Copy receipt text
                         </button>
                         <button
                           type="button"
@@ -805,6 +915,62 @@ export default function ResultsViewerModal({
             </div>
           </div>
 
+          {/* Bid Risk Receipt preview — default forwardable artifact */}
+          {(view.contingency_band || (view.margin_killers && view.margin_killers.length > 0)) && (
+            <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
+                    Bid Risk Receipt
+                  </p>
+                  <h3 className="text-lg font-bold text-white mt-0.5">
+                    Contingency + top 3 margin killers
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Forwardable one-pager. Stamp: re-check before bid.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void downloadBidReceipt()}
+                  disabled={packetLoading}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 shrink-0"
+                >
+                  <Download className="w-4 h-4" />
+                  {packetLoading ? 'Building…' : 'Export Receipt PDF'}
+                </button>
+              </div>
+              {view.contingency_band && (
+                <p className="text-2xl font-black text-emerald-400 mb-3">
+                  +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
+                  <span className="text-sm font-semibold text-gray-300 ml-2">
+                    mid {view.contingency_band.pct_mid}%
+                  </span>
+                </p>
+              )}
+              <ol className="space-y-2 list-decimal pl-5">
+                {(view.margin_killers || []).slice(0, 3).map((k, i) => (
+                  <li key={`${k.title}-${i}`} className="text-sm text-gray-200">
+                    <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                      {k.priority || 'NOTE'}
+                    </span>
+                    <span className="text-white font-medium">{k.title}</span>
+                    {k.detail && <p className="text-gray-400 text-xs mt-0.5">{k.detail}</p>}
+                    <CitationBadge
+                      verified={Boolean(k.verified && k.source_url)}
+                      source_url={k.source_url}
+                      source_label={k.source_label || 'Unverified'}
+                    />
+                  </li>
+                ))}
+              </ol>
+              <p className="text-xs text-gray-500 mt-3">
+                Generated for {emailForCheckout || 'this lookup'} · Run your site:{' '}
+                <span className="text-emerald-300">{freeRunUrl()}</span>
+              </p>
+            </section>
+          )}
+
           {/* Bid-time arbitrage layer */}
           {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) && (
             <section className="space-y-3">
@@ -813,12 +979,20 @@ export default function ResultsViewerModal({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => void downloadBidPacket()}
+                    onClick={() => void downloadBidReceipt()}
                     disabled={packetLoading}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
                   >
                     <Download className="w-4 h-4" />
-                    {packetLoading ? 'Building…' : 'Export bid packet PDF'}
+                    {packetLoading ? 'Building…' : 'Export Receipt PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidPacketFull()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-slate-500/50 text-white text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+                  >
+                    Full packet
                   </button>
                   <button
                     type="button"

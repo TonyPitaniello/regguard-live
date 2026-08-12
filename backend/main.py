@@ -269,7 +269,6 @@ class MarkCommissionPaidRequest(BaseModel):
     commission_id: str
 
 
-
 # ========== Claude memo — Markdown Contractor Action Plan ==========
 # Digest: ``research_memo.build_research_digest``. Scout query construction + data fence: ``scraper.py``.
 _CONTRACTOR_ACTION_PLAN_SYSTEM = """You are Reg Guard's **field punch list** writer for licensed electrical contractors.
@@ -1077,16 +1076,10 @@ def debug_routes() -> Dict[str, Any]:
 @app.get("/debug/config")
 def debug_config() -> Dict[str, Any]:
     """Debug endpoint: Check environment & startup state."""
-    route_paths = [getattr(r, "path", "") or "" for r in app.routes]
     return {
         "app_instance": str(type(app).__name__),
-        "has_research_route": any("/research" in p for p in route_paths),
-        "has_payment_route": any("/auth" in p for p in route_paths),
-        "has_send_email_route": any(p.endswith("/research/send-email") for p in route_paths),
-        "has_send_sms_route": any(p.endswith("/research/send-sms") for p in route_paths),
-        "has_jobs_route": any(p == "/jobs" or p.startswith("/jobs/") for p in route_paths),
-        "route_count": len(route_paths),
-        "git_sha": (os.getenv("RENDER_GIT_COMMIT") or os.getenv("REG_GUARD_GIT_SHA") or "")[:12],
+        "has_research_route": any("/research" in str(r) for r in app.routes),
+        "has_payment_route": any("/auth" in str(r) for r in app.routes),
         "environment_vars_loaded": {
             "firecrawl": bool(os.getenv("FIRECRAWL_API_KEY")),
             "stripe_secret": bool(os.getenv("STRIPE_SECRET_KEY")),
@@ -1096,7 +1089,6 @@ def debug_config() -> Dict[str, Any]:
             "sendgrid": bool(os.getenv("SENDGRID_API_KEY")),
             "resend": bool(os.getenv("RESEND_API_KEY")),
             "gemini": bool(os.getenv("GEMINI_API_KEY")),
-            "twilio": bool(os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN")),
         }
     }
 
@@ -1569,29 +1561,6 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             zip_code=getattr(request_body, "zip", None) or "",
         )
 
-    # Honesty safety net: free-trial never returns confident stub risk scores
-    from honesty import apply_honesty_layer
-    from research_store import save_research
-
-    if not (analysis.get("honesty") or {}).get("risk_verified"):
-        analysis = apply_honesty_layer(
-            analysis,
-            source=analysis.get("honesty", {}).get("source") or ("option_a" if analysis.get("preview") else "preview"),
-            risk_verified=False,
-            cost_verified=bool((analysis.get("honesty") or {}).get("cost_verified")),
-            timeline_verified=bool((analysis.get("honesty") or {}).get("timeline_verified")),
-        )
-
-    # Persist so shareable /r/{id} works even if the client never calls /research/persist
-    research_id = trial_id or analysis.get("research_id") or analysis.get("timestamp", "preview")
-    try:
-        meta = save_research(analysis, research_id=str(research_id))
-        analysis["research_id"] = meta["research_id"]
-        analysis["share_url"] = meta["share_url"]
-        research_id = meta["research_id"]
-    except Exception as persist_err:
-        logger.warning(f"Free-trial persist failed (non-blocking): {persist_err}")
-
     # Bid-time arbitrage cards (fees, AHJ, gotchas, docs, contingency)
     try:
         from arbitrage_enrichment import enrich_analysis_with_arbitrage
@@ -1606,32 +1575,45 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     try:
         from jobs_store import upsert_job
 
-        project = analysis.get("project_info") or {}
-        summary = analysis.get("summary") or {}
-        email = getattr(request_body, "email", None) or ""
-        if email and (project.get("address") or request_body.address):
+        project = (analysis.get("project_info") or {}) if isinstance(analysis, dict) else {}
+        summary = (analysis.get("summary") or {}) if isinstance(analysis, dict) else {}
+        email_for_job = getattr(request_body, "email", None) or ""
+        addr = project.get("address") or getattr(request_body, "address", None)
+        if email_for_job and addr:
+            snap = analysis.get("arbitrage_snapshot") if analysis else None
             job = upsert_job(
-                owner_email=str(email),
-                address=str(project.get("address") or request_body.address),
+                owner_email=str(email_for_job),
+                address=str(addr),
                 city=str(project.get("city") or ""),
                 state=str(project.get("state") or ""),
-                zip_code=str(project.get("zip") or getattr(request_body, "zip", "") or ""),
-                project_type=str(project.get("type") or request_body.project_type or "general"),
-                last_research_id=str(research_id),
-                share_url=analysis.get("share_url"),
+                zip_code=str(
+                    project.get("zip") or getattr(request_body, "zip", "") or ""
+                ),
+                project_type=str(
+                    project.get("type") or request_body.project_type or "general"
+                ),
+                last_research_id=str(
+                    trial_id or (analysis.get("research_id") if analysis else "") or ""
+                ),
+                share_url=(analysis.get("share_url") if analysis else None),
                 summary_snapshot={
                     "estimated_timeline": summary.get("estimated_timeline"),
                     "estimated_total_cost": summary.get("estimated_total_cost"),
-                    "risk_level": (analysis.get("environmental_screening") or {}).get("risk_level"),
-                    "preview": bool(analysis.get("preview")),
+                    "risk_level": (analysis.get("environmental_screening") or {}).get(
+                        "risk_level"
+                    )
+                    if analysis
+                    else None,
+                    "preview": bool(analysis.get("preview")) if analysis else True,
                     "punch_count": summary.get("total_punch_list_items"),
-                    "arbitrage_snapshot": (analysis.get("arbitrage_snapshot") if analysis else None) or {},
+                    "arbitrage_snapshot": snap or {},
                 },
             )
             job_id = job.get("id")
-            analysis["job_id"] = job_id
+            if isinstance(analysis, dict):
+                analysis["job_id"] = job_id
     except Exception as job_err:
-        logger.warning(f"Free-trial auto-save job failed (non-blocking): {job_err}")
+        logger.warning("Free-trial auto-save job failed (non-blocking): %s", job_err)
 
     # IC Project: only after deep research + explicit generate_ic_report opt-in
     ic_pdfs_ready = False
@@ -1689,13 +1671,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "status": status,
         "message": message,
         "analysis_data": analysis,
-        "research_id": research_id,
-        "share_url": analysis.get("share_url"),
-        "job_id": job_id,
+        "research_id": trial_id or analysis.get("timestamp", "preview"),
         "research_depth": research_depth,
         "paid": paid,
         "ic_pdfs_ready": ic_pdfs_ready,
         "ic_pending": ic_pending,
+        "job_id": job_id,
     }
 
 
@@ -2859,47 +2840,7 @@ def _iter_research_sse_events(ctx: Dict[str, Any]) -> Iterator[str]:
                 return
 
             raw = final_raw
-            # Dallas Open Data attach when AHJ is City of Dallas
-            try:
-                jblob_od = raw.get("jurisdiction") if isinstance(raw.get("jurisdiction"), dict) else {}
-                city_for_od = str(jblob_od.get("city") or raw.get("city") or "")
-                state_for_od = str(jblob_od.get("state") or raw.get("state") or "")
-                if city_for_od.strip().lower() == "dallas" and state_for_od.strip().upper() in ("TX", "TEXAS", ""):
-                    from dallas_open_data import fetch_dallas_commercial_permits
-
-                    addr_hint = str(raw.get("site_address") or raw.get("address") or "")
-                    dallas_od = fetch_dallas_commercial_permits(address_hint=addr_hint)
-                    raw["dallas_open_data"] = dallas_od
-                    yield _safe_sse_data_frame(
-                        {
-                            "event": "dallas_open_data",
-                            "source": dallas_od.get("source"),
-                            "count": dallas_od.get("count"),
-                            "socrata_url": dallas_od.get("socrata_url"),
-                        }
-                    )
-            except Exception as od_err:
-                logger.warning(f"Dallas Open Data attach skipped: {od_err}")
-
             source_urls = filter_source_urls(_collect_source_urls(raw))
-            try:
-                from ahj_catalog import citation_urls, lookup_ahj
-
-                jblob = raw.get("jurisdiction") if isinstance(raw.get("jurisdiction"), dict) else {}
-                ahj = lookup_ahj(
-                    str(jblob.get("city") or raw.get("city") or ""),
-                    str(jblob.get("state") or raw.get("state") or ""),
-                    str(zip_for_scout or ""),
-                )
-                if ahj:
-                    for u in citation_urls(ahj):
-                        if u not in source_urls:
-                            source_urls.append(u)
-                od_url = (raw.get("dallas_open_data") or {}).get("socrata_url")
-                if od_url and od_url not in source_urls:
-                    source_urls.append(od_url)
-            except Exception as cite_err:
-                logger.warning(f"AHJ citation merge skipped: {cite_err}")
             try:
                 save_scout_snapshot(str(raw.get("zip") or zip_for_scout), raw)
             except (ValueError, OSError) as ex:
@@ -3342,18 +3283,14 @@ class ResearchDeliverySummary(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     risk_level: Optional[str] = None
-    risk_unavailable: Optional[bool] = None
     timeline: Optional[str] = None
     cost: Optional[float] = None
     address: Optional[str] = None
-    estimates_unverified: Optional[bool] = None
-    preview: Optional[bool] = None
 
 
 class SendSmsRequest(BaseModel):
     phone_number: str
     summary: Optional[ResearchDeliverySummary] = None
-    analysis: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
     research_id: Optional[str] = None
 
@@ -3362,27 +3299,17 @@ class SendEmailRequest(BaseModel):
     email: Optional[str] = None
     email_address: Optional[str] = None
     summary: Optional[ResearchDeliverySummary] = None
-    analysis: Optional[Dict[str, Any]] = None
     user_id: Optional[str] = None
     research_id: Optional[str] = None
 
 
 def _research_data_from_summary(summary: ResearchDeliverySummary) -> Dict[str, Any]:
     """Convert a free-trial summary payload into delivery-service research_data shape."""
-    from honesty import apply_honesty_layer, UNAVAILABLE
-
-    unverified = bool(summary.estimates_unverified or summary.preview or summary.risk_unavailable)
-    risk_raw = (summary.risk_level or "").upper()
-    if summary.risk_unavailable or unverified or risk_raw in ("", "UNKNOWN", UNAVAILABLE, "PRELIMINARY"):
-        risk = UNAVAILABLE
-        high_risk = 0
-    else:
-        risk = risk_raw
-        high_risk = 1 if risk in ("HIGH", "CRITICAL") else 0
+    risk = (summary.risk_level or "UNKNOWN").upper()
+    high_risk = 1 if risk in ("HIGH", "CRITICAL") else 0
     cost = float(summary.cost or 0)
     timeline = summary.timeline or "TBD"
-    payload = {
-        "preview": bool(summary.preview or unverified),
+    return {
         "project_info": {
             "zip": summary.zip or "",
             "city": summary.city or "",
@@ -3395,63 +3322,33 @@ def _research_data_from_summary(summary: ResearchDeliverySummary) -> Dict[str, A
             "estimated_timeline": timeline,
             "total_environmental_risks": high_risk,
             "total_punch_list_items": 0,
-            "estimates_unverified": unverified,
         },
         "punch_list": {
             "punch_list": [],
             "critical_path": [],
             "estimated_total_cost": cost,
             "timeline_summary": timeline,
-            "estimates_unverified": unverified,
         },
         "environmental_screening": {
             "risk_level": risk,
             "findings": [],
-            "risk_score_hidden": risk == UNAVAILABLE,
         },
     }
-    if unverified or risk == UNAVAILABLE:
-        return apply_honesty_layer(
-            payload,
-            source="delivery_summary",
-            risk_verified=False,
-            cost_verified=False,
-            timeline_verified=False,
-        )
-    return payload
 
 
 def _resolve_research_data(
     research_id: Optional[str],
     summary: Optional[ResearchDeliverySummary],
-    analysis: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Prefer full analysis (persist it), then stored report, then lightweight summary."""
-    from research_store import save_research, share_url_for
-
-    if analysis and isinstance(analysis, dict):
-        meta = save_research(analysis, research_id=research_id or analysis.get("research_id"))
-        data = dict(analysis)
-        data["research_id"] = meta["research_id"]
-        data["share_url"] = meta["share_url"]
-        return data
-
+    if summary is not None:
+        return _research_data_from_summary(summary)
     if research_id:
         stored = _get_research_data(research_id)
         if stored:
-            stored.setdefault("share_url", share_url_for(research_id))
             return stored
-
-    if summary is not None:
-        data = _research_data_from_summary(summary)
-        if research_id:
-            data["research_id"] = research_id
-            data["share_url"] = share_url_for(research_id)
-        return data
-
     raise HTTPException(
         status_code=404,
-        detail="Research result not found. Provide analysis or summary for free-trial delivery.",
+        detail="Research result not found. Provide a summary payload for free-trial delivery.",
     )
 
 
@@ -3467,7 +3364,7 @@ async def send_result_sms_standalone(
     try:
         user_id = body.user_id or request.headers.get("X-User-ID") or "anonymous"
         research_id = body.research_id or f"ephemeral-{user_id}"
-        research_data = _resolve_research_data(body.research_id, body.summary, body.analysis)
+        research_data = _resolve_research_data(body.research_id, body.summary)
 
         from result_delivery_service import get_delivery_service
         delivery_service = get_delivery_service(db_pool=None)
@@ -3514,7 +3411,7 @@ async def send_result_email_standalone(
 
         user_id = body.user_id or request.headers.get("X-User-ID") or "anonymous"
         research_id = body.research_id or f"ephemeral-{user_id}"
-        research_data = _resolve_research_data(body.research_id, body.summary, body.analysis)
+        research_data = _resolve_research_data(body.research_id, body.summary)
 
         from result_delivery_service import get_delivery_service
         delivery_service = get_delivery_service(db_pool=None)
@@ -3566,8 +3463,7 @@ async def send_result_sms(
         user_id = body.get("user_id") or request.headers.get("X-User-ID") or "anonymous"
         summary_raw = body.get("summary")
         summary = ResearchDeliverySummary(**summary_raw) if isinstance(summary_raw, dict) else None
-        analysis = body.get("analysis") if isinstance(body.get("analysis"), dict) else None
-        research_data = _resolve_research_data(research_id, summary, analysis)
+        research_data = _resolve_research_data(research_id, summary)
 
         from result_delivery_service import get_delivery_service
         delivery_service = get_delivery_service(db_pool=None)
@@ -3617,8 +3513,7 @@ async def send_result_email(
         user_id = body.get("user_id") or request.headers.get("X-User-ID") or "anonymous"
         summary_raw = body.get("summary")
         summary = ResearchDeliverySummary(**summary_raw) if isinstance(summary_raw, dict) else None
-        analysis = body.get("analysis") if isinstance(body.get("analysis"), dict) else None
-        research_data = _resolve_research_data(research_id, summary, analysis)
+        research_data = _resolve_research_data(research_id, summary)
 
         from result_delivery_service import get_delivery_service
         delivery_service = get_delivery_service(db_pool=None)
@@ -3653,149 +3548,13 @@ async def send_result_email(
 
 
 def _get_research_data(research_id: str) -> Optional[Dict[str, Any]]:
-    """Fetch persisted research analysis by ID (local store + optional Supabase)."""
-    try:
-        from research_store import get_analysis
-
-        return get_analysis(research_id)
-    except Exception as e:
-        logger.warning(f"_get_research_data failed for {research_id}: {e}")
-        return None
-
-
-class PersistResearchRequest(BaseModel):
-    analysis: Dict[str, Any]
-    research_id: Optional[str] = None
-
-
-@app.post("/research/persist", tags=["Results"])
-async def persist_research_report(body: PersistResearchRequest) -> Dict[str, Any]:
     """
-    Persist free-trial / research analysis and return a shareable /r/{id} URL.
-    Safe to call repeatedly for the same research_id (upsert).
+    Fetch research data by ID.
+    In production, this would query the database.
+    For now, returns mock data or None.
     """
-    from research_store import save_research
-
-    if not body.analysis or not isinstance(body.analysis, dict):
-        raise HTTPException(status_code=400, detail="analysis object is required")
-    meta = save_research(body.analysis, research_id=body.research_id)
-    return {"status": "ok", **meta}
-
-
-@app.get("/research/{research_id}/report", tags=["Results"])
-async def get_research_report(research_id: str) -> Dict[str, Any]:
-    """Public JSON for shareable report page /r/{id}."""
-    from research_store import extract_sources, get_research, share_url_for
-
-    record = get_research(research_id)
-    if not record:
-        raise HTTPException(status_code=404, detail="Report not found or expired")
-    analysis = record.get("analysis") or {}
-    return {
-        "research_id": record["id"],
-        "share_url": record.get("share_url") or share_url_for(record["id"]),
-        "created_at": record.get("created_at"),
-        "expires_at": record.get("expires_at"),
-        "preview": record.get("preview"),
-        "analysis": analysis,
-        "sources": extract_sources(analysis),
-    }
-
-
-@app.get("/r/{research_id}", tags=["Results"])
-async def get_research_report_short(research_id: str) -> Dict[str, Any]:
-    """Alias for /research/{id}/report (API clients / curl). Frontend uses SPA /r/:id."""
-    return await get_research_report(research_id)
-
-
-# ========== Saved Jobs (weekly habit) ==========
-
-@app.post("/jobs", tags=["Jobs"])
-async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
-    """Create or upsert a saved job (deduped by email + address)."""
-    from jobs_store import upsert_job
-
-    try:
-        job = upsert_job(
-            owner_email=body.owner_email,
-            address=body.address,
-            city=body.city or "",
-            state=body.state or "",
-            zip_code=body.zip or "",
-            project_type=body.project_type or "general",
-            owner_key=body.owner_key,
-            job_id=body.job_id,
-            last_research_id=body.last_research_id,
-            share_url=body.share_url,
-            summary_snapshot=body.summary_snapshot,
-            notes=body.notes or "",
-            status=body.status or "active",
-        )
-        return {"status": "ok", "job": job}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-
-
-@app.get("/jobs", tags=["Jobs"])
-async def list_saved_jobs(
-    email: str = "",
-    owner_key: str = "",
-    include_archived: bool = False,
-) -> Dict[str, Any]:
-    """List jobs for an email and/or owner_key (device id)."""
-    from jobs_store import list_jobs
-
-    if not email and not owner_key:
-        raise HTTPException(status_code=400, detail="email or owner_key is required")
-    jobs = list_jobs(email=email or None, owner_key=owner_key or None, include_archived=include_archived)
-    return {"jobs": jobs, "count": len(jobs)}
-
-
-@app.get("/jobs/{job_id}", tags=["Jobs"])
-async def get_saved_job(
-    job_id: str,
-    email: str = "",
-    owner_key: str = "",
-) -> Dict[str, Any]:
-    from jobs_store import get_job
-
-    job = get_job(job_id, email=email or None, owner_key=owner_key or None)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job": job}
-
-
-@app.delete("/jobs/{job_id}", tags=["Jobs"])
-async def delete_saved_job(
-    job_id: str,
-    email: str = "",
-    owner_key: str = "",
-) -> Dict[str, Any]:
-    from jobs_store import delete_job
-
-    ok = delete_job(job_id, email=email or None, owner_key=owner_key or None)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"status": "deleted", "job_id": job_id}
-
-
-@app.post("/jobs/{job_id}/attach-research", tags=["Jobs"])
-async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Dict[str, Any]:
-    from jobs_store import attach_research
-
-    job = attach_research(
-        job_id,
-        research_id=body.research_id,
-        share_url=body.share_url,
-        summary_snapshot=body.summary_snapshot,
-        email=body.owner_email,
-        owner_key=body.owner_key,
-    )
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"status": "ok", "job": job}
+    # TODO: Implement database query
+    return None
 
 
 def _require_cron_secret(x_cron_secret: Optional[str] = None) -> None:
@@ -4010,27 +3769,102 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
 
 
 _BID_PACKET_CACHE: Dict[str, str] = {}
+_BID_RECEIPT_CACHE: Dict[str, str] = {}
+
+
+def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
+    """Return (analysis_dict, generated_for, share_url, mode)."""
+    data = body if isinstance(body, dict) else {}
+    generated_for = data.get("generated_for") or data.get("email") or None
+    share_url = data.get("share_url") or None
+    mode = str(data.get("mode") or "receipt").lower().strip()
+    if "analysis_data" in data and isinstance(data["analysis_data"], dict):
+        data = data["analysis_data"]
+    return data, generated_for, share_url, mode
+
+
+@app.post("/bid-receipt/pdf", tags=["Samples"])
+async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """
+    Generate the 1-page Bid Risk Receipt (default forwardable share object):
+    contingency band + top 3 margin killers + share CTA.
+    """
+    from arbitrage_enrichment import enrich_analysis_with_arbitrage
+    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf
+
+    data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    if not data.get("fee_card") or not data.get("margin_killers"):
+        data = enrich_analysis_with_arbitrage(data)
+    path = generate_bid_risk_receipt_pdf(
+        data,
+        generated_for=str(generated_for) if generated_for else None,
+        share_url=str(share_url) if share_url else None,
+    )
+    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+    _BID_RECEIPT_CACHE[token] = path
+    api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
+    return {
+        "status": "ok",
+        "download_url": f"{api}/bid-receipt/pdf/{token}",
+        "filename": "RegGuard_Bid_Risk_Receipt.pdf",
+        "artifact": "bid_risk_receipt",
+    }
+
+
+@app.get("/bid-receipt/pdf/{token}", tags=["Samples"])
+async def download_bid_receipt_pdf(token: str):
+    from fastapi.responses import FileResponse
+
+    path = _BID_RECEIPT_CACHE.get((token or "").strip())
+    if not path or not os.path.isfile(path):
+        raise HTTPException(
+            status_code=404, detail="Bid Risk Receipt expired or not found — regenerate"
+        )
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="RegGuard_Bid_Risk_Receipt.pdf",
+    )
 
 
 @app.post("/bid-packet/pdf", tags=["Samples"])
 async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
-    """Generate a forwardable bid packet PDF from analysis (enriched if needed)."""
+    """
+    Generate a forwardable PDF. Default mode=receipt (1-page Bid Risk Receipt).
+    Pass mode=full for the longer bid packet (fees, docs, full punch).
+    """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
     from bid_packet_pdf import generate_bid_packet_pdf
+    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf
 
-    data = analysis_data if isinstance(analysis_data, dict) else {}
-    if "analysis_data" in data and isinstance(data["analysis_data"], dict):
-        data = data["analysis_data"]
-    if not data.get("fee_card"):
+    data, generated_for, share_url, mode = _unwrap_analysis_body(analysis_data)
+    if not data.get("fee_card") or not data.get("margin_killers"):
         data = enrich_analysis_with_arbitrage(data)
-    path = generate_bid_packet_pdf(data)
-    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-    _BID_PACKET_CACHE[token] = path
+
     api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
+    if mode in ("full", "packet", "bid_packet"):
+        path = generate_bid_packet_pdf(data)
+        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+        _BID_PACKET_CACHE[token] = path
+        return {
+            "status": "ok",
+            "download_url": f"{api}/bid-packet/pdf/{token}",
+            "filename": "RegGuard_Bid_Packet.pdf",
+            "artifact": "bid_packet",
+        }
+
+    path = generate_bid_risk_receipt_pdf(
+        data,
+        generated_for=str(generated_for) if generated_for else None,
+        share_url=str(share_url) if share_url else None,
+    )
+    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+    _BID_RECEIPT_CACHE[token] = path
     return {
         "status": "ok",
-        "download_url": f"{api}/bid-packet/pdf/{token}",
-        "filename": "RegGuard_Bid_Packet.pdf",
+        "download_url": f"{api}/bid-receipt/pdf/{token}",
+        "filename": "RegGuard_Bid_Risk_Receipt.pdf",
+        "artifact": "bid_risk_receipt",
     }
 
 
@@ -4038,13 +3872,20 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Di
 async def download_bid_packet_pdf(token: str):
     from fastapi.responses import FileResponse
 
-    path = _BID_PACKET_CACHE.get((token or "").strip())
+    path = _BID_PACKET_CACHE.get((token or "").strip()) or _BID_RECEIPT_CACHE.get(
+        (token or "").strip()
+    )
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Bid packet expired or not found — regenerate")
+    name = (
+        "RegGuard_Bid_Risk_Receipt.pdf"
+        if "bid_receipt" in path
+        else "RegGuard_Bid_Packet.pdf"
+    )
     return FileResponse(
         path,
         media_type="application/pdf",
-        filename="RegGuard_Bid_Packet.pdf",
+        filename=name,
     )
 
 
@@ -4206,7 +4047,6 @@ async def admin_mark_commission_paid(
     if not row:
         raise HTTPException(status_code=404, detail="Commission not found")
     return {"status": "ok", "commission": row}
-
 
 
 def _running_on_vercel() -> bool:
