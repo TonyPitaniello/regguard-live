@@ -159,21 +159,23 @@ export function DataCenterHub() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
               <button
                 onClick={() => {
-                  // Scroll to free trial form
                   const element = document.getElementById('free-trial-form');
                   if (element) {
                     element.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   } else {
-                    window.location.href = '/free-trial';
+                    window.location.href = '/data-center#free-trial-form';
                   }
                 }}
                 className="px-8 py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2"
               >
-                Start Free Trial <ArrowRight className="w-4 h-4" />
+                Run free DC site lookup <ArrowRight className="w-4 h-4" />
               </button>
-              <button className="px-8 py-3 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 font-semibold rounded-lg transition">
-                Schedule Demo
-              </button>
+              <a
+                href="/checkout/ic_project"
+                className="px-8 py-3 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 font-semibold rounded-lg transition text-center"
+              >
+                IC Project — $1,500
+              </a>
             </div>
           </div>
 

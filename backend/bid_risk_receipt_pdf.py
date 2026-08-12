@@ -141,14 +141,41 @@ def generate_bid_risk_receipt_pdf(
         line(f"{i}. [{pri}] [{ver}] {title}", 9, True)
         if detail:
             line(f"   {detail}", 8, False, (70, 70, 70))
+        pe = k.get("planning_exposure") or {}
+        if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+            line(
+                f"   Planning exposure: ~${int(pe.get('usd_low') or 0):,} - "
+                f"${int(pe.get('usd_high') or 0):,} "
+                f"(mid ${int(pe.get('usd_mid') or 0):,}) — NOT guaranteed savings",
+                7,
+                False,
+                (90, 90, 90),
+            )
+    exp = analysis_data.get("planning_exposure_summary") or {}
+    if exp.get("usd_mid_total"):
+        line(
+            f"Sum of killer planning mids: ~${int(exp['usd_mid_total']):,} "
+            "(heuristic rollup — not a savings claim)",
+            8,
+            False,
+            (90, 90, 90),
+        )
     pdf.ln(2)
+
+    dc = analysis_data.get("dc_positioning") or {}
+    if dc.get("headline"):
+        line("DATA CENTER / LARGE-LOAD NOTE", 10, True, (20, 90, 70))
+        line(_ascii(str(dc.get("headline"))), 9, True)
+        line(_ascii(str(dc.get("pitch") or "")), 8)
+        pdf.ln(1)
 
     line("STAMP", 10, True, (20, 90, 70))
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
     line(
         f"Generated for: {who}\n"
         f"Date: {stamp_date} UTC\n"
-        "Re-check this site before bid — fees and portal asks move.",
+        "Re-check this site before bid — fees and portal asks move.\n"
+        "Planning exposure is not guaranteed savings.",
         9,
     )
     pdf.ln(2)

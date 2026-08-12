@@ -70,13 +70,135 @@ def _extract_fees_from_punch(items: List[Dict[str, Any]]) -> List[Dict[str, Any]
     return out[:8]
 
 
+def _project_is_data_center(analysis: Dict[str, Any]) -> bool:
+    pi = analysis.get("project_info") or {}
+    t = str(pi.get("type") or "").strip().lower().replace(" ", "_").replace("-", "_")
+    return t in (
+        "data_center",
+        "datacenter",
+        "dc",
+        "colocation",
+        "colo",
+        "ai_crypto_compute",
+    )
+
+
+def _planning_exposure_for_killer(
+    *,
+    title: str,
+    detail: str,
+    kind: str,
+    priority: str,
+    fee_amount: Optional[float] = None,
+    estimated_total: float = 0.0,
+    is_dc: bool = False,
+) -> Dict[str, Any]:
+    """
+    Honest planning exposure band for bid discussion — NOT guaranteed savings.
+    Prefer real fee $ when present; otherwise conservative priority heuristics.
+    """
+    disclaimer = (
+        "Planning exposure only — not a quote and not guaranteed savings. "
+        "Use for contingency talk; confirm fees/schedule with AHJ and utility."
+    )
+    pri = (priority or "NOTE").upper()
+    blob = f"{title} {detail}".lower()
+
+    # 1) Known fee extract → exposure ≈ fee itself (most honest)
+    if isinstance(fee_amount, (int, float)) and fee_amount > 0:
+        mid = int(fee_amount)
+        return {
+            "label": "Planning exposure (fee line)",
+            "usd_low": max(0, int(mid * 0.8)),
+            "usd_mid": mid,
+            "usd_high": int(mid * 1.25),
+            "basis": "fee_extract",
+            "verified": False,
+            "disclaimer": disclaimer,
+        }
+
+    # 2) DC / interconnect / large-load language on THIS killer → wider planning band
+    killer_dc = any(
+        k in blob
+        for k in (
+            "data center",
+            "large-load",
+            "large load",
+            "ercot",
+            "interconnect",
+            "tdsp",
+            "fast-41",
+            "fast 41",
+            "colo",
+            "utility interconnection",
+            "parallel track",
+            "parallel-track",
+            "mission-critical",
+            "mission critical",
+        )
+    )
+    if killer_dc and pri in ("CRITICAL", "HIGH"):
+        # Schedule miss on DC is often >> permit fee; keep labeled as planning only
+        if pri == "CRITICAL":
+            low, mid, high = 15000, 40000, 120000
+        else:
+            low, mid, high = 8000, 25000, 75000
+        # Soft-cap vs rollup if we have one
+        if estimated_total and estimated_total > 0:
+            high = min(high, int(estimated_total * 0.15))
+            mid = min(mid, int(estimated_total * 0.08))
+            low = min(low, int(estimated_total * 0.03))
+        return {
+            "label": "Planning exposure (schedule / parallel-track)",
+            "usd_low": low,
+            "usd_mid": mid,
+            "usd_high": high,
+            "basis": "dc_schedule_heuristic",
+            "verified": False,
+            "disclaimer": disclaimer
+            + " Large-load delay risk is order-of-magnitude only.",
+        }
+
+    # 3) Generic priority heuristic (trade / AHJ gotcha)
+    # Slightly wider on data-center projects for Critical only (still not savings)
+    if is_dc and pri == "CRITICAL":
+        low, mid, high = 4000, 12000, 30000
+    elif pri == "CRITICAL":
+        low, mid, high = 2500, 8000, 20000
+    elif pri == "HIGH":
+        low, mid, high = 1000, 4000, 12000
+    else:
+        low, mid, high = 500, 1500, 5000
+
+    if estimated_total and estimated_total > 0:
+        # Cap heuristics to a small slice of known rollup
+        high = min(high, max(1000, int(estimated_total * 0.08)))
+        mid = min(mid, max(500, int(estimated_total * 0.04)))
+        low = min(low, max(250, int(estimated_total * 0.015)))
+
+    return {
+        "label": "Planning exposure (heuristic)",
+        "usd_low": low,
+        "usd_mid": mid,
+        "usd_high": high,
+        "basis": "priority_heuristic",
+        "verified": False,
+        "disclaimer": disclaimer,
+    }
+
+
 def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[str, Any]]:
     """
     Top bid-risk killers for the 1-page Bid Risk Receipt / share text.
     Prefer curated gotchas, then Critical/High punch, then fee extracts.
+    For data-center projects, prefer DC / interconnect gotchas first.
     """
     killers: List[Dict[str, Any]] = []
     seen: set = set()
+    is_dc = _project_is_data_center(analysis)
+    summary = analysis.get("summary") or {}
+    punch = analysis.get("punch_list") or {}
+    est = float(summary.get("estimated_total_cost") or punch.get("estimated_total_cost") or 0)
 
     def _add(
         title: str,
@@ -87,11 +209,21 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
         verified: bool = False,
         source_url: Optional[str] = None,
         source_label: Optional[str] = None,
+        fee_amount: Optional[float] = None,
     ) -> None:
         key = (title or "")[:60].lower()
         if not title or key in seen or len(killers) >= limit:
             return
         seen.add(key)
+        exposure = _planning_exposure_for_killer(
+            title=title,
+            detail=detail or "",
+            kind=kind,
+            priority=priority,
+            fee_amount=fee_amount,
+            estimated_total=est,
+            is_dc=is_dc,
+        )
         killers.append(
             {
                 "title": str(title)[:120],
@@ -102,15 +234,29 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
                 "source_url": source_url,
                 "source_label": source_label
                 or ("Source" if verified and source_url else "Unverified"),
+                "planning_exposure": exposure,
             }
         )
 
     gotchas = (analysis.get("gotcha_watchlist") or {}).get("items") or []
-    # CRITICAL gotchas first, then any remaining by listed order
-    for g in sorted(
-        [x for x in gotchas if isinstance(x, dict)],
-        key=lambda x: 0 if str(x.get("priority") or "").upper() == "CRITICAL" else 1,
-    ):
+
+    def _gotcha_rank(g: Dict[str, Any]) -> Tuple[int, int]:
+        pri = str(g.get("priority") or "").upper()
+        pri_rank = 0 if pri == "CRITICAL" else 1 if pri == "HIGH" else 2
+        gid = str(g.get("id") or "")
+        title = str(g.get("title") or "").lower()
+        dc_boost = 0
+        if is_dc and (
+            "_dc_" in gid
+            or "data center" in title
+            or "ercot" in title
+            or "large-load" in title
+            or "interconnect" in title
+        ):
+            dc_boost = -1  # sort earlier
+        return (dc_boost, pri_rank)
+
+    for g in sorted([x for x in gotchas if isinstance(x, dict)], key=_gotcha_rank):
         _add(
             str(g.get("title") or ""),
             str(g.get("detail") or ""),
@@ -126,6 +272,9 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
         for it in items:
             if str(it.get("priority") or "").upper() != pri:
                 continue
+            fee_amt = it.get("estimated_cost")
+            if not isinstance(fee_amt, (int, float)):
+                fee_amt = None
             _add(
                 str(it.get("task") or "")[:120],
                 str(it.get("notes") or it.get("timeline") or "Confirm before bid"),
@@ -134,6 +283,7 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
                 verified=bool(it.get("verified")) and bool(it.get("source_url")),
                 source_url=it.get("source_url"),
                 source_label=it.get("source_label"),
+                fee_amount=float(fee_amt) if fee_amt else None,
             )
 
     for row in (analysis.get("fee_card") or {}).get("fees") or []:
@@ -150,6 +300,7 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
             verified=bool(row.get("verified")) and bool(row.get("source_url")),
             source_url=row.get("source_url"),
             source_label=row.get("source_label"),
+            fee_amount=float(amt) if isinstance(amt, (int, float)) else None,
         )
 
     if not killers:
@@ -275,6 +426,34 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     out["contingency_band"] = _build_contingency(crit, high, unverified, est)
     out["margin_killers"] = build_margin_killers(out, limit=3)
 
+    # Roll up planning exposure (sum of mid bands) — still not guaranteed savings
+    exp_mids = []
+    for k in out["margin_killers"]:
+        pe = (k or {}).get("planning_exposure") or {}
+        if isinstance(pe.get("usd_mid"), (int, float)):
+            exp_mids.append(int(pe["usd_mid"]))
+    out["planning_exposure_summary"] = {
+        "label": "Sum of killer planning-exposure mids",
+        "usd_mid_total": sum(exp_mids) if exp_mids else None,
+        "killer_count": len(out["margin_killers"]),
+        "verified": False,
+        "disclaimer": (
+            "Sum of heuristic planning-exposure midpoints for top killers — "
+            "not guaranteed savings and not a quote. Confirm with AHJ/utility."
+        ),
+        "data_center_mode": _project_is_data_center(out),
+    }
+    if _project_is_data_center(out):
+        out["dc_positioning"] = {
+            "headline": "Parallel-track Bid Risk Receipt for data center / large-load sites",
+            "pitch": (
+                "AHJ permits, utility interconnection, and large-load diligence often run "
+                "on separate clocks. This receipt surfaces that risk before bid — it does "
+                "not run interconnection studies or file AHJ applications."
+            ),
+            "buyer": "IC consultants, electrical PMs, GC bid leads (TX beachhead)",
+        }
+
     # Snapshot for job recheck diffs
     out["arbitrage_snapshot"] = {
         "critical": crit,
@@ -287,6 +466,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "timeline": str(timeline)[:120],
         "estimated_total_cost": est or None,
         "killer_titles": [str(k.get("title") or "")[:80] for k in out["margin_killers"]],
+        "planning_exposure_mid_total": out["planning_exposure_summary"].get("usd_mid_total"),
     }
 
     logger.info(

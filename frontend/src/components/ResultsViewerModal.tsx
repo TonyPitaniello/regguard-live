@@ -143,7 +143,29 @@ export interface AnalysisData {
     verified?: boolean;
     source_url?: string | null;
     source_label?: string | null;
+    planning_exposure?: {
+      label?: string;
+      usd_low?: number;
+      usd_mid?: number;
+      usd_high?: number;
+      basis?: string;
+      verified?: boolean;
+      disclaimer?: string;
+    };
   }>;
+  planning_exposure_summary?: {
+    label?: string;
+    usd_mid_total?: number | null;
+    killer_count?: number;
+    verified?: boolean;
+    disclaimer?: string;
+    data_center_mode?: boolean;
+  };
+  dc_positioning?: {
+    headline?: string;
+    pitch?: string;
+    buyer?: string;
+  };
   recheck_diff?: {
     change_count?: number;
     changes?: string[];
@@ -205,17 +227,36 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
     .map((k, i) => {
       const ver = k.verified && k.source_url ? 'Source' : 'Unverified';
       const pri = (k.priority || 'NOTE').toUpperCase();
-      return `${i + 1}. [${pri}] [${ver}] ${k.title || 'Item'}`;
+      const pe = k.planning_exposure;
+      const exp =
+        pe?.usd_mid != null
+          ? ` | planning exposure ~$${Number(pe.usd_low || 0).toLocaleString()}–$${Number(pe.usd_high || 0).toLocaleString()} (not guaranteed savings)`
+          : '';
+      return `${i + 1}. [${pri}] [${ver}] ${k.title || 'Item'}${exp}`;
     })
     .join('\n');
 
   const who = (generatedFor || '').trim();
+  const isDc = Boolean(
+    analysis.dc_positioning ||
+      analysis.planning_exposure_summary?.data_center_mode ||
+      /data.?center|colo/i.test(analysis.project_info?.type || '')
+  );
+  const expTotal = analysis.planning_exposure_summary?.usd_mid_total;
   return [
-    `Reg Guard BID RISK RECEIPT`,
+    isDc
+      ? `Reg Guard BID RISK RECEIPT (data center / large-load parallel tracks)`
+      : `Reg Guard BID RISK RECEIPT`,
     `Site: ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
     `AHJ: ${ahj}`,
     bandLine,
     killerLines ? `Top margin killers:\n${killerLines}` : '',
+    expTotal
+      ? `Sum of planning-exposure mids: ~$${Number(expTotal).toLocaleString()} — NOT guaranteed savings`
+      : '',
+    isDc
+      ? 'Does not run interconnection studies or file AHJ applications — pre-bid diligence stamp only.'
+      : '',
     who ? `Generated for: ${who}` : '',
     `Re-check before bid. Forward this receipt — then run YOUR address free:`,
     freeRunUrl(),
@@ -928,6 +969,9 @@ export default function ResultsViewerModal({
                   </h3>
                   <p className="text-gray-400 text-sm mt-1">
                     Forwardable one-pager. Stamp: re-check before bid.
+                    {view.dc_positioning
+                      ? ' Data center mode: AHJ + utility parallel tracks.'
+                      : ''}
                   </p>
                 </div>
                 <button
@@ -956,6 +1000,15 @@ export default function ResultsViewerModal({
                     </span>
                     <span className="text-white font-medium">{k.title}</span>
                     {k.detail && <p className="text-gray-400 text-xs mt-0.5">{k.detail}</p>}
+                    {k.planning_exposure?.usd_mid != null && (
+                      <p className="text-emerald-300/90 text-xs mt-1">
+                        Planning exposure ~$
+                        {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
+                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()}{' '}
+                        (mid ${Number(k.planning_exposure.usd_mid).toLocaleString()}) — not
+                        guaranteed savings
+                      </p>
+                    )}
                     <CitationBadge
                       verified={Boolean(k.verified && k.source_url)}
                       source_url={k.source_url}
@@ -964,6 +1017,19 @@ export default function ResultsViewerModal({
                   </li>
                 ))}
               </ol>
+              {view.planning_exposure_summary?.usd_mid_total != null && (
+                <p className="text-xs text-amber-200/90 mt-3">
+                  Sum of planning-exposure mids: ~$
+                  {Number(view.planning_exposure_summary.usd_mid_total).toLocaleString()} —{' '}
+                  {view.planning_exposure_summary.disclaimer ||
+                    'heuristic only, not guaranteed savings'}
+                </p>
+              )}
+              {view.dc_positioning?.pitch && (
+                <p className="text-xs text-indigo-200/90 mt-2 border-t border-indigo-500/20 pt-2">
+                  {view.dc_positioning.pitch}
+                </p>
+              )}
               <p className="text-xs text-gray-500 mt-3">
                 Generated for {emailForCheckout || 'this lookup'} · Run your site:{' '}
                 <span className="text-emerald-300">{freeRunUrl()}</span>

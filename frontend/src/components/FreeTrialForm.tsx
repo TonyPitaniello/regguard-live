@@ -79,14 +79,39 @@ function persistLastResearchForm(data: {
   }
 }
 
-export default function FreeTrialForm({ showHero = false }: { showHero?: boolean }) {
+export default function FreeTrialForm({
+  showHero = false,
+  defaultProjectType,
+  lockProjectType = false,
+}: {
+  showHero?: boolean;
+  /** Prefer this project type (e.g. data-center from /data-center hub) */
+  defaultProjectType?: string;
+  /** Hide selector and force defaultProjectType */
+  lockProjectType?: boolean;
+}) {
+  const urlProjectType =
+    typeof window !== 'undefined'
+      ? (new URLSearchParams(window.location.search).get('projectType') ||
+          new URLSearchParams(window.location.search).get('project_type') ||
+          '')
+          .trim()
+          .toLowerCase()
+      : '';
+  const preferredType =
+    defaultProjectType ||
+    (urlProjectType === 'data-center' || urlProjectType === 'data_center'
+      ? 'data-center'
+      : urlProjectType) ||
+    undefined;
+
   const saved = typeof window !== 'undefined' ? readLastResearchForm() : {};
   const [formData, setFormData] = useState({
     address: saved.address || '',
     city: saved.city || '',
     state: saved.state || '',
     zip: saved.zip || '',
-    projectType: saved.projectType || 'data-center',
+    projectType: preferredType || saved.projectType || 'data-center',
     email: initialEmailFromStorage() || saved.email || '',
     phone: '',
   });
@@ -495,7 +520,7 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
               value={formData.projectType}
               onChange={handleInputChange}
               className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500 text-base"
-              disabled={loading}
+              disabled={loading || lockProjectType}
             >
               <option value="data-center">Data Center</option>
               <option value="renewable">Solar / Wind / Battery</option>
@@ -504,6 +529,11 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
               <option value="utility">Utility / Substation</option>
               <option value="other">Other</option>
             </select>
+            {lockProjectType && formData.projectType === 'data-center' && (
+              <p className="text-xs text-indigo-300 mt-1">
+                Locked to Data Center for parallel-track Bid Risk Receipt (AHJ + utility).
+              </p>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-4">

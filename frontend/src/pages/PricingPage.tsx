@@ -65,11 +65,12 @@ const TIERS = [
     price: '$1,500',
     billing: 'one-time per project',
     description:
-      'Planning diligence PDF package for one site (not an official AHJ filing).',
+      'High-touch pre-bid diligence PDF package for one site — including colo / large-load parallel-track risk (not an interconnection study or AHJ filing).',
     features: [
       'Research memo (PDF)',
       'Contractor punch list (PDF)',
       'Permit package worksheet (PDF)',
+      'Bid Risk Receipt–ready killers + planning exposure (heuristic)',
       'Strongest citeable coverage: Dallas / Plano / Austin TX',
       'Generated after a confirmed site lookup',
     ],
