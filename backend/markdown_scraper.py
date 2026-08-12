@@ -40,12 +40,27 @@ def _key(url: str) -> str:
     return hashlib.sha256(url.strip().encode("utf-8")).hexdigest()
 
 
-def fetch_trusted_url_markdown(url: str, *, max_chars: int = 15_000) -> Optional[str]:
+def fetch_trusted_url_markdown(
+    url: str,
+    *,
+    max_chars: int = 15_000,
+    allow_rescrape: bool = True,
+) -> Optional[str]:
     """
     Return main-content markdown for ``url`` if it passes trust policy; otherwise ``None``.
 
     On Firecrawl or import errors, returns ``None`` (callers should tolerate miss).
+
+    Free FinOps path should pass ``allow_rescrape=False`` or keep
+    ``FREE_TRIAL_MARKDOWN_CONFIRM=0`` so free never pays for page scrapes.
+    Global kill: ``REG_GUARD_ALLOW_MARKDOWN_RESCRAPE=0``.
     """
+    if not allow_rescrape:
+        return None
+    global_flag = (os.environ.get("REG_GUARD_ALLOW_MARKDOWN_RESCRAPE") or "1").strip().lower()
+    if global_flag in ("0", "false", "no", "off"):
+        return None
+
     u = (url or "").strip()
     if not u or not url_matches_trust_policy(u):
         return None

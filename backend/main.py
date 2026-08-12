@@ -1473,10 +1473,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     and queue email in background. Never blocks the UI on email/DB failure.
     Always returns analysis_data (instant fallback if deep screen fails/times out).
 
+    Free FinOps: city pack + optional 1 allowlisted SERP confirm (no markdown rescrape,
+    no Option A 6x env searches, no Universal Scout).
     Paid emails (Contractor Pro / IC) run the deeper Universal Scout + action-plan path.
     """
     from free_trial_handler import handle_free_trial
-    from option_a_integration import run_option_a_analysis
+    from free_pack_confirm import run_free_pack_confirm
     from instant_analysis import build_instant_fallback_analysis
     from jurisdiction import geocode_profile_from_address
     from entitlement import has_paid_access
@@ -1526,21 +1528,33 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 message = "Contractor Pro deep research ready — citeable punch list in the app."
                 research_depth = analysis.get("research_depth") or "pro"
             else:
-                # Free path: shorter timeout to cap scrape/LLM COGS
-                free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "15")
+                # Free FinOps: pack + 1 allowlisted confirm; short timeout; no md rescrape
+                free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "10")
+                logger.info(
+                    "Free FinOps — pack + allowlisted confirm (timeout=%ss)",
+                    max(5.0, free_timeout),
+                )
                 analysis = await asyncio.wait_for(
-                    run_option_a_analysis(
+                    run_free_pack_confirm(
                         address=request_body.address,
                         city=profile.city,
                         state=profile.state_short,
                         zip_code=profile.zip5,
                         latitude=profile.latitude,
                         longitude=profile.longitude,
-                        project_type=request_body.project_type,
+                        project_type=request_body.project_type or "general",
                     ),
-                    timeout=max(8.0, free_timeout),
+                    timeout=max(5.0, free_timeout),
                 )
-                message = "Analysis ready — results are displayed in the app."
+                message = (
+                    "Free Bid Risk preview ready — city pack"
+                    + (
+                        " + allowlisted confirm."
+                        if (analysis or {}).get("free_confirm", {}).get("search_hits")
+                        else "."
+                    )
+                    + " Upgrade for full Universal Scout."
+                )
             status = "success"
     except asyncio.TimeoutError:
         logger.warning("Deep analysis timed out — using instant fallback")
@@ -3914,10 +3928,10 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
     """
     from arbitrage_enrichment import diff_arbitrage_snapshots, enrich_analysis_with_arbitrage
     from entitlement import has_paid_access
+    from free_pack_confirm import run_free_pack_confirm
     from instant_analysis import build_instant_fallback_analysis
     from jobs_store import get_job, upsert_job
     from jurisdiction import geocode_profile_from_address
-    from option_a_integration import run_option_a_analysis
 
     job = get_job(job_id, email=body.owner_email, owner_key=body.owner_key)
     if not job:
@@ -3945,9 +3959,9 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
                 timeout=120.0,
             )
         elif profile:
-            free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "15")
+            free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "10")
             analysis = await asyncio.wait_for(
-                run_option_a_analysis(
+                run_free_pack_confirm(
                     address=address,
                     city=profile.city,
                     state=profile.state_short,
@@ -3956,7 +3970,7 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
                     longitude=profile.longitude,
                     project_type=job.get("project_type") or "general",
                 ),
-                timeout=max(8.0, free_timeout),
+                timeout=max(5.0, free_timeout),
             )
     except Exception as e:
         logger.warning("Job recheck analysis failed: %s", e)
