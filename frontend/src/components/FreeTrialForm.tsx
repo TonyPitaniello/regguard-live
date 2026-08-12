@@ -165,6 +165,7 @@ export default function FreeTrialForm({
       state,
       zip,
     }));
+    setError('');
   };
 
   const showResults = useCallback((analysisPayload: AnalysisData, id: string, email?: string) => {
