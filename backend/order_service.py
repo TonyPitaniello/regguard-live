@@ -465,7 +465,6 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         persisted,
     )
 
-
     # Affiliate attribution (non-blocking)
     ref = order.get("referral_code") or ""
     if ref:
@@ -496,6 +495,25 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
                 )
         except Exception as e:
             logger.warning("IC next-step email failed: %s", e)
+
+    # Partner / Pro: welcome win email + schedule Day-7 habit nudge
+    tier_n = normalize_tier(order["tier"])
+    if email and tier_n in ("partner", "contractor_pro"):
+        try:
+            from email_service import get_email_service
+            from nurture_store import schedule_day7_win
+
+            svc = get_email_service()
+            if svc and hasattr(svc, "send_plan_win_email"):
+                await svc.send_plan_win_email(email, tier_n, day7=False)
+            schedule_day7_win(
+                email=email,
+                tier=tier_n,
+                order_id=order["order_id"],
+                days=7,
+            )
+        except Exception as e:
+            logger.warning("Plan win / day7 schedule failed: %s", e)
 
     return order_to_frontend(order)
 

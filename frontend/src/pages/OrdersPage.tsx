@@ -30,6 +30,8 @@ interface Order {
 
 function tierLabel(tier: string): string {
   switch ((tier || '').toLowerCase()) {
+    case 'partner':
+      return 'Partner';
     case 'contractor_pro':
       return 'Contractor Pro';
     case 'ic_project':
@@ -260,6 +262,36 @@ export default function OrdersPage() {
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
             >
               Run site lookup
+            </a>
+          </div>
+        )}
+
+        {orders.some((o) => (o.tier || '').toLowerCase() === 'partner') &&
+          !orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-lg mb-8">
+              <p className="text-emerald-100 text-sm">
+                On Partner? Upgrade to Contractor Pro ($149/mo) if you run your own bid-week sites.
+              </p>
+              <a
+                href={`/checkout/contractor_pro${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+              >
+                Upgrade to Pro
+              </a>
+            </div>
+          )}
+
+        {orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-teal-500/10 border border-teal-500/25 rounded-lg mb-8">
+            <p className="text-teal-100 text-sm">
+              Prefer a lighter plan? Switch to Partner ($79/mo) for client screening — cancel Pro in
+              Stripe email receipts if you already subscribed, then start Partner here.
+            </p>
+            <a
+              href={`/checkout/partner${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
+              className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+            >
+              Switch to Partner $79
             </a>
           </div>
         )}

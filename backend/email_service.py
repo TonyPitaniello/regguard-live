@@ -58,6 +58,79 @@ class EmailService:
         """Weekly Saved Jobs digest — nudge to re-run or bid."""
         raise NotImplementedError
 
+    async def send_plan_win_email(
+        self,
+        to_email: str,
+        tier: str,
+        *,
+        day7: bool = False,
+    ) -> bool:
+        """Welcome (day 0) or Day-7 win email for Partner / Pro."""
+        raise NotImplementedError
+
+    def _build_plan_win_html(self, tier: str, *, day7: bool = False) -> str:
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        tier_l = (tier or "").strip().lower()
+        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        if day7:
+            subject_line = f"Week 1 with {name} — save every site you bid"
+            body = f"""
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Bid week habit check</h1>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      You're on <strong>{name}</strong>. Pros who stick save every site they bid this week,
+      re-run before submit, and forward only lines with a Source (or clearly mark Unverified).
+    </p>
+    <ul style="color:#333;font-size:14px;line-height:1.6;">
+      <li>Open Saved Jobs and confirm this week's sites are listed</li>
+      <li>Re-run any site that changed scope or AHJ</li>
+      <li>Strongest citeable coverage: Dallas / Plano / Austin</li>
+    </ul>
+    <p style="margin:20px 0;">
+      <a href="{app_url}/jobs" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        Open Saved Jobs
+      </a>
+    </p>
+"""
+            if tier_l == "partner":
+                body += f"""
+    <p style="color:#555;font-size:14px;">
+      Running your own bids too?
+      <a href="{app_url}/checkout/contractor_pro" style="color:#1d4ed8;">Upgrade to Contractor Pro ($149/mo)</a>
+    </p>
+"""
+        else:
+            subject_line = f"Welcome to {name} — unlock deeper research"
+            body = f"""
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">You're in — one step left</h1>
+    <p style="color:#555;font-size:14px;line-height:1.5;">
+      <strong>{name}</strong> is active on this email. Run a site lookup with the <em>same email</em>
+      to unlock deeper scout research. Save every site you bid this week.
+    </p>
+    <p style="margin:20px 0;">
+      <a href="{app_url}/?unlock=1" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        Unlock deeper results
+      </a>
+    </p>
+    <p style="color:#555;font-size:14px;">
+      Prefer a lighter plan later?
+      <a href="{app_url}/checkout/partner" style="color:#1d4ed8;">Partner is $79/mo</a>
+      · Need a full PDF package?
+      <a href="{app_url}/checkout/ic_project" style="color:#1d4ed8;">IC Project Report ($1,500)</a>
+      (planning worksheets — not official AHJ filings).
+    </p>
+"""
+        # subject_line unused in HTML; kept for callers via naming
+        _ = subject_line
+        return f"""
+<!DOCTYPE html>
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
+  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
+    {body}
+    <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com</p>
+  </div>
+</body></html>
+"""
+
     def _build_weekly_jobs_html(self, jobs: list) -> str:
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         rows = ""
@@ -523,6 +596,31 @@ RegGuard © 2026
             logger.error("SendGrid weekly job reminder failed: %s", e)
             return False
 
+    async def send_plan_win_email(
+        self, to_email: str, tier: str, *, day7: bool = False
+    ) -> bool:
+        if not self.sg or not self.Mail:
+            return False
+        tier_l = (tier or "").strip().lower()
+        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        subject = (
+            f"Reg Guard — week 1 with {name}"
+            if day7
+            else f"Reg Guard — welcome to {name}"
+        )
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject=subject,
+                html_content=self._build_plan_win_html(tier, day7=day7),
+            )
+            response = self.sg.send(message)
+            return 200 <= response.status_code < 300
+        except Exception as e:
+            logger.error("SendGrid plan win email failed: %s", e)
+            return False
+
 
 class ResendEmailService(EmailService):
     """Resend email service (alternative to SendGrid)"""
@@ -714,6 +812,30 @@ class ResendEmailService(EmailService):
             return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
         except Exception as e:
             logger.error("Resend weekly job reminder failed: %s", e)
+            return False
+
+    async def send_plan_win_email(
+        self, to_email: str, tier: str, *, day7: bool = False
+    ) -> bool:
+        if not self.resend:
+            return False
+        tier_l = (tier or "").strip().lower()
+        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        subject = (
+            f"Reg Guard — week 1 with {name}"
+            if day7
+            else f"Reg Guard — welcome to {name}"
+        )
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": subject,
+                "html": self._build_plan_win_html(tier, day7=day7),
+            })
+            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+        except Exception as e:
+            logger.error("Resend plan win email failed: %s", e)
             return False
 
     async def send_research_result(

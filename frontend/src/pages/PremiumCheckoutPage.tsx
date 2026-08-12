@@ -73,12 +73,12 @@ const TIERS = {
     price_cents: 1500000,
     mode: 'subscription' as const,
     description:
-      'Annual access to regenerate IC Project Report PDFs for additional sites (planning worksheets, not official AHJ filings)',
+      'After at least one IC Project: regenerate PDF packages for more sites (planning worksheets, not official AHJ filings)',
     features: [
+      'Requires a prior IC Project Report purchase',
       'Regenerate Project Report PDFs for new site addresses',
       'Same research memo + punch list + permit worksheet package',
       'Strongest citeable coverage: Dallas / Plano / Austin TX',
-      'Email support via support@regguardagent.com',
     ],
     delivery_time: 'After each confirmed site lookup',
     color: 'from-indigo-600 to-blue-600',
@@ -130,8 +130,52 @@ export default function PremiumCheckoutPage() {
     }
   }, [tierParam, searchParams]);
 
+  // IC Annual: soft-gate in UI (server also enforces prior IC Project)
+  useEffect(() => {
+    if (selectedTier !== 'ic_annual') return;
+    const email = (
+      searchParams.get('email') ||
+      sessionStorage.getItem('userEmail') ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+    if (!email) {
+      setError(
+        'IC Annual requires a prior IC Project Report. Enter your email on IC Project checkout first, or buy IC Project ($1,500).'
+      );
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${backendUrl('/orders')}?email=${encodeURIComponent(email)}`
+        );
+        const data = await res.json().catch(() => ({}));
+        const orders = data.orders || [];
+        const hasIc = orders.some((o: { tier?: string }) =>
+          ['ic_project', 'ic_consultant', 'ic_annual'].includes(
+            (o.tier || '').toLowerCase()
+          )
+        );
+        if (!cancelled && !hasIc) {
+          setError(
+            'IC Annual unlocks after at least one IC Project Report. Switch to IC Project ($1,500) first.'
+          );
+        }
+      } catch {
+        /* server will enforce on submit */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTier, searchParams]);
+
   const handleTierSelect = (tierKey: string) => {
     setSelectedTier(resolveTierKey(tierKey));
+    setError('');
     setStep('checkout');
   };
 
@@ -159,6 +203,21 @@ export default function PremiumCheckoutPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {step === 'selection' && <TierSelectionStep onSelect={handleTierSelect} />}
+        {step === 'checkout' && error && selectedTier === 'ic_annual' && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-100 text-sm">
+            <p className="mb-3">{error}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setError('');
+                setSelectedTier('ic_project');
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg min-h-[44px]"
+            >
+              Switch to IC Project — $1,500
+            </button>
+          </div>
+        )}
         {step === 'checkout' && (
           <CheckoutFormStep
             tier={selectedTier}

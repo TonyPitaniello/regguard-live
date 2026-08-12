@@ -22,13 +22,6 @@ export function PlatformDashboard() {
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               type="button"
-              onClick={() => navigate('/jobs')}
-              className="hidden sm:inline text-gray-300 hover:text-white transition text-sm font-semibold"
-            >
-              My Jobs
-            </button>
-            <button
-              type="button"
               onClick={() => navigate('/how-it-works')}
               className="hidden sm:inline text-gray-300 hover:text-white transition text-sm font-semibold"
             >
@@ -145,6 +138,27 @@ export function PlatformDashboard() {
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >
               Sample PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/plano-permit-fees')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Plano
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/dallas-permit-fees')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Dallas
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/austin-permit-fees')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Austin
             </button>
             <button
               type="button"

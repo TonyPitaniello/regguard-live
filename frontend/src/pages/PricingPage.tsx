@@ -244,15 +244,46 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">What&apos;s free vs paid?</h3>
             <p className="text-gray-400">
-              Free lookups are the lead magnet — summary results in-app. Contractor Pro ($149/mo)
-              unlocks ongoing use. IC Project ($1,500) is a one-time full report package.
+              Free lookups are the lead magnet — soft-locked preview in-app. Partner ($79/mo) is for
+              permit runners. Contractor Pro ($149/mo) is for weekly bidders. IC Project ($1,500) is
+              a one-time PDF package (memo + punch + permit worksheet — not an official filing).
             </p>
           </div>
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
-              Yes. Choose IC Project Report at $1,500 one-time. High-volume practices usually prefer
-              IC Annual at $15,000/year.
+              Yes. Choose IC Project Report at $1,500 one-time. IC Annual ($15,000/year) unlocks only
+              after you&apos;ve purchased at least one IC Project.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white mb-2">Where does coverage work best?</h3>
+            <p className="text-gray-400">
+              Strongest citeable coverage today:{' '}
+              <button
+                type="button"
+                className="text-purple-300 hover:text-white underline"
+                onClick={() => navigate('/plano-permit-fees')}
+              >
+                Plano
+              </button>
+              ,{' '}
+              <button
+                type="button"
+                className="text-purple-300 hover:text-white underline"
+                onClick={() => navigate('/dallas-permit-fees')}
+              >
+                Dallas
+              </button>
+              ,{' '}
+              <button
+                type="button"
+                className="text-purple-300 hover:text-white underline"
+                onClick={() => navigate('/austin-permit-fees')}
+              >
+                Austin
+              </button>
+              . Outside those AHJs, expect more Unverified lines.
             </p>
           </div>
           <div>

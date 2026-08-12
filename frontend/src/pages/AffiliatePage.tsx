@@ -69,8 +69,9 @@ export default function AffiliatePage() {
       <section className="px-4 py-14 max-w-xl mx-auto">
         <h1 className="text-4xl font-black text-white mb-3">Affiliate referrals</h1>
         <p className="text-gray-300 mb-8">
-          Share Reg Guard. Earn 20% of referred paid checkouts (Partner, Pro, IC). Payouts are
-          marked paid manually — email support@regguardagent.com when ready.
+          Share Reg Guard. Earn 20% of each referred customer&apos;s <strong>first</strong> paid
+          checkout (Partner, Pro, or IC) — not recurring renewals. Payouts are marked paid manually —
+          email support@regguardagent.com when ready.
         </p>
 
         {!referralUrl ? (

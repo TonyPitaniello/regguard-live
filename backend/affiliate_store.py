@@ -174,6 +174,12 @@ def attribute_sale(
         for c in _COMMISSIONS:
             if c.get("order_id") == order_id:
                 return deepcopy(c)
+        # First paid order only per referred customer (not recurring / repeat checkouts)
+        if cust:
+            for c in _COMMISSIONS:
+                if (c.get("customer_email") or "").strip().lower() == cust:
+                    logger.info("Skip affiliate — customer %s already attributed once", cust)
+                    return None
 
         rate = float(aff.get("commission_rate") or DEFAULT_COMMISSION_RATE)
         amount = max(0, int(amount_cents or 0))

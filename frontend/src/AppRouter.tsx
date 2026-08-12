@@ -23,6 +23,7 @@ import OrdersPage from './pages/OrdersPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import AffiliatePage from './pages/AffiliatePage';
+import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import { backendUrl, isIcDemoEnabled } from './env';
@@ -114,6 +115,11 @@ export function AppRouter() {
 
           {/* Pricing */}
           <Route path="/pricing" element={<PricingPage />} />
+
+          {/* GEO beachhead landings → free tool */}
+          <Route path="/plano-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/dallas-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/austin-permit-fees" element={<GeoPermitLandingPage />} />
 
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />

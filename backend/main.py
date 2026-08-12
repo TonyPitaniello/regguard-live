@@ -1117,6 +1117,32 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
         success_url = body.success_url or f"{frontend}/checkout/success"
         cancel_url = body.cancel_url or f"{frontend}/checkout/{body.tier}"
 
+        # IC Annual: only after a prior IC Project purchase for this email
+        tier_l = (body.tier or "").strip().lower()
+        if tier_l == "ic_annual":
+            email_l = (body.email or "").strip().lower()
+            if not email_l:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Email required for IC Annual. Buy IC Project Report first, then upgrade.",
+                )
+            from order_service import list_orders_for_email
+
+            prior = list_orders_for_email(email_l)
+            has_ic = any(
+                str(o.get("tier") or "").lower()
+                in ("ic_project", "ic_consultant", "ic_annual")
+                for o in prior
+            )
+            if not has_ic:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "IC Annual is available after at least one IC Project Report. "
+                        "Purchase IC Project ($1,500) first."
+                    ),
+                )
+
         result = await stripe_create_checkout(
             user_id=user_id,
             tier=body.tier,
@@ -1128,6 +1154,8 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             referral_code=body.referral_code,
         )
         return result
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -1498,6 +1526,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 message = "Contractor Pro deep research ready — citeable punch list in the app."
                 research_depth = analysis.get("research_depth") or "pro"
             else:
+                # Free path: shorter timeout to cap scrape/LLM COGS
+                free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "15")
                 analysis = await asyncio.wait_for(
                     run_option_a_analysis(
                         address=request_body.address,
@@ -1508,7 +1538,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                         longitude=profile.longitude,
                         project_type=request_body.project_type,
                     ),
-                    timeout=22.0,
+                    timeout=max(8.0, free_timeout),
                 )
                 message = "Analysis ready — results are displayed in the app."
             status = "success"
@@ -3899,6 +3929,41 @@ async def cron_weekly_job_reminders(
         "sent": sent,
         "failed": failed,
     }
+
+
+@app.post("/cron/day7-win-emails", tags=["Cron"])
+async def cron_day7_win_emails(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+) -> Dict[str, Any]:
+    """
+    Send Day-7 Partner/Pro habit emails.
+    Schedule daily: POST /cron/day7-win-emails with X-Cron-Secret.
+    """
+    _require_cron_secret(x_cron_secret)
+    from email_service import get_email_service
+    from nurture_store import due_day7_wins, mark_sent
+
+    svc = get_email_service()
+    if not svc or not hasattr(svc, "send_plan_win_email"):
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
+    due = due_day7_wins()
+    sent = 0
+    failed = 0
+    for item in due:
+        try:
+            ok = await svc.send_plan_win_email(
+                item["email"], item.get("tier") or "contractor_pro", day7=True
+            )
+            if ok:
+                mark_sent(item["id"])
+                sent += 1
+            else:
+                failed += 1
+        except Exception as e:
+            logger.warning("Day7 win failed for %s: %s", item.get("email"), e)
+            failed += 1
+    return {"status": "ok", "due": len(due), "sent": sent, "failed": failed}
 
 
 @app.get("/sample/plano-punch-list.pdf", tags=["Samples"])

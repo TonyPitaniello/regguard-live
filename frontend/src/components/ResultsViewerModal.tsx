@@ -211,7 +211,13 @@ export default function ResultsViewerModal({
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
 
-  const goCheckout = (tier: 'contractor_pro' | 'ic_project') => {
+  const paidTierHint = (
+    (typeof window !== 'undefined' && sessionStorage.getItem('regguardTier')) ||
+    ''
+  ).toLowerCase();
+  const isPartnerTier = paidTierHint === 'partner';
+
+  const goCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project') => {
     // Persist site so return after payment can deepen the same lookup
     try {
       const pi = analysis.project_info;
@@ -443,6 +449,13 @@ export default function ResultsViewerModal({
                     )}
                     <button
                       type="button"
+                      onClick={() => goCheckout('partner')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm"
+                    >
+                      Partner — $79/mo
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => goCheckout('contractor_pro')}
                       className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
                     >
@@ -458,6 +471,41 @@ export default function ResultsViewerModal({
                   </>
                 )}
               </div>
+            </section>
+          )}
+
+          {/* Partner → Pro upgrade */}
+          {isDeep && isPartnerTier && (
+            <section className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4">
+              <h3 className="text-white font-bold text-sm mb-1">On Partner — need more for your own bids?</h3>
+              <p className="text-gray-300 text-sm mb-3">
+                Upgrade to Contractor Pro ($149/mo) for unlimited deep lookups on your bid week sites.
+              </p>
+              <button
+                type="button"
+                onClick={() => goCheckout('contractor_pro')}
+                className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+              >
+                Upgrade to Contractor Pro
+              </button>
+            </section>
+          )}
+
+          {/* IC attach on deep jobs */}
+          {isDeep && !isPartnerTier && (
+            <section className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
+              <h3 className="text-white font-bold text-sm mb-1">Need PDFs for this site?</h3>
+              <p className="text-gray-300 text-sm mb-3">
+                IC Project Report ($1,500): research memo + punch list + permit worksheet PDFs.
+                Planning diligence — not an official AHJ filing. Strongest citeable: Dallas / Plano / Austin.
+              </p>
+              <button
+                type="button"
+                onClick={() => goCheckout('ic_project')}
+                className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
+              >
+                Get IC Project Report
+              </button>
             </section>
           )}
 
