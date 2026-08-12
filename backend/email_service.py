@@ -132,34 +132,72 @@ class EmailService:
 """
 
     def _build_weekly_jobs_html(self, jobs: list) -> str:
+        from datetime import datetime, timezone
+
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
-        rows = ""
-        for j in (jobs or [])[:15]:
+        stale_days = int(os.getenv("JOB_STALE_DAYS") or "7")
+        now = datetime.now(timezone.utc)
+
+        def _job_li(j: dict) -> str:
             addr = j.get("address") or "Saved site"
             city = j.get("city") or ""
             state = j.get("state") or ""
             loc = f"{city}, {state}".strip(", ")
-            share = j.get("share_url") or f"{app_url}/"
-            rows += (
+            share = j.get("share_url") or f"{app_url}/jobs"
+            return (
                 f'<li style="margin:10px 0;color:#333;font-size:14px;">'
-                f'<strong>{addr}</strong>'
+                f"<strong>{addr}</strong>"
                 f'{(" — " + loc) if loc else ""}'
                 f' · <a href="{share}" style="color:#1d4ed8;">Open</a></li>'
             )
-        if not rows:
-            rows = "<li style='color:#666;'>No active saved jobs — run a free lookup to start.</li>"
+
+        fresh: list = []
+        stale: list = []
+        for j in jobs or []:
+            raw = j.get("last_run_at") or j.get("updated_at") or ""
+            is_stale = True
+            try:
+                dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+                is_stale = (now - dt).days >= stale_days
+            except Exception:
+                is_stale = True
+            (stale if is_stale else fresh).append(j)
+
+        fresh_rows = "".join(_job_li(j) for j in fresh[:12])
+        stale_rows = "".join(_job_li(j) for j in stale[:12])
+        if not fresh_rows and not stale_rows:
+            fresh_rows = (
+                "<li style='color:#666;'>No active saved jobs — run a free lookup to start.</li>"
+            )
+
+        stale_block = ""
+        if stale_rows:
+            stale_block = f"""
+    <h2 style="margin:24px 0 8px;color:#b45309;font-size:16px;">Needs re-check (stale {stale_days}+ days)</h2>
+    <p style="color:#555;font-size:13px;line-height:1.5;">
+      These sites have not been re-run recently. Re-check before you bid — fees and portal text change.
+    </p>
+    <ul style="padding-left:18px;">{stale_rows}</ul>
+"""
+        fresh_block = ""
+        if fresh_rows:
+            fresh_block = f"""
+    <h2 style="margin:16px 0 8px;color:#111;font-size:16px;">Active Saved Jobs</h2>
+    <ul style="padding-left:18px;">{fresh_rows}</ul>
+"""
         return f"""
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
     <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Your Saved Jobs this week</h1>
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      Quick reminder from Reg Guard — re-run a lookup before you bid, or share the punch list with your GC.
+      Bid-week habit from Reg Guard — re-check stale sites, then forward only Source or clearly Unverified lines.
     </p>
-    <ul style="padding-left:18px;">{rows}</ul>
+    {stale_block}
+    {fresh_block}
     <p style="margin:20px 0;">
       <a href="{app_url}/jobs" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        View Saved Jobs
+        View Saved Jobs / re-check
       </a>
     </p>
     <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com · Unsubscribe: reply STOP</p>

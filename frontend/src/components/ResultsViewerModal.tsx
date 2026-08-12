@@ -5,9 +5,10 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, RefreshCw } from 'lucide-react';
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
+import { backendUrl } from '../env';
 
 const APP_URL = 'https://app.regguardagent.com/';
 
@@ -44,6 +45,7 @@ export interface AnalysisData {
   research_depth?: string;
   pro_summary_markdown?: string;
   pro_source_urls?: string[];
+  job_id?: string;
   project_info: {
     address: string;
     city: string;
@@ -82,6 +84,60 @@ export interface AnalysisData {
     estimated_total_cost: number;
   };
   next_steps: string[];
+  fee_card?: {
+    title?: string;
+    timeline?: string;
+    timeline_hint?: string;
+    fees?: Array<{
+      label?: string;
+      amount_usd?: number | null;
+      detail?: string;
+      verified?: boolean;
+      source_url?: string | null;
+      source_label?: string | null;
+    }>;
+    citeable_coverage?: boolean;
+    disclaimer?: string;
+  };
+  ahj_card?: {
+    title?: string;
+    name?: string;
+    portal_url?: string;
+    fees_url?: string;
+    phone?: string;
+    notes?: string;
+    citeable_coverage?: boolean;
+  };
+  gotcha_watchlist?: {
+    title?: string;
+    items?: Array<{
+      id?: string;
+      title?: string;
+      detail?: string;
+      priority?: string;
+      source_url?: string | null;
+      source_label?: string | null;
+    }>;
+    citeable_coverage?: boolean;
+  };
+  document_checklist?: {
+    title?: string;
+    items?: Array<{ task?: string; done?: boolean }>;
+    disclaimer?: string;
+  };
+  contingency_band?: {
+    label?: string;
+    pct_low?: number;
+    pct_mid?: number;
+    pct_high?: number;
+    usd_mid?: number | null;
+    disclaimer?: string;
+    drivers?: { critical_items?: number; high_items?: number; unverified_items?: number };
+  };
+  recheck_diff?: {
+    change_count?: number;
+    changes?: string[];
+  };
 }
 
 function criticalPathTask(item: CriticalPathItem): string {
@@ -185,6 +241,9 @@ export default function ResultsViewerModal({
     if (typeof window === 'undefined') return false;
     return sessionStorage.getItem('shareUnlocked') === '1';
   });
+  const [packetLoading, setPacketLoading] = useState(false);
+  const [recheckLoading, setRecheckLoading] = useState(false);
+  const [liveAnalysis, setLiveAnalysis] = useState<AnalysisData | null>(null);
 
   // Lock body scroll while modal is open so the form/map behind cannot float with page scroll
   useEffect(() => {
@@ -196,12 +255,18 @@ export default function ResultsViewerModal({
     };
   }, [isOpen]);
 
+  useEffect(() => {
+    setLiveAnalysis(null);
+  }, [analysis]);
+
   if (!isOpen || !analysis) return null;
 
-  const summary = buildSummaryFromAnalysis(analysis);
-  const effectiveResearchId = researchId || analysis.research_id || null;
-  const shareText = buildShareText(analysis);
-  const depth = (analysis.research_depth || '').toLowerCase();
+  const view = liveAnalysis || analysis;
+
+  const summary = buildSummaryFromAnalysis(view);
+  const effectiveResearchId = researchId || view.research_id || null;
+  const shareText = buildShareText(view);
+  const depth = (view.research_depth || '').toLowerCase();
   const isDeep = depth === 'pro' || depth === 'pro_partial';
   const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
     .trim()
@@ -210,6 +275,61 @@ export default function ResultsViewerModal({
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
+
+  const downloadBidPacket = async () => {
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/bid-packet/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(view),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Bid packet failed');
+      if (data.download_url) {
+        window.open(data.download_url, '_blank', 'noopener,noreferrer');
+        setToast('Bid packet PDF ready');
+      }
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Bid packet failed');
+    } finally {
+      setPacketLoading(false);
+      window.setTimeout(() => setToast(''), 3500);
+    }
+  };
+
+  const runRecheck = async () => {
+    const jobId = view.job_id || sessionStorage.getItem('lastJobId') || '';
+    if (!jobId || !emailForCheckout) {
+      setToast('Save a lookup with your email first, then re-check from Saved Jobs.');
+      window.setTimeout(() => setToast(''), 4000);
+      return;
+    }
+    setRecheckLoading(true);
+    try {
+      const res = await fetch(backendUrl(`/jobs/${jobId}/recheck`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner_email: emailForCheckout }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Recheck failed');
+      const next = (data.analysis_data || {}) as AnalysisData;
+      next.job_id = jobId;
+      next.recheck_diff = data.diff;
+      setLiveAnalysis(next);
+      setToast(
+        data.diff?.change_count
+          ? `Recheck: ${data.diff.change_count} change(s) since last run`
+          : 'Recheck complete — no material changes detected'
+      );
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Recheck failed');
+    } finally {
+      setRecheckLoading(false);
+      window.setTimeout(() => setToast(''), 4500);
+    }
+  };
 
   const paidTierHint = (
     (typeof window !== 'undefined' && sessionStorage.getItem('regguardTier')) ||
@@ -220,7 +340,7 @@ export default function ResultsViewerModal({
   const goCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project') => {
     // Persist site so return after payment can deepen the same lookup
     try {
-      const pi = analysis.project_info;
+      const pi = view.project_info;
       sessionStorage.setItem(
         'lastResearchForm',
         JSON.stringify({
@@ -315,12 +435,12 @@ export default function ResultsViewerModal({
               Your Site Diligence Analysis
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              {analysis.project_info.address} • {analysis.project_info.city},{' '}
-              {analysis.project_info.state} {analysis.project_info.zip}
+              {view.project_info.address} • {view.project_info.city},{' '}
+              {view.project_info.state} {view.project_info.zip}
             </p>
-            {(analysis.research_depth === 'pro' || analysis.research_depth === 'pro_partial') && (
+            {(view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
               <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                {analysis.research_depth === 'pro'
+                {view.research_depth === 'pro'
                   ? 'Contractor Pro — deep research'
                   : 'Contractor Pro — partial deep research'}
               </p>
@@ -510,15 +630,15 @@ export default function ResultsViewerModal({
           )}
 
           {/* Deep plan — Pro only */}
-          {isDeep && analysis.pro_summary_markdown ? (
+          {isDeep && view.pro_summary_markdown ? (
             <section className="bg-slate-800/40 border border-emerald-500/20 rounded-lg p-4">
               <h3 className="text-sm font-bold text-emerald-300 mb-2">Deep research action plan</h3>
               <pre className="whitespace-pre-wrap text-xs text-gray-300 max-h-64 overflow-y-auto font-sans">
-                {analysis.pro_summary_markdown.slice(0, 6000)}
+                {view.pro_summary_markdown.slice(0, 6000)}
               </pre>
-              {(analysis.pro_source_urls || []).length > 0 && (
+              {(view.pro_source_urls || []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {analysis.pro_source_urls.slice(0, 6).map((url) => (
+                  {view.pro_source_urls.slice(0, 6).map((url) => (
                     <a
                       key={url}
                       href={url}
@@ -568,7 +688,7 @@ export default function ResultsViewerModal({
             </button>
             {expanded.critical && (
               <div className="space-y-2">
-                {(analysis.punch_list?.critical_path || []).slice(0, Math.min(5, punchVisible)).map((task, idx) => {
+                {(view.punch_list?.critical_path || []).slice(0, Math.min(5, punchVisible)).map((task, idx) => {
                   const meta = typeof task === 'string' ? { task } : task;
                   return (
                     <div key={idx} className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
@@ -586,7 +706,7 @@ export default function ResultsViewerModal({
                     </div>
                   );
                 })}
-                {(analysis.punch_list?.punch_list || []).slice(0, punchVisible).map((item, idx) => (
+                {(view.punch_list?.punch_list || []).slice(0, punchVisible).map((item, idx) => (
                   <div key={`pl-${idx}`} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
                     <div className="flex justify-between gap-2 mb-1">
                       <p className="text-white text-sm font-semibold">{item.task}</p>
@@ -612,13 +732,13 @@ export default function ResultsViewerModal({
                   </div>
                 ))}
                 {softLocked &&
-                  ((analysis.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE ||
-                    (analysis.punch_list?.critical_path || []).length > FREE_PUNCH_VISIBLE) && (
+                  ((view.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE ||
+                    (view.punch_list?.critical_path || []).length > FREE_PUNCH_VISIBLE) && (
                     <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
                       <p className="text-sm text-purple-100 mb-3">
                         {Math.max(
                           0,
-                          (analysis.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE
+                          (view.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE
                         )}{' '}
                         more punch lines locked — forward this list or upgrade to unlock.
                       </p>
@@ -649,7 +769,7 @@ export default function ResultsViewerModal({
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
               <h3 className="text-sm font-bold text-gray-400 mb-2">Timeline</h3>
               <p className="text-2xl font-black text-blue-400">
-                {analysis.summary.estimated_timeline}
+                {view.summary.estimated_timeline}
               </p>
               <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
             </div>
@@ -672,18 +792,180 @@ export default function ResultsViewerModal({
               ) : (
                 <>
                   <p className="text-2xl font-black text-green-400">
-                    ${(analysis.summary.estimated_total_cost || 0).toLocaleString()}
+                    ${(view.summary.estimated_total_cost || 0).toLocaleString()}
                   </p>
                   <CitationBadge
-                    verified={Boolean(analysis.punch_list?.estimates_verified)}
-                    cost_verified={Boolean(analysis.punch_list?.estimates_verified)}
-                    estimated_cost={analysis.summary.estimated_total_cost}
+                    verified={Boolean(view.punch_list?.estimates_verified)}
+                    cost_verified={Boolean(view.punch_list?.estimates_verified)}
+                    estimated_cost={view.summary.estimated_total_cost}
                     source_label="Rollup of line items"
                   />
                 </>
               )}
             </div>
           </div>
+
+          {/* Bid-time arbitrage layer */}
+          {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) && (
+            <section className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <h3 className="text-lg font-bold text-white">Bid-time arbitrage</h3>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidPacket()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                  >
+                    <Download className="w-4 h-4" />
+                    {packetLoading ? 'Building…' : 'Export bid packet PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void runRecheck()}
+                    disabled={recheckLoading}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-purple-400/40 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    {recheckLoading ? 'Re-checking…' : 'Re-check site'}
+                  </button>
+                </div>
+              </div>
+
+              {view.recheck_diff && (view.recheck_diff.change_count || 0) > 0 && (
+                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  <p className="font-bold mb-1">
+                    {view.recheck_diff.change_count} change(s) since last run
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    {(view.recheck_diff.changes || []).slice(0, 8).map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {view.ahj_card && (
+                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <h4 className="text-sm font-bold text-emerald-300 mb-2">
+                    {view.ahj_card.title || 'AHJ portal & contact'}
+                  </h4>
+                  <p className="text-white font-semibold">{view.ahj_card.name}</p>
+                  {view.ahj_card.portal_url && (
+                    <a
+                      href={view.ahj_card.portal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-purple-300 underline block mt-1"
+                    >
+                      Open AHJ portal
+                    </a>
+                  )}
+                  {view.ahj_card.fees_url && (
+                    <a
+                      href={view.ahj_card.fees_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-purple-300 underline block"
+                    >
+                      Fee schedule
+                    </a>
+                  )}
+                  {view.ahj_card.notes && (
+                    <p className="text-gray-400 text-xs mt-2">{view.ahj_card.notes}</p>
+                  )}
+                </div>
+              )}
+
+              {view.fee_card && (
+                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <h4 className="text-sm font-bold text-blue-300 mb-2">
+                    {view.fee_card.title || 'Fee & timeline extract'}
+                  </h4>
+                  <p className="text-white text-sm mb-2">
+                    Timeline: {view.fee_card.timeline || view.summary.estimated_timeline}
+                  </p>
+                  <ul className="space-y-2">
+                    {(view.fee_card.fees || []).slice(0, 6).map((f, i) => (
+                      <li key={i} className="text-sm text-gray-300">
+                        <span className="text-white font-medium">{f.label}</span>
+                        {typeof f.amount_usd === 'number' ? ` — $${f.amount_usd.toLocaleString()}` : ''}
+                        <CitationBadge
+                          verified={Boolean(f.verified)}
+                          source_url={f.source_url}
+                          source_label={f.source_label || 'Confirm with AHJ'}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                  {view.fee_card.disclaimer && (
+                    <p className="text-gray-500 text-xs mt-2">{view.fee_card.disclaimer}</p>
+                  )}
+                </div>
+              )}
+
+              {view.gotcha_watchlist && (view.gotcha_watchlist.items || []).length > 0 && (
+                <div className="bg-slate-800/40 border border-amber-500/30 rounded-lg p-4">
+                  <h4 className="text-sm font-bold text-amber-300 mb-2">
+                    {view.gotcha_watchlist.title || 'Local gotcha watchlist'}
+                  </h4>
+                  <ul className="space-y-2">
+                    {(view.gotcha_watchlist.items || []).map((g) => (
+                      <li key={g.id || g.title} className="text-sm text-gray-300">
+                        <span className="text-amber-200 font-semibold">{g.priority}</span>{' '}
+                        <span className="text-white font-medium">{g.title}</span>
+                        <p className="text-gray-400 text-xs mt-0.5">{g.detail}</p>
+                        <CitationBadge
+                          verified={Boolean(g.source_url)}
+                          source_url={g.source_url}
+                          source_label={g.source_label || 'Unverified'}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {view.document_checklist && (
+                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <h4 className="text-sm font-bold text-purple-300 mb-2">
+                    {view.document_checklist.title || 'Document checklist'}
+                  </h4>
+                  <ul className="space-y-1">
+                    {(view.document_checklist.items || []).map((d, i) => (
+                      <li key={i} className="text-sm text-gray-300">
+                        [ ] {d.task}
+                      </li>
+                    ))}
+                  </ul>
+                  {view.document_checklist.disclaimer && (
+                    <p className="text-gray-500 text-xs mt-2">{view.document_checklist.disclaimer}</p>
+                  )}
+                </div>
+              )}
+
+              {view.contingency_band && (
+                <div className="bg-slate-800/40 border border-emerald-500/30 rounded-lg p-4">
+                  <h4 className="text-sm font-bold text-emerald-300 mb-2">
+                    {view.contingency_band.label || 'Suggested contingency'}
+                  </h4>
+                  <p className="text-2xl font-black text-emerald-400">
+                    {view.contingency_band.pct_low}% – {view.contingency_band.pct_high}%
+                    <span className="text-base font-semibold text-gray-300 ml-2">
+                      (mid {view.contingency_band.pct_mid}%)
+                    </span>
+                  </p>
+                  {typeof view.contingency_band.usd_mid === 'number' && !softLocked && (
+                    <p className="text-sm text-gray-300 mt-1">
+                      ~${view.contingency_band.usd_mid.toLocaleString()} mid band on current rollup
+                    </p>
+                  )}
+                  <p className="text-gray-500 text-xs mt-2">{view.contingency_band.disclaimer}</p>
+                  <CitationBadge verified={false} source_label="Heuristic — not a quote" />
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Environmental findings */}
           <section>
@@ -701,7 +983,7 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
-                {(analysis.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => (
+                {(view.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => (
                   <div key={idx} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <h4 className="font-bold text-white capitalize">

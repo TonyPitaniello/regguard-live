@@ -1592,6 +1592,15 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     except Exception as persist_err:
         logger.warning(f"Free-trial persist failed (non-blocking): {persist_err}")
 
+    # Bid-time arbitrage cards (fees, AHJ, gotchas, docs, contingency)
+    try:
+        from arbitrage_enrichment import enrich_analysis_with_arbitrage
+
+        if isinstance(analysis, dict):
+            analysis = enrich_analysis_with_arbitrage(analysis)
+    except Exception as arb_err:
+        logger.warning("Arbitrage enrichment failed (non-blocking): %s", arb_err)
+
     # Auto-save Saved Job for weekly habit (non-blocking)
     job_id = None
     try:
@@ -1616,6 +1625,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     "risk_level": (analysis.get("environmental_screening") or {}).get("risk_level"),
                     "preview": bool(analysis.get("preview")),
                     "punch_count": summary.get("total_punch_list_items"),
+                    "arbitrage_snapshot": (analysis.get("arbitrage_snapshot") if analysis else None) or {},
                 },
             )
             job_id = job.get("id")
@@ -3890,6 +3900,152 @@ async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Di
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return {"status": "ok", "job": job}
+
+
+class RecheckJobRequest(BaseModel):
+    owner_email: str
+    owner_key: Optional[str] = None
+
+
+@app.post("/jobs/{job_id}/recheck", tags=["Jobs"])
+async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, Any]:
+    """
+    Re-run diligence for a Saved Job and return arbitrage diff vs last snapshot.
+    """
+    from arbitrage_enrichment import diff_arbitrage_snapshots, enrich_analysis_with_arbitrage
+    from entitlement import has_paid_access
+    from instant_analysis import build_instant_fallback_analysis
+    from jobs_store import get_job, upsert_job
+    from jurisdiction import geocode_profile_from_address
+    from option_a_integration import run_option_a_analysis
+
+    job = get_job(job_id, email=body.owner_email, owner_key=body.owner_key)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    prev_snap = ((job.get("summary_snapshot") or {}).get("arbitrage_snapshot")) or {}
+    paid = has_paid_access(body.owner_email)
+    address = job.get("address") or ""
+    analysis: Optional[Dict[str, Any]] = None
+    try:
+        profile = geocode_profile_from_address(address)
+        if profile and paid:
+            from pro_deep_analysis import run_pro_deep_analysis
+
+            analysis = await asyncio.wait_for(
+                run_pro_deep_analysis(
+                    address=address,
+                    city=profile.city,
+                    state=profile.state_short,
+                    zip_code=profile.zip5,
+                    latitude=profile.latitude,
+                    longitude=profile.longitude,
+                    project_type=job.get("project_type") or "general",
+                ),
+                timeout=120.0,
+            )
+        elif profile:
+            free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "15")
+            analysis = await asyncio.wait_for(
+                run_option_a_analysis(
+                    address=address,
+                    city=profile.city,
+                    state=profile.state_short,
+                    zip_code=profile.zip5,
+                    latitude=profile.latitude,
+                    longitude=profile.longitude,
+                    project_type=job.get("project_type") or "general",
+                ),
+                timeout=max(8.0, free_timeout),
+            )
+    except Exception as e:
+        logger.warning("Job recheck analysis failed: %s", e)
+        analysis = None
+
+    if not analysis:
+        analysis = build_instant_fallback_analysis(
+            address=address,
+            project_type=job.get("project_type") or "general",
+            zip_code=job.get("zip") or "",
+        )
+
+    analysis = enrich_analysis_with_arbitrage(analysis)
+    cur_snap = analysis.get("arbitrage_snapshot") or {}
+    diff = diff_arbitrage_snapshots(prev_snap, cur_snap)
+    summary = analysis.get("summary") or {}
+    research_id = str(
+        analysis.get("research_id") or analysis.get("timestamp") or f"recheck-{job_id}"
+    )
+
+    updated = upsert_job(
+        owner_email=body.owner_email,
+        address=address,
+        city=job.get("city") or "",
+        state=job.get("state") or "",
+        zip_code=job.get("zip") or "",
+        project_type=job.get("project_type") or "general",
+        owner_key=body.owner_key or job.get("owner_key"),
+        job_id=job_id,
+        last_research_id=research_id,
+        share_url=analysis.get("share_url") or job.get("share_url"),
+        summary_snapshot={
+            "estimated_timeline": summary.get("estimated_timeline"),
+            "estimated_total_cost": summary.get("estimated_total_cost"),
+            "risk_level": (analysis.get("environmental_screening") or {}).get("risk_level"),
+            "preview": bool(analysis.get("preview")),
+            "punch_count": summary.get("total_punch_list_items"),
+            "arbitrage_snapshot": cur_snap,
+            "last_diff": diff,
+        },
+    )
+    analysis["job_id"] = job_id
+    return {
+        "status": "ok",
+        "job": updated,
+        "diff": diff,
+        "analysis_data": analysis,
+        "research_id": research_id,
+        "paid": paid,
+    }
+
+
+_BID_PACKET_CACHE: Dict[str, str] = {}
+
+
+@app.post("/bid-packet/pdf", tags=["Samples"])
+async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """Generate a forwardable bid packet PDF from analysis (enriched if needed)."""
+    from arbitrage_enrichment import enrich_analysis_with_arbitrage
+    from bid_packet_pdf import generate_bid_packet_pdf
+
+    data = analysis_data if isinstance(analysis_data, dict) else {}
+    if "analysis_data" in data and isinstance(data["analysis_data"], dict):
+        data = data["analysis_data"]
+    if not data.get("fee_card"):
+        data = enrich_analysis_with_arbitrage(data)
+    path = generate_bid_packet_pdf(data)
+    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+    _BID_PACKET_CACHE[token] = path
+    api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
+    return {
+        "status": "ok",
+        "download_url": f"{api}/bid-packet/pdf/{token}",
+        "filename": "RegGuard_Bid_Packet.pdf",
+    }
+
+
+@app.get("/bid-packet/pdf/{token}", tags=["Samples"])
+async def download_bid_packet_pdf(token: str):
+    from fastapi.responses import FileResponse
+
+    path = _BID_PACKET_CACHE.get((token or "").strip())
+    if not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Bid packet expired or not found — regenerate")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="RegGuard_Bid_Packet.pdf",
+    )
 
 
 @app.post("/cron/weekly-job-reminders", tags=["Cron"])

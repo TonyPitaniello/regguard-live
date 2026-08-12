@@ -286,6 +286,14 @@ export default function FreeTrialForm({ showHero = false }: { showHero?: boolean
         if (payload.research_depth && !analysis.research_depth) {
           analysis.research_depth = String(payload.research_depth);
         }
+        if (payload.job_id) {
+          analysis.job_id = String(payload.job_id);
+          try {
+            sessionStorage.setItem('lastJobId', String(payload.job_id));
+          } catch {
+            /* ignore */
+          }
+        }
         const clientId =
           (payload.research_id as string) ||
           (analysis.research_id as string) ||
