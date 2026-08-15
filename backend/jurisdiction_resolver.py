@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 
 from city_packs import generic_thin_pack, resolve_city_pack
 from jurisdiction_packs import FEDERAL_PACK, get_state_pack
+from metro_portal_seeds import resolve_metro_portal_pack
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,28 @@ def _normalize_state(state: str = "") -> str:
         "ARIZONA": "AZ",
         "ILLINOIS": "IL",
         "GEORGIA": "GA",
+        "NORTH CAROLINA": "NC",
+        "OHIO": "OH",
+        "OREGON": "OR",
+        "NEVADA": "NV",
+        "UTAH": "UT",
+        "NEW MEXICO": "NM",
+        "TENNESSEE": "TN",
+        "LOUISIANA": "LA",
+        "OKLAHOMA": "OK",
+        "MASSACHUSETTS": "MA",
+        "PENNSYLVANIA": "PA",
+        "MARYLAND": "MD",
+        "VIRGINIA": "VA",
+        "HAWAII": "HI",
+        "ALASKA": "AK",
+        "WYOMING": "WY",
+        "MICHIGAN": "MI",
+        "MINNESOTA": "MN",
+        "WISCONSIN": "WI",
+        "MISSOURI": "MO",
+        "INDIANA": "IN",
+        "DISTRICT OF COLUMBIA": "DC",
     }
     if s in aliases:
         return aliases[s]
@@ -142,6 +165,11 @@ def resolve_jurisdiction(
 
     local = resolve_city_pack(city_out, state_out, z)
     citeable_local = bool(local and local.get("citeable"))
+    portal_only = False
+    if not local:
+        local = resolve_metro_portal_pack(city_out, state_out, z)
+        if local:
+            portal_only = True
     if not local:
         local = generic_thin_pack(city_out, state_out)
         # If seed knows a city name, surface it on thin pack
@@ -156,6 +184,24 @@ def resolve_jurisdiction(
     federal = dict(FEDERAL_PACK)
     state_pack = get_state_pack(state_out)
 
+    if citeable_local:
+        coverage_note = "Citeable local pack + federal/state layers."
+    elif portal_only:
+        coverage_note = (
+            "Metro portal seed + federal/state layers — confirm fees on the official AHJ schedule "
+            "(not a full curated fee/gotcha pack)."
+        )
+    elif state_pack.get("citeable"):
+        coverage_note = (
+            "Federal + curated state layer. Local AHJ fees/gotchas not curated for this city — "
+            "confirm on the official portal when available."
+        )
+    else:
+        coverage_note = (
+            "Federal diligence always. State/local packs not curated for this place — "
+            "confirm licensing and AHJ requirements before bid."
+        )
+
     return {
         "zip": z,
         "city": city_out,
@@ -165,15 +211,11 @@ def resolve_jurisdiction(
         "state_pack": state_pack,
         "local": local,
         "citeable_local": citeable_local,
+        "portal_only_local": portal_only,
         "resolved_from_zip_seed": bool(place.get("city")) and not user_city,
         "user_state_preferred": bool(user_state),
         "zip3_state_mismatch": state_mismatch,
-        "coverage_note": (
-            "Federal + state filing cabinet always. Citeable local AHJ packs are "
-            "beachhead-first (Dallas / Plano / Austin) — not a live scrape of every city."
-            if not citeable_local
-            else "Citeable local pack + federal/state layers."
-        ),
+        "coverage_note": coverage_note,
     }
 
 
@@ -202,6 +244,9 @@ def jurisdiction_punch_items(
         citeable = bool(pack.get("citeable"))
         for g in (pack.get("items") or [])[:cap]:
             if not isinstance(g, dict):
+                continue
+            # Skip null-URL fillers — they dilute citeable punch ratios.
+            if not (g.get("source_url") or "").strip():
                 continue
             items.append(
                 {
@@ -258,6 +303,7 @@ def attach_jurisdiction_cards(
         "state": resolved.get("state"),
         "county": resolved.get("county"),
         "citeable_local": resolved.get("citeable_local"),
+        "portal_only_local": resolved.get("portal_only_local"),
         "local_pack_key": (resolved.get("local") or {}).get("pack_key"),
         "resolved_from_zip_seed": resolved.get("resolved_from_zip_seed"),
         "coverage_note": resolved.get("coverage_note"),

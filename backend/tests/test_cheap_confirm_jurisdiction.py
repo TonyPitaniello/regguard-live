@@ -94,13 +94,60 @@ def test_attach_jurisdiction_cards_prepends_punch():
     out = attach_jurisdiction_cards(analysis, resolved)
     assert out.get("federal_card")
     assert out.get("state_card")
+    assert out["state_card"].get("citeable") is True  # IL curated pack
     tasks = [i.get("task") for i in out["punch_list"]["punch_list"]]
     fed = [t for t in tasks if t and t.startswith("[Federal]")]
     state = [t for t in tasks if t and t.startswith("[State]")]
     assert 1 <= len(fed) <= 2
     assert 1 <= len(state) <= 2
+    assert all(
+        (i.get("source_url") or "").strip()
+        for i in out["punch_list"]["punch_list"]
+        if isinstance(i, dict) and str(i.get("task") or "").startswith(("[Federal]", "[State]"))
+    )
     assert out["project_info"].get("city") == "Chicago"
     assert out["project_info"].get("state") == "IL"
+
+
+def test_wa_state_pack_citeable():
+    from jurisdiction_packs import get_state_pack
+
+    pack = get_state_pack("WA")
+    assert pack.get("citeable") is True
+    assert pack.get("pack_key") == "state:wa"
+    assert all((i.get("source_url") or "").strip() for i in pack.get("items") or [])
+
+
+def test_seattle_resolves_metro_portal():
+    from jurisdiction_resolver import resolve_jurisdiction
+
+    r = resolve_jurisdiction(city="Seattle", state="WA", zip_code="98109")
+    assert r["portal_only_local"] is True
+    assert (r["local"] or {}).get("portal_only") is True
+    assert "seattle.gov" in str((r["local"] or {}).get("ahj", {}).get("portal_url") or "")
+    assert (r["state_pack"] or {}).get("citeable") is True
+
+
+def test_thin_state_emits_no_null_url_punches():
+    from jurisdiction_resolver import jurisdiction_punch_items, resolve_jurisdiction
+
+    r = resolve_jurisdiction(city="Cheyenne", state="WY", zip_code="82001")
+    # WY is thin (no curated state pack) but Cheyenne has metro portal
+    assert (r["state_pack"] or {}).get("citeable") is False
+    assert (r["state_pack"] or {}).get("items") == []
+    rows = jurisdiction_punch_items(r)
+    assert rows  # federal still present
+    assert all((row.get("source_url") or "").strip() for row in rows)
+
+
+def test_punch_from_pack_skips_null_url_filler():
+    from free_pack_confirm import _punch_from_pack
+    from city_packs import generic_thin_pack
+
+    pack = generic_thin_pack("Nowhere", "WY")
+    items = _punch_from_pack(pack, city="Nowhere", state="WY", confirm_hits=[])
+    assert items == []
+    assert not any("beachhead" in str(i.get("task") or "").lower() for i in items)
 
 
 def test_user_state_overrides_zip3():

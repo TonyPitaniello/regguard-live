@@ -40,6 +40,11 @@ def free_allowlist_search_enabled() -> bool:
     return _env_truthy("FREE_TRIAL_ALLOWLIST_SEARCH", "1")
 
 
+def free_generic_serp_enabled() -> bool:
+    """When no portal URL, one .gov SERP to discover an AHJ link (default on)."""
+    return _env_truthy("FREE_TRIAL_GENERIC_SERP", "1")
+
+
 def free_cheap_confirm_enabled() -> bool:
     """requests+markdown+LLM confirm (no Firecrawl scrape). Default on."""
     return _env_truthy("FREE_TRIAL_CHEAP_CONFIRM", "1")
@@ -129,6 +134,110 @@ def _one_allowlisted_search(
     return out
 
 
+def _one_generic_gov_search(
+    *,
+    city: str,
+    state: str,
+    limit: int = 1,
+) -> List[Dict[str, Any]]:
+    """
+    Single Firecrawl SERP to discover a .gov building-permit portal when we have
+    no curated/metro URL. Cached via semantic scout cache when available.
+    """
+    if not free_generic_serp_enabled():
+        return []
+    locality = f"{(city or '').strip()}, {(state or '').strip()}".strip(", ")
+    if not locality or locality.lower() in ("local", ","):
+        return []
+    api_key = (os.getenv("FIRECRAWL_API_KEY") or "").strip()
+    if not api_key:
+        return []
+
+    query = (
+        f'{locality} ("building permit" OR "building department" OR '
+        f'"development services" OR "building inspections") site:.gov'
+    )
+    try:
+        from semantic_scout_cache import cache_get, cache_set
+
+        cached = cache_get(query, limit, state)
+        if cached:
+            hits, _meta = cached
+            return [
+                {
+                    "url": str(h.get("url") or ""),
+                    "title": str(h.get("title") or "AHJ portal hit")[:160],
+                    "snippet": str(h.get("snippet") or h.get("description") or "")[:240],
+                }
+                for h in hits
+                if h.get("url")
+            ][:limit]
+    except Exception:
+        pass
+
+    try:
+        from scraper import _get_client
+
+        fc = _get_client()
+        result = fc.search(
+            query,
+            limit=max(1, min(3, limit)),
+            sources=["web"],
+            location="US",
+            scrape_options=None,
+        )
+    except Exception as e:
+        logger.warning("Free generic .gov SERP failed: %s", e)
+        return []
+
+    web = getattr(result, "web", None)
+    if web is None and isinstance(result, dict):
+        data = result.get("data") or result
+        web = data.get("web") if isinstance(data, dict) else None
+    if not web:
+        return []
+
+    out: List[Dict[str, Any]] = []
+    cache_rows: List[Dict[str, Optional[str]]] = []
+    for item in list(web)[: max(1, min(3, limit))]:
+        url = getattr(item, "url", None)
+        title = getattr(item, "title", None)
+        desc = getattr(item, "description", None) or getattr(item, "snippet", None)
+        if isinstance(item, dict):
+            url = url or item.get("url")
+            title = title or item.get("title")
+            desc = desc or item.get("description") or item.get("snippet")
+        if not url:
+            continue
+        host = _host(str(url))
+        if not host.endswith(".gov") and ".gov." not in host:
+            # Allow common municipal .us / city hosts only if clearly government-ish
+            if not any(x in host for x in (".us", "city", "county", "municip")):
+                continue
+        row = {
+            "url": str(url),
+            "title": str(title or "AHJ portal hit")[:160],
+            "snippet": str(desc or "")[:240],
+        }
+        out.append(row)
+        cache_rows.append(
+            {
+                "url": row["url"],
+                "title": row["title"],
+                "snippet": row["snippet"],
+                "description": row["snippet"],
+            }
+        )
+    if cache_rows:
+        try:
+            from semantic_scout_cache import cache_set
+
+            cache_set(query, limit, state, cache_rows, {"source": "free_generic_gov_serp"})
+        except Exception:
+            pass
+    return out[:limit]
+
+
 def _punch_from_pack(
     pack: Dict[str, Any],
     *,
@@ -140,25 +249,37 @@ def _punch_from_pack(
     ahj = pack.get("ahj") or {}
     confirm_url = allowlisted_confirm_url(pack)
     citeable = bool(pack.get("citeable"))
+    portal_only = bool(pack.get("portal_only"))
 
-    items.append(
-        {
-            "priority": "CRITICAL",
-            "task": f"Confirm fees & intake with {ahj.get('name') or f'{city} AHJ'}",
-            "responsible_party": "Estimator / permit runner",
-            "timeline": "Before bid",
-            "estimated_cost": 0,
-            "notes": ahj.get("notes")
-            or "Free pack path — upgrade for deep Universal Scout.",
-            "verified": bool(confirm_url) and citeable,
-            "cost_verified": False,
-            "source_url": confirm_url or None,
-            "source_label": ahj.get("name") or ("Source" if citeable else "Unverified"),
-        }
-    )
+    # CRITICAL confirm line only when we have a real URL (pack, portal seed, or SERP).
+    if confirm_url:
+        items.append(
+            {
+                "priority": "CRITICAL",
+                "task": f"Confirm fees & intake with {ahj.get('name') or f'{city} AHJ'}",
+                "responsible_party": "Estimator / permit runner",
+                "timeline": "Before bid",
+                "estimated_cost": 0,
+                "notes": ahj.get("notes")
+                or (
+                    "Portal seed — confirm fees on the official schedule."
+                    if portal_only
+                    else "Free pack path — upgrade for deep Universal Scout."
+                ),
+                # Full city packs: verified+citeable. Portal seeds: URL present, fees not curated.
+                "verified": bool(confirm_url) and (citeable or portal_only),
+                "cost_verified": False,
+                "source_url": confirm_url,
+                "source_label": ahj.get("name")
+                or ("Portal seed" if portal_only else ("Source" if citeable else "AHJ portal")),
+            }
+        )
 
     for g in (pack.get("gotchas") or [])[:4]:
         if not isinstance(g, dict):
+            continue
+        # Never emit gotchas without a source URL.
+        if not (g.get("source_url") or "").strip():
             continue
         items.append(
             {
@@ -175,23 +296,27 @@ def _punch_from_pack(
             }
         )
 
-    for d in (pack.get("documents") or [])[:5]:
-        items.append(
-            {
-                "priority": "MEDIUM",
-                "task": f"Have ready: {d}",
-                "responsible_party": "Permit package lead",
-                "timeline": "Submittal",
-                "estimated_cost": 0,
-                "notes": "Typical AHJ ask — confirm exact list",
-                "verified": citeable,
-                "cost_verified": False,
-                "source_url": confirm_url or None,
-                "source_label": "City pack document checklist",
-            }
-        )
+    # Document checklist punches only when we have a confirm URL (avoids null-URL noise).
+    if confirm_url and citeable:
+        for d in (pack.get("documents") or [])[:5]:
+            items.append(
+                {
+                    "priority": "MEDIUM",
+                    "task": f"Have ready: {d}",
+                    "responsible_party": "Permit package lead",
+                    "timeline": "Submittal",
+                    "estimated_cost": 0,
+                    "notes": "Typical AHJ ask — confirm exact list",
+                    "verified": True,
+                    "cost_verified": False,
+                    "source_url": confirm_url,
+                    "source_label": "City pack document checklist",
+                }
+            )
 
     for hit in confirm_hits[:2]:
+        if not hit.get("url"):
+            continue
         items.append(
             {
                 "priority": "HIGH",
@@ -199,7 +324,7 @@ def _punch_from_pack(
                 "responsible_party": "Estimator",
                 "timeline": "Before bid",
                 "estimated_cost": 0,
-                "notes": hit.get("snippet") or "Allowlisted SERP confirm (no page rescrape)",
+                "notes": hit.get("snippet") or "Allowlisted / .gov SERP confirm (no page rescrape)",
                 "verified": True,
                 "cost_verified": False,
                 "source_url": hit.get("url"),
@@ -207,22 +332,7 @@ def _punch_from_pack(
             }
         )
 
-    if not citeable:
-        items.append(
-            {
-                "priority": "HIGH",
-                "task": "Outside beachhead — treat as Unverified until AHJ confirms",
-                "responsible_party": "Project owner",
-                "timeline": "Before bid",
-                "estimated_cost": 0,
-                "notes": "Strongest citeable packs: Dallas / Plano / Austin. Upgrade for deep scout.",
-                "verified": False,
-                "cost_verified": False,
-                "source_url": None,
-                "source_label": "Unverified",
-            }
-        )
-
+    # Coverage honesty lives on coverage_note / AHJ notes — not as Unverified punches.
     return items
 
 
@@ -304,8 +414,38 @@ def build_free_pack_confirm_analysis(
     )
 
     confirm_hits: List[Dict[str, Any]] = []
+    generic_serp_used = False
+    # No portal yet → one cached .gov SERP to discover an AHJ link (cheap long-tail).
+    if not confirm_url and free_generic_serp_enabled():
+        discovered = _one_generic_gov_search(city=city, state=state, limit=1)
+        if discovered and discovered[0].get("url"):
+            generic_serp_used = True
+            confirm_url = str(discovered[0]["url"])
+            pack = dict(pack)
+            ahj_upd = dict(pack.get("ahj") or {})
+            ahj_upd["portal_url"] = confirm_url
+            ahj_upd["fees_url"] = ahj_upd.get("fees_url") or confirm_url
+            if not ahj_upd.get("name") or "confirm locally" in str(ahj_upd.get("name") or "").lower():
+                ahj_upd["name"] = (
+                    f"{city}, {state} AHJ".strip(", ")
+                    + f" ({discovered[0].get('title') or 'portal'})"
+                )
+            ahj_upd["notes"] = (
+                str(ahj_upd.get("notes") or "")
+                + " Portal discovered via one allowlisted .gov search — confirm fees on the official schedule."
+            ).strip()
+            pack["ahj"] = ahj_upd
+            pack["serp_discovered_portal"] = True
+            pack_urls = [confirm_url]
+            confirm_hits = discovered[:1]
+
     # Cost premortem: do not double-spend SERP when cheap confirm already useful
-    if confirm_url and free_allowlist_search_enabled() and not cheap_ok:
+    if (
+        confirm_url
+        and free_allowlist_search_enabled()
+        and not cheap_ok
+        and not generic_serp_used
+    ):
         confirm_hits = _one_allowlisted_search(
             city=city,
             state=state,
@@ -431,11 +571,13 @@ def build_free_pack_confirm_analysis(
         "free_confirm": {
             "pack_key": pack.get("pack_key"),
             "citeable": citeable,
+            "portal_only": bool(pack.get("portal_only")),
             "confirm_url": confirm_url or None,
             "search_hits": len(confirm_hits),
             "markdown_rescrape": bool(markdown_note),
             "cheap_confirm": (cheap_result or {}).get("status"),
             "serp_skipped_after_cheap": bool(cheap_ok and not confirm_hits),
+            "generic_serp_portal": bool(pack.get("serp_discovered_portal")),
             "search_limit": free_search_limit(),
             "coverage_note": coverage_note,
         },

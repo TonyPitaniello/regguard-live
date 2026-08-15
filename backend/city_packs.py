@@ -199,7 +199,7 @@ def resolve_city_pack(
 
 
 def generic_thin_pack(city: str = "", state: str = "") -> Dict[str, Any]:
-    """Outside beachhead — honest thin pack."""
+    """Outside curated/portal coverage — honest thin pack (no null-URL punches)."""
     label = f"{(city or 'Local').strip()}, {(state or '').strip()}".strip(", ")
     return {
         "pack_key": "generic",
@@ -211,19 +211,13 @@ def generic_thin_pack(city: str = "", state: str = "") -> Dict[str, Any]:
             "portal_url": "",
             "fees_url": "",
             "phone": "",
-            "notes": "Outside strongest citeable coverage (Dallas / Plano / Austin). Treat all items as Unverified until confirmed.",
+            "notes": (
+                "No curated city pack or metro portal seed for this locality. "
+                "Federal + state layers still apply. Confirm local fees and amendments with the AHJ."
+            ),
         },
         "fees": [],
-        "gotchas": [
-            {
-                "id": "verify_ahj",
-                "title": "Confirm local AHJ requirements",
-                "detail": "No curated city pack for this locality — verify fees, amendments, and submittals with the AHJ",
-                "severity": "HIGH",
-                "source_url": None,
-                "source_label": "Unverified",
-            }
-        ],
+        "gotchas": [],
         "documents": [
             "Single-line diagram",
             "Load calculations",
