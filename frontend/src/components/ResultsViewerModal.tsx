@@ -762,6 +762,95 @@ export default function ResultsViewerModal({
             Forward only what you can defend.
           </p>
 
+          {/* Bid Risk Receipt — first in results (forwardable hero) */}
+          {(view.contingency_band || (view.margin_killers && view.margin_killers.length > 0)) && (
+            <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
+                    Flagged before bid day
+                  </p>
+                  <h3 className="text-lg font-bold text-white mt-0.5">
+                    Bid Risk Receipt — forward to GC / owner
+                  </h3>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Site-specific CYA stamp: big contingency + 3 risk flags. Planning aid —
+                    not a quote, not a filing.
+                    {view.dc_positioning ? ' Parallel AHJ + utility clocks.' : ''}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => void copyShareText('text')}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy forward text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidReceipt()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-white/10 border border-emerald-500/40 text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {packetLoading ? 'Building…' : 'PDF for thread'}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mb-2">
+                {view.project_info.address} · {view.ahj_card?.name || 'Local AHJ'}
+              </p>
+              {view.contingency_band && (
+                <p className="text-4xl font-black text-emerald-400 mb-1 tracking-tight">
+                  +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
+                </p>
+              )}
+              {view.contingency_band && (
+                <p className="text-sm text-gray-300 mb-3">
+                  mid {view.contingency_band.pct_mid}% · planning aid — not a quote
+                </p>
+              )}
+              <ol className="space-y-2 list-decimal pl-5">
+                {(view.margin_killers || []).slice(0, 3).map((k, i) => (
+                  <li key={`${k.title}-${i}`} className="text-sm text-gray-200">
+                    <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                      {k.priority || 'NOTE'}
+                    </span>
+                    <span className="text-white font-medium">{k.title}</span>
+                    {k.detail && (
+                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
+                    )}
+                    {k.planning_exposure?.usd_mid != null && (
+                      <p className="text-emerald-300/90 text-xs mt-1">
+                        Planning exposure ~$
+                        {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
+                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
+                        guaranteed savings
+                      </p>
+                    )}
+                    <CitationBadge
+                      verified={Boolean(k.verified && k.source_url)}
+                      source_url={k.source_url}
+                      source_label={k.source_label || 'Unverified'}
+                    />
+                  </li>
+                ))}
+              </ol>
+              <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
+                Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
+                <button
+                  type="button"
+                  onClick={openWhatsApp}
+                  className="text-emerald-300 underline font-semibold"
+                >
+                  WhatsApp forward
+                </button>
+              </p>
+            </section>
+          )}
+
           {/* Coverage honesty badge — premortem P1/P5/P7 */}
           <section
             className={`rounded-xl border p-4 ${
@@ -1123,95 +1212,6 @@ export default function ResultsViewerModal({
               )}
             </div>
           </div>
-
-          {/* Bid Risk Receipt preview — default forwardable artifact */}
-          {(view.contingency_band || (view.margin_killers && view.margin_killers.length > 0)) && (
-            <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 sm:p-5">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
-                    Flagged before bid day
-                  </p>
-                  <h3 className="text-lg font-bold text-white mt-0.5">
-                    Bid Risk Receipt — forward to GC / owner
-                  </h3>
-                  <p className="text-gray-400 text-sm mt-1">
-                    Site-specific CYA stamp: big contingency + 3 risk flags. Planning aid —
-                    not a quote, not a filing.
-                    {view.dc_positioning ? ' Parallel AHJ + utility clocks.' : ''}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => void copyShareText('text')}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                  >
-                    <Copy className="w-4 h-4" />
-                    Copy forward text
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidReceipt()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-white/10 border border-emerald-500/40 text-white text-sm font-semibold disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4" />
-                    {packetLoading ? 'Building…' : 'PDF for thread'}
-                  </button>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mb-2">
-                {view.project_info.address} · {view.ahj_card?.name || 'Local AHJ'}
-              </p>
-              {view.contingency_band && (
-                <p className="text-4xl font-black text-emerald-400 mb-1 tracking-tight">
-                  +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
-                </p>
-              )}
-              {view.contingency_band && (
-                <p className="text-sm text-gray-300 mb-3">
-                  mid {view.contingency_band.pct_mid}% · planning aid — not a quote
-                </p>
-              )}
-              <ol className="space-y-2 list-decimal pl-5">
-                {(view.margin_killers || []).slice(0, 3).map((k, i) => (
-                  <li key={`${k.title}-${i}`} className="text-sm text-gray-200">
-                    <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
-                      {k.priority || 'NOTE'}
-                    </span>
-                    <span className="text-white font-medium">{k.title}</span>
-                    {k.detail && (
-                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
-                    )}
-                    {k.planning_exposure?.usd_mid != null && (
-                      <p className="text-emerald-300/90 text-xs mt-1">
-                        Planning exposure ~$
-                        {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
-                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
-                        guaranteed savings
-                      </p>
-                    )}
-                    <CitationBadge
-                      verified={Boolean(k.verified && k.source_url)}
-                      source_url={k.source_url}
-                      source_label={k.source_label || 'Unverified'}
-                    />
-                  </li>
-                ))}
-              </ol>
-              <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
-                Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
-                <button
-                  type="button"
-                  onClick={openWhatsApp}
-                  className="text-emerald-300 underline font-semibold"
-                >
-                  WhatsApp forward
-                </button>
-              </p>
-            </section>
-          )}
 
           {/* Bid-time arbitrage layer */}
           {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) && (
