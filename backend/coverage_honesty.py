@@ -147,6 +147,12 @@ def strip_non_pack_fees(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     if tier == "full_pack":
         return analysis
+    # Paid local confirm grounded fees — keep them
+    if tier == "paid_local" or (analysis.get("finops_mode") == "paid_local_confirm" and (
+        (analysis.get("fee_card") or {}).get("paid_local_confirm")
+        or (analysis.get("paid_local") or {}).get("fee_rows_extracted")
+    )):
+        return analysis
 
     fee_card = dict(analysis.get("fee_card") or {})
     if fee_card.get("fees"):

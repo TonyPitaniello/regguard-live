@@ -215,12 +215,20 @@ async def run_pro_deep_analysis(
     latitude: float,
     longitude: float,
     project_type: str = "commercial",
+    email: str = "",
 ) -> Dict[str, Any]:
     """
-    Deep path for paid users: Option A structure + Universal Scout action plan.
-    Falls back to Option A alone if scout/memo fails.
+    Deep path for paid users:
+      1) Option A structure
+      2) Paid local confirm FinOps (bounded scrape + day/page caps + cache)
+      3) Optional Universal Scout when PAID_UNIVERSAL_SCOUT=1
     """
     from option_a_integration import run_option_a_analysis
+    from paid_local_confirm import (
+        paid_local_confirm_enabled,
+        paid_universal_scout_enabled,
+        run_paid_local_confirm,
+    )
 
     base = await asyncio.wait_for(
         run_option_a_analysis(
@@ -234,6 +242,48 @@ async def run_pro_deep_analysis(
         ),
         timeout=45.0,
     )
+
+    # Paid local confirm FinOps first (bounded, cached, day-capped)
+    try:
+        loop = asyncio.get_event_loop()
+        base = await loop.run_in_executor(
+            None,
+            lambda: run_paid_local_confirm(
+                dict(base),
+                city=city,
+                state=state,
+                zip_code=zip_code,
+                email=email,
+            ),
+        )
+    except Exception as sc_err:
+        logger.warning("Paid local confirm failed: %s", sc_err)
+        base = dict(base)
+        base["finops_mode"] = "paid_local_confirm"
+        base["paid_local"] = {"status": "error", "error": str(sc_err)}
+
+    run_scout = paid_universal_scout_enabled()
+    if (base.get("paid_local") or {}).get("status") == "capped":
+        run_scout = False
+        logger.info("Skipping Universal Scout — paid local daily cap reached")
+
+    if not run_scout:
+        out = dict(base)
+        out["research_depth"] = out.get("research_depth") or "pro"
+        out["preview"] = False
+        out["finops_mode"] = "paid_local_confirm"
+        if not out.get("pro_summary_markdown"):
+            out["pro_summary_markdown"] = (
+                "## Paid local confirm\n\n"
+                "Bounded AHJ scrape completed (page-capped, cached). "
+                "Universal Scout is off or capped for this run.\n"
+            )
+        logger.info(
+            "Pro path local-confirm only: finops=%s paid_local=%s",
+            out.get("finops_mode"),
+            (out.get("paid_local") or {}).get("status"),
+        )
+        return out
 
     try:
         loop = asyncio.get_event_loop()
@@ -253,29 +303,40 @@ async def run_pro_deep_analysis(
         if not isinstance(research_payload, dict):
             research_payload = {}
         merged = _merge_deep_into_analysis(base, research_payload)
-        try:
-            from ahj_smart_confirm import run_paid_ahj_smart_confirm
-
-            merged = run_paid_ahj_smart_confirm(
-                merged,
-                city=city,
-                state=state,
-                zip_code=zip_code,
-            )
-        except Exception as sc_err:
-            logger.warning("Paid AHJ smart confirm skipped: %s", sc_err)
+        merged["finops_mode"] = "paid_local_confirm"
+        if base.get("paid_local"):
+            merged["paid_local"] = base.get("paid_local")
+        if base.get("paid_local_quota"):
+            merged["paid_local_quota"] = base.get("paid_local_quota")
+        if base.get("coverage"):
+            merged["coverage"] = base["coverage"]
+        if base.get("fee_card") and (base.get("fee_card") or {}).get("fees"):
+            fc = dict(merged.get("fee_card") or {})
+            existing = list(fc.get("fees") or [])
+            seen = {str(r.get("label") or "")[:40] for r in existing}
+            for row in list((base.get("fee_card") or {}).get("fees") or []):
+                key = str(row.get("label") or "")[:40]
+                if key not in seen:
+                    existing.insert(0, row)
+                    seen.add(key)
+            fc["fees"] = existing[:12]
+            fc["paid_local_confirm"] = True
+            merged["fee_card"] = fc
         logger.info(
-            "Pro deep research merged: sources=%s punch=%s smart=%s",
+            "Pro deep research merged: sources=%s punch=%s finops=%s local=%s",
             len(merged.get("pro_source_urls") or []),
             len((merged.get("punch_list") or {}).get("punch_list") or []),
-            (merged.get("smart_confirm") or {}).get("status"),
+            merged.get("finops_mode"),
+            (merged.get("paid_local") or {}).get("status"),
         )
         return merged
     except Exception as e:
-        logger.warning("Pro deep research scout failed — returning Option A with pro flag: %s", e)
+        logger.warning("Pro deep research scout failed — returning local confirm: %s", e)
         base = dict(base)
         base["research_depth"] = "pro_partial"
         base["preview"] = False
-        base["pro_summary_markdown"] = ""
-        base["pro_source_urls"] = []
+        base["finops_mode"] = "paid_local_confirm"
+        base["pro_summary_markdown"] = base.get("pro_summary_markdown") or ""
+        base["pro_source_urls"] = list(base.get("pro_source_urls") or [])
+        base["pro_deep_error"] = str(e)[:240]
         return base

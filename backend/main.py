@@ -1559,10 +1559,22 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     latitude=lat,
                     longitude=lng,
                     project_type=request_body.project_type,
+                    email=getattr(request_body, "email", None) or "",
                 ),
                 timeout=120.0,
             )
-            message = "Contractor Pro deep research ready — citeable punch list in the app."
+            message = "Contractor Pro — paid local confirm ready."
+            if (analysis or {}).get("finops_mode") == "paid_local_confirm":
+                pl = (analysis or {}).get("paid_local") or {}
+                if pl.get("status") == "capped":
+                    message = "Contractor Pro — daily scrape cap reached; pack/cache layers only."
+                elif pl.get("cache_hit"):
+                    message = "Contractor Pro — paid local confirm (cached AHJ scrape)."
+                elif isinstance(pl.get("pages_scraped"), int):
+                    message = (
+                        f"Contractor Pro — paid local confirm "
+                        f"({pl.get('pages_scraped', 0)}/{pl.get('pages_cap', 8)} pages)."
+                    )
             research_depth = analysis.get("research_depth") or "pro"
         else:
             # Free FinOps: pack + cheap confirm; allow enough time for confirm deadline
@@ -4002,6 +4014,7 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
                     latitude=profile.latitude,
                     longitude=profile.longitude,
                     project_type=job.get("project_type") or "general",
+                    email=body.owner_email or "",
                 ),
                 timeout=120.0,
             )

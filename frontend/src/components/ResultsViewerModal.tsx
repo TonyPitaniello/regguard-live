@@ -215,6 +215,17 @@ function resolveCoverage(view: AnalysisData): {
   feesAllowed: boolean;
 } {
   const c = view.coverage;
+  if (c?.tier === 'paid_local') {
+    return {
+      tier: 'paid_local',
+      badge: c.badge || 'Paid local confirm',
+      warning:
+        c.warning ||
+        'Bounded AHJ scrape (page-capped, cached). Confirm fee dollars on the official schedule.',
+      note: c.note || '',
+      feesAllowed: true,
+    };
+  }
   if (c?.tier && c.badge) {
     return {
       tier: c.tier,
@@ -733,7 +744,7 @@ export default function ResultsViewerModal({
           {/* Coverage honesty badge — premortem P1/P5/P7 */}
           <section
             className={`rounded-xl border p-4 ${
-              coverage.tier === 'full_pack'
+              coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
                 ? 'border-emerald-500/40 bg-emerald-500/10'
                 : coverage.tier === 'portal_seed'
                   ? 'border-amber-500/40 bg-amber-500/10'
@@ -744,7 +755,7 @@ export default function ResultsViewerModal({
             <div className="flex flex-wrap items-center gap-2 mb-2">
               <span
                 className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
-                  coverage.tier === 'full_pack'
+                  coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
                     ? 'bg-emerald-600 text-white'
                     : coverage.tier === 'portal_seed'
                       ? 'bg-amber-600 text-white'
@@ -753,9 +764,14 @@ export default function ResultsViewerModal({
               >
                 {coverage.badge}
               </span>
-              {coverage.tier !== 'full_pack' && (
+              {coverage.tier !== 'full_pack' && coverage.tier !== 'paid_local' && (
                 <span className="text-xs text-amber-200/90 font-semibold">
                   Not the same depth as a full city pack
+                </span>
+              )}
+              {coverage.tier === 'paid_local' && (
+                <span className="text-xs text-emerald-200/90 font-semibold">
+                  Page-capped · cached · not unlimited crawl
                 </span>
               )}
             </div>
