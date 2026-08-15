@@ -373,28 +373,47 @@ class EmailService:
 
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         short_id = (order_id or "")[:8]
+        token = (download_token or "").strip()
         email_q = quote((to_email or "").strip().lower())
         lookup_url = f"{app_url}/?email={email_q}" if email_q else f"{app_url}/"
+        orders_url = f"{app_url}/orders"
+        if email_q:
+            orders_url = f"{app_url}/orders?email={email_q}"
+        token_block = ""
+        if token:
+            token_block = f"""
+    <div style="margin:20px 0;padding:16px;background:#ecfdf5;border:2px solid #059669;border-radius:8px;">
+      <p style="margin:0 0 6px;font-size:12px;color:#047857;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">
+        Your IC access code
+      </p>
+      <p style="margin:0;font-size:22px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#064e3b;font-weight:700;letter-spacing:0.06em;word-break:break-all;">
+        {token}
+      </p>
+      <p style="margin:10px 0 0;font-size:12px;color:#065f46;">
+        Keep this code. Open My Orders with the same email to download PDFs after your site lookup.
+      </p>
+    </div>
+"""
         return f"""
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
-    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Payment received — one step left</h1>
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Payment received — IC Project Report</h1>
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      Order #{short_id} is ready for your site. Run a site lookup with <strong>this same email</strong>
-      to generate your Research Memo, Punch List, and Permit Package Worksheet PDFs.
+      Order #{short_id} is paid. Use the access code below, then run a site lookup with
+      <strong>this same email</strong> to generate your Research Memo, Punch List, and Permit Package PDFs.
     </p>
+    {token_block}
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      These are planning diligence PDFs (not an official AHJ filing). Strongest citeable coverage today:
-      Dallas / Plano / Austin TX — confirm all fees and filings with the local AHJ.
+      These are planning diligence PDFs (not an official AHJ filing). Confirm fees and filings with the local AHJ.
     </p>
     <p style="margin:20px 0;">
-      <a href="{lookup_url}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+      <a href="{lookup_url}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
         Run site lookup
       </a>
     </p>
     <p style="margin-top:16px;">
-      <a href="{app_url}/orders" style="color:#1d4ed8;">Open My Orders</a>
+      <a href="{orders_url}" style="color:#059669;font-weight:600;">Open My Orders</a>
     </p>
     <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com</p>
   </div>
@@ -656,7 +675,7 @@ RegGuard © 2026
             message = self.Mail(
                 from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 to_emails=to_email,
-                subject="Reg Guard IC Project — run your site lookup to generate PDFs",
+                subject=f"Reg Guard IC Project — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
                 html_content=self._build_ic_next_step_html(order_id, download_token, to_email),
             )
             response = self.sg.send(message)
@@ -876,10 +895,13 @@ class ResendEmailService(EmailService):
             response = self.resend.Emails.send({
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
-                "subject": "Reg Guard IC Project — run your site lookup to generate PDFs",
+                "subject": f"Reg Guard IC Project — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
                 "html": self._build_ic_next_step_html(order_id, download_token, to_email),
             })
-            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+            ok = bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+            if not ok:
+                logger.error("Resend IC next-step failed: %s", response)
+            return ok
         except Exception as e:
             logger.error("Resend send_ic_next_step failed: %s", e)
             return False

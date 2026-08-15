@@ -154,7 +154,8 @@ export default function SendResultsForm({
     }
     setLoadingSms(true);
     try {
-      const path = researchId ? `/research/${researchId}/send-sms` : '/research/send-sms';
+      // Always use standalone route with analysis/summary (research_id path 404s if not persisted)
+      const path = '/research/send-sms';
       const response = await fetch(backendUrl(path), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -172,8 +173,10 @@ export default function SendResultsForm({
         return;
       }
       if (response.ok) {
-        setSmsSuccess(`Text sent to ${formatPhoneDisplay(phone)}`);
-        setPhone('');
+        setSmsSuccess(
+          `Text queued to ${formatPhoneDisplay(phone)}. If it doesn’t arrive in ~60s (Twilio trial limits), use Open in Messages.`,
+        );
+        setShowSmsNativeFallback(true);
         return;
       }
       let detail = '';
@@ -184,23 +187,20 @@ export default function SendResultsForm({
         /* ignore */
       }
       if (response.status === 404) {
-        setError(
-          'Text API route missing on the server (backend needs redeploy). Opening Messages…',
-        );
-      } else {
+        setError('Text API route missing on the server (backend needs redeploy). Opening Messages…');
+      } else if (/trial|unverified|not configured|twilio/i.test(detail)) {
         setError(
           detail ||
-            'Server text unavailable (check Twilio FROM number). Opening Messages with the receipt…',
+            'Twilio could not deliver (trial accounts only text verified numbers). Opening Messages…',
         );
+      } else {
+        setError(detail || 'Server text unavailable. Opening Messages with the receipt…');
       }
       setShowSmsNativeFallback(true);
-      // Always give a working path — same pattern as email mailto fallback
       openNativeSms(phone);
       setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
     } catch {
-      setError(
-        'Text could not be sent (network error). Opening Messages with the receipt…',
-      );
+      setError('Text could not be sent (network error). Opening Messages with the receipt…');
       setShowSmsNativeFallback(true);
       openNativeSms(phone);
       setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
@@ -218,7 +218,7 @@ export default function SendResultsForm({
     }
     setLoadingEmail(true);
     try {
-      const path = researchId ? `/research/${researchId}/send-email` : '/research/send-email';
+      const path = '/research/send-email';
       const response = await fetch(backendUrl(path), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,10 +250,13 @@ export default function SendResultsForm({
         setError(
           'Email API route missing on the server (backend needs redeploy). Opening your email app as a backup…',
         );
+      } else if (/testing email|verify.*domain|not configured/i.test(detail)) {
+        setError(
+          'Server email is limited (Resend domain not verified for customer sends). Opening your email app with the full receipt…',
+        );
       } else if (detail) {
         setError(detail);
       }
-      // Server email unavailable — open mailto so users can still send
       openNativeEmail(email);
       setEmailSuccess(`Opening your email app for ${email}…`);
     } catch {

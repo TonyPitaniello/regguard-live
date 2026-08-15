@@ -204,6 +204,15 @@ class TwilioSMSService(SMSService):
 
             logger.info(f"SMS sent successfully: {message.sid}")
 
+            err_code = getattr(message, "error_code", None)
+            err_msg = getattr(message, "error_message", None) or ""
+            if err_code:
+                raise Exception(
+                    f"Twilio rejected SMS (code {err_code}): {err_msg or 'delivery failed'}. "
+                    "If this is a Twilio trial account, verify the destination number in Twilio Console "
+                    "or upgrade the account."
+                )
+
             return {
                 "status": "sent",
                 "message_id": message.sid,

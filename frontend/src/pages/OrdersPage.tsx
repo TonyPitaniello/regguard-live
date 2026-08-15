@@ -26,6 +26,9 @@ interface Order {
   amount: number;
   pdfs: PDF[];
   expires_at: string;
+  download_token?: string;
+  pdf_status?: string;
+  coverage_note?: string;
 }
 
 function tierLabel(tier: string): string {
@@ -229,6 +232,25 @@ export default function OrdersPage() {
                     ? 'IC Project PDFs generate after that confirmed lookup.'
                     : 'Contractor Pro deep scout results appear in the results window.'}
                 </p>
+                {orders
+                  .filter((o) => isIcTier(o.tier) && o.download_token)
+                  .slice(0, 1)
+                  .map((o) => (
+                    <div
+                      key={o.order_id}
+                      className="mt-3 rounded-lg border border-emerald-400/40 bg-slate-950/40 p-3"
+                    >
+                      <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
+                        IC access code
+                      </p>
+                      <p className="mt-1 font-mono text-lg text-white break-all select-all">
+                        {o.download_token}
+                      </p>
+                      <p className="mt-1 text-xs text-emerald-200/80">
+                        Save this code. Check spam for the confirmation email with the same code.
+                      </p>
+                    </div>
+                  ))}
               </div>
             </div>
             <a
@@ -432,6 +454,14 @@ function OrderCard({
                   )}
                 </dd>
               </div>
+              {isIcTier(order.tier) && order.download_token ? (
+                <div>
+                  <dt className="text-sm text-gray-500">IC access code</dt>
+                  <dd className="text-emerald-300 font-mono text-sm break-all select-all mt-1">
+                    {order.download_token}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </div>
 
