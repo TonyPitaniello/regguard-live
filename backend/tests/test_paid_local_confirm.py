@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 
 def test_quota_consume_and_cap(tmp_path, monkeypatch):
     monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
@@ -23,6 +20,41 @@ def test_quota_consume_and_cap(tmp_path, monkeypatch):
     usage = get_paid_local_usage("pro@example.com")
     assert usage["used"] == 2
     assert usage["allowed"] is False
+
+
+def test_email_norm_strips_plus_and_gmail_dots(tmp_path, monkeypatch):
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM_MAX_PER_DAY", "2")
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM", "1")
+
+    from paid_local_confirm import _norm_email, consume_paid_local_lookup, get_paid_local_usage
+
+    assert _norm_email("Pro+tag@Example.com") == "pro@example.com"
+    assert _norm_email("a.b.c@gmail.com") == "abc@gmail.com"
+    assert _norm_email("a.b.c@company.com") == "a.b.c@company.com"
+
+    consume_paid_local_lookup("pro+one@example.com")
+    consume_paid_local_lookup("pro+two@example.com")
+    ok, usage = consume_paid_local_lookup("pro@example.com")
+    assert not ok
+    assert usage["used"] == 2
+    assert get_paid_local_usage("pro+zzz@example.com")["used"] == 2
+
+
+def test_defaults_scout_off_day_cap_25(monkeypatch):
+    monkeypatch.delenv("PAID_UNIVERSAL_SCOUT", raising=False)
+    monkeypatch.delenv("PAID_LOCAL_CONFIRM_MAX_PER_DAY", raising=False)
+    from paid_local_confirm import max_lookups_per_day, paid_universal_scout_enabled
+
+    assert paid_universal_scout_enabled() is False
+    assert max_lookups_per_day() == 25
+
+
+def test_score_rejects_parking():
+    from paid_local_confirm import _score_mapped_url
+
+    assert _score_mapped_url("https://city.gov/parking/fees") < 0
+    assert _score_mapped_url("https://city.gov/building/permit-fees") >= 15
 
 
 def test_result_cache_roundtrip(monkeypatch):
@@ -96,6 +128,34 @@ def test_run_paid_local_sets_finops_mode(monkeypatch, tmp_path):
     assert out.get("paid_local", {}).get("status") == "ok"
     assert out["paid_local"].get("method") in ("cheap_page_confirm", "result_cache")
     assert out.get("coverage", {}).get("tier") in ("paid_local", "portal_seed", "full_pack")
+    assert out.get("fee_card", {}).get("planning_aid") is True
+    assert "Planning aid" in (out.get("fee_card", {}).get("disclaimer") or "")
+
+
+def test_capped_still_attaches_jurisdiction(monkeypatch, tmp_path):
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM", "1")
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM_MAX_PER_DAY", "1")
+
+    import paid_local_confirm as plc
+
+    plc._RESULT_CACHE.clear()
+    from paid_local_confirm import consume_paid_local_lookup, run_paid_local_confirm
+
+    consume_paid_local_lookup("cap@example.com")
+    out = run_paid_local_confirm(
+        {
+            "project_info": {"city": "Seattle", "state": "WA", "zip": "98109"},
+            "punch_list": {"punch_list": []},
+        },
+        city="Seattle",
+        state="WA",
+        zip_code="98109",
+        email="cap@example.com",
+    )
+    assert out.get("paid_local", {}).get("status") == "capped"
+    assert out.get("paid_local", {}).get("user_message")
+    assert out.get("jurisdiction") or out.get("coverage")
 
 
 def test_ahj_smart_confirm_delegates(monkeypatch, tmp_path):

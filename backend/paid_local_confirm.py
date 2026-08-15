@@ -7,9 +7,12 @@ Bounded AHJ local confirm for Contractor Pro / paid free-trial deepen:
 Caps (env):
   PAID_LOCAL_CONFIRM=1
   PAID_LOCAL_CONFIRM_MAX_PAGES=8
-  PAID_LOCAL_CONFIRM_MAX_PER_DAY=40   (per email; 0 = unlimited)
+  PAID_LOCAL_CONFIRM_MAX_PER_DAY=25   (per email; 0 = unlimited)
   PAID_LOCAL_CONFIRM_CACHE_TTL_SEC=86400
-  PAID_UNIVERSAL_SCOUT=1              (optional full scout after local confirm)
+  PAID_UNIVERSAL_SCOUT=0              (default off — set 1 or force_scout for IC)
+
+Quota + result cache are file/in-process under REGGUARD_DATA_DIR (default /tmp).
+Multi-instance: use a shared disk or set REDIS_URL later — single-instance sticky until then.
 
 Never used on free ``pack_confirm`` path.
 """
@@ -51,8 +54,11 @@ def paid_local_confirm_enabled() -> bool:
 
 
 def paid_universal_scout_enabled() -> bool:
-    """Full Universal Scout after local confirm (costly). Default on for back-compat."""
-    return _env_on("PAID_UNIVERSAL_SCOUT", "1")
+    """
+    Full Universal Scout after local confirm (costly).
+    Default OFF (premortem F2) — enable per-env or force for IC.
+    """
+    return _env_on("PAID_UNIVERSAL_SCOUT", "0")
 
 
 def max_pages() -> int:
@@ -60,8 +66,8 @@ def max_pages() -> int:
 
 
 def max_lookups_per_day() -> int:
-    """0 = unlimited."""
-    return max(0, _env_int("PAID_LOCAL_CONFIRM_MAX_PER_DAY", 40))
+    """0 = unlimited. Default 25 (premortem F2 — tighter than 40)."""
+    return max(0, _env_int("PAID_LOCAL_CONFIRM_MAX_PER_DAY", 25))
 
 
 def cache_ttl_sec() -> float:
@@ -72,7 +78,22 @@ def cache_ttl_sec() -> float:
 
 
 def _norm_email(email: str = "") -> str:
-    return (email or "").strip().lower()
+    """Normalize email; strip +tags for quota (premortem F10)."""
+    em = (email or "").strip().lower()
+    if not em or "@" not in em:
+        return em
+    local, _, domain = em.partition("@")
+    if "+" in local:
+        local = local.split("+", 1)[0]
+    # Gmail dots are optional — only collapse for gmail/googlemail
+    if domain in ("gmail.com", "googlemail.com"):
+        local = local.replace(".", "")
+    return f"{local}@{domain}"
+
+
+FEE_PLANNING_AID = (
+    "Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid."
+)
 
 
 def _day_key() -> str:
@@ -202,39 +223,37 @@ def _cache_set(key: str, payload: Dict[str, Any]) -> None:
         _RESULT_CACHE[key] = (time.monotonic(), dict(payload))
 
 
-def _extract_fee_rows(markdown: str, source_url: str) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    money = re.compile(
-        r"(?P<label>.{0,80}?)\$\s*(?P<amt>[0-9][0-9,]*(?:\.[0-9]+)?)",
-        re.IGNORECASE,
-    )
-    for line in (markdown or "").splitlines():
-        line = line.strip()
-        if not line or len(line) > 220:
-            continue
-        m = money.search(line)
-        if not m:
-            continue
-        try:
-            amt = float(m.group("amt").replace(",", ""))
-        except ValueError:
-            continue
-        label = re.sub(r"[#*_`]+", "", m.group("label")).strip(" :-|") or "Fee line"
-        if amt <= 0 or amt > 5_000_000:
-            continue
-        rows.append(
-            {
-                "label": label[:120],
-                "amount_usd": amt,
-                "detail": "Extracted from paid local confirm — confirm on official schedule",
-                "verified": True,
-                "source_url": source_url,
-                "source_label": "Paid local confirm",
-            }
+def _score_mapped_url(url: str) -> int:
+    """Prefer permit/building fee pages; reject parking/utility noise (F4)."""
+    low = (url or "").lower()
+    if any(
+        x in low
+        for x in (
+            "parking",
+            "meter",
+            "utility-bill",
+            "water-bill",
+            "recreation",
+            "library",
+            "police",
+            "court-fine",
+            "animal",
         )
-        if len(rows) >= 8:
-            break
-    return rows
+    ):
+        return -100
+    score = 0
+    for token, pts in (
+        ("fee", 25),
+        ("permit", 30),
+        ("building", 20),
+        ("electrical", 25),
+        ("inspection", 15),
+        ("development", 10),
+        ("schedule", 15),
+    ):
+        if token in low:
+            score += pts
+    return score
 
 
 def _map_candidate_urls(portal_url: str, *, limit: int = 8) -> List[str]:
@@ -248,7 +267,8 @@ def _map_candidate_urls(portal_url: str, *, limit: int = 8) -> List[str]:
 
     urls: List[str] = []
     host = _host(portal_url)
-    for search in ("fees", "permit", "building inspection", "electrical permit"):
+    # Premortem F8: fewer map queries to cut latency
+    for search in ("building permit fees", "electrical permit"):
         try:
             result = fc.map(portal_url, search=search, limit=limit)
         except TypeError:
@@ -273,11 +293,56 @@ def _map_candidate_urls(portal_url: str, *, limit: int = 8) -> List[str]:
             if host and host not in _host(str(u)):
                 continue
             s = str(u)
+            if _score_mapped_url(s) < 0:
+                continue
             if s not in urls:
                 urls.append(s)
         if len(urls) >= limit:
             break
-    return urls[:limit]
+    urls.sort(key=_score_mapped_url, reverse=True)
+    return [u for u in urls if _score_mapped_url(u) >= 15][:limit]
+
+
+def _extract_fee_rows(markdown: str, source_url: str) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    money = re.compile(
+        r"(?P<label>.{0,80}?)\$\s*(?P<amt>[0-9][0-9,]*(?:\.[0-9]+)?)",
+        re.IGNORECASE,
+    )
+    for line in (markdown or "").splitlines():
+        line = line.strip()
+        if not line or len(line) > 220:
+            continue
+        # Skip obvious non-permit money lines
+        low = line.lower()
+        if any(x in low for x in ("parking", "meter", "fine", "library", "recreation")):
+            continue
+        m = money.search(line)
+        if not m:
+            continue
+        try:
+            amt = float(m.group("amt").replace(",", ""))
+        except ValueError:
+            continue
+        label = re.sub(r"[#*_`]+", "", m.group("label")).strip(" :-|") or "Fee line"
+        if amt <= 0 or amt > 5_000_000:
+            continue
+        # Grounding: amount must appear in line (already does via regex)
+        rows.append(
+            {
+                "label": label[:120],
+                "amount_usd": amt,
+                "detail": FEE_PLANNING_AID,
+                "verified": True,  # source URL present; still planning aid
+                "planning_aid": True,
+                "cost_verified": False,
+                "source_url": source_url,
+                "source_label": "Paid local confirm (planning aid)",
+            }
+        )
+        if len(rows) >= 8:
+            break
+    return rows
 
 
 def _merge_fees_into_analysis(
@@ -288,6 +353,18 @@ def _merge_fees_into_analysis(
 ) -> Dict[str, Any]:
     if not fee_rows:
         return analysis
+    # Ensure planning-aid flags on every row (F3)
+    normalized = []
+    for row in fee_rows:
+        r = dict(row)
+        r["planning_aid"] = True
+        r["cost_verified"] = False
+        r["detail"] = FEE_PLANNING_AID
+        if "planning aid" not in str(r.get("source_label") or "").lower():
+            r["source_label"] = f"{r.get('source_label') or 'Paid local confirm'} (planning aid)"
+        normalized.append(r)
+    fee_rows = normalized
+
     fee_card = dict(analysis.get("fee_card") or {})
     existing = list(fee_card.get("fees") or [])
     seen = {str(r.get("label") or "")[:40] for r in existing}
@@ -299,10 +376,8 @@ def _merge_fees_into_analysis(
     fee_card["fees"] = existing[:12]
     fee_card["paid_local_confirm"] = True
     fee_card["citeable_coverage"] = True
-    fee_card["disclaimer"] = (
-        "Fees extracted from AHJ pages via paid local confirm — planning aid only. "
-        "Confirm on the official schedule before bid."
-    )
+    fee_card["planning_aid"] = True
+    fee_card["disclaimer"] = FEE_PLANNING_AID
     analysis["fee_card"] = fee_card
 
     punch = analysis.get("punch_list") or {}
@@ -310,9 +385,9 @@ def _merge_fees_into_analysis(
     top = fee_rows[0]
     amt = top.get("amount_usd")
     task = (
-        f"Confirm AHJ fee extract: {top.get('label')} (~${amt:,.0f})"
+        f"[Planning aid] Confirm on AHJ schedule: {top.get('label')} (~${amt:,.0f} on page)"
         if isinstance(amt, (int, float))
-        else f"Confirm AHJ fee extract: {top.get('label')}"
+        else f"[Planning aid] Confirm on AHJ schedule: {top.get('label')}"
     )
     items.insert(
         0,
@@ -322,11 +397,12 @@ def _merge_fees_into_analysis(
             "responsible_party": "Estimator",
             "timeline": "Before bid",
             "estimated_cost": amt if isinstance(amt, (int, float)) else 0,
-            "notes": "From paid local confirm — verify on official schedule",
+            "notes": FEE_PLANNING_AID,
             "verified": True,
             "cost_verified": False,
+            "planning_aid": True,
             "source_url": top.get("source_url") or scraped_url,
-            "source_label": "Paid local confirm",
+            "source_label": "Paid local confirm (planning aid)",
         },
     )
     punch["punch_list"] = items
@@ -363,16 +439,7 @@ def run_paid_local_confirm(
     analysis["finops_mode"] = "paid_local_confirm"
     analysis["paid_local_quota"] = usage
 
-    if not allowed:
-        analysis["paid_local"] = {
-            "status": "capped",
-            "reason": "daily_cap",
-            "quota": usage,
-            "max_pages": max_pages(),
-        }
-        logger.info("Paid local confirm capped for email=%s used=%s", usage.get("email"), usage.get("used"))
-        return analysis
-
+    # Always attach federal/state even when capped (F5/F9 — don't look like an outage)
     resolved = resolve_jurisdiction(zip_code=zip_code, city=city, state=state)
     city = str(resolved.get("city") or city)
     state = str(resolved.get("state") or state)
@@ -385,6 +452,22 @@ def run_paid_local_confirm(
         or resolve_metro_portal_pack(city, state, zip_code)
         or generic_thin_pack(city, state)
     )
+
+    if not allowed:
+        analysis["paid_local"] = {
+            "status": "capped",
+            "reason": "daily_cap",
+            "quota": usage,
+            "max_pages": max_pages(),
+            "user_message": (
+                f"Daily paid scrape cap reached ({usage.get('used')}/{usage.get('limit')}). "
+                "Showing federal/state + pack/cache layers. Try again tomorrow or use an IC Project for heavy research."
+            ),
+        }
+        _apply_paid_coverage(analysis, resolved, pack, [])
+        logger.info("Paid local confirm capped for email=%s used=%s", usage.get("email"), usage.get("used"))
+        return analysis
+
     portal = allowlisted_confirm_url(pack)
     pack_urls = [
         str((pack.get("ahj") or {}).get("fees_url") or ""),
@@ -392,13 +475,41 @@ def run_paid_local_confirm(
     ]
     pack_urls = [u for u in pack_urls if u]
 
+    # F9: no portal → one filtered .gov SERP before skip
+    if not portal:
+        try:
+            from free_pack_confirm import _one_generic_gov_search
+
+            hits = _one_generic_gov_search(city=city, state=state, limit=1)
+            if hits and hits[0].get("url"):
+                portal = str(hits[0]["url"])
+                pack = dict(pack)
+                ahj = dict(pack.get("ahj") or {})
+                ahj["portal_url"] = portal
+                ahj["fees_url"] = portal
+                ahj["notes"] = (
+                    str(ahj.get("notes") or "")
+                    + " Portal from filtered .gov search — confirm fees on schedule."
+                ).strip()
+                pack["ahj"] = ahj
+                pack["portal_only"] = True
+                pack["serp_discovered_portal"] = True
+                pack_urls = [portal]
+        except Exception as e:
+            logger.info("Paid local SERP portal discover skipped: %s", e)
+
     if not portal:
         analysis["paid_local"] = {
             "status": "skipped",
             "reason": "no_portal",
             "pack_key": pack.get("pack_key"),
             "quota": usage,
+            "user_message": (
+                "No AHJ portal found for this city — federal/state layers still apply. "
+                "Confirm local fees with the building department."
+            ),
         }
+        _apply_paid_coverage(analysis, resolved, pack, [])
         return analysis
 
     ck = _cache_key(city, state, zip_code, portal)
@@ -445,6 +556,16 @@ def run_paid_local_confirm(
         if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
             analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
             fee_rows = list(cheap.get("fees") or [])
+            # Stamp planning-aid on cheap path too (F3)
+            if fee_rows:
+                analysis = _merge_fees_into_analysis(analysis, fee_rows, scraped_url=portal)
+                fee_rows = list((analysis.get("fee_card") or {}).get("fees") or [])[:8]
+            else:
+                fc = dict(analysis.get("fee_card") or {})
+                fc["planning_aid"] = True
+                fc["paid_local_confirm"] = True
+                fc["disclaimer"] = FEE_PLANNING_AID
+                analysis["fee_card"] = fc
             method = "cheap_page_confirm"
             analysis["paid_local"] = {
                 "status": "ok",
@@ -484,14 +605,9 @@ def run_paid_local_confirm(
     except Exception as e:
         logger.warning("Paid local cheap confirm failed: %s", e)
 
-    # 2) Map + scrape up to pages_cap
+    # 2) Map + scrape up to pages_cap (scored; parking rejected)
     mapped = _map_candidate_urls(portal, limit=pages_cap)
     targets: List[str] = []
-    for u in mapped:
-        low = u.lower()
-        if any(k in low for k in ("fee", "permit", "inspection", "building", "electrical")):
-            if u not in targets:
-                targets.append(u)
     for u in mapped:
         if u not in targets:
             targets.append(u)
@@ -634,8 +750,8 @@ def _apply_paid_coverage(
             "badge_short": "Paid local",
             "tone": "success",
             "warning": (
-                "Bounded AHJ scrape (page-capped, cached). Fee dollars come from page text — "
-                "still confirm on the official schedule before bid. Not unlimited city crawl."
+                "Page-capped · cached · not a full city pack. Fee dollars are planning aids from "
+                "page text — confirm on the official AHJ schedule before bid. Not unlimited crawl."
             ),
             "note": note,
             "pack_key": pack.get("pack_key"),

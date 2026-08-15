@@ -93,11 +93,14 @@ export interface AnalysisData {
       amount_usd?: number | null;
       detail?: string;
       verified?: boolean;
+      planning_aid?: boolean;
       source_url?: string | null;
       source_label?: string | null;
     }>;
     citeable_coverage?: boolean;
     disclaimer?: string;
+    planning_aid?: boolean;
+    paid_local_confirm?: boolean;
   };
   ahj_card?: {
     title?: string;
@@ -165,6 +168,24 @@ export interface AnalysisData {
     portal_only?: boolean;
     coverage_note?: string;
   };
+  finops_mode?: string;
+  paid_local?: {
+    status?: string;
+    reason?: string;
+    user_message?: string;
+    fee_rows_extracted?: number;
+    pages_scraped?: number;
+    pages_cap?: number;
+    cache_hit?: boolean;
+    method?: string;
+  };
+  paid_local_quota?: {
+    used?: number;
+    limit?: number;
+    remaining?: number;
+    capped?: boolean;
+    email?: string;
+  };
   /** Top 3 margin killers for Bid Risk Receipt / share text */
   margin_killers?: Array<{
     title?: string;
@@ -221,7 +242,7 @@ function resolveCoverage(view: AnalysisData): {
       badge: c.badge || 'Paid local confirm',
       warning:
         c.warning ||
-        'Bounded AHJ scrape (page-capped, cached). Confirm fee dollars on the official schedule.',
+        'Page-capped · cached · not a full city pack. Fee dollars are planning aids — confirm on the official AHJ schedule.',
       note: c.note || '',
       feesAllowed: true,
     };
@@ -771,13 +792,30 @@ export default function ResultsViewerModal({
               )}
               {coverage.tier === 'paid_local' && (
                 <span className="text-xs text-emerald-200/90 font-semibold">
-                  Page-capped · cached · not unlimited crawl
+                  Page-capped · cached · not a full city pack
                 </span>
               )}
             </div>
             <p className="text-sm text-gray-200">{coverage.warning}</p>
             {coverage.note && coverage.note !== coverage.warning && (
               <p className="text-xs text-gray-400 mt-2">{coverage.note}</p>
+            )}
+            {view.paid_local?.status === 'capped' && (
+              <p className="text-sm text-amber-200 mt-3" role="status">
+                {view.paid_local.user_message ||
+                  'Daily paid scrape cap reached. Showing federal/state + pack/cache. Try again tomorrow or use an IC Project for heavy research.'}
+              </p>
+            )}
+            {view.paid_local_quota && typeof view.paid_local_quota.limit === 'number' && view.paid_local_quota.limit > 0 && (
+              <p className="text-xs text-gray-400 mt-2">
+                Paid scrape quota today:{' '}
+                <span className="text-gray-200 font-semibold">
+                  {view.paid_local_quota.used ?? 0}/{view.paid_local_quota.limit}
+                </span>
+                {typeof view.paid_local_quota.remaining === 'number'
+                  ? ` · ${view.paid_local_quota.remaining} remaining`
+                  : ''}
+              </p>
             )}
           </section>
 
@@ -1259,6 +1297,11 @@ export default function ResultsViewerModal({
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
                   <h4 className="text-sm font-bold text-blue-300 mb-2">
                     {view.fee_card.title || 'Fee & timeline extract'}
+                    {(view.fee_card.planning_aid || view.fee_card.paid_local_confirm) && (
+                      <span className="ml-2 text-xs font-semibold text-amber-300">
+                        Planning aid
+                      </span>
+                    )}
                   </h4>
                   <p className="text-white text-sm mb-2">
                     Timeline: {view.fee_card.timeline || view.summary.estimated_timeline}
@@ -1288,6 +1331,11 @@ export default function ResultsViewerModal({
                           {typeof f.amount_usd === 'number'
                             ? ` — $${f.amount_usd.toLocaleString()}`
                             : ''}
+                          {(f.planning_aid ||
+                            view.fee_card?.planning_aid ||
+                            view.fee_card?.paid_local_confirm) && (
+                            <span className="ml-1 text-xs text-amber-300/90">(planning aid)</span>
+                          )}
                           <CitationBadge
                             verified={Boolean(f.verified)}
                             source_url={f.source_url}
@@ -1297,8 +1345,13 @@ export default function ResultsViewerModal({
                       ))}
                     </ul>
                   )}
-                  {view.fee_card.disclaimer && (
-                    <p className="text-gray-500 text-xs mt-2">{view.fee_card.disclaimer}</p>
+                  {(view.fee_card.disclaimer ||
+                    view.fee_card.paid_local_confirm ||
+                    view.fee_card.planning_aid) && (
+                    <p className="text-amber-200/80 text-xs mt-2">
+                      {view.fee_card.disclaimer ||
+                        'Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid.'}
+                    </p>
                   )}
                 </div>
               )}

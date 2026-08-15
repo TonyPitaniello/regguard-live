@@ -16,3 +16,16 @@ services:
         value: "3.12.8"
       - key: REG_GUARD_IC_DEMO
         value: "0"
+      # Paid FinOps: bounded AHJ confirm (premortem F1/F2)
+      - key: PAID_LOCAL_CONFIRM
+        value: "1"
+      - key: PAID_UNIVERSAL_SCOUT
+        value: "0"
+      - key: PAID_LOCAL_CONFIRM_MAX_PAGES
+        value: "8"
+      - key: PAID_LOCAL_CONFIRM_MAX_PER_DAY
+        value: "25"
+      - key: PAID_LOCAL_CONFIRM_CACHE_TTL_SEC
+        value: "86400"
+      # Quota file defaults to /tmp/regguard_data unless REGGUARD_DATA_DIR is set
+      # (attach a persistent disk + shared path before multi-instance)

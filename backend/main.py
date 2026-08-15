@@ -1078,6 +1078,33 @@ def debug_routes() -> Dict[str, Any]:
 def debug_config() -> Dict[str, Any]:
     """Debug endpoint: Check environment & startup state."""
     route_paths = [getattr(r, "path", "") or "" for r in app.routes]
+    paid_finops: Dict[str, Any] = {}
+    try:
+        from paid_local_confirm import (
+            cache_ttl_sec,
+            max_lookups_per_day,
+            max_pages,
+            paid_local_confirm_enabled,
+            paid_universal_scout_enabled,
+        )
+
+        paid_finops = {
+            "PAID_LOCAL_CONFIRM": paid_local_confirm_enabled(),
+            "PAID_UNIVERSAL_SCOUT": paid_universal_scout_enabled(),
+            "PAID_LOCAL_CONFIRM_MAX_PAGES": max_pages(),
+            "PAID_LOCAL_CONFIRM_MAX_PER_DAY": max_lookups_per_day(),
+            "PAID_LOCAL_CONFIRM_CACHE_TTL_SEC": int(cache_ttl_sec()),
+            "quota_store": "file",
+            "data_dir": os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data",
+            "redis_url_set": bool(os.getenv("REDIS_URL")),
+            "note": (
+                "Quota/result cache are file+in-process; multi-instance needs shared "
+                "REGGUARD_DATA_DIR (or future REDIS_URL). Scout default off; IC uses force_scout."
+            ),
+        }
+    except Exception as e:
+        paid_finops = {"error": str(e)[:160]}
+
     return {
         "app_instance": str(type(app).__name__),
         "has_research_route": any("/research" in p for p in route_paths),
@@ -1087,6 +1114,7 @@ def debug_config() -> Dict[str, Any]:
         "has_jobs_route": any(p == "/jobs" or p.startswith("/jobs/") for p in route_paths),
         "route_count": len(route_paths),
         "git_sha": (os.getenv("RENDER_GIT_COMMIT") or os.getenv("REG_GUARD_GIT_SHA") or "")[:12],
+        "paid_finops": paid_finops,
         "environment_vars_loaded": {
             "firecrawl": bool(os.getenv("FIRECRAWL_API_KEY")),
             "stripe_secret": bool(os.getenv("STRIPE_SECRET_KEY")),
@@ -1475,7 +1503,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
 
     Free FinOps: city pack + optional 1 allowlisted SERP confirm (no markdown rescrape,
     no Option A 6x env searches, no Universal Scout).
-    Paid emails (Contractor Pro / IC) run the deeper Universal Scout + action-plan path.
+    Paid emails (Contractor Pro / IC) run paid_local_confirm first; Universal Scout only
+    when PAID_UNIVERSAL_SCOUT=1 or generate_ic_report (force_scout).
     """
     from free_trial_handler import handle_free_trial
     from free_pack_confirm import run_free_pack_confirm
@@ -1549,7 +1578,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         if paid:
             from pro_deep_analysis import run_pro_deep_analysis
 
-            logger.info("Paid entitlement — running Contractor Pro deep research")
+            # IC Project opt-in → force Universal Scout (premortem F2/F8)
+            force_scout = bool(getattr(request_body, "generate_ic_report", False))
+            logger.info(
+                "Paid entitlement — local confirm first (force_scout=%s)",
+                force_scout,
+            )
             analysis = await asyncio.wait_for(
                 run_pro_deep_analysis(
                     address=request_body.address,
@@ -1560,6 +1594,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     longitude=lng,
                     project_type=request_body.project_type,
                     email=getattr(request_body, "email", None) or "",
+                    force_scout=force_scout,
                 ),
                 timeout=120.0,
             )
@@ -1567,7 +1602,10 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             if (analysis or {}).get("finops_mode") == "paid_local_confirm":
                 pl = (analysis or {}).get("paid_local") or {}
                 if pl.get("status") == "capped":
-                    message = "Contractor Pro — daily scrape cap reached; pack/cache layers only."
+                    message = str(
+                        pl.get("user_message")
+                        or "Contractor Pro — daily scrape cap reached; federal/state + pack/cache only."
+                    )
                 elif pl.get("cache_hit"):
                     message = "Contractor Pro — paid local confirm (cached AHJ scrape)."
                 elif isinstance(pl.get("pages_scraped"), int):

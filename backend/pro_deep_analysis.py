@@ -216,18 +216,21 @@ async def run_pro_deep_analysis(
     longitude: float,
     project_type: str = "commercial",
     email: str = "",
+    force_scout: bool = False,
 ) -> Dict[str, Any]:
     """
     Deep path for paid users:
       1) Option A structure
-      2) Paid local confirm FinOps (bounded scrape + day/page caps + cache)
-      3) Optional Universal Scout when PAID_UNIVERSAL_SCOUT=1
+      2) Paid local confirm FinOps (bounded scrape + day/page caps + cache) — always first
+      3) Universal Scout only if PAID_UNIVERSAL_SCOUT=1 or force_scout (IC)
+         and not day-capped; skipped when local confirm already extracted fees
+         unless PAID_UNIVERSAL_SCOUT_FORCE=1
     """
     from option_a_integration import run_option_a_analysis
     from paid_local_confirm import (
-        paid_local_confirm_enabled,
         paid_universal_scout_enabled,
         run_paid_local_confirm,
+        _env_on,
     )
 
     base = await asyncio.wait_for(
@@ -243,7 +246,7 @@ async def run_pro_deep_analysis(
         timeout=45.0,
     )
 
-    # Paid local confirm FinOps first (bounded, cached, day-capped)
+    # Paid local confirm FinOps first (bounded, cached, day-capped) — return-ready (F8)
     try:
         loop = asyncio.get_event_loop()
         base = await loop.run_in_executor(
@@ -262,10 +265,16 @@ async def run_pro_deep_analysis(
         base["finops_mode"] = "paid_local_confirm"
         base["paid_local"] = {"status": "error", "error": str(sc_err)}
 
-    run_scout = paid_universal_scout_enabled()
-    if (base.get("paid_local") or {}).get("status") == "capped":
+    pl = base.get("paid_local") or {}
+    fee_n = int(pl.get("fee_rows_extracted") or 0)
+    run_scout = bool(force_scout) or paid_universal_scout_enabled()
+    if pl.get("status") == "capped":
         run_scout = False
         logger.info("Skipping Universal Scout — paid local daily cap reached")
+    elif fee_n > 0 and not force_scout and not _env_on("PAID_UNIVERSAL_SCOUT_FORCE", "0"):
+        # Local confirm already grounded fees — skip expensive scout (F2/F8)
+        run_scout = False
+        logger.info("Skipping Universal Scout — paid local fees already extracted (%s)", fee_n)
 
     if not run_scout:
         out = dict(base)
@@ -276,12 +285,14 @@ async def run_pro_deep_analysis(
             out["pro_summary_markdown"] = (
                 "## Paid local confirm\n\n"
                 "Bounded AHJ scrape completed (page-capped, cached). "
-                "Universal Scout is off or capped for this run.\n"
+                "Fee extracts are **planning aids** — confirm on the official schedule. "
+                "Universal Scout is off, capped, or unnecessary for this run.\n"
             )
         logger.info(
-            "Pro path local-confirm only: finops=%s paid_local=%s",
+            "Pro path local-confirm only: finops=%s paid_local=%s fees=%s",
             out.get("finops_mode"),
-            (out.get("paid_local") or {}).get("status"),
+            pl.get("status"),
+            fee_n,
         )
         return out
 
@@ -321,6 +332,10 @@ async def run_pro_deep_analysis(
                     seen.add(key)
             fc["fees"] = existing[:12]
             fc["paid_local_confirm"] = True
+            fc["planning_aid"] = True
+            fc["disclaimer"] = (
+                "Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid."
+            )
             merged["fee_card"] = fc
         logger.info(
             "Pro deep research merged: sources=%s punch=%s finops=%s local=%s",
