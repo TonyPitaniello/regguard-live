@@ -257,8 +257,31 @@ def build_free_pack_confirm_analysis(
         str((pack.get("ahj") or {}).get("portal_url") or ""),
         str((pack.get("ahj") or {}).get("fees_url") or ""),
     ]
+
+    # Cheap confirm FIRST (fail-open on timeout). Skip Firecrawl SERP when it works.
+    cheap_result: Optional[Dict[str, Any]] = None
+    if free_cheap_confirm_enabled() and confirm_url:
+        try:
+            from cheap_page_confirm import run_cheap_page_confirm
+
+            cheap_result = run_cheap_page_confirm(
+                confirm_url,
+                pack_urls=pack_urls,
+                use_llm=True,
+            )
+        except Exception as e:
+            logger.warning("Free cheap confirm failed: %s", e)
+            cheap_result = {"status": "error", "error": str(e)}
+
+    cheap_ok = bool(
+        cheap_result
+        and cheap_result.get("status") == "ok"
+        and (cheap_result.get("fees") or cheap_result.get("notes"))
+    )
+
     confirm_hits: List[Dict[str, Any]] = []
-    if confirm_url:
+    # Cost premortem: do not double-spend SERP when cheap confirm already succeeded
+    if confirm_url and free_allowlist_search_enabled() and not cheap_ok:
         confirm_hits = _one_allowlisted_search(
             city=city,
             state=state,
@@ -280,27 +303,18 @@ def build_free_pack_confirm_analysis(
         except Exception:
             markdown_note = None
 
-    # Cheap confirm: requests + markdown (+ optional LLM) — no Firecrawl scrape
-    cheap_result: Optional[Dict[str, Any]] = None
-    if free_cheap_confirm_enabled() and confirm_url:
-        try:
-            from cheap_page_confirm import run_cheap_page_confirm
-
-            cheap_result = run_cheap_page_confirm(
-                confirm_url,
-                pack_urls=pack_urls,
-                use_llm=True,
-            )
-        except Exception as e:
-            logger.warning("Free cheap confirm failed: %s", e)
-            cheap_result = {"status": "error", "error": str(e)}
-
     punch_items = _punch_from_pack(
         pack, city=city, state=state, confirm_hits=confirm_hits
     )
     ahj = pack.get("ahj") or {}
     timeline = str(pack.get("timeline_hint") or "Confirm with AHJ before bid")
     citeable = bool(pack.get("citeable"))
+    coverage_note = str(
+        resolved.get("coverage_note")
+        or (
+            "Federal + state always; citeable local is beachhead-first — not every city hall scraped."
+        )
+    )
 
     findings = [
         {
@@ -308,9 +322,10 @@ def build_free_pack_confirm_analysis(
             "risk_level": "HIGH" if citeable else "MEDIUM",
             "description": (
                 f"Free FinOps path for {city}, {state}: federal+state+local packs"
-                + (" + cheap page confirm" if cheap_result and cheap_result.get("status") == "ok" else "")
+                + (" + cheap page confirm" if cheap_ok else "")
                 + (" + 1 allowlisted confirm search" if confirm_hits else "")
-                + ". No deep Universal Scout."
+                + ". No deep Universal Scout. "
+                + coverage_note
             ),
             "action_items": [
                 f"Open AHJ portal: {confirm_url or 'confirm locally'}",
@@ -320,7 +335,7 @@ def build_free_pack_confirm_analysis(
             "data_sources": [
                 f"city_pack:{pack.get('pack_key')}",
                 "jurisdiction:federal+state",
-                *(["cheap_page_confirm"] if cheap_result and cheap_result.get("status") == "ok" else []),
+                *(["cheap_page_confirm"] if cheap_ok else []),
                 *(["allowlisted_confirm_search"] if confirm_hits else []),
             ],
             "research_cost_usd": 0,
@@ -396,7 +411,9 @@ def build_free_pack_confirm_analysis(
             "search_hits": len(confirm_hits),
             "markdown_rescrape": bool(markdown_note),
             "cheap_confirm": (cheap_result or {}).get("status"),
+            "serp_skipped_after_cheap": bool(cheap_ok and not confirm_hits),
             "search_limit": free_search_limit(),
+            "coverage_note": coverage_note,
         },
     }
 

@@ -290,10 +290,41 @@ def _regex_fee_rows(markdown: str, source_url: str) -> List[Dict[str, Any]]:
     return rows
 
 
+def _amount_appears_in_markdown(markdown: str, amount: float) -> bool:
+    """Ground LLM dollar amounts in page text to block invented fees."""
+    md = markdown or ""
+    if amount is None:
+        return False
+    # Whole dollars and one/two-decimal forms commonly published on AHJ pages
+    candidates = {
+        f"{amount:.0f}",
+        f"{amount:.2f}",
+        f"{amount:,.0f}",
+        f"{amount:,.2f}",
+    }
+    # Also bare digits without commas
+    try:
+        as_int = int(amount) if float(amount).is_integer() else None
+    except (TypeError, ValueError):
+        as_int = None
+    if as_int is not None:
+        candidates.add(str(as_int))
+    for c in candidates:
+        if not c:
+            continue
+        # Require $ nearby or fee-ish context — simple containment of $X
+        if f"${c}" in md or f"$ {c}" in md:
+            return True
+        # Digits with commas already in c
+        if re.search(rf"\$\s*{re.escape(c.replace(',', ','))}", md):
+            return True
+    return False
+
+
 def _llm_extract(markdown_text: str, source_url: str) -> Dict[str, Any]:
     """
-    Small Anthropic extract. On missing key / failure, returns empty fees
-    (caller still has regex fallback).
+    Small Anthropic extract. Amounts must appear on the page or are dropped.
+    On missing key / failure, returns empty fees (caller still has regex fallback).
     """
     from anthropic import Anthropic
 
@@ -305,12 +336,13 @@ def _llm_extract(markdown_text: str, source_url: str) -> Dict[str, Any]:
 
 Extract ONLY factual fee / permit / timeline info from the webpage Markdown.
 Do not invent amounts or rules that are not on the page.
+If an amount is not explicitly written on the page, set amount_usd to null.
 If nothing useful, return empty arrays.
 
 Return ONLY valid JSON with this shape:
 {{
   "fees": [{{"label": "...", "amount_usd": number_or_null, "detail": "..."}}],
-  "notes": ["short planning notes from the page"],
+  "notes": ["short planning notes copied/paraphrased from the page"],
   "timeline_hint": "short string or empty"
 }}
 
@@ -348,6 +380,12 @@ Webpage Markdown:
                     amt = float(amt)
                 except (TypeError, ValueError):
                     amt = None
+            grounded = (
+                amt is None or _amount_appears_in_markdown(markdown_text, float(amt))
+            )
+            if amt is not None and not grounded:
+                # Premortem: refuse invented dollar amounts
+                continue
             fees_out.append(
                 {
                     "label": str(row.get("label") or "Fee")[:120],
@@ -355,9 +393,14 @@ Webpage Markdown:
                     "detail": str(row.get("detail") or "From page extract — confirm on schedule")[
                         :200
                     ],
-                    "verified": True,
+                    # Amounts grounded in page text → Source; label-only stays Unverified
+                    "verified": bool(amt is not None and grounded),
                     "source_url": source_url,
-                    "source_label": "Cheap page confirm (LLM)",
+                    "source_label": (
+                        "Cheap page confirm (grounded)"
+                        if amt is not None and grounded
+                        else "Unverified (LLM note)"
+                    ),
                 }
             )
         notes = [str(n)[:200] for n in list(data.get("notes") or [])[:5] if n]
@@ -365,7 +408,7 @@ Webpage Markdown:
             "fees": fees_out,
             "notes": notes,
             "timeline_hint": str(data.get("timeline_hint") or "")[:160],
-            "verified": bool(fees_out or notes),
+            "verified": any(f.get("verified") for f in fees_out),
             "llm": True,
         }
     except Exception as e:
@@ -378,11 +421,14 @@ def run_cheap_page_confirm(
     *,
     pack_urls: Optional[List[str]] = None,
     use_llm: bool = True,
+    deadline_sec: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     One cheap confirm: fetch+markdown (+ optional LLM), merge regex fees.
-    Returns structured dict for punch/fee_card merge.
+    Fail-open on deadline — returns status=timeout so callers keep pack-only.
     """
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+
     empty = {
         "status": "skipped",
         "source_url": url,
@@ -395,6 +441,43 @@ def run_cheap_page_confirm(
     if not url:
         return empty
 
+    budget = deadline_sec
+    if budget is None:
+        try:
+            budget = max(2.0, min(10.0, float(os.getenv("CHEAP_CONFIRM_DEADLINE_SEC") or "5")))
+        except ValueError:
+            budget = 5.0
+
+    def _work() -> Dict[str, Any]:
+        return _run_cheap_page_confirm_inner(url, pack_urls=pack_urls, use_llm=use_llm)
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            fut = pool.submit(_work)
+            return fut.result(timeout=budget)
+    except FuturesTimeout:
+        logger.warning("Cheap confirm timed out after %.1fs for %s", budget, url)
+        return {**empty, "status": "timeout", "deadline_sec": budget}
+    except Exception as e:
+        logger.warning("Cheap confirm failed: %s", e)
+        return {**empty, "status": "error", "error": str(e)}
+
+
+def _run_cheap_page_confirm_inner(
+    url: str,
+    *,
+    pack_urls: Optional[List[str]] = None,
+    use_llm: bool = True,
+) -> Dict[str, Any]:
+    empty = {
+        "status": "skipped",
+        "source_url": url,
+        "fees": [],
+        "notes": [],
+        "timeline_hint": "",
+        "verified": False,
+        "markdown_chars": 0,
+    }
     cache_k = _key(f"{url}|llm={int(use_llm)}")
     now = time.time()
     with _LOCK:
@@ -415,15 +498,14 @@ def run_cheap_page_confirm(
     if use_llm:
         llm_part = _llm_extract(md, url)
 
-    # Prefer LLM fees when present; else regex
-    fees = list(llm_part.get("fees") or []) or regex_fees
-    if llm_part.get("fees") and regex_fees:
-        seen: Set[str] = {str(f.get("label") or "")[:40] for f in fees}
-        for row in regex_fees:
-            key = str(row.get("label") or "")[:40]
-            if key not in seen:
-                fees.append(row)
-                seen.add(key)
+    # Prefer regex (Source) first; add grounded LLM fees that don't duplicate labels
+    fees = list(regex_fees)
+    seen: Set[str] = {str(f.get("label") or "")[:40] for f in fees}
+    for row in list(llm_part.get("fees") or []):
+        key = str(row.get("label") or "")[:40]
+        if key not in seen:
+            fees.append(row)
+            seen.add(key)
 
     out = {
         "status": "ok",
@@ -431,7 +513,7 @@ def run_cheap_page_confirm(
         "fees": fees[:10],
         "notes": list(llm_part.get("notes") or [])[:5],
         "timeline_hint": str(llm_part.get("timeline_hint") or ""),
-        "verified": bool(fees),
+        "verified": any(f.get("verified") for f in fees),
         "markdown_chars": len(md),
         "llm_used": bool(llm_part.get("llm")),
     }
@@ -476,6 +558,7 @@ def merge_cheap_confirm_into_analysis(
         items = list(punch.get("punch_list") or [])
         top = fees[0]
         amt = top.get("amount_usd")
+        verified = bool(top.get("verified"))
         task = (
             f"Confirm AHJ fee extract: {top.get('label')} (~${amt:,.0f})"
             if isinstance(amt, (int, float))
@@ -490,10 +573,11 @@ def merge_cheap_confirm_into_analysis(
                 "timeline": "Before bid",
                 "estimated_cost": amt if isinstance(amt, (int, float)) else 0,
                 "notes": "From cheap page confirm — verify on official schedule",
-                "verified": True,
+                "verified": verified,
                 "cost_verified": False,
                 "source_url": top.get("source_url") or confirm.get("source_url"),
-                "source_label": "Cheap page confirm",
+                "source_label": top.get("source_label")
+                or ("Cheap page confirm" if verified else "Unverified"),
             },
         )
         for note in list(confirm.get("notes") or [])[:2]:
@@ -504,11 +588,11 @@ def merge_cheap_confirm_into_analysis(
                     "responsible_party": "Estimator",
                     "timeline": "Before bid",
                     "estimated_cost": 0,
-                    "notes": "Note from cheap page confirm",
-                    "verified": True,
+                    "notes": "Note from cheap page confirm — confirm on AHJ site",
+                    "verified": False,
                     "cost_verified": False,
                     "source_url": confirm.get("source_url"),
-                    "source_label": "Cheap page confirm",
+                    "source_label": "Unverified (page note)",
                 }
             )
         punch["punch_list"] = items

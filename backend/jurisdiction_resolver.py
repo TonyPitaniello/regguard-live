@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -70,6 +71,26 @@ def place_from_zip(zip_code: str = "") -> Dict[str, str]:
     return row
 
 
+def _normalize_state(state: str = "") -> str:
+    s = (state or "").strip().upper()
+    aliases = {
+        "TEXAS": "TX",
+        "CALIFORNIA": "CA",
+        "NEW YORK": "NY",
+        "FLORIDA": "FL",
+        "WASHINGTON": "WA",
+        "COLORADO": "CO",
+        "ARIZONA": "AZ",
+        "ILLINOIS": "IL",
+        "GEORGIA": "GA",
+    }
+    if s in aliases:
+        return aliases[s]
+    if len(s) == 2:
+        return s
+    return s[:2] if len(s) > 2 else s
+
+
 def resolve_jurisdiction(
     zip_code: str = "",
     city: str = "",
@@ -78,13 +99,29 @@ def resolve_jurisdiction(
     """
     Hierarchical resolve:
       federal (always) + state pack + local city pack or thin local.
+
+    Prefer user-provided city/state over ZIP3/seed when present (avoids
+    ZIP3 mis-state overriding a typed locality).
     """
     z = normalize_zip(zip_code)
     place = place_from_zip(z) if z else {}
-    city_out = (city or place.get("city") or "").strip()
-    state_out = (state or place.get("state") or state_from_zip(z) or "").strip().upper()
-    if state_out.lower() in ("texas",):
-        state_out = "TX"
+    user_city = (city or "").strip()
+    user_state = _normalize_state(state)
+
+    city_out = user_city or (place.get("city") or "").strip()
+    # User state wins; zip seed / zip3 only fill gaps
+    state_out = user_state or _normalize_state(place.get("state") or "") or state_from_zip(z)
+    zip3_state = state_from_zip(z)
+    state_mismatch = bool(
+        user_state and zip3_state and user_state != zip3_state
+    )
+    if state_mismatch:
+        logger.info(
+            "ZIP3 state %s overridden by user state %s for zip=%s",
+            zip3_state,
+            user_state,
+            z,
+        )
 
     local = resolve_city_pack(city_out, state_out, z)
     citeable_local = bool(local and local.get("citeable"))
@@ -111,17 +148,42 @@ def resolve_jurisdiction(
         "state_pack": state_pack,
         "local": local,
         "citeable_local": citeable_local,
-        "resolved_from_zip_seed": bool(place.get("city")),
+        "resolved_from_zip_seed": bool(place.get("city")) and not user_city,
+        "user_state_preferred": bool(user_state),
+        "zip3_state_mismatch": state_mismatch,
+        "coverage_note": (
+            "Federal + state filing cabinet always. Citeable local AHJ packs are "
+            "beachhead-first (Dallas / Plano / Austin) — not a live scrape of every city."
+            if not citeable_local
+            else "Citeable local pack + federal/state layers."
+        ),
     }
 
 
-def jurisdiction_punch_items(resolved: Dict[str, Any]) -> list:
-    """Federal + state items as punch rows (prepended by callers)."""
+def jurisdiction_punch_items(
+    resolved: Dict[str, Any],
+    *,
+    federal_cap: int = 2,
+    state_cap: int = 2,
+) -> list:
+    """Federal + state items as punch rows (capped to reduce soft-lock noise)."""
+    try:
+        federal_cap = max(0, min(4, int(os.getenv("JURISDICTION_FEDERAL_PUNCH_CAP") or federal_cap)))
+    except ValueError:
+        federal_cap = 2
+    try:
+        state_cap = max(0, min(4, int(os.getenv("JURISDICTION_STATE_PUNCH_CAP") or state_cap)))
+    except ValueError:
+        state_cap = 2
+
     items = []
-    for layer_key, label in (("federal", "Federal"), ("state_pack", "State")):
+    for layer_key, label, cap in (
+        ("federal", "Federal", federal_cap),
+        ("state_pack", "State", state_cap),
+    ):
         pack = resolved.get(layer_key) or {}
         citeable = bool(pack.get("citeable"))
-        for g in (pack.get("items") or [])[:4]:
+        for g in (pack.get("items") or [])[:cap]:
             if not isinstance(g, dict):
                 continue
             items.append(
@@ -181,6 +243,8 @@ def attach_jurisdiction_cards(
         "citeable_local": resolved.get("citeable_local"),
         "local_pack_key": (resolved.get("local") or {}).get("pack_key"),
         "resolved_from_zip_seed": resolved.get("resolved_from_zip_seed"),
+        "coverage_note": resolved.get("coverage_note"),
+        "zip3_state_mismatch": resolved.get("zip3_state_mismatch"),
     }
 
     extra = jurisdiction_punch_items(resolved)

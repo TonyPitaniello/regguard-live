@@ -95,10 +95,50 @@ def test_attach_jurisdiction_cards_prepends_punch():
     assert out.get("federal_card")
     assert out.get("state_card")
     tasks = [i.get("task") for i in out["punch_list"]["punch_list"]]
-    assert any(t and t.startswith("[Federal]") for t in tasks)
-    assert any(t and t.startswith("[State]") for t in tasks)
+    fed = [t for t in tasks if t and t.startswith("[Federal]")]
+    state = [t for t in tasks if t and t.startswith("[State]")]
+    assert 1 <= len(fed) <= 2
+    assert 1 <= len(state) <= 2
     assert out["project_info"].get("city") == "Chicago"
     assert out["project_info"].get("state") == "IL"
+
+
+def test_user_state_overrides_zip3():
+    from jurisdiction_resolver import resolve_jurisdiction
+
+    # 75074 is TX; user claims WA — user wins
+    r = resolve_jurisdiction(zip_code="75074", city="Seattle", state="WA")
+    assert r["state"] == "WA"
+    assert r["city"] == "Seattle"
+    assert r["zip3_state_mismatch"] is True
+    assert r["citeable_local"] is False
+
+
+def test_llm_amount_must_appear_on_page():
+    from cheap_page_confirm import _amount_appears_in_markdown
+
+    md = "Electrical permit base fee $75.00 for standard residential."
+    assert _amount_appears_in_markdown(md, 75.0)
+    assert not _amount_appears_in_markdown(md, 9999.0)
+
+
+def test_cheap_confirm_timeout_fail_open(monkeypatch):
+    import cheap_page_confirm as cpc
+
+    def slow(*_a, **_k):
+        import time
+
+        time.sleep(2.0)
+        return {"status": "ok", "fees": [], "notes": [], "verified": False}
+
+    monkeypatch.setattr(cpc, "_run_cheap_page_confirm_inner", slow)
+    out = cpc.run_cheap_page_confirm(
+        "https://www.plano.gov/fees",
+        pack_urls=["https://www.plano.gov/fees"],
+        use_llm=False,
+        deadline_sec=0.2,
+    )
+    assert out.get("status") == "timeout"
 
 
 def test_free_pack_confirm_unknown_zip_no_firecrawl_md(monkeypatch):
