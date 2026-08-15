@@ -48,8 +48,10 @@ export function LocationPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mapVisible, setMapVisible] = useState(false);
-  const [useManualEntry, setUseManualEntry] = useState(false);
+  const [useManualEntry, setUseManualEntry] = useState(true);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  const unlockFields = () => setFieldsUnlocked(true);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
 
@@ -74,6 +76,7 @@ export function LocationPicker({
     const nextZip = externalValues.zip ?? '';
     if (!nextAddress && !nextCity && !nextState && !nextZip) return;
     setUseManualEntry(true);
+    setFieldsUnlocked(true);
     if (nextAddress) setAddress(nextAddress);
     if (nextCity) setCity(nextCity);
     if (nextState) setState(nextState);
@@ -316,10 +319,19 @@ export function LocationPicker({
             <label className="block text-white font-bold mb-2">Street Address *</label>
             <input
               type="text"
+              name="rg_street"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              onFocus={unlockFields}
               placeholder="Street address"
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              readOnly={!fieldsUnlocked}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
               disabled={disabled}
               className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
             />
@@ -329,10 +341,18 @@ export function LocationPicker({
               <label className="block text-white font-bold mb-2">City *</label>
               <input
                 type="text"
+                name="rg_city"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
+                onFocus={unlockFields}
                 placeholder="City"
                 autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                readOnly={!fieldsUnlocked}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -341,10 +361,18 @@ export function LocationPicker({
               <label className="block text-white font-bold mb-2">State *</label>
               <input
                 type="text"
+                name="rg_state"
                 value={state}
                 onChange={(e) => setState(e.target.value)}
+                onFocus={unlockFields}
                 placeholder="State"
                 autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                readOnly={!fieldsUnlocked}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -353,10 +381,18 @@ export function LocationPicker({
               <label className="block text-white font-bold mb-2">ZIP *</label>
               <input
                 type="text"
+                name="rg_zip"
                 value={zip}
                 onChange={(e) => setZip(e.target.value)}
+                onFocus={unlockFields}
                 placeholder="ZIP"
                 autoComplete="off"
+                inputMode="numeric"
+                spellCheck={false}
+                readOnly={!fieldsUnlocked}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />

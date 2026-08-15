@@ -97,7 +97,6 @@ export default function FreeTrialForm({
       : urlProjectType) ||
     undefined;
 
-  // Always start blank — do not restore prior address/email/phone into the form.
   const [formData, setFormData] = useState({
     address: '',
     city: '',
@@ -113,6 +112,9 @@ export default function FreeTrialForm({
     state?: string;
     zip?: string;
   } | null>(null);
+  /** Chrome ignores autocomplete=off; unlock on focus so fields stay blank on load. */
+  const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  const unlockFields = () => setFieldsUnlocked(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<ProgressStep>('geocode');
@@ -348,18 +350,26 @@ export default function FreeTrialForm({
     await runResearch();
   };
 
-  // After checkout: restore site + offer / auto deepen research
+  // After checkout return (?unlock=1): restore site for deepen — never on normal visits.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const unlock =
-      params.get('unlock') === '1' || sessionStorage.getItem('pendingDeepUnlock') === '1';
-    if (!unlock) return;
+    const unlockFromCheckout = params.get('unlock') === '1';
+    const pending = sessionStorage.getItem('pendingDeepUnlock') === '1';
+
+    if (!unlockFromCheckout && !pending) return;
+
+    // Banner for any pending deepen; form fields only when returning from checkout.
+    setUnlockBanner(true);
+    if (!unlockFromCheckout) return;
 
     const last = readLastResearchForm();
     const email =
-      (params.get('email') || sessionStorage.getItem('userEmail') || last.email || '').trim().toLowerCase();
+      (params.get('email') || sessionStorage.getItem('userEmail') || last.email || '')
+        .trim()
+        .toLowerCase();
 
     if (last.address || last.city || last.zip || email) {
+      setFieldsUnlocked(true);
       setFormData((prev) => ({
         ...prev,
         address: last.address || prev.address,
@@ -379,8 +389,6 @@ export default function FreeTrialForm({
       }
     }
 
-    setUnlockBanner(true);
-
     void (async () => {
       if (!email) return;
       try {
@@ -391,7 +399,6 @@ export default function FreeTrialForm({
         if (!paid) return;
         sessionStorage.setItem('regguardPaid', '1');
         setPaidEntitled(true);
-        // Auto-deepen once when we have a restored site
         if (
           !autoUnlockTried.current &&
           (last.address || formDataRef.current.address) &&
@@ -489,7 +496,7 @@ export default function FreeTrialForm({
 
       {!resultsOpen && (
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10">
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
           <LocationPicker
             onLocationSelect={handleLocationSelect}
             disabled={loading}
@@ -531,11 +538,21 @@ export default function FreeTrialForm({
               <input
                 id="home-email"
                 type="email"
-                name="email"
+                name="rg_site_email"
                 value={formData.email}
-                onChange={handleInputChange}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, email: e.target.value }))
+                }
+                onFocus={unlockFields}
                 placeholder="Email"
                 autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                readOnly={!fieldsUnlocked}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
                 disabled={loading}
               />
@@ -547,11 +564,20 @@ export default function FreeTrialForm({
               <input
                 id="home-phone"
                 type="tel"
-                name="phone"
+                name="rg_site_phone"
                 value={formData.phone}
-                onChange={handleInputChange}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, phone: e.target.value }))
+                }
+                onFocus={unlockFields}
                 placeholder="Phone"
                 autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                readOnly={!fieldsUnlocked}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
                 className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
                 disabled={loading}
               />
