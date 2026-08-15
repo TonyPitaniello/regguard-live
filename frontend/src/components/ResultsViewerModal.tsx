@@ -134,6 +134,37 @@ export interface AnalysisData {
     disclaimer?: string;
     drivers?: { critical_items?: number; high_items?: number; unverified_items?: number };
   };
+  /** Premortem honesty: full_pack | portal_seed | federal_state */
+  coverage?: {
+    tier?: string;
+    badge?: string;
+    badge_short?: string;
+    tone?: string;
+    warning?: string;
+    note?: string;
+    pack_key?: string | null;
+    state_citeable?: boolean;
+    fees_allowed?: boolean;
+    depth_equals_beachhead?: boolean;
+  };
+  jurisdiction?: {
+    zip?: string;
+    city?: string;
+    state?: string;
+    county?: string;
+    citeable_local?: boolean;
+    portal_only_local?: boolean;
+    coverage_tier?: string;
+    coverage_badge?: string;
+    coverage_note?: string;
+    local_pack_key?: string;
+  };
+  free_confirm?: {
+    pack_key?: string;
+    citeable?: boolean;
+    portal_only?: boolean;
+    coverage_note?: string;
+  };
   /** Top 3 margin killers for Bid Risk Receipt / share text */
   margin_killers?: Array<{
     title?: string;
@@ -174,6 +205,53 @@ export interface AnalysisData {
 
 function criticalPathTask(item: CriticalPathItem): string {
   return typeof item === 'string' ? item : item.task;
+}
+
+function resolveCoverage(view: AnalysisData): {
+  tier: string;
+  badge: string;
+  warning: string;
+  note: string;
+  feesAllowed: boolean;
+} {
+  const c = view.coverage;
+  if (c?.tier && c.badge) {
+    return {
+      tier: c.tier,
+      badge: c.badge,
+      warning: c.warning || '',
+      note: c.note || c.warning || '',
+      feesAllowed: Boolean(c.fees_allowed ?? c.tier === 'full_pack'),
+    };
+  }
+  const j = view.jurisdiction;
+  if (j?.citeable_local) {
+    return {
+      tier: 'full_pack',
+      badge: 'Full city pack',
+      warning: 'Curated local fees/gotchas — still confirm dollars on the official schedule.',
+      note: j.coverage_note || '',
+      feesAllowed: true,
+    };
+  }
+  if (j?.portal_only_local || view.free_confirm?.portal_only) {
+    return {
+      tier: 'portal_seed',
+      badge: 'Portal seed — confirm fees',
+      warning:
+        'AHJ portal link only — not full-pack depth. No curated local fees or ordinance gotchas.',
+      note: j?.coverage_note || view.free_confirm?.coverage_note || '',
+      feesAllowed: false,
+    };
+  }
+  return {
+    tier: 'federal_state',
+    badge: 'Federal / state only',
+    warning:
+      'No curated local AHJ pack. Federal (+ state when curated) only — confirm local requirements with the AHJ.',
+    note: j?.coverage_note || view.free_confirm?.coverage_note || '',
+    feesAllowed: false,
+  };
 }
 
 interface ResultsViewerModalProps {
@@ -238,9 +316,11 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
       analysis.planning_exposure_summary?.data_center_mode ||
       /data.?center|colo/i.test(analysis.project_info?.type || '')
   );
+  const cov = resolveCoverage(analysis);
 
   return [
     `FLAGGED BEFORE BID — ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    `Coverage: ${cov.badge}`,
     `AHJ: ${ahj}`,
     bandLine,
     killerLines ? `Top 3 risk flags:\n${killerLines}` : '',
@@ -344,6 +424,7 @@ export default function ResultsViewerModal({
   if (!isOpen || !analysis) return null;
 
   const view = liveAnalysis || analysis;
+  const coverage = resolveCoverage(view);
 
   const summary = buildSummaryFromAnalysis(view);
   const effectiveResearchId = researchId || view.research_id || null;
@@ -649,6 +730,41 @@ export default function ResultsViewerModal({
             Forward only what you can defend.
           </p>
 
+          {/* Coverage honesty badge — premortem P1/P5/P7 */}
+          <section
+            className={`rounded-xl border p-4 ${
+              coverage.tier === 'full_pack'
+                ? 'border-emerald-500/40 bg-emerald-500/10'
+                : coverage.tier === 'portal_seed'
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-slate-600 bg-slate-800/60'
+            }`}
+            aria-label="Coverage depth"
+          >
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              <span
+                className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
+                  coverage.tier === 'full_pack'
+                    ? 'bg-emerald-600 text-white'
+                    : coverage.tier === 'portal_seed'
+                      ? 'bg-amber-600 text-white'
+                      : 'bg-slate-600 text-gray-100'
+                }`}
+              >
+                {coverage.badge}
+              </span>
+              {coverage.tier !== 'full_pack' && (
+                <span className="text-xs text-amber-200/90 font-semibold">
+                  Not the same depth as a full city pack
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-200">{coverage.warning}</p>
+            {coverage.note && coverage.note !== coverage.warning && (
+              <p className="text-xs text-gray-400 mt-2">{coverage.note}</p>
+            )}
+          </section>
+
           {/* Free results → soft-lock / share-to-unlock / paid deepen */}
           {!isDeep && (
             <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
@@ -666,7 +782,7 @@ export default function ResultsViewerModal({
                     {canUnlockDeeper
                       ? 'Re-run with your paid email for Contractor Pro deep scout research and richer citations.'
                       : softLocked
-                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for deep research + IC PDFs. Strongest citeable coverage: Dallas / Plano / Austin.'
+                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for deep research + IC PDFs.'
                         : 'Upgrade for deep scout research, full cost rollups, and IC Project PDF packages.'}
                   </p>
                 </div>
@@ -752,7 +868,7 @@ export default function ResultsViewerModal({
               <h3 className="text-white font-bold text-sm mb-1">Need PDFs for this site?</h3>
               <p className="text-gray-300 text-sm mb-3">
                 IC Project Report ($1,500): research memo + punch list + permit worksheet PDFs.
-                Planning diligence — not an official AHJ filing. Strongest citeable: Dallas / Plano / Austin.
+                Planning diligence — not an official AHJ filing. Coverage depth is labeled on this receipt.
               </p>
               <button
                 type="button"
@@ -823,6 +939,12 @@ export default function ResultsViewerModal({
             </button>
             {expanded.critical && (
               <div className="space-y-2">
+                <p className="text-xs text-gray-400 px-1 pb-1">
+                  Coverage: <span className="text-gray-200 font-semibold">{coverage.badge}</span>
+                  {!coverage.feesAllowed
+                    ? ' — fee dollars not shown; open the AHJ portal to confirm.'
+                    : ' — confirm fee dollars on the official schedule.'}
+                </p>
                 {(view.punch_list?.critical_path || []).slice(0, Math.min(5, punchVisible)).map((task, idx) => {
                   const meta = typeof task === 'string' ? { task } : task;
                   return (
@@ -1125,19 +1247,40 @@ export default function ResultsViewerModal({
                   <p className="text-white text-sm mb-2">
                     Timeline: {view.fee_card.timeline || view.summary.estimated_timeline}
                   </p>
-                  <ul className="space-y-2">
-                    {(view.fee_card.fees || []).slice(0, 6).map((f, i) => (
-                      <li key={i} className="text-sm text-gray-300">
-                        <span className="text-white font-medium">{f.label}</span>
-                        {typeof f.amount_usd === 'number' ? ` — $${f.amount_usd.toLocaleString()}` : ''}
-                        <CitationBadge
-                          verified={Boolean(f.verified)}
-                          source_url={f.source_url}
-                          source_label={f.source_label || 'Confirm with AHJ'}
-                        />
-                      </li>
-                    ))}
-                  </ul>
+                  {!coverage.feesAllowed ? (
+                    <p className="text-amber-200/90 text-sm">
+                      Dollar fees not shown for {coverage.badge.toLowerCase()} coverage. Use{' '}
+                      {view.ahj_card?.fees_url || view.ahj_card?.portal_url ? (
+                        <a
+                          href={view.ahj_card.fees_url || view.ahj_card.portal_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline text-purple-300"
+                        >
+                          the AHJ portal
+                        </a>
+                      ) : (
+                        'the AHJ portal'
+                      )}{' '}
+                      to confirm the official schedule before bid.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {(view.fee_card.fees || []).slice(0, 6).map((f, i) => (
+                        <li key={i} className="text-sm text-gray-300">
+                          <span className="text-white font-medium">{f.label}</span>
+                          {typeof f.amount_usd === 'number'
+                            ? ` — $${f.amount_usd.toLocaleString()}`
+                            : ''}
+                          <CitationBadge
+                            verified={Boolean(f.verified)}
+                            source_url={f.source_url}
+                            source_label={f.source_label || 'Confirm with AHJ'}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {view.fee_card.disclaimer && (
                     <p className="text-gray-500 text-xs mt-2">{view.fee_card.disclaimer}</p>
                   )}

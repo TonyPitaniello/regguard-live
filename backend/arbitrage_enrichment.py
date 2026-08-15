@@ -381,13 +381,17 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     fee_rows = list(pack.get("fees") or [])
     # Prefer punch-extracted $ when present; keep pack fees first
-    extracted = _extract_fees_from_punch(items)
-    seen = {str(r.get("label") or "")[:40] for r in fee_rows}
-    for row in extracted:
-        key = str(row.get("label") or "")[:40]
-        if key not in seen:
-            fee_rows.append(row)
-            seen.add(key)
+    # P1: never surface fee dollars for portal-only / non-citeable packs
+    if pack.get("citeable") and not pack.get("portal_only"):
+        extracted = _extract_fees_from_punch(items)
+        seen = {str(r.get("label") or "")[:40] for r in fee_rows}
+        for row in extracted:
+            key = str(row.get("label") or "")[:40]
+            if key not in seen:
+                fee_rows.append(row)
+                seen.add(key)
+    else:
+        fee_rows = []
 
     timeline = (
         summary.get("estimated_timeline")
@@ -402,7 +406,14 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "timeline_hint": pack.get("timeline_hint") or "",
         "fees": fee_rows,
         "citeable_coverage": bool(pack.get("citeable")),
-        "disclaimer": "Confirm all fees on the official AHJ schedule before bid or filing.",
+        "disclaimer": (
+            "Confirm all fees on the official AHJ schedule before bid or filing."
+            if pack.get("citeable")
+            else (
+                "Fee amounts hidden — portal seed / federal-state coverage only. "
+                "Confirm the official AHJ schedule before bid."
+            )
+        ),
     }
 
     ahj = pack.get("ahj") or {}
@@ -486,6 +497,12 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         high,
         unverified,
     )
+    try:
+        from coverage_honesty import apply_coverage_honesty
+
+        out = apply_coverage_honesty(out, pack=pack)
+    except Exception as e:
+        logger.warning("coverage honesty apply failed: %s", e)
     return out
 
 

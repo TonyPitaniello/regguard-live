@@ -146,6 +146,11 @@ def _one_generic_gov_search(
     """
     if not free_generic_serp_enabled():
         return []
+    from coverage_honesty import generic_serp_budget_available
+
+    if not generic_serp_budget_available():
+        logger.info("Generic .gov SERP skipped — daily cap reached")
+        return []
     locality = f"{(city or '').strip()}, {(state or '').strip()}".strip(", ")
     if not locality or locality.lower() in ("local", ","):
         return []
@@ -199,7 +204,8 @@ def _one_generic_gov_search(
 
     out: List[Dict[str, Any]] = []
     cache_rows: List[Dict[str, Optional[str]]] = []
-    for item in list(web)[: max(1, min(3, limit))]:
+    raw_hits: List[Dict[str, Any]] = []
+    for item in list(web)[: max(3, min(5, limit * 3))]:
         url = getattr(item, "url", None)
         title = getattr(item, "title", None)
         desc = getattr(item, "description", None) or getattr(item, "snippet", None)
@@ -209,25 +215,28 @@ def _one_generic_gov_search(
             desc = desc or item.get("description") or item.get("snippet")
         if not url:
             continue
-        host = _host(str(url))
-        if not host.endswith(".gov") and ".gov." not in host:
-            # Allow common municipal .us / city hosts only if clearly government-ish
-            if not any(x in host for x in (".us", "city", "county", "municip")):
-                continue
-        row = {
-            "url": str(url),
-            "title": str(title or "AHJ portal hit")[:160],
-            "snippet": str(desc or "")[:240],
-        }
-        out.append(row)
+        raw_hits.append(
+            {
+                "url": str(url),
+                "title": str(title or "AHJ portal hit")[:160],
+                "snippet": str(desc or "")[:240],
+            }
+        )
+
+    from coverage_honesty import filter_gov_serp_hits, record_generic_serp_use
+
+    out = filter_gov_serp_hits(raw_hits, city=city, state=state, limit=limit, min_score=30)
+    for row in out:
         cache_rows.append(
             {
                 "url": row["url"],
                 "title": row["title"],
-                "snippet": row["snippet"],
-                "description": row["snippet"],
+                "snippet": row.get("snippet") or "",
+                "description": row.get("snippet") or "",
             }
         )
+    if out:
+        record_generic_serp_use()
     if cache_rows:
         try:
             from semantic_scout_cache import cache_set
@@ -371,10 +380,13 @@ def build_free_pack_confirm_analysis(
     pack_urls = [u for u in pack_urls if u]
     # Try fees_url first for cheap confirm
     cheap_target = pack_urls[0] if pack_urls else confirm_url
+    portal_only = bool(pack.get("portal_only"))
+    citeable_pack = bool(pack.get("citeable"))
 
-    # Cheap confirm FIRST (fail-open on timeout/thin SPA). Skip Firecrawl SERP when useful.
+    # Cheap confirm FIRST — but NEVER for portal-only seeds (P1: fee quote risk).
+    # Full citeable packs only. Fail-open on timeout/thin SPA.
     cheap_result: Optional[Dict[str, Any]] = None
-    if free_cheap_confirm_enabled() and cheap_target:
+    if free_cheap_confirm_enabled() and cheap_target and citeable_pack and not portal_only:
         try:
             from cheap_page_confirm import run_cheap_page_confirm
 
@@ -399,9 +411,62 @@ def build_free_pack_confirm_analysis(
                 ):
                     cheap_result = alt
                     confirm_url = pack_urls[1]
+            # P2: 404 / hard fetch failure → rediscover via generic .gov SERP once
+            if cheap_result.get("status") in ("error", "http_error", "not_found", "404"):
+                rediscovered = _one_generic_gov_search(city=city, state=state, limit=1)
+                if rediscovered and rediscovered[0].get("url"):
+                    confirm_url = str(rediscovered[0]["url"])
+                    pack = dict(pack)
+                    ahj_fix = dict(pack.get("ahj") or {})
+                    ahj_fix["portal_url"] = confirm_url
+                    ahj_fix["fees_url"] = confirm_url
+                    ahj_fix["notes"] = (
+                        str(ahj_fix.get("notes") or "")
+                        + " Portal URL refreshed after seed link failed — confirm fees on schedule."
+                    ).strip()
+                    pack["ahj"] = ahj_fix
+                    pack["portal_rediscovered"] = True
+                    pack_urls = [confirm_url]
+                    confirm_hits_seed = rediscovered[:1]
+                else:
+                    confirm_hits_seed = []
+            else:
+                confirm_hits_seed = []
         except Exception as e:
             logger.warning("Free cheap confirm failed: %s", e)
             cheap_result = {"status": "error", "error": str(e)}
+            confirm_hits_seed = []
+    else:
+        confirm_hits_seed = []
+        # Portal seed / thin: HEAD/GET check optional — on missing URL use SERP below.
+        if confirm_url and portal_only:
+            try:
+                import requests
+
+                probe = requests.get(
+                    confirm_url,
+                    timeout=6,
+                    allow_redirects=True,
+                    headers={"User-Agent": "RegGuardPortalCheck/1.0"},
+                )
+                if probe.status_code == 404:
+                    rediscovered = _one_generic_gov_search(city=city, state=state, limit=1)
+                    if rediscovered and rediscovered[0].get("url"):
+                        confirm_url = str(rediscovered[0]["url"])
+                        pack = dict(pack)
+                        ahj_fix = dict(pack.get("ahj") or {})
+                        ahj_fix["portal_url"] = confirm_url
+                        ahj_fix["fees_url"] = confirm_url
+                        ahj_fix["notes"] = (
+                            str(ahj_fix.get("notes") or "")
+                            + " Portal URL refreshed after 404 — confirm fees on schedule."
+                        ).strip()
+                        pack["ahj"] = ahj_fix
+                        pack["portal_rediscovered"] = True
+                        pack_urls = [confirm_url]
+                        confirm_hits_seed = rediscovered[:1]
+            except Exception as e:
+                logger.info("Portal seed probe skipped/failed: %s", e)
 
     cheap_ok = bool(
         cheap_result
@@ -413,8 +478,8 @@ def build_free_pack_confirm_analysis(
         )
     )
 
-    confirm_hits: List[Dict[str, Any]] = []
-    generic_serp_used = False
+    confirm_hits: List[Dict[str, Any]] = list(confirm_hits_seed)
+    generic_serp_used = bool(pack.get("portal_rediscovered"))
     # No portal yet → one cached .gov SERP to discover an AHJ link (cheap long-tail).
     if not confirm_url and free_generic_serp_enabled():
         discovered = _one_generic_gov_search(city=city, state=state, limit=1)
@@ -432,10 +497,11 @@ def build_free_pack_confirm_analysis(
                 )
             ahj_upd["notes"] = (
                 str(ahj_upd.get("notes") or "")
-                + " Portal discovered via one allowlisted .gov search — confirm fees on the official schedule."
+                + " Portal discovered via filtered .gov search — confirm fees on the official schedule."
             ).strip()
             pack["ahj"] = ahj_upd
             pack["serp_discovered_portal"] = True
+            pack["portal_only"] = True
             pack_urls = [confirm_url]
             confirm_hits = discovered[:1]
 
@@ -445,6 +511,7 @@ def build_free_pack_confirm_analysis(
         and free_allowlist_search_enabled()
         and not cheap_ok
         and not generic_serp_used
+        and citeable_pack
     ):
         confirm_hits = _one_allowlisted_search(
             city=city,
@@ -585,10 +652,14 @@ def build_free_pack_confirm_analysis(
 
     analysis = attach_jurisdiction_cards(analysis, resolved)
 
-    if cheap_result:
+    if cheap_result and citeable and not bool(pack.get("portal_only")):
         from cheap_page_confirm import merge_cheap_confirm_into_analysis
 
         analysis = merge_cheap_confirm_into_analysis(analysis, cheap_result)
+
+    from coverage_honesty import apply_coverage_honesty
+
+    analysis = apply_coverage_honesty(analysis, resolved=resolved, pack=pack)
 
     # Refresh counts after jurisdiction + cheap merges
     punch_n = len((analysis.get("punch_list") or {}).get("punch_list") or [])
