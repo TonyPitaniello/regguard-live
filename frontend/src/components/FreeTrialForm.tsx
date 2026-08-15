@@ -268,6 +268,8 @@ export default function FreeTrialForm({
         body: JSON.stringify({
           address: `${data.address}, ${data.city}, ${data.state}, ${data.zip}`,
           zip: data.zip,
+          city: data.city,
+          state: data.state,
           project_type: data.projectType,
           email: emailNorm,
           phone: data.phone || undefined,

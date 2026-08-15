@@ -106,13 +106,21 @@ def test_attach_jurisdiction_cards_prepends_punch():
 def test_user_state_overrides_zip3():
     from jurisdiction_resolver import resolve_jurisdiction
 
-    # 75074 is TX; user claims WA — user wins
     r = resolve_jurisdiction(zip_code="75074", city="Seattle", state="WA")
     assert r["state"] == "WA"
     assert r["city"] == "Seattle"
     assert r["zip3_state_mismatch"] is True
     assert r["citeable_local"] is False
 
+
+def test_placeholder_city_falls_back_to_zip_seed():
+    from jurisdiction_resolver import resolve_jurisdiction
+
+    r = resolve_jurisdiction(zip_code="75074", city="Unknown", state="US")
+    assert r["city"] == "Plano"
+    assert r["state"] == "TX"
+    assert r["citeable_local"] is True
+    assert (r["local"] or {}).get("pack_key") == "plano, tx"
 
 def test_llm_amount_must_appear_on_page():
     from cheap_page_confirm import _amount_appears_in_markdown

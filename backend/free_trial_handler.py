@@ -20,6 +20,8 @@ class FreeTrialRequest(BaseModel):
     project_type: str
     email: str
     zip: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
     phone: Optional[str] = None
     # Explicit opt-in: consume IC Project Report slot for this address
     generate_ic_report: Optional[bool] = False

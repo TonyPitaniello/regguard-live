@@ -71,8 +71,24 @@ def place_from_zip(zip_code: str = "") -> Dict[str, str]:
     return row
 
 
+def _is_placeholder_locality(value: str = "") -> bool:
+    v = (value or "").strip().lower()
+    return (not v) or v in {
+        "unknown",
+        "n/a",
+        "na",
+        "none",
+        "null",
+        "us",
+        "usa",
+        "united states",
+    }
+
+
 def _normalize_state(state: str = "") -> str:
     s = (state or "").strip().upper()
+    if _is_placeholder_locality(s):
+        return ""
     aliases = {
         "TEXAS": "TX",
         "CALIFORNIA": "CA",
@@ -101,11 +117,12 @@ def resolve_jurisdiction(
       federal (always) + state pack + local city pack or thin local.
 
     Prefer user-provided city/state over ZIP3/seed when present (avoids
-    ZIP3 mis-state overriding a typed locality).
+    ZIP3 mis-state overriding a typed locality). Treat geocode placeholders
+    like Unknown / US as missing so ZIP seed can fill.
     """
     z = normalize_zip(zip_code)
     place = place_from_zip(z) if z else {}
-    user_city = (city or "").strip()
+    user_city = "" if _is_placeholder_locality(city) else (city or "").strip()
     user_state = _normalize_state(state)
 
     city_out = user_city or (place.get("city") or "").strip()

@@ -1525,54 +1525,81 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     analysis: Optional[Dict[str, Any]] = None
     try:
         profile = geocode_profile_from_address(request_body.address)
-        if profile:
-            if paid:
-                from pro_deep_analysis import run_pro_deep_analysis
 
-                logger.info("Paid entitlement — running Contractor Pro deep research")
-                analysis = await asyncio.wait_for(
-                    run_pro_deep_analysis(
-                        address=request_body.address,
-                        city=profile.city,
-                        state=profile.state_short,
-                        zip_code=profile.zip5,
-                        latitude=profile.latitude,
-                        longitude=profile.longitude,
-                        project_type=request_body.project_type,
-                    ),
-                    timeout=120.0,
-                )
-                message = "Contractor Pro deep research ready — citeable punch list in the app."
-                research_depth = analysis.get("research_depth") or "pro"
-            else:
-                # Free FinOps: pack + 1 allowlisted confirm; short timeout; no md rescrape
-                free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "10")
-                logger.info(
-                    "Free FinOps — pack + allowlisted confirm (timeout=%ss)",
-                    max(5.0, free_timeout),
-                )
-                analysis = await asyncio.wait_for(
-                    run_free_pack_confirm(
-                        address=request_body.address,
-                        city=profile.city,
-                        state=profile.state_short,
-                        zip_code=profile.zip5,
-                        latitude=profile.latitude,
-                        longitude=profile.longitude,
-                        project_type=request_body.project_type or "general",
-                    ),
-                    timeout=max(5.0, free_timeout),
-                )
-                message = (
-                    "Free Bid Risk preview ready — city pack"
-                    + (
+        def _clean_loc(val: Optional[str]) -> str:
+            v = (val or "").strip()
+            if not v or v.lower() in ("unknown", "n/a", "na", "us", "usa", "united states"):
+                return ""
+            return v
+
+        req_city = _clean_loc(getattr(request_body, "city", None))
+        req_state = _clean_loc(getattr(request_body, "state", None))
+        req_zip = "".join(c for c in str(getattr(request_body, "zip", None) or "") if c.isdigit())[:5]
+        geo_city = _clean_loc(getattr(profile, "city", None) if profile else None)
+        geo_state = _clean_loc(getattr(profile, "state_short", None) if profile else None)
+        geo_zip = "".join(
+            c for c in str(getattr(profile, "zip5", None) if profile else "") if c.isdigit()
+        )[:5]
+        city = req_city or geo_city
+        state = req_state or geo_state
+        zip_code = req_zip or geo_zip
+        lat = float(getattr(profile, "latitude", 0.0) or 0.0) if profile else 0.0
+        lng = float(getattr(profile, "longitude", 0.0) or 0.0) if profile else 0.0
+
+        if paid:
+            from pro_deep_analysis import run_pro_deep_analysis
+
+            logger.info("Paid entitlement — running Contractor Pro deep research")
+            analysis = await asyncio.wait_for(
+                run_pro_deep_analysis(
+                    address=request_body.address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                    latitude=lat,
+                    longitude=lng,
+                    project_type=request_body.project_type,
+                ),
+                timeout=120.0,
+            )
+            message = "Contractor Pro deep research ready — citeable punch list in the app."
+            research_depth = analysis.get("research_depth") or "pro"
+        else:
+            # Free FinOps: pack + cheap confirm; allow enough time for confirm deadline
+            free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "14")
+            logger.info(
+                "Free FinOps — pack + cheap confirm (timeout=%ss) city=%s state=%s zip=%s",
+                max(8.0, free_timeout),
+                city,
+                state,
+                zip_code,
+            )
+            analysis = await asyncio.wait_for(
+                run_free_pack_confirm(
+                    address=request_body.address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                    latitude=lat,
+                    longitude=lng,
+                    project_type=request_body.project_type or "general",
+                ),
+                timeout=max(8.0, free_timeout),
+            )
+            message = (
+                "Free Bid Risk preview ready — city pack"
+                + (
+                    " + cheap confirm."
+                    if (analysis or {}).get("free_confirm", {}).get("cheap_confirm") == "ok"
+                    else (
                         " + allowlisted confirm."
                         if (analysis or {}).get("free_confirm", {}).get("search_hits")
                         else "."
                     )
-                    + " Upgrade for full Universal Scout."
                 )
-            status = "success"
+                + " Upgrade for full Universal Scout."
+            )
+        status = "success"
     except asyncio.TimeoutError:
         logger.warning("Deep analysis timed out — using instant fallback")
         analysis = None
@@ -1586,6 +1613,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             address=request_body.address,
             project_type=request_body.project_type,
             zip_code=zip_hint if isinstance(zip_hint, str) else "",
+            city=getattr(request_body, "city", None),
+            state=getattr(request_body, "state", None),
         )
         message = "Instant preview ready in the app. Deeper research continues in the background."
         status = "success"

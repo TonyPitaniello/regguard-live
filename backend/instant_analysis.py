@@ -53,9 +53,28 @@ def build_instant_fallback_analysis(
 ) -> Dict[str, Any]:
     """Deterministic analysis payload — never raises."""
     parsed = _parse_address(address, zip_code)
-    city = city or parsed["city"]
-    state = state or parsed["state"]
+    city_in = (city or "").strip()
+    state_in = (state or "").strip()
+    if city_in.lower() in ("unknown", "n/a", "na", ""):
+        city_in = ""
+    if state_in.lower() in ("unknown", "us", "usa", "united states", "n/a", ""):
+        state_in = ""
+    city = city_in or parsed["city"]
+    state = state_in or parsed["state"]
     zip_code = zip_code or parsed["zip"]
+
+    # Prefer ZIP seed over Unknown/US placeholders from incomplete addresses
+    if (city.lower() in ("unknown", "") or state.upper() in ("US", "USA", "")) and zip_code:
+        try:
+            from jurisdiction_resolver import resolve_jurisdiction
+
+            resolved = resolve_jurisdiction(zip_code=zip_code, city=city_in, state=state_in)
+            if resolved.get("city"):
+                city = resolved["city"]
+            if resolved.get("state"):
+                state = resolved["state"]
+        except Exception:
+            pass
 
     findings = [
         {
