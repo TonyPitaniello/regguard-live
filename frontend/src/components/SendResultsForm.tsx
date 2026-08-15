@@ -32,19 +32,26 @@ interface SendResultsFormProps {
   compact?: boolean;
 }
 
-function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData | null): string {
+function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData | null, researchId?: string | null): string {
   const unverified = summary.estimates_unverified || summary.preview;
-  const share =
-    analysis?.share_url ||
-    (analysis?.research_id || summary
-      ? `https://app.regguardagent.com/r/${analysis?.research_id || ''}`
-      : 'https://app.regguardagent.com/');
+  const rid = analysis?.research_id || researchId || '';
+  let share =
+    (analysis?.share_url || '').trim() ||
+    (rid ? `https://app.regguardagent.com/r/${rid}` : 'https://app.regguardagent.com/');
+  if (share.endsWith('/r/') || share.endsWith('/r')) {
+    share = 'https://app.regguardagent.com/';
+  }
   const punch = analysis?.punch_list?.punch_list || [];
+  const killers = analysis?.margin_killers || [];
+  const band = analysis?.contingency_band;
   const lines = [
-    'RegGuard Site Diligence Report',
+    'Reg Guard Bid Risk Receipt',
     summary.preview || unverified ? 'NOTE: Preview / unverified estimates — not AHJ quotes' : '',
     summary.address ? `Site: ${summary.address}` : '',
     [summary.city, summary.state, summary.zip].filter(Boolean).join(', '),
+    band?.pct_low != null && band?.pct_high != null
+      ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
+      : '',
     summary.risk_unavailable
       ? 'Risk score: unavailable (not parcel-verified)'
       : summary.risk_level
@@ -57,6 +64,9 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
       ? `Est. cost: $${Number(summary.cost).toLocaleString()}${unverified ? ' (unverified)' : ''}`
       : '',
     '',
+    'TOP RISK FLAGS:',
+    ...killers.slice(0, 3).map((k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}`),
+    '',
     'PUNCH LIST:',
     ...punch.slice(0, 12).map((item, i) => {
       const cost =
@@ -64,7 +74,7 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
       return `${i + 1}. [${item.priority}] ${item.task}${cost}`;
     }),
     '',
-    `Full shareable report: ${share.endsWith('/r/') ? 'https://app.regguardagent.com/' : share}`,
+    `Full shareable report: ${share}`,
   ].filter(Boolean);
   return lines.join('\n');
 }
@@ -119,13 +129,18 @@ export default function SendResultsForm({
 
   const openNativeSms = (phoneValue: string) => {
     const digits = digitsOnly(phoneValue);
-    const body = encodeURIComponent(buildTextBody(summary, analysis));
-    window.location.href = `sms:+1${digits}?&body=${body}`;
+    const body = encodeURIComponent(buildTextBody(summary, analysis, researchId));
+    // iOS prefers &body=; Android often wants ?body=
+    const href =
+      /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? `sms:+1${digits}&body=${body}`
+        : `sms:+1${digits}?body=${body}`;
+    window.location.href = href;
   };
 
   const openNativeEmail = (emailValue: string) => {
-    const subject = encodeURIComponent('RegGuard Site Diligence Report');
-    const body = encodeURIComponent(buildTextBody(summary, analysis));
+    const subject = encodeURIComponent('Reg Guard Bid Risk Receipt');
+    const body = encodeURIComponent(buildTextBody(summary, analysis, researchId));
     window.location.href = `mailto:${emailValue}?subject=${subject}&body=${body}`;
   };
 
@@ -170,20 +185,25 @@ export default function SendResultsForm({
       }
       if (response.status === 404) {
         setError(
-          'Text API route missing on the server (backend needs redeploy). Use “Open in Messages” below for now.',
+          'Text API route missing on the server (backend needs redeploy). Opening Messages…',
         );
       } else {
         setError(
           detail ||
-            'Text could not be sent (Twilio may be offline). Use “Open in Messages” below, or share via WhatsApp.',
+            'Server text unavailable (check Twilio FROM number). Opening Messages with the receipt…',
         );
       }
       setShowSmsNativeFallback(true);
+      // Always give a working path — same pattern as email mailto fallback
+      openNativeSms(phone);
+      setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
     } catch {
       setError(
-        'Text could not be sent (network error). Use “Open in Messages” below, or share via WhatsApp.',
+        'Text could not be sent (network error). Opening Messages with the receipt…',
       );
       setShowSmsNativeFallback(true);
+      openNativeSms(phone);
+      setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
     } finally {
       setLoadingSms(false);
     }

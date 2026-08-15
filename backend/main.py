@@ -1124,7 +1124,15 @@ def debug_config() -> Dict[str, Any]:
             "sendgrid": bool(os.getenv("SENDGRID_API_KEY")),
             "resend": bool(os.getenv("RESEND_API_KEY")),
             "gemini": bool(os.getenv("GEMINI_API_KEY")),
-            "twilio": bool(os.getenv("TWILIO_ACCOUNT_SID") and os.getenv("TWILIO_AUTH_TOKEN")),
+            "twilio": bool(
+                os.getenv("TWILIO_ACCOUNT_SID")
+                and os.getenv("TWILIO_AUTH_TOKEN")
+                and (os.getenv("TWILIO_FROM_NUMBER") or os.getenv("TWILIO_PHONE_NUMBER"))
+            ),
+            "twilio_from_set": bool(
+                os.getenv("TWILIO_FROM_NUMBER") or os.getenv("TWILIO_PHONE_NUMBER")
+            ),
+            "resend_from": bool(os.getenv("RESEND_FROM_EMAIL")),
         }
     }
 
@@ -3594,6 +3602,8 @@ async def send_result_sms_standalone(
             err = result.get("error", "Failed to send SMS")
             if "rate limit" in str(err).lower():
                 raise HTTPException(status_code=429, detail=str(err))
+            if "not configured" in str(err).lower() or "twilio" in str(err).lower():
+                raise HTTPException(status_code=503, detail=str(err))
             raise HTTPException(status_code=400, detail=err)
 
         return {
@@ -3694,6 +3704,8 @@ async def send_result_sms(
             err = result.get("error", "Failed to send SMS")
             if "rate limit" in str(err).lower():
                 raise HTTPException(status_code=429, detail=str(err))
+            if "not configured" in str(err).lower() or "twilio" in str(err).lower():
+                raise HTTPException(status_code=503, detail=str(err))
             raise HTTPException(status_code=400, detail=err)
 
         return {

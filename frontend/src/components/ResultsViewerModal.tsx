@@ -41,6 +41,7 @@ export type CriticalPathItem = string | {
 export interface AnalysisData {
   timestamp: string;
   research_id?: string;
+  share_url?: string;
   preview?: boolean;
   research_depth?: string;
   pro_summary_markdown?: string;
@@ -312,8 +313,19 @@ function freeRunUrl(): string {
   return `${APP_URL}?utm_source=bid_receipt`;
 }
 
+/** Canonical shareable report link for social + clipboard. */
+function reportShareUrl(analysis: AnalysisData, researchId?: string | null): string {
+  const fromAnalysis = (analysis.share_url || '').trim();
+  if (fromAnalysis && !fromAnalysis.endsWith('/r/') && !fromAnalysis.endsWith('/r')) {
+    return fromAnalysis;
+  }
+  const rid = (researchId || analysis.research_id || '').trim();
+  if (rid) return `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`;
+  return freeRunUrl();
+}
+
 /** SMS/chat-forwardable receipt — short, CYA, not an ad. */
-function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
+function buildShareText(analysis: AnalysisData, generatedFor?: string, researchId?: string | null): string {
   const p = analysis.project_info;
   const ahj = analysis.ahj_card?.name || 'Local AHJ';
   const band = analysis.contingency_band;
@@ -349,6 +361,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
       /data.?center|colo/i.test(analysis.project_info?.type || '')
   );
   const cov = resolveCoverage(analysis);
+  const link = reportShareUrl(analysis, researchId);
 
   return [
     `FLAGGED BEFORE BID — ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
@@ -359,6 +372,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string): string {
     isDc ? 'Note: AHJ + utility often run parallel (not an interconnect study).' : '',
     `— ${who} · Reg Guard Bid Risk Receipt`,
     `Planning aid only. Confirm with AHJ. Not a filing.`,
+    `Report: ${link}`,
     `Own site: ${freeRunUrl()}`,
   ]
     .filter(Boolean)
@@ -425,6 +439,7 @@ export default function ResultsViewerModal({
     critical: true,
   });
   const [copied, setCopied] = useState<'link' | 'text' | 'facebook' | 'instagram' | null>(null);
+  const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [shareUnlocked, setShareUnlocked] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -463,7 +478,8 @@ export default function ResultsViewerModal({
   const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
     .trim()
     .toLowerCase();
-  const shareText = buildShareText(view, emailForCheckout);
+  const shareLink = reportShareUrl(view, effectiveResearchId);
+  const shareText = buildShareText(view, emailForCheckout, effectiveResearchId);
   const depth = (view.research_depth || '').toLowerCase();
   const isDeep = depth === 'pro' || depth === 'pro_partial';
   // Soft-lock: free sees limited lines unless they shared OR paid deep research
@@ -608,33 +624,69 @@ export default function ResultsViewerModal({
     window.setTimeout(() => setToast(''), 3200);
   };
 
-  const copyShareText = async (kind: 'text' | 'facebook' | 'instagram' = 'text') => {
+  const copyToClipboard = async (text: string): Promise<boolean> => {
     try {
-      await navigator.clipboard.writeText(shareText);
-      setCopied(kind);
-      window.setTimeout(() => setCopied(null), 2000);
-      grantShareUnlock();
-      if (kind === 'instagram') {
-        showToast('Caption copied — paste in Instagram DM or Story');
-      } else if (kind === 'facebook') {
-        showToast('Summary copied — paste into your Facebook post');
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
       }
-      return true;
     } catch {
-      showToast('Could not copy — select share text manually');
+      /* fall through */
+    }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
       return false;
     }
   };
 
+  const copyShareText = async (kind: 'text' | 'facebook' | 'instagram' = 'text') => {
+    const ok = await copyToClipboard(shareText);
+    if (ok) {
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 2000);
+      grantShareUnlock();
+      if (kind === 'instagram') {
+        showToast('Caption copied — paste in Instagram DM, Story, or post');
+      } else if (kind === 'facebook') {
+        showToast('Summary copied — paste into your Facebook post');
+      } else {
+        showToast('Receipt copied');
+      }
+      return true;
+    }
+    setSharePreviewOpen(true);
+    showToast('Select the text below and copy manually');
+    return false;
+  };
+
   const openWhatsApp = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank', 'noopener,noreferrer');
+    // Keep URL under common mobile limits
+    const text = shareText.length > 1400 ? `${shareText.slice(0, 1350)}\n…\nReport: ${shareLink}` : shareText;
+    window.open(
+      `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
     grantShareUnlock();
+    showToast('WhatsApp opened with your Bid Risk Receipt');
   };
 
   const openFacebook = async () => {
     await copyShareText('facebook');
+    const u = encodeURIComponent(shareLink);
+    const quote = encodeURIComponent(shareText.slice(0, 500));
     window.open(
-      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(APP_URL)}`,
+      `https://www.facebook.com/sharer/sharer.php?u=${u}&quote=${quote}`,
       '_blank',
       'noopener,noreferrer'
     );
@@ -642,6 +694,7 @@ export default function ResultsViewerModal({
 
   const openInstagram = async () => {
     await copyShareText('instagram');
+    setSharePreviewOpen(true);
     window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
   };
 
@@ -687,6 +740,7 @@ export default function ResultsViewerModal({
           <SendResultsForm
             researchId={effectiveResearchId}
             summary={summary}
+            analysis={view}
             defaultEmail={defaultEmail}
             defaultPhone={defaultPhone}
           />
@@ -697,7 +751,8 @@ export default function ResultsViewerModal({
               Share Bid Risk Receipt
             </p>
             <p className="text-xs text-gray-400 mb-2">
-              Default share object: contingency band + top 3 margin killers + free-run CTA.
+              WhatsApp opens with the receipt text. Facebook/Instagram copy the caption — paste into your post.
+              Link: <span className="text-emerald-300 break-all">{shareLink}</span>
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -740,13 +795,21 @@ export default function ResultsViewerModal({
               </button>
               <button
                 type="button"
-                onClick={() => void copyShareText('facebook')}
+                onClick={() => setSharePreviewOpen((v) => !v)}
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-slate-600 bg-slate-800/80 text-gray-200 text-sm font-semibold hover:bg-slate-700 transition"
               >
-                {copied === 'facebook' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copied === 'facebook' ? 'Copied for Facebook' : 'Copy for Facebook'}
+                {sharePreviewOpen ? 'Hide share text' : 'Show share text'}
               </button>
             </div>
+            {sharePreviewOpen && (
+              <textarea
+                readOnly
+                value={shareText}
+                onFocus={(e) => e.currentTarget.select()}
+                className="mt-3 w-full min-h-[140px] rounded-lg border border-slate-600 bg-slate-900 text-gray-200 text-xs p-3 font-mono"
+                aria-label="Share text for Instagram Facebook or copy"
+              />
+            )}
             {toast && (
               <p className="mt-2 text-sm text-emerald-300" role="status">
                 {toast}

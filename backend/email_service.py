@@ -11,6 +11,169 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def _app_base_url() -> str:
+    return (
+        (os.getenv("REG_GUARD_APP_URL") or os.getenv("FRONTEND_APP_URL") or "https://app.regguardagent.com")
+        .rstrip("/")
+    )
+
+
+def build_research_result_html(research_data: dict) -> str:
+    """Shared HTML for SendGrid + Resend research-result delivery."""
+    import html as html_lib
+
+    project_info = research_data.get("project_info") or {}
+    summary = research_data.get("summary") or {}
+    punch = (research_data.get("punch_list") or {}).get("punch_list") or []
+    killers = research_data.get("margin_killers") or []
+    band = research_data.get("contingency_band") or {}
+
+    address = html_lib.escape(str(project_info.get("address") or "Unknown Address"))
+    city = html_lib.escape(str(project_info.get("city") or ""))
+    state = html_lib.escape(str(project_info.get("state") or ""))
+    zip_code = html_lib.escape(str(project_info.get("zip") or ""))
+
+    high_risk = int(summary.get("high_risk_count") or 0)
+    total_risks = int(summary.get("total_environmental_risks") or 0)
+    try:
+        total_cost = float(summary.get("estimated_total_cost") or 0)
+    except (TypeError, ValueError):
+        total_cost = 0.0
+    timeline = html_lib.escape(str(summary.get("estimated_timeline") or "TBD"))
+    total_items = int(summary.get("total_punch_list_items") or len(punch) or 0)
+
+    share = str(research_data.get("share_url") or "").strip()
+    rid = research_data.get("research_id")
+    if not share and rid:
+        share = f"{_app_base_url()}/r/{rid}"
+    if not share or share.endswith("/r/"):
+        share = f"{_app_base_url()}/"
+    share_esc = html_lib.escape(share)
+
+    punch_rows = []
+    for i, item in enumerate(punch[:8], 1):
+        if not isinstance(item, dict):
+            continue
+        task = html_lib.escape(str(item.get("task") or "")[:160])
+        pri = html_lib.escape(str(item.get("priority") or "NOTE"))
+        if not task:
+            continue
+        punch_rows.append(
+            f'<li style="margin:0 0 8px 0;font-size:13px;color:#374151;"><strong>[{pri}]</strong> {task}</li>'
+        )
+    for i, k in enumerate(killers[:3], 1):
+        if not isinstance(k, dict):
+            continue
+        title = html_lib.escape(str(k.get("title") or "")[:140])
+        pri = html_lib.escape(str(k.get("priority") or "NOTE"))
+        if title:
+            punch_rows.append(
+                f'<li style="margin:0 0 8px 0;font-size:13px;color:#374151;"><strong>Risk [{pri}]</strong> {title}</li>'
+            )
+    punch_html = "".join(punch_rows) or (
+        '<li style="margin:0;font-size:13px;color:#6b7280;">Open the share link for the full punch list.</li>'
+    )
+
+    band_html = ""
+    if band.get("pct_low") is not None and band.get("pct_high") is not None:
+        band_html = (
+            f'<p style="margin:12px 0 0 0;font-size:14px;color:#047857;font-weight:600;">'
+            f'Contingency (planning aid): +{band.get("pct_low")}% – +{band.get("pct_high")}%</p>'
+        )
+
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+            <td style="padding: 30px 20px;">
+                <table width="100%" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
+                    <tr style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                        <td style="padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
+                            <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 700;">Reg Guard Bid Risk Receipt</h1>
+                            <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Planning aid — confirm with AHJ before bid</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
+                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">Project location</h2>
+                            <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
+                                <strong>{address}</strong><br>
+                                {city}, {state} {zip_code}
+                            </p>
+                            {band_html}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
+                            <h2 style="margin: 0 0 20px 0; font-size: 16px; color: #1f2937; font-weight: 600;">Snapshot</h2>
+                            <table width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
+                                        <span style="font-size: 13px; color: #6b7280;">Environmental risks</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
+                                    </td>
+                                    <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
+                                        <span style="font-size: 13px; color: #dc2626;">High-risk items</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #dc2626; font-weight: 600;">{high_risk}</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style="padding: 12px 0;">
+                                        <span style="font-size: 13px; color: #6b7280;">Timeline</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
+                                    </td>
+                                    <td style="padding: 12px 0 0 20px; text-align: right;">
+                                        <span style="font-size: 13px; color: #6b7280;">Est. total cost</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
+                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">Top flags ({total_items} punch items)</h2>
+                            <ul style="margin:0;padding-left:18px;">{punch_html}</ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 30px; text-align: center;">
+                            <a href="{share_esc}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                                Open shareable report
+                            </a>
+                            <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;word-break:break-all;">{share_esc}</p>
+                        </td>
+                    </tr>
+                    <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">
+                        <td style="padding: 25px 30px; text-align: center;">
+                            <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
+                                Planning aid only — confirm with AHJ. Not a filing.
+                            </p>
+                            <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
+                                Questions? <strong>support@regguardagent.com</strong>
+                            </p>
+                            <p style="margin: 5px 0 0 0; font-size: 11px; color: #aaa;">
+                                Reg Guard © 2026
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+"""
+
+
+
+
 class EmailService:
     """Base email service"""
 
@@ -408,124 +571,8 @@ RegGuard © 2026
 
     def _build_result_html_email(self, research_data: dict) -> str:
         """Build professional HTML email for research result delivery"""
-        project_info = research_data.get("project_info", {})
-        summary = research_data.get("summary", {})
-        punch_list = research_data.get("punch_list", {})
-        environmental = research_data.get("environmental_screening", {})
+        return build_research_result_html(research_data)
 
-        address = project_info.get("address", "Unknown Address")
-        city = project_info.get("city", "")
-        state = project_info.get("state", "")
-        zip_code = project_info.get("zip", "")
-
-        high_risk = summary.get("high_risk_count", 0)
-        total_risks = summary.get("total_environmental_risks", 0)
-        total_cost = summary.get("estimated_total_cost", 0)
-        timeline = summary.get("estimated_timeline", "")
-        total_items = summary.get("total_punch_list_items", 0)
-
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-            <td style="padding: 30px 20px;">
-                <table width="100%" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
-                    <!-- Header -->
-                    <tr style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
-                        <td style="padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">RegGuard Research Results</h1>
-                            <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Site Diligence Analysis Complete</p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Project Info -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">📍 Project Location</h2>
-                            <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                                <strong>{address}</strong><br>
-                                {city}, {state} {zip_code}
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Risk Summary -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 20px 0; font-size: 16px; color: #1f2937; font-weight: 600;">⚠️ Risk Assessment</h2>
-                            <table width="100%" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
-                                        <span style="font-size: 13px; color: #6b7280;">Total Environmental Risks</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
-                                    </td>
-                                    <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
-                                        <span style="font-size: 13px; color: #dc2626;">High Risk Items</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #dc2626; font-weight: 600;">{high_risk}</p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0;">
-                                        <span style="font-size: 13px; color: #6b7280;">Timeline</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
-                                    </td>
-                                    <td style="padding: 12px 0 0 20px; text-align: right;">
-                                        <span style="font-size: 13px; color: #6b7280;">Est. Total Cost</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Action Items -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">✓ Action Items</h2>
-                            <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280;">
-                                <strong>{total_items}</strong> items on your punch list
-                            </p>
-                            <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border-left: 3px solid #4f46e5;">
-                                <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6;">
-                                    Your customized punch list includes all critical items, responsible parties, estimated timelines, and costs. Ready to tackle your project? Log in to view the complete breakdown.
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-                    
-                    <!-- CTA -->
-                    <tr>
-                        <td style="padding: 30px; text-align: center;">
-                            <a href="https://app.regguardagent.com/results" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
-                                View Full Research Report
-                            </a>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">
-                        <td style="padding: 25px 30px; text-align: center;">
-                            <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
-                                Questions? Contact <strong>support@regguardagent.com</strong>
-                            </p>
-                            <p style="margin: 5px 0 0 0; font-size: 11px; color: #aaa;">
-                                RegGuard © 2026 • Site Diligence Research Platform
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-        """
 
     async def send_research_result(
         self,
@@ -920,123 +967,8 @@ class ResendEmailService(EmailService):
 
     def _build_result_html_email(self, research_data: dict) -> str:
         """Build professional HTML email for research result delivery"""
-        project_info = research_data.get("project_info", {})
-        summary = research_data.get("summary", {})
-        punch_list = research_data.get("punch_list", {})
+        return build_research_result_html(research_data)
 
-        address = project_info.get("address", "Unknown Address")
-        city = project_info.get("city", "")
-        state = project_info.get("state", "")
-        zip_code = project_info.get("zip", "")
-
-        high_risk = summary.get("high_risk_count", 0)
-        total_risks = summary.get("total_environmental_risks", 0)
-        total_cost = summary.get("estimated_total_cost", 0)
-        timeline = summary.get("estimated_timeline", "")
-        total_items = summary.get("total_punch_list_items", 0)
-
-        return f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5;">
-    <table width="100%" cellpadding="0" cellspacing="0">
-        <tr>
-            <td style="padding: 30px 20px;">
-                <table width="100%" style="max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1);">
-                    <!-- Header -->
-                    <tr style="background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);">
-                        <td style="padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
-                            <h1 style="margin: 0; color: white; font-size: 28px; font-weight: 700;">RegGuard Research Results</h1>
-                            <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Site Diligence Analysis Complete</p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Project Info -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">📍 Project Location</h2>
-                            <p style="margin: 0; font-size: 14px; color: #4b5563; line-height: 1.6;">
-                                <strong>{address}</strong><br>
-                                {city}, {state} {zip_code}
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <!-- Risk Summary -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 20px 0; font-size: 16px; color: #1f2937; font-weight: 600;">⚠️ Risk Assessment</h2>
-                            <table width="100%" cellpadding="0" cellspacing="0">
-                                <tr>
-                                    <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
-                                        <span style="font-size: 13px; color: #6b7280;">Total Environmental Risks</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
-                                    </td>
-                                    <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
-                                        <span style="font-size: 13px; color: #dc2626;">High Risk Items</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #dc2626; font-weight: 600;">{high_risk}</p>
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td style="padding: 12px 0;">
-                                        <span style="font-size: 13px; color: #6b7280;">Timeline</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
-                                    </td>
-                                    <td style="padding: 12px 0 0 20px; text-align: right;">
-                                        <span style="font-size: 13px; color: #6b7280;">Est. Total Cost</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
-                                    </td>
-                                </tr>
-                            </table>
-                        </td>
-                    </tr>
-                    
-                    <!-- Action Items -->
-                    <tr>
-                        <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">✓ Action Items</h2>
-                            <p style="margin: 0 0 12px 0; font-size: 13px; color: #6b7280;">
-                                <strong>{total_items}</strong> items on your punch list
-                            </p>
-                            <div style="background: #f9fafb; padding: 15px; border-radius: 6px; border-left: 3px solid #4f46e5;">
-                                <p style="margin: 0; font-size: 13px; color: #4b5563; line-height: 1.6;">
-                                    Your customized punch list includes all critical items, responsible parties, estimated timelines, and costs. Ready to tackle your project? Log in to view the complete breakdown.
-                                </p>
-                            </div>
-                        </td>
-                    </tr>
-                    
-                    <!-- CTA -->
-                    <tr>
-                        <td style="padding: 30px; text-align: center;">
-                            <a href="https://app.regguardagent.com/results" style="display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
-                                View Full Research Report
-                            </a>
-                        </td>
-                    </tr>
-                    
-                    <!-- Footer -->
-                    <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">
-                        <td style="padding: 25px 30px; text-align: center;">
-                            <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
-                                Questions? Contact <strong>support@regguardagent.com</strong>
-                            </p>
-                            <p style="margin: 5px 0 0 0; font-size: 11px; color: #aaa;">
-                                RegGuard © 2026 • Site Diligence Research Platform
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-            </td>
-        </tr>
-    </table>
-</body>
-</html>
-        """
 
 
 def get_email_service() -> Optional[EmailService]:

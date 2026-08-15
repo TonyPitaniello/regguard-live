@@ -386,6 +386,7 @@ export default function ResultsPage() {
           <SendResultsForm
             researchId={researchId}
             summary={buildSummaryFromAnalysis(analysis)}
+            analysis={analysis}
             defaultEmail={defaultEmail}
           />
         </section>

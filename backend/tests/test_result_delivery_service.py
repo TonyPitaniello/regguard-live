@@ -3,13 +3,26 @@ Tests for Result Delivery Service
 Tests rate limiting, delivery tracking, and end-to-end flow
 """
 
+import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta
 import asyncio
 
+os.environ["REG_GUARD_ALLOW_MOCK_SMS"] = "1"
+
 from result_delivery_service import ResultDeliveryService, DeliveryRateLimitError
 from sms_service import MockSMSService
+
+
+@pytest.fixture(autouse=True)
+def _allow_mock_sms(monkeypatch):
+    monkeypatch.setenv("REG_GUARD_ALLOW_MOCK_SMS", "1")
+    # Force delivery service to pick MockSMSService even if Twilio envs exist in shell
+    monkeypatch.setattr(
+        "result_delivery_service.get_sms_service",
+        lambda: MockSMSService(),
+    )
 
 
 class MockDatabase:
