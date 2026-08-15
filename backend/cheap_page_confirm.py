@@ -493,6 +493,20 @@ def _run_cheap_page_confirm_inner(
     if not md:
         return {**empty, "status": "no_markdown"}
 
+    min_useful = 200
+    try:
+        min_useful = max(80, int(os.getenv("CHEAP_CONFIRM_MIN_MD_CHARS") or "200"))
+    except ValueError:
+        min_useful = 200
+    if len(md) < min_useful:
+        # CivicPlus / SPA shells often return titles only — fail open to SERP/pack
+        return {
+            **empty,
+            "status": "thin_page",
+            "markdown_chars": len(md),
+            "reason": "page_shell_or_js_rendered",
+        }
+
     regex_fees = _regex_fee_rows(md, url)
     llm_part: Dict[str, Any] = {"fees": [], "notes": [], "timeline_hint": "", "llm": False}
     if use_llm:

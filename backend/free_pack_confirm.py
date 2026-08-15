@@ -252,23 +252,43 @@ def build_free_pack_confirm_analysis(
     pack = resolved.get("local") or resolve_city_pack(city, state, zip_code) or generic_thin_pack(
         city, state
     )
+    # Prefer fees_url when present (often denser than portal landing shells)
     confirm_url = allowlisted_confirm_url(pack)
     pack_urls = [
-        str((pack.get("ahj") or {}).get("portal_url") or ""),
         str((pack.get("ahj") or {}).get("fees_url") or ""),
+        str((pack.get("ahj") or {}).get("portal_url") or ""),
     ]
+    pack_urls = [u for u in pack_urls if u]
+    # Try fees_url first for cheap confirm
+    cheap_target = pack_urls[0] if pack_urls else confirm_url
 
-    # Cheap confirm FIRST (fail-open on timeout). Skip Firecrawl SERP when it works.
+    # Cheap confirm FIRST (fail-open on timeout/thin SPA). Skip Firecrawl SERP when useful.
     cheap_result: Optional[Dict[str, Any]] = None
-    if free_cheap_confirm_enabled() and confirm_url:
+    if free_cheap_confirm_enabled() and cheap_target:
         try:
             from cheap_page_confirm import run_cheap_page_confirm
 
             cheap_result = run_cheap_page_confirm(
-                confirm_url,
+                cheap_target,
                 pack_urls=pack_urls,
                 use_llm=True,
             )
+            # If primary URL is a JS shell, try the other pack URL once
+            if (
+                cheap_result.get("status") in ("thin_page", "no_markdown")
+                and len(pack_urls) > 1
+                and pack_urls[1] != cheap_target
+            ):
+                alt = run_cheap_page_confirm(
+                    pack_urls[1],
+                    pack_urls=pack_urls,
+                    use_llm=True,
+                )
+                if alt.get("status") == "ok" and (
+                    alt.get("fees") or alt.get("notes") or int(alt.get("markdown_chars") or 0) >= 400
+                ):
+                    cheap_result = alt
+                    confirm_url = pack_urls[1]
         except Exception as e:
             logger.warning("Free cheap confirm failed: %s", e)
             cheap_result = {"status": "error", "error": str(e)}
@@ -276,11 +296,15 @@ def build_free_pack_confirm_analysis(
     cheap_ok = bool(
         cheap_result
         and cheap_result.get("status") == "ok"
-        and (cheap_result.get("fees") or cheap_result.get("notes"))
+        and (
+            cheap_result.get("fees")
+            or cheap_result.get("notes")
+            or int(cheap_result.get("markdown_chars") or 0) >= 400
+        )
     )
 
     confirm_hits: List[Dict[str, Any]] = []
-    # Cost premortem: do not double-spend SERP when cheap confirm already succeeded
+    # Cost premortem: do not double-spend SERP when cheap confirm already useful
     if confirm_url and free_allowlist_search_enabled() and not cheap_ok:
         confirm_hits = _one_allowlisted_search(
             city=city,

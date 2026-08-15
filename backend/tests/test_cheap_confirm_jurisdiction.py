@@ -207,3 +207,14 @@ def test_data_files_exist():
     zip3 = json.loads((root / "zip3_to_state.json").read_text())
     assert zip3.get("750") == "TX"
     assert zip3.get("100") == "NY"
+
+
+def test_thin_page_status(monkeypatch):
+    import cheap_page_confirm as cpc
+    monkeypatch.setattr(cpc, "fetch_page_markdown", lambda *a, **k: "short shell only")
+    out = cpc._run_cheap_page_confirm_inner(
+        "https://www.plano.gov/350/Building-Inspections-Permits",
+        pack_urls=["https://www.plano.gov/350/Building-Inspections-Permits"],
+        use_llm=False,
+    )
+    assert out.get("status") == "thin_page"

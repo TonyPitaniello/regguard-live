@@ -32,10 +32,14 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
         "state": "TX",
         "ahj": {
             "name": "City of Plano Building Inspections",
-            "portal_url": "https://www.plano.gov/269/Building-Inspections",
-            "fees_url": "https://www.plano.gov/269/Building-Inspections",
-            "phone": "Confirm on plano.gov",
-            "notes": "Confirm fees and filings with Plano Building Inspections before bid.",
+            "portal_url": "https://www.plano.gov/350/Building-Inspections-Permits",
+            "fees_url": "https://www.plano.gov/1648/Development-Services",
+            "phone": "972-941-7140",
+            "notes": (
+                "Confirm fees with Plano Building Inspections / Development Services before bid. "
+                "Online permits: trakit.plano.gov. Many plano.gov pages are JS-rendered — "
+                "use pack fees as planning aids until confirmed on the official schedule."
+            ),
         },
         "fees": [
             {
@@ -43,7 +47,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "amount_usd": 75,
                 "detail": "$65 base + $10 laborer — confirm on official fee schedule",
                 "verified": False,
-                "source_url": "https://www.plano.gov/269/Building-Inspections",
+                "source_url": "https://www.plano.gov/350/Building-Inspections-Permits",
                 "source_label": "City of Plano Building Inspections",
             }
         ],
@@ -53,7 +57,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "title": "Plano Ord. 250.50 grounding",
                 "detail": "Two 8-ft rods spaced 20 ft apart, bonded with 2/0 AWG (not generic 6-ft NEC narrative)",
                 "severity": "CRITICAL",
-                "source_url": "https://www.plano.gov/269/Building-Inspections",
+                "source_url": "https://www.plano.gov/350/Building-Inspections-Permits",
                 "source_label": "Plano AHJ / confirm ordinance text",
             },
             {
@@ -61,7 +65,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "title": "Data center / large-load path",
                 "detail": "Mission-critical or large electrical load may need zoning/use confirmation + utility interconnection in parallel with building permits — not a standard trade permit only",
                 "priority": "HIGH",
-                "source_url": "https://www.plano.gov/269/Building-Inspections",
+                "source_url": "https://www.plano.gov/350/Building-Inspections-Permits",
                 "source_label": "Confirm with Plano Development / Building Inspections",
             }
         ],
@@ -126,10 +130,10 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
         "state": "TX",
         "ahj": {
             "name": "City of Austin Development Services",
-            "portal_url": "https://www.austintexas.gov/department/development-services",
+            "portal_url": "https://www.austintexas.gov/development-services",
             "fees_url": "https://www.austintexas.gov/development-services/fees",
             "phone": "Confirm on austintexas.gov",
-            "notes": "Design Criteria can override generic NEC narratives — verify before bid.",
+            "notes": "Design Criteria can override generic NEC narratives — verify before bid. Fee schedule page is scrape-friendly for cheap confirm.",
         },
         "fees": [
             {
@@ -147,7 +151,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "title": "Austin gas relief clearance",
                 "detail": "36-inch minimum clearance from gas relief valves per Design Criteria (verify for job)",
                 "severity": "CRITICAL",
-                "source_url": "https://www.austintexas.gov/department/development-services",
+                "source_url": "https://www.austintexas.gov/development-services",
                 "source_label": "Austin Design Criteria / DSD",
             },
             {
@@ -155,7 +159,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "title": "Service upgrade bus pattern",
                 "detail": "225A interior panel bus / 200A main / solar-ready pattern — verify current Design Criteria",
                 "severity": "HIGH",
-                "source_url": "https://www.austintexas.gov/department/development-services",
+                "source_url": "https://www.austintexas.gov/development-services",
                 "source_label": "Austin Design Criteria",
             },
             {
@@ -163,7 +167,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "title": "Data center: AHJ + utility parallel tracks",
                 "detail": "Large-load / colo sites: Austin Development Services permits and utility interconnection are parallel — Bid Risk Receipt contingency should cover both, not only building fees",
                 "priority": "CRITICAL",
-                "source_url": "https://www.austintexas.gov/department/development-services",
+                "source_url": "https://www.austintexas.gov/development-services",
                 "source_label": "Austin DSD + serving utility",
             },
         ],
