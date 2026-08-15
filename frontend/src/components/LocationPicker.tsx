@@ -318,7 +318,8 @@ export function LocationPicker({
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="123 Main Street"
+              placeholder="Street address"
+              autoComplete="off"
               disabled={disabled}
               className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
             />
@@ -330,7 +331,8 @@ export function LocationPicker({
                 type="text"
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                placeholder="Austin"
+                placeholder="City"
+                autoComplete="off"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -341,7 +343,8 @@ export function LocationPicker({
                 type="text"
                 value={state}
                 onChange={(e) => setState(e.target.value)}
-                placeholder="TX"
+                placeholder="State"
+                autoComplete="off"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -352,7 +355,8 @@ export function LocationPicker({
                 type="text"
                 value={zip}
                 onChange={(e) => setZip(e.target.value)}
-                placeholder="78701"
+                placeholder="ZIP"
+                autoComplete="off"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />

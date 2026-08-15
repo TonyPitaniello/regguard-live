@@ -31,14 +31,6 @@ const PROGRESS_LABELS: Record<ProgressStep, string> = {
   punch: 'Building punch list…',
 };
 
-function initialEmailFromStorage(): string {
-  if (typeof window === 'undefined') return '';
-  const params = new URLSearchParams(window.location.search);
-  const fromQuery = (params.get('email') || '').trim().toLowerCase();
-  if (fromQuery) return fromQuery;
-  return (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
-}
-
 function readLastResearchForm(): Partial<{
   address: string;
   city: string;
@@ -105,14 +97,14 @@ export default function FreeTrialForm({
       : urlProjectType) ||
     undefined;
 
-  const saved = typeof window !== 'undefined' ? readLastResearchForm() : {};
+  // Always start blank — do not restore prior address/email/phone into the form.
   const [formData, setFormData] = useState({
-    address: saved.address || '',
-    city: saved.city || '',
-    state: saved.state || '',
-    zip: saved.zip || '',
-    projectType: preferredType || saved.projectType || 'data-center',
-    email: initialEmailFromStorage() || saved.email || '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    projectType: preferredType || 'data-center',
+    email: '',
     phone: '',
   });
   const [externalLocation, setExternalLocation] = useState<{
@@ -120,16 +112,7 @@ export default function FreeTrialForm({
     city?: string;
     state?: string;
     zip?: string;
-  } | null>(
-    saved.address
-      ? {
-          address: saved.address,
-          city: saved.city,
-          state: saved.state,
-          zip: saved.zip,
-        }
-      : null
-  );
+  } | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<ProgressStep>('geocode');
@@ -551,8 +534,8 @@ export default function FreeTrialForm({
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                placeholder="you@company.com"
-                autoComplete="email"
+                placeholder="Email"
+                autoComplete="off"
                 className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
                 disabled={loading}
               />
@@ -567,8 +550,8 @@ export default function FreeTrialForm({
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                placeholder="(555) 123-4567"
-                autoComplete="tel"
+                placeholder="Phone"
+                autoComplete="off"
                 className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
                 disabled={loading}
               />
