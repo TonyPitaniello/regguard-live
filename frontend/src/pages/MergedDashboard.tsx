@@ -55,15 +55,15 @@ export function PlatformDashboard() {
             Pre-bid punch lists you can defend
           </h2>
           <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
-            Dallas · Plano · Austin first. Enter an address — get a forwardable contractor punch list
-            with a source on every line, or an honest Unverified. No credit card.
+            Enter any US address — get a forwardable Bid Risk Receipt with federal, state, and
+            local diligence. Source on every line, or an honest Unverified. No credit card.
           </p>
         </div>
 
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
-            Built for DFW commercial, industrial, and data-center-adjacent bids — expand from there.
+            Built for commercial, industrial, and data-center-adjacent bids nationwide.
           </p>
         </div>
       </section>
@@ -138,27 +138,6 @@ export function PlatformDashboard() {
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >
               Sample PDF
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/plano-permit-fees')}
-              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
-            >
-              Plano
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/dallas-permit-fees')}
-              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
-            >
-              Dallas
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/austin-permit-fees')}
-              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
-            >
-              Austin
             </button>
             <button
               type="button"

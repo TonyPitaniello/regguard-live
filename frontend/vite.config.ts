@@ -42,7 +42,7 @@ export default defineConfig({
         name: 'Reg Guard',
         short_name: 'Reg Guard',
         description:
-          'Bid Risk Receipts and pre-bid diligence for contractors — Dallas / Plano / Austin first.',
+          'Bid Risk Receipts and pre-bid diligence for contractors — federal, state, and local.',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',

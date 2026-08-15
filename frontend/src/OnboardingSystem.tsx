@@ -22,7 +22,7 @@ export function OnboardingSystem() {
     {
       id: 'welcome',
       title: 'Welcome to RegGuard',
-      description: 'Citeable pre-bid punch lists for DFW / Austin contractors',
+      description: 'Citeable pre-bid punch lists for contractors',
       icon: <Zap size={40} />,
       tips: [
         'Run a free site lookup from the home page',
@@ -38,7 +38,7 @@ export function OnboardingSystem() {
       description: 'Screen a site before you bid — forward only what you can defend',
       icon: <Lightbulb size={40} />,
       tips: [
-        'Enter a Dallas, Plano, or Austin address to start',
+        'Enter any US address to start',
         'Review the top punch-list actions',
         'Forward the list to unlock the full free preview',
         'Upgrade for deep scout research and IC PDFs',
@@ -66,7 +66,7 @@ export function OnboardingSystem() {
       tips: [
         'Forward punch lists with Source / Unverified intact',
         'Only share what you can defend in a bid file',
-        'Strongest citeable coverage: Dallas / Plano / Austin',
+        'Federal + state coverage on every ZIP; local packs where curated',
         'Permit runners: start at Partner $79/mo',
       ],
       voiceCommand: 'Say "share" after a lookup to forward results',
