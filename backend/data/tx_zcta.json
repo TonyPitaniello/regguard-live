@@ -1,0 +1,497 @@
+{
+  "75023": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75024": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75025": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75074": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75075": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75093": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75094": {
+    "city": "Plano",
+    "county": "Collin",
+    "state": "TX"
+  },
+  "75201": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75202": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75204": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75205": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75206": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75214": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75219": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75225": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75230": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75231": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75240": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75243": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75248": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75252": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75287": {
+    "city": "Dallas",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75115": {
+    "city": "Desoto",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75116": {
+    "city": "Duncanville",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75149": {
+    "city": "Mesquite",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75150": {
+    "city": "Mesquite",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "75180": {
+    "city": "Mesquite",
+    "county": "Dallas",
+    "state": "TX"
+  },
+  "76001": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76010": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76011": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76012": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76013": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76014": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76015": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76016": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76017": {
+    "city": "Arlington",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76102": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76104": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76107": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76109": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76116": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76132": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76133": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "76137": {
+    "city": "Fort Worth",
+    "county": "Tarrant",
+    "state": "TX"
+  },
+  "78701": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78702": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78703": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78704": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78705": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78717": {
+    "city": "Austin",
+    "county": "Williamson",
+    "state": "TX"
+  },
+  "78721": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78723": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78727": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78731": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78735": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78741": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78744": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78745": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78746": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78748": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78749": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78750": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78751": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78752": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78753": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78754": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78756": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78757": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78758": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "78759": {
+    "city": "Austin",
+    "county": "Travis",
+    "state": "TX"
+  },
+  "77001": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77002": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77005": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77007": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77008": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77019": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77024": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77025": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77027": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77030": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77056": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77057": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77063": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "77098": {
+    "city": "Houston",
+    "county": "Harris",
+    "state": "TX"
+  },
+  "78201": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78205": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78209": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78212": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78213": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78216": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78229": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78230": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78240": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78247": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78249": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78250": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78251": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78254": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  },
+  "78258": {
+    "city": "San Antonio",
+    "county": "Bexar",
+    "state": "TX"
+  }
+}

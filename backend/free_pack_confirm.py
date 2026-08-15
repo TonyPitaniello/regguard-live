@@ -1,6 +1,8 @@
 """
-Free-tier FinOps path: city pack + optional 1 allowlisted SERP confirm.
-No Universal Scout, no Option A 6x env searches, no markdown rescrape.
+Free-tier FinOps path: ZIP jurisdiction packs + city pack + optional cheap page
+confirm + optional 1 allowlisted SERP confirm.
+No Universal Scout, no Option A 6x env searches, no Firecrawl markdown rescrape
+(unless FREE_TRIAL_MARKDOWN_CONFIRM=1).
 Paid path stays pro_deep_analysis / full scout.
 """
 
@@ -36,6 +38,11 @@ def free_markdown_confirm_enabled() -> bool:
 def free_allowlist_search_enabled() -> bool:
     """One cheap Firecrawl /search against allowlisted AHJ host (default on)."""
     return _env_truthy("FREE_TRIAL_ALLOWLIST_SEARCH", "1")
+
+
+def free_cheap_confirm_enabled() -> bool:
+    """requests+markdown+LLM confirm (no Firecrawl scrape). Default on."""
+    return _env_truthy("FREE_TRIAL_CHEAP_CONFIRM", "1")
 
 
 def allowlisted_confirm_url(pack: Dict[str, Any]) -> str:
@@ -230,11 +237,26 @@ def build_free_pack_confirm_analysis(
     project_type: str = "general",
 ) -> Dict[str, Any]:
     """
-    Synchronous free analysis: pack + at most one allowlisted SERP confirm.
-    Never calls markdown rescrape. Never runs Universal Scout / Option A env screen.
+    Synchronous free analysis: ZIP jurisdiction packs + local pack + optional
+    cheap page confirm + at most one allowlisted SERP confirm.
+    Never Firecrawl markdown-rescrapes unless FREE_TRIAL_MARKDOWN_CONFIRM=1.
+    Never runs Universal Scout / Option A env screen.
     """
-    pack = resolve_city_pack(city, state, zip_code) or generic_thin_pack(city, state)
+    from jurisdiction_resolver import attach_jurisdiction_cards, resolve_jurisdiction
+
+    resolved = resolve_jurisdiction(zip_code=zip_code, city=city, state=state)
+    city = (resolved.get("city") or city or "").strip()
+    state = (resolved.get("state") or state or "").strip()
+    zip_code = (resolved.get("zip") or zip_code or "").strip()
+
+    pack = resolved.get("local") or resolve_city_pack(city, state, zip_code) or generic_thin_pack(
+        city, state
+    )
     confirm_url = allowlisted_confirm_url(pack)
+    pack_urls = [
+        str((pack.get("ahj") or {}).get("portal_url") or ""),
+        str((pack.get("ahj") or {}).get("fees_url") or ""),
+    ]
     confirm_hits: List[Dict[str, Any]] = []
     if confirm_url:
         confirm_hits = _one_allowlisted_search(
@@ -244,8 +266,7 @@ def build_free_pack_confirm_analysis(
             limit=free_search_limit(),
         )
 
-    # Hard guard: free never markdown-rescrapes even if env flipped on by mistake
-    # unless FREE_TRIAL_MARKDOWN_CONFIRM=1 (still only allowlisted URL, once).
+    # Hard guard: free never Firecrawl markdown-rescrapes unless explicitly enabled.
     markdown_note = None
     if free_markdown_confirm_enabled() and confirm_url:
         try:
@@ -255,10 +276,24 @@ def build_free_pack_confirm_analysis(
                 confirm_url, max_chars=4_000, allow_rescrape=True
             )
         except TypeError:
-            # Older signature without allow_rescrape
             markdown_note = None
         except Exception:
             markdown_note = None
+
+    # Cheap confirm: requests + markdown (+ optional LLM) — no Firecrawl scrape
+    cheap_result: Optional[Dict[str, Any]] = None
+    if free_cheap_confirm_enabled() and confirm_url:
+        try:
+            from cheap_page_confirm import run_cheap_page_confirm
+
+            cheap_result = run_cheap_page_confirm(
+                confirm_url,
+                pack_urls=pack_urls,
+                use_llm=True,
+            )
+        except Exception as e:
+            logger.warning("Free cheap confirm failed: %s", e)
+            cheap_result = {"status": "error", "error": str(e)}
 
     punch_items = _punch_from_pack(
         pack, city=city, state=state, confirm_hits=confirm_hits
@@ -272,8 +307,9 @@ def build_free_pack_confirm_analysis(
             "category": "permitting",
             "risk_level": "HIGH" if citeable else "MEDIUM",
             "description": (
-                f"Free FinOps path for {city}, {state}: city pack"
-                + (" + 1 allowlisted confirm search" if confirm_hits else " (URL confirm only)")
+                f"Free FinOps path for {city}, {state}: federal+state+local packs"
+                + (" + cheap page confirm" if cheap_result and cheap_result.get("status") == "ok" else "")
+                + (" + 1 allowlisted confirm search" if confirm_hits else "")
                 + ". No deep Universal Scout."
             ),
             "action_items": [
@@ -283,6 +319,8 @@ def build_free_pack_confirm_analysis(
             ],
             "data_sources": [
                 f"city_pack:{pack.get('pack_key')}",
+                "jurisdiction:federal+state",
+                *(["cheap_page_confirm"] if cheap_result and cheap_result.get("status") == "ok" else []),
                 *(["allowlisted_confirm_search"] if confirm_hits else []),
             ],
             "research_cost_usd": 0,
@@ -357,9 +395,23 @@ def build_free_pack_confirm_analysis(
             "confirm_url": confirm_url or None,
             "search_hits": len(confirm_hits),
             "markdown_rescrape": bool(markdown_note),
+            "cheap_confirm": (cheap_result or {}).get("status"),
             "search_limit": free_search_limit(),
         },
     }
+
+    analysis = attach_jurisdiction_cards(analysis, resolved)
+
+    if cheap_result:
+        from cheap_page_confirm import merge_cheap_confirm_into_analysis
+
+        analysis = merge_cheap_confirm_into_analysis(analysis, cheap_result)
+
+    # Refresh counts after jurisdiction + cheap merges
+    punch_n = len((analysis.get("punch_list") or {}).get("punch_list") or [])
+    if analysis.get("summary"):
+        analysis["summary"]["total_punch_list_items"] = punch_n
+
     return analysis
 
 

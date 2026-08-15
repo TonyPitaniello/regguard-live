@@ -359,7 +359,17 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     out = analysis  # mutate in place for pipeline simplicity
     city, state, zip_code = _project_locale(out)
-    pack = resolve_city_pack(city, state, zip_code) or generic_thin_pack(city, state)
+    try:
+        from jurisdiction_resolver import attach_jurisdiction_cards, resolve_jurisdiction
+
+        resolved = resolve_jurisdiction(zip_code=zip_code, city=city, state=state)
+        city = resolved.get("city") or city
+        state = resolved.get("state") or state
+        zip_code = resolved.get("zip") or zip_code
+        pack = resolved.get("local") or generic_thin_pack(city, state)
+        out = attach_jurisdiction_cards(out, resolved)
+    except Exception:
+        pack = resolve_city_pack(city, state, zip_code) or generic_thin_pack(city, state)
 
     items = _punch_items(out)
     crit, high, unverified = _count_priorities(items)

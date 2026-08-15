@@ -118,13 +118,14 @@ def run_paid_ahj_smart_confirm(
 ) -> Dict[str, Any]:
     """
     Mutate/return analysis with smart_confirm block + fee rows merged into fee_card.
-    Paid path only. Skips if disabled or no pack portal URL.
+    Paid path only. Prefers cheap page confirm first; Firecrawl scrape on miss.
     """
     if not isinstance(analysis, dict) or not paid_smart_confirm_enabled():
         return analysis
 
     from city_packs import generic_thin_pack, resolve_city_pack
     from free_pack_confirm import allowlisted_confirm_url
+    from jurisdiction_resolver import attach_jurisdiction_cards, resolve_jurisdiction
     from markdown_scraper import fetch_trusted_url_markdown
 
     pi = analysis.get("project_info") or {}
@@ -132,8 +133,20 @@ def run_paid_ahj_smart_confirm(
     state = state or str(pi.get("state") or "")
     zip_code = zip_code or str(pi.get("zip") or "")
 
-    pack = resolve_city_pack(city, state, zip_code) or generic_thin_pack(city, state)
+    resolved = resolve_jurisdiction(zip_code=zip_code, city=city, state=state)
+    city = resolved.get("city") or city
+    state = resolved.get("state") or state
+    zip_code = resolved.get("zip") or zip_code
+    analysis = attach_jurisdiction_cards(analysis, resolved)
+
+    pack = resolved.get("local") or resolve_city_pack(city, state, zip_code) or generic_thin_pack(
+        city, state
+    )
     portal = allowlisted_confirm_url(pack)
+    pack_urls = [
+        str((pack.get("ahj") or {}).get("portal_url") or ""),
+        str((pack.get("ahj") or {}).get("fees_url") or ""),
+    ]
     if not portal:
         analysis["smart_confirm"] = {
             "status": "skipped",
@@ -141,6 +154,31 @@ def run_paid_ahj_smart_confirm(
             "pack_key": pack.get("pack_key"),
         }
         return analysis
+
+    # Prefer cheap confirm (no Firecrawl scrape) first
+    try:
+        from cheap_page_confirm import merge_cheap_confirm_into_analysis, run_cheap_page_confirm
+
+        cheap = run_cheap_page_confirm(portal, pack_urls=pack_urls, use_llm=True)
+        if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
+            analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
+            analysis["smart_confirm"] = {
+                "status": "ok",
+                "method": "cheap_page_confirm",
+                "pack_key": pack.get("pack_key"),
+                "portal_url": portal,
+                "scraped_url": portal,
+                "fee_rows_extracted": len(cheap.get("fees") or []),
+                "markdown_chars": cheap.get("markdown_chars") or 0,
+            }
+            logger.info(
+                "Paid AHJ smart confirm via cheap path pack=%s fees=%s",
+                pack.get("pack_key"),
+                len(cheap.get("fees") or []),
+            )
+            return analysis
+    except Exception as e:
+        logger.warning("Paid cheap confirm failed, falling back to Firecrawl: %s", e)
 
     mapped = _map_candidate_urls(portal, limit=6)
     # Prefer fee-ish URLs, else portal
@@ -154,15 +192,23 @@ def run_paid_ahj_smart_confirm(
         target = mapped[0]
 
     md = fetch_trusted_url_markdown(target, max_chars=12_000, allow_rescrape=True)
-    # Dallas dallascityhall.com may fail trust (.gov) — fall back to portal only if trusted
+    # Dallas dallascityhall.com may fail trust (.gov) — try cheap confirm on mapped URL hosts via pack
     if not md and target != portal:
         md = fetch_trusted_url_markdown(portal, max_chars=12_000, allow_rescrape=True)
         target = portal
+    if not md:
+        try:
+            from cheap_page_confirm import fetch_page_markdown
+
+            md = fetch_page_markdown(target, pack_urls=pack_urls + mapped, max_chars=12_000)
+        except Exception:
+            md = None
 
     fee_rows = _extract_fee_rows(md or "", target) if md else []
 
     analysis["smart_confirm"] = {
         "status": "ok" if md else "no_markdown",
+        "method": "firecrawl_or_cheap_markdown",
         "pack_key": pack.get("pack_key"),
         "portal_url": portal,
         "scraped_url": target,
