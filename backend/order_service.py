@@ -233,6 +233,9 @@ def persist_order_supabase(order: Dict[str, Any]) -> bool:
 
 def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
     email_l = (email or "").strip().lower()
+    # Defensive: strip accidental "?session_id=..." glued onto email from bad success URLs
+    if "?" in email_l:
+        email_l = email_l.split("?", 1)[0]
     out: List[Dict[str, Any]] = []
     seen = set()
 
@@ -242,53 +245,99 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
             out.append(order_to_frontend(order))
             seen.add(sid)
 
-    # Best-effort Supabase by user_id derived from email
+    def _ingest_rows(rows: Any) -> None:
+        if not isinstance(rows, list):
+            return
+        for row in rows:
+            sid = row.get("stripe_session_id") or row.get("id")
+            if not sid or sid in seen:
+                continue
+            tier = row.get("tier") or "contractor_pro"
+            if str(tier).lower() == "ic_consultant":
+                amt = int(row.get("amount") or 0)
+                tier = "ic_annual" if amt >= 1_000_000 else "ic_project"
+            mapped = {
+                "order_id": row.get("id"),
+                "tier": tier,
+                "status": row.get("status"),
+                "created_at": row.get("created_at"),
+                "amount": row.get("amount"),
+                "stripe_session_id": row.get("stripe_session_id"),
+                "email": (row.get("email") or email_l).strip().lower(),
+                "trial_id": "",
+                "pdfs": row.get("pdfs"),
+                "address": row.get("address"),
+                "analysis_json": row.get("analysis_json"),
+                "download_token": row.get("download_token"),
+                "pdf_status": row.get("pdf_status"),
+            }
+            mem = _ORDERS_BY_SESSION.get(row.get("stripe_session_id") or "")
+            if mem and mem.get("tier"):
+                mapped["tier"] = mem["tier"]
+            if mem and mem.get("pdfs"):
+                mapped["pdfs"] = mem["pdfs"]
+            if mem and mem.get("analysis_json"):
+                mapped["analysis_json"] = mem["analysis_json"]
+            if row.get("stripe_session_id"):
+                remember_order({**mapped, "order_id": mapped["order_id"]})
+            out.append(order_to_frontend(mapped))
+            seen.add(sid)
+
     user_id = email_to_user_uuid(email_l) if email_l else None
     if user_id:
-        rows = _supabase_rest(
-            f"orders?user_id=eq.{user_id}&order=created_at.desc&limit=50",
-            method="GET",
+        _ingest_rows(
+            _supabase_rest(
+                f"orders?user_id=eq.{user_id}&order=created_at.desc&limit=50",
+                method="GET",
+            )
         )
-        if isinstance(rows, list):
-            for row in rows:
-                sid = row.get("stripe_session_id") or row.get("id")
-                if sid in seen:
-                    continue
-                mapped = {
-                    "order_id": row.get("id"),
-                    "tier": row.get("tier"),
-                    "status": row.get("status"),
-                    "created_at": row.get("created_at"),
-                    "amount": row.get("amount"),
-                    "stripe_session_id": row.get("stripe_session_id"),
-                    "email": row.get("email") or email_l,
-                    "trial_id": "",
-                    "pdfs": row.get("pdfs"),
-                    "address": row.get("address"),
-                    "analysis_json": row.get("analysis_json"),
-                    "download_token": row.get("download_token"),
-                    "pdf_status": row.get("pdf_status"),
-                }
-                # Remap DB ic_consultant display if we know session
-                mem = _ORDERS_BY_SESSION.get(row.get("stripe_session_id") or "")
-                if mem and mem.get("tier"):
-                    mapped["tier"] = mem["tier"]
-                if mem and mem.get("pdfs"):
-                    mapped["pdfs"] = mem["pdfs"]
-                if mem and mem.get("analysis_json"):
-                    mapped["analysis_json"] = mem["analysis_json"]
-                # Hydrate in-memory so PDF download/regenerate works after list
-                if row.get("stripe_session_id"):
-                    remember_order({**mapped, "order_id": mapped["order_id"]})
-                out.append(order_to_frontend(mapped))
-                seen.add(sid)
+    if email_l:
+        from urllib.parse import quote
+
+        _ingest_rows(
+            _supabase_rest(
+                f"orders?email=eq.{quote(email_l)}&order=created_at.desc&limit=50",
+                method="GET",
+            )
+        )
 
     return out
 
 
 def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
-    order = _ORDERS_BY_SESSION.get(session_id)
-    return order_to_frontend(order) if order else None
+    sid = (session_id or "").strip()
+    if not sid:
+        return None
+    order = _ORDERS_BY_SESSION.get(sid)
+    if order:
+        return order_to_frontend(order)
+    rows = _supabase_rest(
+        f"orders?stripe_session_id=eq.{sid}&limit=1",
+        method="GET",
+    )
+    if isinstance(rows, list) and rows:
+        row = rows[0]
+        tier = row.get("tier") or "contractor_pro"
+        if str(tier).lower() == "ic_consultant":
+            amt = int(row.get("amount") or 0)
+            tier = "ic_annual" if amt >= 1_000_000 else "ic_project"
+        hydrated = {
+            "order_id": row.get("id") or str(uuid.uuid4()),
+            "tier": tier,
+            "status": row.get("status") or "completed",
+            "created_at": row.get("created_at"),
+            "amount": row.get("amount"),
+            "stripe_session_id": sid,
+            "email": (row.get("email") or "").strip().lower(),
+            "pdfs": row.get("pdfs"),
+            "address": row.get("address"),
+            "analysis_json": row.get("analysis_json"),
+            "download_token": row.get("download_token"),
+            "pdf_status": row.get("pdf_status"),
+        }
+        remember_order(hydrated)
+        return order_to_frontend(hydrated)
+    return None
 
 
 def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:

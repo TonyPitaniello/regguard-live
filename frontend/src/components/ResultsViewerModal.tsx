@@ -876,7 +876,16 @@ export default function ResultsViewerModal({
                 </p>
               )}
               <ol className="space-y-2 list-decimal pl-5">
-                {(view.margin_killers || []).slice(0, 3).map((k, i) => (
+                {(view.margin_killers || []).slice(0, 3).map((k, i) => {
+                  const href =
+                    (k.source_url && /^https?:\/\//i.test(k.source_url) && k.source_url) ||
+                    view.ahj_card?.fees_url ||
+                    view.ahj_card?.portal_url ||
+                    null;
+                  const cta =
+                    (k.source_label || '').trim() ||
+                    (href ? 'Confirm with AHJ' : 'No portal link — confirm locally');
+                  return (
                   <li key={`${k.title}-${i}`} className="text-sm text-gray-200">
                     <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
                       {k.priority || 'NOTE'}
@@ -893,13 +902,24 @@ export default function ResultsViewerModal({
                         guaranteed savings
                       </p>
                     )}
-                    <CitationBadge
-                      verified={Boolean(k.verified && k.source_url)}
-                      source_url={k.source_url}
-                      source_label={k.source_label || 'Unverified'}
-                    />
+                    {href ? (
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-md text-xs font-bold uppercase tracking-wide bg-emerald-600 hover:bg-emerald-500 text-white"
+                      >
+                        ↗ {cta}
+                      </a>
+                    ) : (
+                      <CitationBadge
+                        verified={false}
+                        source_label={cta}
+                      />
+                    )}
                   </li>
-                ))}
+                  );
+                })}
               </ol>
               <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
                 Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
@@ -914,7 +934,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Coverage honesty badge — premortem P1/P5/P7 */}
+          {/* Coverage honesty badge — clickable: jump to pack fees/gotchas */}
           <section
             className={`rounded-xl border p-4 ${
               coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
@@ -951,6 +971,23 @@ export default function ResultsViewerModal({
             <p className="text-sm text-gray-200">{coverage.warning}</p>
             {coverage.note && coverage.note !== coverage.warning && (
               <p className="text-xs text-gray-400 mt-2">{coverage.note}</p>
+            )}
+            {(coverage.tier === 'full_pack' ||
+              coverage.tier === 'paid_local' ||
+              view.fee_card ||
+              view.gotcha_watchlist ||
+              view.ahj_card) && (
+              <button
+                type="button"
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                onClick={() => {
+                  setExpanded((prev) => ({ ...prev, punchList: true, critical: true }));
+                  const el = document.getElementById('bid-arbitrage');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Open local fees & gotchas
+              </button>
             )}
             {view.paid_local?.status === 'capped' && (
               <p className="text-sm text-amber-200 mt-3" role="status">
@@ -1278,7 +1315,7 @@ export default function ResultsViewerModal({
 
           {/* Bid-time arbitrage layer */}
           {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) && (
-            <section className="space-y-3">
+            <section id="bid-arbitrage" className="space-y-3 scroll-mt-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h3 className="text-lg font-bold text-white">Bid-time arbitrage</h3>
                 <div className="flex flex-wrap gap-2">

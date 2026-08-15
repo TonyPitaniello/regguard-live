@@ -120,7 +120,23 @@ export default function OrdersPage() {
       setError('');
 
       const params = new URLSearchParams(window.location.search);
-      const sessionId = params.get('session_id') || '';
+      let sessionId = (params.get('session_id') || '').trim();
+      let emailFromUrl = (params.get('email') || '').trim().toLowerCase();
+
+      // Recover from malformed success URLs:
+      // ...?email=user@x.com?session_id=cs_xxx  (second "?" glued into email)
+      if (!sessionId && emailFromUrl.includes('?session_id=')) {
+        const [em, rest] = emailFromUrl.split('?session_id=');
+        emailFromUrl = em;
+        sessionId = (rest || '').trim();
+      }
+      if (emailFromUrl.includes('?')) {
+        emailFromUrl = emailFromUrl.split('?', 1)[0];
+      }
+      if (emailFromUrl) {
+        sessionStorage.setItem('userEmail', emailFromUrl);
+        setUserEmail(emailFromUrl);
+      }
 
       // After Stripe redirect: confirm session → create order even if webhook lagged
       if (sessionId) {
@@ -144,12 +160,17 @@ export default function OrdersPage() {
           setConfirmed(true);
         } else {
           const detail = await confirmRes.json().catch(() => ({}));
+          const msg =
+            (detail as { detail?: string }).detail ||
+            'Payment may have succeeded, but order confirm failed. Refresh or contact support with your Stripe receipt.';
           console.warn('Checkout confirm failed', detail);
+          setError(String(msg));
         }
       }
 
       const email = (
         sessionStorage.getItem('userEmail') ||
+        emailFromUrl ||
         userEmail ||
         ''
       ).trim().toLowerCase();
@@ -168,7 +189,18 @@ export default function OrdersPage() {
       if (!response.ok) throw new Error('Failed to fetch orders');
 
       const data = await response.json();
-      setOrders(data.orders || []);
+      const nextOrders = data.orders || [];
+      setOrders(nextOrders);
+      if (sessionId && nextOrders.length > 0) {
+        setConfirmed(true);
+        setError('');
+      } else if (sessionId && nextOrders.length === 0) {
+        setError(
+          (prev) =>
+            prev ||
+            'Payment redirect received, but no order is on file yet. Wait 10s and refresh — or re-open this page from your Stripe receipt email.'
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load orders';
       setError(message);
@@ -329,15 +361,26 @@ export default function OrdersPage() {
           <div className="text-center py-12">
             <AlertCircle className="w-12 h-12 text-gray-500 mx-auto mb-4" />
             <h2 className="text-xl font-bold text-white mb-2">No Orders Yet</h2>
-            <p className="text-gray-400 mb-6">
-              You haven't purchased any plans yet.
+            <p className="text-gray-400 mb-6 max-w-md mx-auto">
+              {userEmail
+                ? `No paid order found for ${userEmail} yet. If you just paid, tap Refresh — Stripe confirm can lag a few seconds.`
+                : "You haven't purchased any plans yet."}
             </p>
-            <a
-              href="/free-trial"
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition inline-block"
-            >
-              Start Free Trial
-            </a>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => void bootstrapOrders()}
+                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg"
+              >
+                Refresh orders
+              </button>
+              <a
+                href={`/checkout/ic_project${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition inline-block"
+              >
+                Buy IC Project Report
+              </a>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">

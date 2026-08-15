@@ -163,11 +163,15 @@ async def create_checkout_session(
         if referral_code:
             metadata["referral_code"] = str(referral_code).strip().lower()[:64]
 
+        # success_url may already include ?unlock=&email= — never append a second "?"
+        sep = "&" if "?" in (success_url or "") else "?"
+        success_with_session = f"{success_url}{sep}session_id={{CHECKOUT_SESSION_ID}}"
+
         create_kwargs: Dict[str, Any] = {
             "payment_method_types": ["card"],
             "mode": mode,
             "line_items": line_items,
-            "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            "success_url": success_with_session,
             "cancel_url": cancel_url,
             "metadata": metadata,
         }
