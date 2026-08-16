@@ -46,12 +46,14 @@ export default defineConfig({
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
-        orientation: 'portrait-primary',
-        start_url: '/',
+        display_override: ['standalone', 'minimal-ui'],
+        orientation: 'any',
+        start_url: '/?source=pwa',
         scope: '/',
         id: '/',
         lang: 'en-US',
         categories: ['business', 'productivity'],
+        prefer_related_applications: false,
         icons: [
           {
             src: '/icons/icon-192.png',

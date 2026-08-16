@@ -4,32 +4,22 @@
  */
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
-function isIos(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
-}
-
-function isStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  const nav = window.navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    nav.standalone === true
-  );
-}
+import {
+  ensurePwaInstallListener,
+  getDeferredInstallPrompt,
+  getLaunchAppMode,
+  isStandaloneApp,
+  promptPwaInstall,
+  subscribePwaInstall,
+} from '../pwaInstall';
 
 export default function PwaInstallBanner() {
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showIosHint, setShowIosHint] = useState(false);
+  const [canPrompt, setCanPrompt] = useState(false);
+  const [mode, setMode] = useState(() => getLaunchAppMode());
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
+    ensurePwaInstallListener();
     try {
       if (sessionStorage.getItem('pwaInstallDismissed') === '1') {
         setHidden(true);
@@ -38,28 +28,21 @@ export default function PwaInstallBanner() {
     } catch {
       /* ignore */
     }
-    if (isStandalone()) {
+    if (isStandaloneApp()) {
       setHidden(true);
       return;
     }
 
-    const onBip = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
+    const sync = () => {
+      setCanPrompt(Boolean(getDeferredInstallPrompt()));
+      setMode(getLaunchAppMode());
     };
-    window.addEventListener('beforeinstallprompt', onBip);
-
-    if (isIos()) {
-      setShowIosHint(true);
-    }
-
-    return () => window.removeEventListener('beforeinstallprompt', onBip);
+    sync();
+    return subscribePwaInstall(sync);
   }, []);
 
   const dismiss = () => {
     setHidden(true);
-    setDeferred(null);
-    setShowIosHint(false);
     try {
       sessionStorage.setItem('pwaInstallDismissed', '1');
     } catch {
@@ -68,19 +51,13 @@ export default function PwaInstallBanner() {
   };
 
   const install = async () => {
-    if (!deferred) return;
-    await deferred.prompt();
-    try {
-      await deferred.userChoice;
-    } catch {
-      /* ignore */
-    }
-    setDeferred(null);
-    dismiss();
+    const outcome = await promptPwaInstall();
+    if (outcome === 'accepted') dismiss();
   };
 
   if (hidden) return null;
-  if (!deferred && !showIosHint) return null;
+  if (mode === 'standalone') return null;
+  if (!canPrompt && mode !== 'ios') return null;
 
   return (
     <div
@@ -93,26 +70,26 @@ export default function PwaInstallBanner() {
           <Download className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-white">Install Reg Guard</p>
+          <p className="text-sm font-bold text-white">Launch Reg Guard as an app</p>
           <p className="mt-0.5 text-xs text-gray-400">
-            {deferred
-              ? 'Add the standalone app for faster Bid Risk Receipts in bid week.'
-              : 'On iPhone: Share → Add to Home Screen for a standalone app icon.'}
+            {canPrompt
+              ? 'Install for one-tap Bid Risk Receipts — works offline for recent pages.'
+              : 'On iPhone: tap Share → Add to Home Screen. Then open Reg Guard from your home screen.'}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {deferred && (
+            {canPrompt && (
               <button
                 type="button"
                 onClick={() => void install()}
-                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 min-h-[44px]"
               >
-                Install app
+                Launch app
               </button>
             )}
             <button
               type="button"
               onClick={dismiss}
-              className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-slate-800"
+              className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-gray-300 hover:bg-slate-800 min-h-[44px]"
             >
               Not now
             </button>
@@ -121,7 +98,7 @@ export default function PwaInstallBanner() {
         <button
           type="button"
           onClick={dismiss}
-          className="rounded-lg p-1 text-gray-500 hover:bg-slate-800 hover:text-white"
+          className="rounded-lg p-1 text-gray-500 hover:bg-slate-800 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Dismiss"
         >
           <X className="h-4 w-4" />
