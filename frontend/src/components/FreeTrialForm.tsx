@@ -225,16 +225,34 @@ export default function FreeTrialForm({
     }
 
     // Confirm before consuming the one-shot IC Project Report slot
+    // Skip confirm when returning from IC checkout (?run_ic=1 / pendingIcReport)
     let generateIcReport = false;
+    const forceIc =
+      (typeof window !== 'undefined' &&
+        (new URLSearchParams(window.location.search).get('run_ic') === '1' ||
+          sessionStorage.getItem('pendingIcReport') === '1')) ||
+      false;
     if (paid && icReportPending) {
-      const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
-      const annual = tier === 'ic_annual';
-      generateIcReport = window.confirm(
-        `Generate IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
-          (annual
-            ? 'This will create or replace the PDFs on your IC Annual order for this address. Cancel to research without updating PDFs.'
-            : 'This will create or replace the PDFs on your IC Project purchase for this address. Cancel to research without generating PDFs.')
-      );
+      if (forceIc) {
+        generateIcReport = true;
+        try {
+          sessionStorage.removeItem('pendingIcReport');
+        } catch {
+          /* ignore */
+        }
+      } else {
+        const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
+        const annual = tier === 'ic_annual';
+        generateIcReport = window.confirm(
+          `Generate IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
+            (annual
+              ? 'This will create or replace the PDFs on your IC Annual order for this address. Cancel to research without updating PDFs.'
+              : 'This will create or replace the PDFs on your IC Project purchase for this address. Cancel to research without generating PDFs.')
+        );
+      }
+    }
+    if (generateIcReport) {
+      setProgressStep('punch');
     }
 
     const progressTimers = [
@@ -350,17 +368,18 @@ export default function FreeTrialForm({
     await runResearch();
   };
 
-  // After checkout return (?unlock=1): restore site for deepen — never on normal visits.
+  // After checkout return (?unlock=1): restore site and auto-run (IC skips re-entry).
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
+    const runIc = params.get('run_ic') === '1';
     const pending = sessionStorage.getItem('pendingDeepUnlock') === '1';
+    const pendingIc = sessionStorage.getItem('pendingIcReport') === '1';
 
-    if (!unlockFromCheckout && !pending) return;
+    if (!unlockFromCheckout && !pending && !runIc && !pendingIc) return;
 
-    // Banner for any pending deepen; form fields only when returning from checkout.
     setUnlockBanner(true);
-    if (!unlockFromCheckout) return;
+    if (!unlockFromCheckout && !runIc && !pendingIc) return;
 
     const last = readLastResearchForm();
     const email =
@@ -389,6 +408,16 @@ export default function FreeTrialForm({
       }
     }
 
+    if (runIc || pendingIc) {
+      try {
+        sessionStorage.setItem('pendingIcReport', '1');
+        sessionStorage.setItem('regguardPaid', '1');
+        sessionStorage.setItem('pendingDeepUnlock', '1');
+      } catch {
+        /* ignore */
+      }
+    }
+
     void (async () => {
       if (!email) return;
       try {
@@ -399,17 +428,33 @@ export default function FreeTrialForm({
         if (!paid) return;
         sessionStorage.setItem('regguardPaid', '1');
         setPaidEntitled(true);
-        if (
-          !autoUnlockTried.current &&
+        const tiers = Array.isArray(entData.tiers)
+          ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
+          : [];
+        const primary = String(entData.primary_tier || '').toLowerCase();
+        const tier =
+          tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
+        if (tier) sessionStorage.setItem('regguardTier', tier);
+
+        const readySite =
           (last.address || formDataRef.current.address) &&
           (last.city || formDataRef.current.city) &&
           (last.state || formDataRef.current.state) &&
-          (last.zip || formDataRef.current.zip)
-        ) {
+          (last.zip || formDataRef.current.zip);
+
+        if (!autoUnlockTried.current && readySite) {
           autoUnlockTried.current = true;
+          // Clean query so refresh doesn't double-run
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('run_ic');
+            window.history.replaceState({}, '', url.pathname + (url.search || ''));
+          } catch {
+            /* ignore */
+          }
           window.setTimeout(() => {
             void runResearch();
-          }, 400);
+          }, 350);
         }
       } catch {
         /* banner still available */
@@ -480,16 +525,35 @@ export default function FreeTrialForm({
       {!resultsOpen && unlockBanner && (
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10">
           <p className="text-emerald-100 text-sm">
-            Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro /
-            IC research results.
+            {typeof window !== 'undefined' &&
+            (sessionStorage.getItem('pendingIcReport') === '1' ||
+              new URLSearchParams(window.location.search).get('run_ic') === '1')
+              ? 'Payment detected — generating your IC Project Report for the saved site (no address re-entry). Stay here until results open.'
+              : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
           </p>
           <button
             type="button"
-            onClick={() => void runResearch()}
+            onClick={() => {
+              try {
+                if (
+                  sessionStorage.getItem('regguardTier')?.toLowerCase().includes('ic') ||
+                  sessionStorage.getItem('pendingIcReport') === '1'
+                ) {
+                  sessionStorage.setItem('pendingIcReport', '1');
+                }
+              } catch {
+                /* ignore */
+              }
+              void runResearch();
+            }}
             disabled={loading}
             className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold whitespace-nowrap disabled:opacity-60"
           >
-            {loading ? 'Deepening…' : 'Unlock deeper results'}
+            {loading
+              ? 'Generating IC report…'
+              : sessionStorage.getItem('pendingIcReport') === '1'
+                ? 'Generate IC Report now'
+                : 'Unlock deeper results'}
           </button>
         </div>
       )}

@@ -597,6 +597,9 @@ export default function ResultsViewerModal({
       );
       if (emailForCheckout) sessionStorage.setItem('userEmail', emailForCheckout);
       sessionStorage.setItem('pendingDeepUnlock', '1');
+      if (tier === 'ic_project') {
+        sessionStorage.setItem('pendingIcReport', '1');
+      }
     } catch {
       /* ignore */
     }

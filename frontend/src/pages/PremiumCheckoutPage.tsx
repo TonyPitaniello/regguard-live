@@ -390,6 +390,9 @@ function PaymentForm({
       sessionStorage.setItem('userEmail', emailNorm);
       sessionStorage.setItem('pendingDeepUnlock', '1');
       sessionStorage.setItem('regguardTier', tier);
+      if (tier === 'ic_project' || tier === 'ic_annual') {
+        sessionStorage.setItem('pendingIcReport', '1');
+      }
       if (name.trim()) sessionStorage.setItem('userName', name.trim());
 
       const successUrl =

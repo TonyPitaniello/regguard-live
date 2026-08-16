@@ -5,7 +5,7 @@
  * Shows user's orders and provides PDF download links
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { backendUrl } from '../env';
 
@@ -72,6 +72,48 @@ function orderPdfsPreparing(order: Order): boolean {
   return order.pdfs.some(pdfIsPreparing);
 }
 
+function readSavedSite(): {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  label: string;
+} | null {
+  try {
+    const raw = sessionStorage.getItem('lastResearchForm');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const address = typeof parsed.address === 'string' ? parsed.address : '';
+    const city = typeof parsed.city === 'string' ? parsed.city : '';
+    const state = typeof parsed.state === 'string' ? parsed.state : '';
+    const zip = typeof parsed.zip === 'string' ? parsed.zip : '';
+    if (!address || !city || !state || !zip) return null;
+    return {
+      address,
+      city,
+      state,
+      zip,
+      label: `${address}, ${city}, ${state} ${zip}`,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function startIcReportForSavedSite(email: string) {
+  try {
+    sessionStorage.setItem('pendingIcReport', '1');
+    sessionStorage.setItem('pendingDeepUnlock', '1');
+    sessionStorage.setItem('regguardPaid', '1');
+    if (email) sessionStorage.setItem('userEmail', email);
+  } catch {
+    /* ignore */
+  }
+  const q = new URLSearchParams({ unlock: '1', run_ic: '1' });
+  if (email) q.set('email', email);
+  window.location.assign(`/?${q.toString()}`);
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +122,10 @@ export default function OrdersPage() {
     () => (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') || '' : '')
   );
   const [confirmed, setConfirmed] = useState(false);
+  const [savedSite] = useState(() =>
+    typeof window !== 'undefined' ? readSavedSite() : null
+  );
+  const autoIcRedirectTried = useRef(false);
 
   useEffect(() => {
     void bootstrapOrders();
@@ -201,6 +247,25 @@ export default function OrdersPage() {
             'Payment redirect received, but no order is on file yet. Wait 10s and refresh — or re-open this page from your Stripe receipt email.'
         );
       }
+
+      // IC purchase + saved site from results → jump straight into PDF generation (no re-entry)
+      const site = readSavedSite();
+      const hasIc = nextOrders.some((o: Order) => isIcTier(o.tier));
+      const wantsIc =
+        sessionStorage.getItem('pendingIcReport') === '1' ||
+        nextOrders.some((o: Order) => orderPdfsPreparing(o));
+      if (
+        sessionId &&
+        hasIc &&
+        wantsIc &&
+        site &&
+        email &&
+        !autoIcRedirectTried.current
+      ) {
+        autoIcRedirectTried.current = true;
+        startIcReportForSavedSite(email);
+        return;
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load orders';
       setError(message);
@@ -259,10 +324,11 @@ export default function OrdersPage() {
               <div className="text-emerald-100">
                 <p>Payment confirmed — your order is below.</p>
                 <p className="mt-2 text-sm text-emerald-200/90">
-                  Next: unlock deeper research on your site (same email).{' '}
-                  {orders.some(orderPdfsPreparing)
-                    ? 'IC Project PDFs generate after that confirmed lookup.'
-                    : 'Contractor Pro deep scout results appear in the results window.'}
+                  {orders.some((o) => isIcTier(o.tier))
+                    ? savedSite
+                      ? `One tap generates IC PDFs for ${savedSite.label} — no address re-entry.`
+                      : 'IC Project PDFs generate from your last researched site (same email).'
+                    : 'Next: unlock deeper research on your site (same email).'}
                 </p>
                 {orders
                   .filter((o) => isIcTier(o.tier) && o.download_token)
@@ -285,20 +351,30 @@ export default function OrdersPage() {
                   ))}
               </div>
             </div>
-            <a
-              href={`/?unlock=1${userEmail ? `&email=${encodeURIComponent(userEmail)}` : ''}`}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
-              onClick={() => {
-                try {
-                  sessionStorage.setItem('pendingDeepUnlock', '1');
-                  sessionStorage.setItem('regguardPaid', '1');
-                } catch {
-                  /* ignore */
-                }
-              }}
-            >
-              Unlock deeper results
-            </a>
+            {orders.some((o) => isIcTier(o.tier)) && savedSite ? (
+              <button
+                type="button"
+                onClick={() => startIcReportForSavedSite(userEmail)}
+                className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
+              >
+                Generate IC Report for this site
+              </button>
+            ) : (
+              <a
+                href={`/?unlock=1${userEmail ? `&email=${encodeURIComponent(userEmail)}` : ''}`}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem('pendingDeepUnlock', '1');
+                    sessionStorage.setItem('regguardPaid', '1');
+                  } catch {
+                    /* ignore */
+                  }
+                }}
+              >
+                Unlock deeper results
+              </a>
+            )}
           </div>
         )}
 
@@ -306,17 +382,24 @@ export default function OrdersPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-blue-500/15 border border-blue-500/30 rounded-lg mb-8">
             <div className="flex gap-3">
               <Clock className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-              <p className="text-blue-100 text-sm">
-                IC Project PDFs are preparing. Run a site lookup (same email) to generate them —
-                this page refreshes automatically.
-              </p>
+              <div className="text-blue-100 text-sm">
+                <p>
+                  IC Project PDFs are preparing
+                  {savedSite ? ` for ${savedSite.label}` : ''}.
+                </p>
+                <p className="mt-1 text-blue-200/80">
+                  Use the button to generate them from your last site — no re-typing the address.
+                </p>
+              </div>
             </div>
-            <a
-              href={`/${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
+            <button
+              type="button"
+              onClick={() => startIcReportForSavedSite(userEmail)}
+              disabled={!savedSite && !userEmail}
+              className="px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
             >
-              Run site lookup
-            </a>
+              {savedSite ? 'Generate IC Report now' : 'Open lookup to generate'}
+            </button>
           </div>
         )}
 
