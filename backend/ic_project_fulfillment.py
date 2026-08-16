@@ -18,6 +18,13 @@ PDF_TYPES = ("research_memo", "punch_list", "permits")
 
 # order_id -> {pdf_type -> bytes}
 _PDF_BYTES: Dict[str, Dict[str, bytes]] = {}
+# In-flight / completed idempotency keys for IC fulfill (premortem F5)
+_IC_IDEMPOTENCY: Dict[str, str] = {}
+_IC_IN_FLIGHT: set[str] = set()
+
+
+def _address_fingerprint(address: str) -> str:
+    return " ".join((address or "").strip().lower().split())
 
 
 def api_public_base() -> str:
@@ -272,10 +279,11 @@ async def fulfill_ic_project_artifacts(
     analysis: Dict[str, Any],
     *,
     force: bool = False,
+    idempotency_key: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Generate IC PDFs for the buyer's open IC order and update order.pdfs.
-    Idempotent unless force=True.
+    Idempotent unless force=True (or address changed).
     """
     from order_service import update_order_artifacts
 
@@ -292,12 +300,28 @@ async def fulfill_ic_project_artifacts(
     if not order_id:
         return None
 
+    idem = (idempotency_key or "").strip()
+    if idem:
+        prior = _IC_IDEMPOTENCY.get(idem)
+        if prior == order_id and pdfs_are_ready(order.get("pdfs")) and order_id in _PDF_BYTES:
+            logger.info("IC fulfill idempotent hit key=%s order=%s", idem, order_id)
+            return order
+        if idem in _IC_IN_FLIGHT:
+            logger.info("IC fulfill skipped — in flight for key=%s", idem)
+            return order
+
     new_address = str((analysis.get("project_info") or {}).get("address") or "").strip().lower()
     old_address = str(order.get("address") or "").strip().lower()
-    address_changed = bool(new_address and old_address and new_address != old_address)
+    address_changed = bool(
+        new_address
+        and old_address
+        and _address_fingerprint(new_address) != _address_fingerprint(old_address)
+    )
 
     if pdfs_are_ready(order.get("pdfs")) and not force and not address_changed and order_id in _PDF_BYTES:
         logger.info("IC fulfill skipped — PDFs already ready for order %s", order_id)
+        if idem:
+            _IC_IDEMPOTENCY[idem] = order_id
         return order
 
     # Allow regenerate when caller forces, or buyer researched a different site
@@ -309,10 +333,14 @@ async def fulfill_ic_project_artifacts(
             address_changed,
         )
 
+    if idem:
+        _IC_IN_FLIGHT.add(idem)
     try:
         byte_map = generate_ic_pdf_bytes(analysis)
     except Exception as e:
         logger.exception("IC PDF generation failed for order %s: %s", order_id, e)
+        if idem:
+            _IC_IN_FLIGHT.discard(idem)
         return None
 
     _PDF_BYTES[order_id] = byte_map
@@ -334,6 +362,10 @@ async def fulfill_ic_project_artifacts(
         email_l,
         {k: len(v) for k, v in byte_map.items()},
     )
+
+    if idem:
+        _IC_IDEMPOTENCY[idem] = order_id
+        _IC_IN_FLIGHT.discard(idem)
 
     # Best-effort email with download links
     try:

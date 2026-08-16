@@ -25,6 +25,8 @@ class FreeTrialRequest(BaseModel):
     phone: Optional[str] = None
     # Explicit opt-in: consume IC Project Report slot for this address
     generate_ic_report: Optional[bool] = False
+    # Client-generated key to dedupe double-submit / refresh races (premortem F5)
+    ic_idempotency_key: Optional[str] = None
 
 
 class FreeTrialResponse(BaseModel):

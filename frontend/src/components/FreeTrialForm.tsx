@@ -15,6 +15,15 @@ import {
   VOICE_SUBMIT_EVENT,
   type VoiceFillDetail,
 } from '../voiceFillParse';
+import {
+  clearIcRunId,
+  clearPendingIcReport,
+  getOrCreateIcRunId,
+  hasValidPendingIcReport,
+  persistLastResearchForm,
+  readLastResearchForm,
+  setPendingIcReport,
+} from '../icSiteBind';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -31,44 +40,24 @@ const PROGRESS_LABELS: Record<ProgressStep, string> = {
   punch: 'Building punch list…',
 };
 
-function readLastResearchForm(): Partial<{
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  projectType: string;
-  email: string;
-}> {
-  try {
-    const raw = sessionStorage.getItem('lastResearchForm');
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return {
-      address: typeof parsed.address === 'string' ? parsed.address : undefined,
-      city: typeof parsed.city === 'string' ? parsed.city : undefined,
-      state: typeof parsed.state === 'string' ? parsed.state : undefined,
-      zip: typeof parsed.zip === 'string' ? parsed.zip : undefined,
-      projectType: typeof parsed.projectType === 'string' ? parsed.projectType : undefined,
-      email: typeof parsed.email === 'string' ? parsed.email : undefined,
-    };
-  } catch {
-    return {};
+async function fetchEntitlementWithRetry(
+  emailNorm: string,
+  attempts = 3
+): Promise<Record<string, unknown> | null> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(emailNorm)}`));
+      if (ent.ok) {
+        return (await ent.json()) as Record<string, unknown>;
+      }
+    } catch {
+      /* retry */
+    }
+    if (i < attempts - 1) {
+      await new Promise((r) => window.setTimeout(r, 400 * (i + 1)));
+    }
   }
-}
-
-function persistLastResearchForm(data: {
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  projectType: string;
-  email: string;
-}) {
-  try {
-    sessionStorage.setItem('lastResearchForm', JSON.stringify(data));
-  } catch {
-    /* ignore */
-  }
+  return null;
 }
 
 export default function FreeTrialForm({
@@ -198,58 +187,68 @@ export default function FreeTrialForm({
     let icReportPending = ['ic_project', 'ic_consultant', 'ic_annual'].includes(
       (sessionStorage.getItem('regguardTier') || '').toLowerCase()
     );
-    try {
-      const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(emailNorm)}`));
-      if (ent.ok) {
-        const entData = await ent.json();
-        paid = Boolean(entData.paid || entData.deep_research);
-        if (paid) {
-          sessionStorage.setItem('regguardPaid', '1');
-          setPaidEntitled(true);
-        }
-        const tiers = Array.isArray(entData.tiers)
-          ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
-          : [];
-        const primary = String(entData.primary_tier || '').toLowerCase();
-        const tier = tiers.find((t) =>
-          ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)
-        ) || primary;
-        if (['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)) {
-          sessionStorage.setItem('regguardTier', tier);
-        }
-        icReportPending = Boolean(entData.ic_report_pending) ||
-          ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier);
+    const entData = await fetchEntitlementWithRetry(emailNorm, 3);
+    if (entData) {
+      paid = Boolean(entData.paid || entData.deep_research);
+      if (paid) {
+        sessionStorage.setItem('regguardPaid', '1');
+        setPaidEntitled(true);
       }
-    } catch {
-      /* keep cached flag */
+      const tiers = Array.isArray(entData.tiers)
+        ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
+        : [];
+      const primary = String(entData.primary_tier || '').toLowerCase();
+      const tier =
+        tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
+      if (['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)) {
+        sessionStorage.setItem('regguardTier', tier);
+      }
+      icReportPending =
+        Boolean(entData.ic_report_pending) ||
+        ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier);
     }
 
-    // Confirm before consuming the one-shot IC Project Report slot
-    // Skip confirm when returning from IC checkout (?run_ic=1 / pendingIcReport)
+    // Premortem F9: skip-confirm path only via one-shot icForceOnce (set from ?run_ic=1)
+    // Premortem F2: always show address confirm before consuming slot
     let generateIcReport = false;
-    const forceIc =
-      (typeof window !== 'undefined' &&
-        (new URLSearchParams(window.location.search).get('run_ic') === '1' ||
-          sessionStorage.getItem('pendingIcReport') === '1')) ||
-      false;
+    let forceOnce = false;
+    try {
+      forceOnce = sessionStorage.getItem('icForceOnce') === '1';
+    } catch {
+      forceOnce = false;
+    }
+    const forceIc = Boolean(forceOnce && hasValidPendingIcReport() && paid && icReportPending);
+    const siteChip = `${data.address}, ${data.city}, ${data.state} ${data.zip}`;
     if (paid && icReportPending) {
       if (forceIc) {
-        generateIcReport = true;
+        // Soft confirm chip — Cancel aborts IC slot consume
+        generateIcReport = window.confirm(
+          `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
+            'This uses your IC Project purchase for this exact address. Cancel to stop.'
+        );
         try {
-          sessionStorage.removeItem('pendingIcReport');
+          sessionStorage.removeItem('icForceOnce');
         } catch {
           /* ignore */
+        }
+        if (generateIcReport) {
+          clearPendingIcReport();
         }
       } else {
         const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
         const annual = tier === 'ic_annual';
         generateIcReport = window.confirm(
-          `Generate IC Project Report PDFs for:\n\n${data.address}, ${data.city}, ${data.state} ${data.zip}\n\n` +
+          `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
             (annual
               ? 'This will create or replace the PDFs on your IC Annual order for this address. Cancel to research without updating PDFs.'
               : 'This will create or replace the PDFs on your IC Project purchase for this address. Cancel to research without generating PDFs.')
         );
+        if (!generateIcReport) {
+          clearPendingIcReport();
+        }
       }
+    } else if (hasValidPendingIcReport() && !icReportPending) {
+      clearPendingIcReport();
     }
     if (generateIcReport) {
       setProgressStep('punch');
@@ -262,7 +261,10 @@ export default function FreeTrialForm({
 
     try {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), paid ? 130000 : 45000);
+      // Premortem F4: IC path needs more headroom than Pro deepen
+      const timeoutMs = generateIcReport ? 180000 : paid ? 130000 : 45000;
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+      const icKey = generateIcReport ? getOrCreateIcRunId() : undefined;
 
       const response = await fetch(backendUrl('/free-trial'), {
         method: 'POST',
@@ -277,9 +279,13 @@ export default function FreeTrialForm({
           email: emailNorm,
           phone: data.phone || undefined,
           generate_ic_report: generateIcReport,
+          ic_idempotency_key: icKey,
         }),
       });
       window.clearTimeout(timeoutId);
+      if (generateIcReport) {
+        clearIcRunId();
+      }
 
       let payload: Record<string, unknown> = {};
       try {
@@ -374,7 +380,7 @@ export default function FreeTrialForm({
     const unlockFromCheckout = params.get('unlock') === '1';
     const runIc = params.get('run_ic') === '1';
     const pending = sessionStorage.getItem('pendingDeepUnlock') === '1';
-    const pendingIc = sessionStorage.getItem('pendingIcReport') === '1';
+    const pendingIc = hasValidPendingIcReport();
 
     if (!unlockFromCheckout && !pending && !runIc && !pendingIc) return;
 
@@ -382,10 +388,15 @@ export default function FreeTrialForm({
     if (!unlockFromCheckout && !runIc && !pendingIc) return;
 
     const last = readLastResearchForm();
-    const email =
-      (params.get('email') || sessionStorage.getItem('userEmail') || last.email || '')
-        .trim()
-        .toLowerCase();
+    // Premortem F7: checkout success email wins over stale form email
+    const email = (
+      params.get('email') ||
+      sessionStorage.getItem('userEmail') ||
+      (runIc ? '' : last.email) ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
 
     if (last.address || last.city || last.zip || email) {
       setFieldsUnlocked(true);
@@ -408,56 +419,62 @@ export default function FreeTrialForm({
       }
     }
 
-    if (runIc || pendingIc) {
+    if (runIc) {
       try {
-        sessionStorage.setItem('pendingIcReport', '1');
+        setPendingIcReport(true);
+        sessionStorage.setItem('icForceOnce', '1');
         sessionStorage.setItem('regguardPaid', '1');
         sessionStorage.setItem('pendingDeepUnlock', '1');
+        if (email) sessionStorage.setItem('userEmail', email);
       } catch {
         /* ignore */
       }
+    } else if (pendingIc && !runIc) {
+      // Premortem F9: leftover pending without run_ic must not silent-auto
+      /* banner only — user taps Generate */
     }
 
     void (async () => {
       if (!email) return;
-      try {
-        const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(email)}`));
-        if (!ent.ok) return;
-        const entData = await ent.json();
-        const paid = Boolean(entData.paid || entData.deep_research);
-        if (!paid) return;
-        sessionStorage.setItem('regguardPaid', '1');
-        setPaidEntitled(true);
-        const tiers = Array.isArray(entData.tiers)
-          ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
-          : [];
-        const primary = String(entData.primary_tier || '').toLowerCase();
-        const tier =
-          tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
-        if (tier) sessionStorage.setItem('regguardTier', tier);
+      // Premortem F3: retry entitlement before auto-submit
+      const entData = await fetchEntitlementWithRetry(email, 3);
+      if (!entData) return;
+      const paid = Boolean(entData.paid || entData.deep_research);
+      if (!paid) return;
+      sessionStorage.setItem('regguardPaid', '1');
+      setPaidEntitled(true);
+      const tiers = Array.isArray(entData.tiers)
+        ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
+        : [];
+      const primary = String(entData.primary_tier || '').toLowerCase();
+      const tier =
+        tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
+      if (tier) sessionStorage.setItem('regguardTier', tier);
 
-        const readySite =
-          (last.address || formDataRef.current.address) &&
-          (last.city || formDataRef.current.city) &&
-          (last.state || formDataRef.current.state) &&
-          (last.zip || formDataRef.current.zip);
+      const readySite =
+        (last.address || formDataRef.current.address) &&
+        (last.city || formDataRef.current.city) &&
+        (last.state || formDataRef.current.state) &&
+        (last.zip || formDataRef.current.zip);
 
-        if (!autoUnlockTried.current && readySite) {
-          autoUnlockTried.current = true;
-          // Clean query so refresh doesn't double-run
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('run_ic');
-            window.history.replaceState({}, '', url.pathname + (url.search || ''));
-          } catch {
-            /* ignore */
-          }
-          window.setTimeout(() => {
-            void runResearch();
-          }, 350);
+      // Auto-run only for explicit IC return (?run_ic=1) or Pro unlock deepen
+      const shouldAuto =
+        Boolean(readySite) &&
+        !autoUnlockTried.current &&
+        (runIc || (unlockFromCheckout && !pendingIc));
+
+      if (shouldAuto) {
+        autoUnlockTried.current = true;
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('run_ic');
+          window.history.replaceState({}, '', url.pathname + (url.search || ''));
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* banner still available */
+        window.setTimeout(() => {
+          void runResearch();
+        }, 450);
       }
     })();
   }, [runResearch]);
@@ -526,9 +543,13 @@ export default function FreeTrialForm({
         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10">
           <p className="text-emerald-100 text-sm">
             {typeof window !== 'undefined' &&
-            (sessionStorage.getItem('pendingIcReport') === '1' ||
+            (hasValidPendingIcReport() ||
               new URLSearchParams(window.location.search).get('run_ic') === '1')
-              ? 'Payment detected — generating your IC Project Report for the saved site (no address re-entry). Stay here until results open.'
+              ? `Payment detected — ready to generate IC Project Report for ${
+                  formData.address
+                    ? `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`
+                    : 'the saved site'
+                }. Confirm the address when prompted.`
               : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
           </p>
           <button
@@ -537,9 +558,10 @@ export default function FreeTrialForm({
               try {
                 if (
                   sessionStorage.getItem('regguardTier')?.toLowerCase().includes('ic') ||
-                  sessionStorage.getItem('pendingIcReport') === '1'
+                  hasValidPendingIcReport() ||
+                  new URLSearchParams(window.location.search).get('run_ic') === '1'
                 ) {
-                  sessionStorage.setItem('pendingIcReport', '1');
+                  setPendingIcReport(true);
                 }
               } catch {
                 /* ignore */
@@ -551,7 +573,8 @@ export default function FreeTrialForm({
           >
             {loading
               ? 'Generating IC report…'
-              : sessionStorage.getItem('pendingIcReport') === '1'
+              : hasValidPendingIcReport() ||
+                  new URLSearchParams(window.location.search).get('run_ic') === '1'
                 ? 'Generate IC Report now'
                 : 'Unlock deeper results'}
           </button>

@@ -84,6 +84,11 @@ def is_stripe_configured() -> bool:
     return bool(stripe.api_key and STRIPE_WEBHOOK_SECRET)
 
 
+def _meta_trim(value: Optional[str], limit: int = 450) -> str:
+    """Stripe metadata values max 500 chars."""
+    return (value or "").strip()[:limit]
+
+
 async def create_checkout_session(
     user_id: str,
     tier: str,
@@ -93,12 +98,19 @@ async def create_checkout_session(
     name: Optional[str] = None,
     trial_id: Optional[str] = None,
     referral_code: Optional[str] = None,
+    site_address: Optional[str] = None,
+    site_city: Optional[str] = None,
+    site_state: Optional[str] = None,
+    site_zip: Optional[str] = None,
+    site_project_type: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Create a Stripe Checkout Session for the specified tier.
 
     Uses mode from tier config (`payment` vs `subscription`).
     Without price_id: one-time uses price_data; subscriptions use recurring price_data.
+    Optional site_* fields bind the researched address into session metadata so
+    IC auto-run survives cross-device / cleared sessionStorage (premortem F1/F10).
     """
     if not is_stripe_configured():
         raise ValueError("Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.")
@@ -162,6 +174,24 @@ async def create_checkout_session(
             metadata["trial_id"] = trial_id
         if referral_code:
             metadata["referral_code"] = str(referral_code).strip().lower()[:64]
+
+        sa = _meta_trim(site_address)
+        sc = _meta_trim(site_city, 120)
+        ss = _meta_trim(site_state, 32)
+        sz = _meta_trim(site_zip, 16)
+        spt = _meta_trim(site_project_type, 64)
+        if sa:
+            metadata["site_address"] = sa
+        if sc:
+            metadata["site_city"] = sc
+        if ss:
+            metadata["site_state"] = ss
+        if sz:
+            metadata["site_zip"] = sz
+        if spt:
+            metadata["site_project_type"] = spt
+        if sa and sc and ss and sz:
+            metadata["site_label"] = _meta_trim(f"{sa}, {sc}, {ss} {sz}")
 
         # success_url may already include ?unlock=&email= — never append a second "?"
         sep = "&" if "?" in (success_url or "") else "?"

@@ -9,6 +9,11 @@ import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { backendUrl } from '../env';
+import {
+  hasValidPendingIcReport,
+  readLastResearchForm,
+  setPendingIcReport,
+} from '../icSiteBind';
 
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder'
@@ -369,6 +374,10 @@ function PaymentForm({
   );
   const [loading, setLoading] = useState(false);
   const [cardError, setCardError] = useState('');
+  const boundSite = readLastResearchForm();
+  const hasBoundSite = Boolean(
+    boundSite.address && boundSite.city && boundSite.state && boundSite.zip
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,7 +400,10 @@ function PaymentForm({
       sessionStorage.setItem('pendingDeepUnlock', '1');
       sessionStorage.setItem('regguardTier', tier);
       if (tier === 'ic_project' || tier === 'ic_annual') {
-        sessionStorage.setItem('pendingIcReport', '1');
+        setPendingIcReport(true);
+      } else if (hasValidPendingIcReport()) {
+        // Premortem F9: do not carry IC flag onto Pro/Partner checkout
+        setPendingIcReport(false);
       }
       if (name.trim()) sessionStorage.setItem('userName', name.trim());
 
@@ -417,6 +429,16 @@ function PaymentForm({
           success_url: successUrl,
           cancel_url: `${window.location.origin}/checkout/${tier}?email=${encodeURIComponent(emailNorm)}`,
           referral_code: referralCode || undefined,
+          // Premortem F1/F10: bind researched site into Stripe metadata
+          ...(hasBoundSite
+            ? {
+                site_address: boundSite.address,
+                site_city: boundSite.city,
+                site_state: boundSite.state,
+                site_zip: boundSite.zip,
+                site_project_type: boundSite.projectType || 'commercial',
+              }
+            : {}),
         }),
       });
 
@@ -468,6 +490,34 @@ function PaymentForm({
           className="w-full px-4 py-3 bg-slate-800 border border-purple-500/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
         />
       </div>
+
+      {(tier === 'ic_project' || tier === 'ic_annual') && (
+        <div
+          className={`rounded-lg border p-4 text-sm ${
+            hasBoundSite
+              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+              : 'border-amber-500/40 bg-amber-500/10 text-amber-100'
+          }`}
+        >
+          {hasBoundSite ? (
+            <>
+              <p className="font-bold text-emerald-200">Report site locked to this purchase</p>
+              <p className="mt-1 font-mono text-emerald-50/95">{boundSite.label}</p>
+              <p className="mt-2 text-xs text-emerald-200/80">
+                After payment we restore this address even if you finish checkout on another device.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="font-bold">No site bound yet</p>
+              <p className="mt-1 text-xs text-amber-200/90">
+                Run a free site lookup first, then open Get IC Project Report from results — or enter
+                the address on My Orders after payment.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       <div>
         <label className="block text-white font-bold mb-2">Payment Details *</label>

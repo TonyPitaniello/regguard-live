@@ -9,6 +9,7 @@ import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, Ref
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
+import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 
 const APP_URL = 'https://app.regguardagent.com/';
 
@@ -584,21 +585,20 @@ export default function ResultsViewerModal({
     // Persist site so return after payment can deepen the same lookup
     try {
       const pi = view.project_info;
-      sessionStorage.setItem(
-        'lastResearchForm',
-        JSON.stringify({
-          address: pi.address || '',
-          city: pi.city || '',
-          state: pi.state || '',
-          zip: pi.zip || '',
-          projectType: pi.type || 'commercial',
-          email: emailForCheckout,
-        })
-      );
+      persistLastResearchForm({
+        address: pi.address || '',
+        city: pi.city || '',
+        state: pi.state || '',
+        zip: pi.zip || '',
+        projectType: pi.type || 'commercial',
+        email: emailForCheckout,
+      });
       if (emailForCheckout) sessionStorage.setItem('userEmail', emailForCheckout);
       sessionStorage.setItem('pendingDeepUnlock', '1');
       if (tier === 'ic_project') {
-        sessionStorage.setItem('pendingIcReport', '1');
+        setPendingIcReport(true);
+      } else {
+        setPendingIcReport(false);
       }
     } catch {
       /* ignore */

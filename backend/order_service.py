@@ -168,6 +168,15 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
         "pdf_status": order.get("pdf_status")
         or ("ready" if order.get("analysis_json") else "preparing"),
         "coverage_note": order.get("coverage_note") or "",
+        "address": order.get("address") or order.get("site_label") or "",
+        "site_address": order.get("site_address") or "",
+        "site_city": order.get("site_city") or "",
+        "site_state": order.get("site_state") or "",
+        "site_zip": order.get("site_zip") or "",
+        "site_project_type": order.get("site_project_type") or "",
+        "site_label": order.get("site_label")
+        or order.get("address")
+        or "",
     }
 
 
@@ -498,6 +507,30 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         ),
         "referral_code": (metadata.get("referral_code") or "").strip().lower(),
     }
+
+    # Bind checkout site into the order (IC auto-run / cross-device restore)
+    site_address = (metadata.get("site_address") or "").strip()
+    site_city = (metadata.get("site_city") or "").strip()
+    site_state = (metadata.get("site_state") or "").strip()
+    site_zip = (metadata.get("site_zip") or "").strip()
+    site_project_type = (metadata.get("site_project_type") or "").strip()
+    site_label = (metadata.get("site_label") or "").strip()
+    if not site_label and site_address and site_city and site_state and site_zip:
+        site_label = f"{site_address}, {site_city}, {site_state} {site_zip}"
+    if site_address:
+        order["site_address"] = site_address
+    if site_city:
+        order["site_city"] = site_city
+    if site_state:
+        order["site_state"] = site_state
+    if site_zip:
+        order["site_zip"] = site_zip
+    if site_project_type:
+        order["site_project_type"] = site_project_type
+    if site_label:
+        order["site_label"] = site_label
+        order["address"] = site_label
+
     remember_order(order)
     persisted = persist_order_supabase(order)
     if not persisted:
@@ -571,9 +604,44 @@ async def confirm_stripe_session(session_id: str) -> Dict[str, Any]:
     """Retrieve session from Stripe and fulfill if paid/complete."""
     import stripe
 
+    def _site_payload(order: Dict[str, Any]) -> Dict[str, str]:
+        return {
+            "address": str(order.get("site_address") or ""),
+            "city": str(order.get("site_city") or ""),
+            "state": str(order.get("site_state") or ""),
+            "zip": str(order.get("site_zip") or ""),
+            "project_type": str(order.get("site_project_type") or ""),
+            "label": str(order.get("site_label") or order.get("address") or ""),
+        }
+
     existing = get_order_by_session(session_id)
     if existing:
-        return {"status": "ok", "order": existing, "email": existing.get("email") or ""}
+        # Prefer live Stripe metadata if order was fulfilled before site binding existed
+        site = _site_payload(existing)
+        if not site.get("address"):
+            try:
+                key = os.getenv("STRIPE_SECRET_KEY")
+                if key:
+                    stripe.api_key = key
+                    session = stripe.checkout.Session.retrieve(session_id)
+                    session_dict = session.to_dict() if hasattr(session, "to_dict") else dict(session)
+                    md = session_dict.get("metadata") or {}
+                    site = {
+                        "address": str(md.get("site_address") or ""),
+                        "city": str(md.get("site_city") or ""),
+                        "state": str(md.get("site_state") or ""),
+                        "zip": str(md.get("site_zip") or ""),
+                        "project_type": str(md.get("site_project_type") or ""),
+                        "label": str(md.get("site_label") or ""),
+                    }
+            except Exception:
+                pass
+        return {
+            "status": "ok",
+            "order": existing,
+            "email": existing.get("email") or "",
+            "site": site,
+        }
 
     key = os.getenv("STRIPE_SECRET_KEY")
     if not key:
@@ -588,4 +656,9 @@ async def confirm_stripe_session(session_id: str) -> Dict[str, Any]:
         raise ValueError(f"Checkout session not complete (payment_status={payment_status})")
 
     order = await fulfill_checkout_session(session_dict)
-    return {"status": "ok", "order": order, "email": order.get("email") or ""}
+    return {
+        "status": "ok",
+        "order": order,
+        "email": order.get("email") or "",
+        "site": _site_payload(order),
+    }

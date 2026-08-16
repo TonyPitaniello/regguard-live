@@ -233,6 +233,12 @@ class TierCheckoutRequest(BaseModel):
     success_url: Optional[str] = None
     cancel_url: Optional[str] = None
     referral_code: Optional[str] = None
+    # Bound site for IC auto-run after purchase (survives sessionStorage loss)
+    site_address: Optional[str] = None
+    site_city: Optional[str] = None
+    site_state: Optional[str] = None
+    site_zip: Optional[str] = None
+    site_project_type: Optional[str] = None
 
 
 class SaveJobRequest(BaseModel):
@@ -1188,6 +1194,11 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             name=body.name,
             trial_id=body.trial_id,
             referral_code=body.referral_code,
+            site_address=body.site_address,
+            site_city=body.site_city,
+            site_state=body.site_state,
+            site_zip=body.site_zip,
+            site_project_type=body.site_project_type,
         )
         return result
     except HTTPException:
@@ -1592,6 +1603,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 "Paid entitlement — local confirm first (force_scout=%s)",
                 force_scout,
             )
+            # IC force_scout can exceed 120s; give more headroom (premortem F4)
+            paid_timeout = 150.0 if force_scout else 120.0
             analysis = await asyncio.wait_for(
                 run_pro_deep_analysis(
                     address=request_body.address,
@@ -1604,7 +1617,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     email=getattr(request_body, "email", None) or "",
                     force_scout=force_scout,
                 ),
-                timeout=120.0,
+                timeout=paid_timeout,
             )
             message = "Contractor Pro — paid local confirm ready."
             if (analysis or {}).get("finops_mode") == "paid_local_confirm":
@@ -1765,7 +1778,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 depth = str(analysis.get("research_depth") or research_depth or "")
                 is_preview = bool(analysis.get("preview"))
                 deep_ok = depth == "pro" and not is_preview
-                if want_ic and deep_ok:
+                if want_ic and analysis:
                     from ic_project_fulfillment import pdfs_are_ready as _pdfs_ready
 
                     already = _pdfs_ready(open_ic.get("pdfs"))
@@ -1776,8 +1789,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                         "ic_project",
                         "ic_consultant",
                     )
+                    idem = (getattr(request_body, "ic_idempotency_key", None) or "").strip() or None
                     fulfilled = await fulfill_ic_project_artifacts(
-                        email_for_ic, analysis, force=force
+                        email_for_ic,
+                        analysis,
+                        force=force,
+                        idempotency_key=idem,
                     )
                     ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
                     if ic_pdfs_ready:
@@ -1785,12 +1802,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                             "IC Project Report PDFs ready — download Research Memo, "
                             "Punch List, and Permit Package from My Orders."
                         )
-                elif want_ic and not deep_ok:
-                    ic_pending = True
-                    message = (
-                        "Deep research did not fully complete — IC PDFs were not generated yet. "
-                        "Retry the site lookup to produce your Project Report package."
-                    )
+                        if not deep_ok:
+                            message += (
+                                " (Generated from best-available research — retry for a fuller deep scout.)"
+                            )
+                    else:
+                        ic_pending = True
+                        message = (
+                            "Deep research did not fully complete — IC PDFs were not generated yet. "
+                            "Retry the site lookup to produce your Project Report package."
+                        )
                 else:
                     ic_pending = True
                     # Lookup ran without consuming the one-shot IC slot

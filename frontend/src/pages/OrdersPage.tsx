@@ -8,6 +8,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { backendUrl } from '../env';
+import {
+  hasValidPendingIcReport,
+  persistLastResearchForm,
+  readLastResearchForm,
+  setPendingIcReport,
+  siteFromConfirmPayload,
+  siteLabel,
+  type BoundSite,
+} from '../icSiteBind';
 
 interface PDF {
   type: 'research_memo' | 'punch_list' | 'permits';
@@ -29,6 +38,13 @@ interface Order {
   download_token?: string;
   pdf_status?: string;
   coverage_note?: string;
+  address?: string;
+  site_address?: string;
+  site_city?: string;
+  site_state?: string;
+  site_zip?: string;
+  site_project_type?: string;
+  site_label?: string;
 }
 
 function tierLabel(tier: string): string {
@@ -72,37 +88,31 @@ function orderPdfsPreparing(order: Order): boolean {
   return order.pdfs.some(pdfIsPreparing);
 }
 
-function readSavedSite(): {
-  address: string;
-  city: string;
-  state: string;
-  zip: string;
-  label: string;
-} | null {
-  try {
-    const raw = sessionStorage.getItem('lastResearchForm');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const address = typeof parsed.address === 'string' ? parsed.address : '';
-    const city = typeof parsed.city === 'string' ? parsed.city : '';
-    const state = typeof parsed.state === 'string' ? parsed.state : '';
-    const zip = typeof parsed.zip === 'string' ? parsed.zip : '';
-    if (!address || !city || !state || !zip) return null;
+function readSavedSite(): BoundSite | null {
+  const last = readLastResearchForm();
+  if (last.address && last.city && last.state && last.zip) {
     return {
-      address,
-      city,
-      state,
-      zip,
-      label: `${address}, ${city}, ${state} ${zip}`,
+      address: last.address,
+      city: last.city,
+      state: last.state,
+      zip: last.zip,
+      projectType: last.projectType,
+      email: last.email,
+      label: last.label || siteLabel({
+        address: last.address,
+        city: last.city,
+        state: last.state,
+        zip: last.zip,
+      }),
     };
-  } catch {
-    return null;
   }
+  return null;
 }
 
 function startIcReportForSavedSite(email: string) {
   try {
-    sessionStorage.setItem('pendingIcReport', '1');
+    setPendingIcReport(true);
+    sessionStorage.setItem('icForceOnce', '1');
     sessionStorage.setItem('pendingDeepUnlock', '1');
     sessionStorage.setItem('regguardPaid', '1');
     if (email) sessionStorage.setItem('userEmail', email);
@@ -122,14 +132,28 @@ export default function OrdersPage() {
     () => (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') || '' : '')
   );
   const [confirmed, setConfirmed] = useState(false);
-  const [savedSite] = useState(() =>
+  const [savedSite, setSavedSite] = useState<BoundSite | null>(() =>
     typeof window !== 'undefined' ? readSavedSite() : null
   );
+  const [icRedirectCountdown, setIcRedirectCountdown] = useState<number | null>(null);
   const autoIcRedirectTried = useRef(false);
 
   useEffect(() => {
     void bootstrapOrders();
   }, []);
+
+  // Premortem F6: 3s success strip then auto-start IC report
+  useEffect(() => {
+    if (icRedirectCountdown === null) return;
+    if (icRedirectCountdown <= 0) {
+      startIcReportForSavedSite(userEmail);
+      return;
+    }
+    const id = window.setTimeout(() => {
+      setIcRedirectCountdown((n) => (n === null ? null : n - 1));
+    }, 1000);
+    return () => window.clearTimeout(id);
+  }, [icRedirectCountdown, userEmail]);
 
   // Poll while IC PDFs are still preparing (after research generates them)
   useEffect(() => {
@@ -203,6 +227,24 @@ export default function OrdersPage() {
             sessionStorage.setItem('regguardPaid', '1');
           }
           sessionStorage.setItem('pendingDeepUnlock', '1');
+
+          // Premortem F1/F10: restore site from Stripe metadata / order
+          const restored = siteFromConfirmPayload(confirmData.site, confirmData.order);
+          if (restored) {
+            persistLastResearchForm({
+              address: restored.address,
+              city: restored.city,
+              state: restored.state,
+              zip: restored.zip,
+              projectType: restored.projectType || 'commercial',
+              email: emailFromSession || emailFromUrl,
+            });
+            setSavedSite(restored);
+            if (isIcTier(String(confirmData.order?.tier || ''))) {
+              setPendingIcReport(true);
+            }
+          }
+
           setConfirmed(true);
         } else {
           const detail = await confirmRes.json().catch(() => ({}));
@@ -235,7 +277,7 @@ export default function OrdersPage() {
       if (!response.ok) throw new Error('Failed to fetch orders');
 
       const data = await response.json();
-      const nextOrders = data.orders || [];
+      const nextOrders: Order[] = data.orders || [];
       setOrders(nextOrders);
       if (sessionId && nextOrders.length > 0) {
         setConfirmed(true);
@@ -248,22 +290,39 @@ export default function OrdersPage() {
         );
       }
 
-      // IC purchase + saved site from results → jump straight into PDF generation (no re-entry)
-      const site = readSavedSite();
-      const hasIc = nextOrders.some((o: Order) => isIcTier(o.tier));
+      // Prefer order-bound / freshly restored site
+      let siteNow = readSavedSite();
+      if (!siteNow) {
+        const icOrder = nextOrders.find((o) => isIcTier(o.tier));
+        const fromOrder = icOrder ? siteFromConfirmPayload(null, icOrder) : null;
+        if (fromOrder) {
+          persistLastResearchForm({
+            ...fromOrder,
+            projectType: fromOrder.projectType || 'commercial',
+            email,
+          });
+          setSavedSite(fromOrder);
+          siteNow = fromOrder;
+        }
+      } else {
+        setSavedSite(siteNow);
+      }
+
+      const hasIc = nextOrders.some((o) => isIcTier(o.tier));
       const wantsIc =
-        sessionStorage.getItem('pendingIcReport') === '1' ||
-        nextOrders.some((o: Order) => orderPdfsPreparing(o));
+        hasValidPendingIcReport() ||
+        nextOrders.some((o) => orderPdfsPreparing(o));
+      // Premortem F6: show access code + 3s countdown before auto-redirect
       if (
         sessionId &&
         hasIc &&
         wantsIc &&
-        site &&
+        siteNow &&
         email &&
         !autoIcRedirectTried.current
       ) {
         autoIcRedirectTried.current = true;
-        startIcReportForSavedSite(email);
+        setIcRedirectCountdown(3);
         return;
       }
     } catch (err) {
@@ -323,11 +382,24 @@ export default function OrdersPage() {
               <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div className="text-emerald-100">
                 <p>Payment confirmed — your order is below.</p>
+                {icRedirectCountdown !== null && savedSite && (
+                  <p className="mt-2 text-sm font-semibold text-emerald-50">
+                    Generating IC report for {savedSite.label} in {icRedirectCountdown}s…
+                    {' '}
+                    <button
+                      type="button"
+                      className="underline text-emerald-200"
+                      onClick={() => setIcRedirectCountdown(null)}
+                    >
+                      Cancel auto-start
+                    </button>
+                  </p>
+                )}
                 <p className="mt-2 text-sm text-emerald-200/90">
                   {orders.some((o) => isIcTier(o.tier))
                     ? savedSite
                       ? `One tap generates IC PDFs for ${savedSite.label} — no address re-entry.`
-                      : 'IC Project PDFs generate from your last researched site (same email).'
+                      : 'IC Project PDFs generate from the site bound at checkout (or your last researched site).'
                     : 'Next: unlock deeper research on your site (same email).'}
                 </p>
                 {orders
