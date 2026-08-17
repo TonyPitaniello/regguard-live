@@ -59,6 +59,7 @@ def _run_research_static_sync(
     state: str,
     zip_code: str,
     project_type: str,
+    scout_mode: str = "full",
 ) -> Dict[str, Any]:
     """Run non-streaming research pipeline (scout + action plan)."""
     # Lazy import avoids circular import at app startup
@@ -70,6 +71,8 @@ def _run_research_static_sync(
 
     site_line = f"{address}, {city}, {state} {zip_code}".strip()
     vertical = _map_vertical(project_type)
+    light = (scout_mode or "").strip().lower() == "light"
+    # Light Pro scout: keep vertical for memo context but force light_scout flag (3 passes only)
     jd = (
         f"{project_type} permitting and pre-bid diligence for {site_line}. "
         f"Focus on local AHJ fees, codes, inspections, and citeable punch-list actions."
@@ -79,14 +82,19 @@ def _run_research_static_sync(
         zip_code=zip_code or "",
         client_city=city or "",
         job_description=jd,
-        search_limit=8,
+        search_limit=5 if light else 8,
         site_address=site_line,
         bim_bridge_json="",
         scout_trades=trades,
-        mission_critical_dc="true" if vertical == "data_center" else "false",
-        scout_vertical=vertical,
+        mission_critical_dc="true" if (vertical == "data_center" and not light) else "false",
+        scout_vertical=vertical if not light else "building",
         site_line=site_line,
     )
+    scout_profile_payload = dict(scout_profile_payload or {})
+    scout_profile_payload["light_scout"] = light
+    if light:
+        scout_profile_payload["job_fast41_eligible"] = False
+        scout_profile_payload["mission_critical_dc"] = False
     ctx: Dict[str, Any] = {
         "lim": lim,
         "jd": jd_parsed,
@@ -100,9 +108,12 @@ def _run_research_static_sync(
         "image_meta": (None, None),
         "has_image": False,
         "jf_gate": jf_gate,
-        "scout_vertical": vertical,
+        "scout_vertical": scout_profile_payload.get("vertical") or vertical,
     }
-    return _research_static_collect(_iter_research_sse_events(ctx))
+    out = _research_static_collect(_iter_research_sse_events(ctx))
+    if isinstance(out, dict):
+        out["scout_mode"] = "light" if light else "full"
+    return out
 
 
 def _merge_deep_into_analysis(
@@ -222,15 +233,24 @@ async def run_pro_deep_analysis(
     Deep path for paid users:
       1) Option A structure
       2) Paid local confirm FinOps (bounded scrape + day/page caps + cache) — always first
-      3) Universal Scout only if PAID_UNIVERSAL_SCOUT=1 or force_scout (IC)
-         and not day-capped; skipped when local confirm already extracted fees
-         unless PAID_UNIVERSAL_SCOUT_FORCE=1
+      3) Scout:
+         - force_scout (IC) → full Universal Scout
+         - else Pro → light scout (3 core passes) when PAID_PRO_LIGHT_SCOUT=1 (default)
+         - PAID_UNIVERSAL_SCOUT=1 → full for all paid (legacy)
+         - day-capped → local only
     """
     from option_a_integration import run_option_a_analysis
     from paid_local_confirm import (
         paid_universal_scout_enabled,
         run_paid_local_confirm,
         _env_on,
+    )
+    from depth_ladder import (
+        DEPTH_IC_FULL,
+        DEPTH_PRO_LIGHT,
+        DEPTH_PRO_LOCAL,
+        DEPTH_PRO_PARTIAL,
+        stamp_upgrade_offer,
     )
 
     base = await asyncio.wait_for(
@@ -266,38 +286,41 @@ async def run_pro_deep_analysis(
         base["paid_local"] = {"status": "error", "error": str(sc_err)}
 
     pl = base.get("paid_local") or {}
-    fee_n = int(pl.get("fee_rows_extracted") or 0)
-    run_scout = bool(force_scout) or paid_universal_scout_enabled()
+    scout_mode = "none"
     if pl.get("status") == "capped":
-        run_scout = False
-        logger.info("Skipping Universal Scout — paid local daily cap reached")
-    elif fee_n > 0 and not force_scout and not _env_on("PAID_UNIVERSAL_SCOUT_FORCE", "0"):
-        # Local confirm already grounded fees — skip expensive scout (F2/F8)
-        run_scout = False
-        logger.info("Skipping Universal Scout — paid local fees already extracted (%s)", fee_n)
+        scout_mode = "none"
+        logger.info("Skipping scout — paid local daily cap reached")
+    elif force_scout or paid_universal_scout_enabled():
+        scout_mode = "full"
+    elif _env_on("PAID_PRO_LIGHT_SCOUT", "1"):
+        scout_mode = "light"
+    else:
+        scout_mode = "none"
 
-    if not run_scout:
+    if scout_mode == "none":
         out = dict(base)
         out["research_depth"] = out.get("research_depth") or "pro"
         out["preview"] = False
         out["finops_mode"] = "paid_local_confirm"
+        out["scout_mode"] = "none"
         if not out.get("pro_summary_markdown"):
             out["pro_summary_markdown"] = (
                 "## Paid local confirm\n\n"
                 "Bounded AHJ scrape completed (page-capped, cached). "
                 "Fee extracts are **planning aids** — confirm on the official schedule. "
-                "Universal Scout is off, capped, or unnecessary for this run.\n"
+                "Light / full Universal Scout was off or day-capped for this run.\n"
             )
+        stamp_upgrade_offer(out, depth_tier=DEPTH_PRO_LOCAL)
         logger.info(
-            "Pro path local-confirm only: finops=%s paid_local=%s fees=%s",
+            "Pro path local-confirm only: finops=%s paid_local=%s",
             out.get("finops_mode"),
             pl.get("status"),
-            fee_n,
         )
         return out
 
     try:
         loop = asyncio.get_event_loop()
+        timeout = 100.0 if scout_mode == "full" else 70.0
         research_payload = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
@@ -307,14 +330,16 @@ async def run_pro_deep_analysis(
                     state=state,
                     zip_code=zip_code,
                     project_type=project_type,
+                    scout_mode=scout_mode,
                 ),
             ),
-            timeout=100.0,
+            timeout=timeout,
         )
         if not isinstance(research_payload, dict):
             research_payload = {}
         merged = _merge_deep_into_analysis(base, research_payload)
         merged["finops_mode"] = "paid_local_confirm"
+        merged["scout_mode"] = scout_mode
         if base.get("paid_local"):
             merged["paid_local"] = base.get("paid_local")
         if base.get("paid_local_quota"):
@@ -337,11 +362,23 @@ async def run_pro_deep_analysis(
                 "Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid."
             )
             merged["fee_card"] = fc
+        if scout_mode == "full" and force_scout:
+            stamp_upgrade_offer(merged, depth_tier=DEPTH_IC_FULL)
+        else:
+            stamp_upgrade_offer(merged, depth_tier=DEPTH_PRO_LIGHT)
+        # Clarify notes for light vs full
+        if scout_mode == "light":
+            next_steps = list(merged.get("next_steps") or [])
+            next_steps.insert(
+                0,
+                "Pro light scout complete (AHJ / permits / codes). Upgrade to IC for full federal/state/local passes + PDFs.",
+            )
+            merged["next_steps"] = next_steps[:8]
         logger.info(
-            "Pro deep research merged: sources=%s punch=%s finops=%s local=%s",
+            "Pro deep research merged: sources=%s punch=%s scout_mode=%s local=%s",
             len(merged.get("pro_source_urls") or []),
             len((merged.get("punch_list") or {}).get("punch_list") or []),
-            merged.get("finops_mode"),
+            scout_mode,
             (merged.get("paid_local") or {}).get("status"),
         )
         return merged
@@ -351,7 +388,9 @@ async def run_pro_deep_analysis(
         base["research_depth"] = "pro_partial"
         base["preview"] = False
         base["finops_mode"] = "paid_local_confirm"
+        base["scout_mode"] = scout_mode
         base["pro_summary_markdown"] = base.get("pro_summary_markdown") or ""
         base["pro_source_urls"] = list(base.get("pro_source_urls") or [])
         base["pro_deep_error"] = str(e)[:240]
+        stamp_upgrade_offer(base, depth_tier=DEPTH_PRO_PARTIAL)
         return base

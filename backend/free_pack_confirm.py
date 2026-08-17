@@ -666,6 +666,9 @@ def build_free_pack_confirm_analysis(
     if analysis.get("summary"):
         analysis["summary"]["total_punch_list_items"] = punch_n
 
+    from depth_ladder import DEPTH_FREE, stamp_upgrade_offer
+
+    stamp_upgrade_offer(analysis, depth_tier=DEPTH_FREE)
     return analysis
 
 

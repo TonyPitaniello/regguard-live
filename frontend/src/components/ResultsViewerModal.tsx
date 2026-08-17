@@ -45,6 +45,18 @@ export interface AnalysisData {
   share_url?: string;
   preview?: boolean;
   research_depth?: string;
+  depth_tier?: string;
+  scout_mode?: string;
+  upgrade_offer?: {
+    message?: string;
+    detail?: string;
+    cta_label?: string;
+    cta_tier?: string;
+    secondary_cta_label?: string | null;
+    secondary_cta_tier?: string | null;
+    current_label?: string;
+    next_label?: string | null;
+  };
   pro_summary_markdown?: string;
   pro_source_urls?: string[];
   job_id?: string;
@@ -482,11 +494,91 @@ export default function ResultsViewerModal({
   const shareLink = reportShareUrl(view, effectiveResearchId);
   const shareText = buildShareText(view, emailForCheckout, effectiveResearchId);
   const depth = (view.research_depth || '').toLowerCase();
+  const depthTier = (view.depth_tier || '').toLowerCase();
+  const scoutMode = (view.scout_mode || '').toLowerCase();
   const isDeep = depth === 'pro' || depth === 'pro_partial';
+  const offer = view.upgrade_offer;
   // Soft-lock: free sees limited lines unless they shared OR paid deep research
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
+
+  const depthBadgeLabel = (() => {
+    if (depthTier === 'ic_full') return 'IC Project — full federal / state / local scout';
+    if (depthTier === 'pro_light' || scoutMode === 'light')
+      return 'Contractor Pro — local confirm + light scout';
+    if (depthTier === 'pro_partial' || depth === 'pro_partial')
+      return 'Contractor Pro — partial deep research';
+    if (depthTier === 'pro_local' || (depth === 'pro' && scoutMode === 'none'))
+      return 'Contractor Pro — paid local confirm';
+    if (depth === 'pro') return 'Contractor Pro — deep research';
+    return null;
+  })();
+
+  const checkoutTier = (
+    tier?: string | null
+  ): 'partner' | 'contractor_pro' | 'ic_project' | null => {
+    const t = (tier || '').toLowerCase();
+    if (t === 'partner' || t === 'contractor_pro' || t === 'ic_project') return t;
+    if (t === 'ic_annual') return 'ic_project'; // land on IC project checkout; annual gated server-side
+    return null;
+  };
+
+  const renderUpgradeOffer = (compact = false) => {
+    if (!offer?.message) return null;
+    const primary = checkoutTier(offer.cta_tier);
+    const secondary = checkoutTier(offer.secondary_cta_tier);
+    // Don't push IC CTA again if already on IC full (unless secondary annual)
+    if (depthTier === 'ic_full' && !offer.cta_tier) return null;
+    return (
+      <section
+        className={`rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-slate-900/70 to-blue-500/10 ${
+          compact ? 'p-3' : 'p-4 sm:p-5'
+        }`}
+      >
+        <div className="flex items-start gap-3">
+          <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-white font-bold text-sm sm:text-base">{offer.message}</h3>
+            {offer.current_label && (
+              <p className="text-xs text-gray-400 mt-1">
+                Now: <span className="text-gray-200">{offer.current_label}</span>
+                {offer.next_label ? (
+                  <>
+                    {' '}
+                    → Next: <span className="text-emerald-300">{offer.next_label}</span>
+                  </>
+                ) : null}
+              </p>
+            )}
+            {offer.detail && (
+              <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{offer.detail}</p>
+            )}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
+              {primary && (
+                <button
+                  type="button"
+                  onClick={() => goCheckout(primary)}
+                  className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                >
+                  {offer.cta_label || 'Upgrade for fuller results'}
+                </button>
+              )}
+              {secondary && offer.secondary_cta_label && (
+                <button
+                  type="button"
+                  onClick={() => goCheckout(secondary)}
+                  className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
+                >
+                  {offer.secondary_cta_label}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  };
 
   const downloadBidReceipt = async () => {
     setPacketLoading(true);
@@ -720,11 +812,17 @@ export default function ResultsViewerModal({
               {view.project_info.address} • {view.project_info.city},{' '}
               {view.project_info.state} {view.project_info.zip}
             </p>
-            {(view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
+            {(view.research_depth === 'pro' || view.research_depth === 'pro_partial' || depthBadgeLabel) && (
               <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                {view.research_depth === 'pro'
-                  ? 'Contractor Pro — deep research'
-                  : 'Contractor Pro — partial deep research'}
+                {depthBadgeLabel ||
+                  (view.research_depth === 'pro'
+                    ? 'Contractor Pro — deep research'
+                    : 'Contractor Pro — partial deep research')}
+              </p>
+            )}
+            {!isDeep && (
+              <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
+                Free preview — upgrade for fuller, more in-depth results
               </p>
             )}
           </div>
@@ -937,6 +1035,9 @@ export default function ResultsViewerModal({
             </section>
           )}
 
+          {/* Depth ladder — free layer upgrade (Pro/IC have dedicated sections below) */}
+          {!isDeep && renderUpgradeOffer()}
+
           {/* Coverage honesty badge — clickable: jump to pack fees/gotchas */}
           <section
             className={`rounded-xl border p-4 ${
@@ -1026,10 +1127,11 @@ export default function ResultsViewerModal({
                   </h3>
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
-                      ? 'Re-run with your paid email for Contractor Pro deep scout research and richer citations.'
+                      ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (fuller than free).'
                       : softLocked
-                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for deep research + IC PDFs.'
-                        : 'Upgrade for deep scout research, full cost rollups, and IC Project PDF packages.'}
+                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for fuller, more in-depth results.'
+                        : offer?.message ||
+                          'Upgrade for fuller, more in-depth results — Pro light scout or IC full package.'}
                   </p>
                 </div>
               </div>
@@ -1094,37 +1196,44 @@ export default function ResultsViewerModal({
           {/* Partner → Pro upgrade */}
           {isDeep && isPartnerTier && (
             <section className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4">
-              <h3 className="text-white font-bold text-sm mb-1">On Partner — need more for your own bids?</h3>
+              <h3 className="text-white font-bold text-sm mb-1">
+                Upgrade for fuller, more in-depth results
+              </h3>
               <p className="text-gray-300 text-sm mb-3">
-                Upgrade to Contractor Pro ($149/mo) for unlimited deep lookups on your bid week sites.
+                Partner is great for client screens. Contractor Pro ($149/mo) adds metered local confirm +
+                light federal/state/local scout for your own bid-week sites.
               </p>
               <button
                 type="button"
                 onClick={() => goCheckout('contractor_pro')}
                 className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
               >
-                Upgrade to Contractor Pro
+                Upgrade to Contractor Pro — $149/mo
               </button>
             </section>
           )}
 
-          {/* IC attach on deep jobs */}
-          {isDeep && !isPartnerTier && (
+          {/* Pro / deep → IC fuller depth (uses server upgrade_offer when present) */}
+          {isDeep && !isPartnerTier && depthTier !== 'ic_full' && (
             <section className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
-              <h3 className="text-white font-bold text-sm mb-1">Need PDFs for this site?</h3>
+              <h3 className="text-white font-bold text-sm mb-1">
+                {offer?.message || 'Upgrade for fuller, more in-depth results'}
+              </h3>
               <p className="text-gray-300 text-sm mb-3">
-                IC Project Report ($1,500): research memo + punch list + permit worksheet PDFs.
-                Planning diligence — not an official AHJ filing. Coverage depth is labeled on this receipt.
+                {offer?.detail ||
+                  'IC Project Report ($1,500): full Universal Scout (federal + state + local passes) plus Research Memo, Punch List, and Permit Package PDFs for this site. Planning aid — not an AHJ filing.'}
               </p>
               <button
                 type="button"
                 onClick={() => goCheckout('ic_project')}
                 className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
               >
-                Get IC Project Report
+                {offer?.cta_label || 'Get IC Project Report — $1,500'}
               </button>
             </section>
           )}
+
+          {depthTier === 'ic_full' && renderUpgradeOffer(true)}
 
           {/* Deep plan — Pro only */}
           {isDeep && view.pro_summary_markdown ? (
@@ -1520,6 +1629,11 @@ export default function ResultsViewerModal({
                 </div>
               )}
             </section>
+          )}
+
+          {/* After local fees/gotchas — nudge next depth */}
+          {isDeep && depthTier !== 'ic_full' && (
+            <div className="my-1">{renderUpgradeOffer(true)}</div>
           )}
 
           {/* Environmental findings */}

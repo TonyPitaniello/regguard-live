@@ -1097,6 +1097,8 @@ def debug_config() -> Dict[str, Any]:
         paid_finops = {
             "PAID_LOCAL_CONFIRM": paid_local_confirm_enabled(),
             "PAID_UNIVERSAL_SCOUT": paid_universal_scout_enabled(),
+            "PAID_PRO_LIGHT_SCOUT": (os.getenv("PAID_PRO_LIGHT_SCOUT") or "1").strip().lower()
+            in ("1", "true", "yes", "on"),
             "PAID_LOCAL_CONFIRM_MAX_PAGES": max_pages(),
             "PAID_LOCAL_CONFIRM_MAX_PER_DAY": max_lookups_per_day(),
             "PAID_LOCAL_CONFIRM_CACHE_TTL_SEC": int(cache_ttl_sec()),
@@ -1104,8 +1106,8 @@ def debug_config() -> Dict[str, Any]:
             "data_dir": os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data",
             "redis_url_set": bool(os.getenv("REDIS_URL")),
             "note": (
-                "Quota/result cache are file+in-process; multi-instance needs shared "
-                "REGGUARD_DATA_DIR (or future REDIS_URL). Scout default off; IC uses force_scout."
+                "Pro uses light scout (3 passes) by default; IC force_scout = full Universal Scout. "
+                "Quota/result cache file+in-process — multi-instance needs shared REGGUARD_DATA_DIR."
             ),
         }
     except Exception as e:
@@ -1823,6 +1825,43 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception as ic_err:
             logger.warning("IC Project PDF fulfillment failed (non-blocking): %s", ic_err)
 
+    # Depth ladder upgrade offer (Free → Pro light → IC full)
+    if isinstance(analysis, dict):
+        try:
+            from depth_ladder import (
+                DEPTH_FREE,
+                DEPTH_IC_FULL,
+                DEPTH_PRO_LIGHT,
+                DEPTH_PRO_LOCAL,
+                DEPTH_PRO_PARTIAL,
+                infer_depth_tier,
+                stamp_upgrade_offer,
+            )
+
+            if ic_pdfs_ready or (
+                paid and bool(getattr(request_body, "generate_ic_report", False))
+                and str(analysis.get("scout_mode") or "") == "full"
+            ):
+                stamp_upgrade_offer(analysis, depth_tier=DEPTH_IC_FULL, ic_pending=ic_pending)
+            elif not analysis.get("upgrade_offer"):
+                tier = infer_depth_tier(
+                    analysis,
+                    paid=paid,
+                    force_scout=bool(getattr(request_body, "generate_ic_report", False)),
+                    scout_mode=str(analysis.get("scout_mode") or ""),
+                )
+                if not paid:
+                    tier = DEPTH_FREE
+                stamp_upgrade_offer(analysis, depth_tier=tier, ic_pending=ic_pending)
+            elif ic_pending:
+                stamp_upgrade_offer(
+                    analysis,
+                    depth_tier=str(analysis.get("depth_tier") or DEPTH_PRO_LIGHT),
+                    ic_pending=True,
+                )
+        except Exception as ladder_err:
+            logger.warning("Depth ladder stamp failed: %s", ladder_err)
+
     return {
         "trial_id": trial_id,
         "status": status,
@@ -1836,6 +1875,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "ic_pdfs_ready": ic_pdfs_ready,
         "ic_pending": ic_pending,
         "free_scan_quota": free_quota,
+        "depth_tier": (analysis or {}).get("depth_tier") if isinstance(analysis, dict) else None,
+        "upgrade_offer": (analysis or {}).get("upgrade_offer") if isinstance(analysis, dict) else None,
     }
 
 

@@ -528,11 +528,11 @@ export default function FreeTrialForm({
             Or tap the mic and say the address.
             {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
               <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">
-                Paid access active — this email runs deep scout research (may take up to ~2 min).
+                Paid access active — Pro runs local confirm + light scout (may take ~1–2 min). IC adds full scout + PDFs.
               </span>
             ) : (
               <span className="block mt-1 text-gray-400 text-sm">
-                Free preview shows top actions — forward the list to unlock more, or upgrade for deep research.
+                Free preview shows top actions — upgrade for fuller, more in-depth results.
               </span>
             )}
           </p>

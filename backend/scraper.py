@@ -622,7 +622,13 @@ def _coerce_scout_profile(raw: Optional[Mapping[str, Any]]) -> Dict[str, Any]:
         and jf.strip() != ""
         and jf.strip().lower() in ("1", "true", "yes", "on")
     )
-    return {"trades": trades, "vertical": vert, "mission_critical_dc": mc_bool, "job_fast41_eligible": job_fast41}
+    return {
+        "trades": trades,
+        "vertical": vert,
+        "mission_critical_dc": mc_bool,
+        "job_fast41_eligible": job_fast41,
+        "light_scout": bool(r.get("light_scout")),
+    }
 
 
 def _reject_serp_for_project_state(blob: str, project_state: Optional[str]) -> bool:
@@ -1530,6 +1536,28 @@ def iter_universal_scout(
     q3 = _with_context(q3_core, ctx)
     hits3, meta3 = _scout_search(fc, q3, user_limit=search_limit, project_state=st_for_filter)
     yield {"event": "step", "step": "step_building_codes", "data": _step_result_dict(hits3, meta3)}
+
+    # Pro light scout: core 3 passes only (AHJ / permits / codes) — skip zoning + infra/DC tiers
+    if prof.get("light_scout"):
+        full = _final_scout_response(
+            z,
+            ctx,
+            hits1,
+            meta1,
+            hits2,
+            meta2,
+            hits3,
+            meta3,
+            site_address=addr,
+            jurisdiction=ju,
+            ahj_identification=ahj_snap,
+            scout_profile=prof,
+        )
+        if isinstance(full, dict):
+            full["light_scout"] = True
+            full["scout_mode"] = "light"
+        yield {"event": "complete", "raw": full}
+        return
 
     zip_tag = f"ZIP {z}"
     city_j = str(ju.get("city") or "") if ju else ""
