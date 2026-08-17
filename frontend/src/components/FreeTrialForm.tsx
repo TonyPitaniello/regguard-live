@@ -532,7 +532,7 @@ export default function FreeTrialForm({
               </span>
             ) : (
               <span className="block mt-1 text-gray-400 text-sm">
-                Free preview shows top actions — upgrade for fuller, more in-depth results.
+                Free preview shows top actions — Pro adds citeable local confirm; IC adds full scout + PDFs.
               </span>
             )}
           </p>

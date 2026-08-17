@@ -56,7 +56,20 @@ export interface AnalysisData {
     secondary_cta_tier?: string | null;
     current_label?: string;
     next_label?: string | null;
+    primary_once?: boolean;
+    honesty_note?: string;
   };
+  pro_delta?: {
+    title?: string;
+    bullets?: string[];
+    pages_scraped?: number;
+    fee_rows?: number;
+    scout_sources?: number;
+    verified_punch_lines?: number;
+    scout_mode?: string;
+    honesty?: string;
+  };
+  buyer_persona?: string;
   pro_summary_markdown?: string;
   pro_source_urls?: string[];
   job_id?: string;
@@ -498,6 +511,8 @@ export default function ResultsViewerModal({
   const scoutMode = (view.scout_mode || '').toLowerCase();
   const isDeep = depth === 'pro' || depth === 'pro_partial';
   const offer = view.upgrade_offer;
+  const proDelta = view.pro_delta;
+  const buyerPersona = (view.buyer_persona || '').toLowerCase();
   // Soft-lock: free sees limited lines unless they shared OR paid deep research
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
@@ -520,21 +535,19 @@ export default function ResultsViewerModal({
   ): 'partner' | 'contractor_pro' | 'ic_project' | null => {
     const t = (tier || '').toLowerCase();
     if (t === 'partner' || t === 'contractor_pro' || t === 'ic_project') return t;
-    if (t === 'ic_annual') return 'ic_project'; // land on IC project checkout; annual gated server-side
+    if (t === 'ic_annual') return 'ic_project';
     return null;
   };
 
-  const renderUpgradeOffer = (compact = false) => {
+  /** F1: one primary upgrade block for the whole results view */
+  const renderPrimaryUpgrade = () => {
     if (!offer?.message) return null;
     const primary = checkoutTier(offer.cta_tier);
     const secondary = checkoutTier(offer.secondary_cta_tier);
-    // Don't push IC CTA again if already on IC full (unless secondary annual)
-    if (depthTier === 'ic_full' && !offer.cta_tier) return null;
     return (
       <section
-        className={`rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-slate-900/70 to-blue-500/10 ${
-          compact ? 'p-3' : 'p-4 sm:p-5'
-        }`}
+        id="rg-primary-upgrade"
+        className="rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-slate-900/70 to-blue-500/10 p-4 sm:p-5"
       >
         <div className="flex items-start gap-3">
           <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
@@ -554,6 +567,11 @@ export default function ResultsViewerModal({
             {offer.detail && (
               <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{offer.detail}</p>
             )}
+            {(offer.honesty_note || proDelta?.honesty) && (
+              <p className="text-amber-200/90 text-xs mt-2 leading-relaxed">
+                {offer.honesty_note || proDelta?.honesty}
+              </p>
+            )}
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
               {primary && (
                 <button
@@ -561,14 +579,14 @@ export default function ResultsViewerModal({
                   onClick={() => goCheckout(primary)}
                   className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
                 >
-                  {offer.cta_label || 'Upgrade for fuller results'}
+                  {offer.cta_label || 'Continue'}
                 </button>
               )}
               {secondary && offer.secondary_cta_label && (
                 <button
                   type="button"
                   onClick={() => goCheckout(secondary)}
-                  className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
+                  className="px-4 py-3 min-h-[48px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white font-semibold text-sm"
                 >
                   {offer.secondary_cta_label}
                 </button>
@@ -576,6 +594,34 @@ export default function ResultsViewerModal({
             </div>
           </div>
         </div>
+      </section>
+    );
+  };
+
+  const renderProDelta = () => {
+    if (!isDeep || !proDelta?.bullets?.length) return null;
+    return (
+      <section className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-4 sm:p-5">
+        <h3 className="text-emerald-200 font-bold text-sm sm:text-base">
+          {proDelta.title || 'What Pro added vs Free'}
+        </h3>
+        <ul className="mt-2 space-y-1.5">
+          {proDelta.bullets.map((b) => (
+            <li key={b} className="text-sm text-gray-200 flex gap-2">
+              <span className="text-emerald-400 font-bold shrink-0">+</span>
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+        {proDelta.honesty && (
+          <p className="text-xs text-amber-200/90 mt-3">{proDelta.honesty}</p>
+        )}
+        {(buyerPersona === 'dc_infra' || buyerPersona === 'ic_shop') && depthTier !== 'ic_full' && (
+          <p className="text-xs text-blue-200 mt-2">
+            Data-center / infra tip: Pro light skips FAST-41 / water / moratorium passes — use IC for
+            that depth + PDFs.
+          </p>
+        )}
       </section>
     );
   };
@@ -666,12 +712,6 @@ export default function ResultsViewerModal({
       window.setTimeout(() => setToast(''), 4500);
     }
   };
-
-  const paidTierHint = (
-    (typeof window !== 'undefined' && sessionStorage.getItem('regguardTier')) ||
-    ''
-  ).toLowerCase();
-  const isPartnerTier = paidTierHint === 'partner';
 
   const goCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project') => {
     // Persist site so return after payment can deepen the same lookup
@@ -822,7 +862,7 @@ export default function ResultsViewerModal({
             )}
             {!isDeep && (
               <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
-                Free preview — upgrade for fuller, more in-depth results
+                Free preview — citeable pack fees & top punch lines
               </p>
             )}
           </div>
@@ -1035,9 +1075,6 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Depth ladder — free layer upgrade (Pro/IC have dedicated sections below) */}
-          {!isDeep && renderUpgradeOffer()}
-
           {/* Coverage honesty badge — clickable: jump to pack fees/gotchas */}
           <section
             className={`rounded-xl border p-4 ${
@@ -1112,8 +1149,8 @@ export default function ResultsViewerModal({
             )}
           </section>
 
-          {/* Free results → soft-lock / share-to-unlock / paid deepen */}
-          {!isDeep && (
+          {/* Free: share-to-unlock / paid deepen only — paid CTAs live in primary upgrade below (F1) */}
+          {!isDeep && (canUnlockDeeper || softLocked) && (
             <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
               <div className="flex items-start gap-3 mb-3">
                 <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
@@ -1121,17 +1158,12 @@ export default function ResultsViewerModal({
                   <h3 className="text-white font-bold text-base">
                     {canUnlockDeeper
                       ? 'You are paid — unlock deeper research on this site'
-                      : softLocked
-                        ? `Free preview — top ${FREE_PUNCH_VISIBLE} punch lines`
-                        : 'Full free punch list unlocked'}
+                      : `Free preview — top ${FREE_PUNCH_VISIBLE} punch lines`}
                   </h3>
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
-                      ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (fuller than free).'
-                      : softLocked
-                        ? 'Forward this Bid Risk Receipt to unlock the rest for free — or upgrade for fuller, more in-depth results.'
-                        : offer?.message ||
-                          'Upgrade for fuller, more in-depth results — Pro light scout or IC full package.'}
+                      ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (more citeable sources than free).'
+                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list.'}
                   </p>
                 </div>
               </div>
@@ -1147,45 +1179,20 @@ export default function ResultsViewerModal({
                   </button>
                 ) : (
                   <>
-                    {softLocked && (
-                      <button
-                        type="button"
-                        onClick={() => void downloadBidReceipt()}
-                        disabled={packetLoading}
-                        className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
-                      >
-                        {packetLoading ? 'Building receipt…' : 'Forward Bid Risk Receipt — unlock full free list'}
-                      </button>
-                    )}
-                    {softLocked && (
-                      <button
-                        type="button"
-                        onClick={() => void copyShareText('text')}
-                        className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
-                      >
-                        Copy receipt text
-                      </button>
-                    )}
                     <button
                       type="button"
-                      onClick={() => goCheckout('partner')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-sm"
+                      onClick={() => void downloadBidReceipt()}
+                      disabled={packetLoading}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
                     >
-                      Partner — $79/mo
+                      {packetLoading ? 'Building receipt…' : 'Forward Bid Risk Receipt — unlock full free list'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => goCheckout('contractor_pro')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                      onClick={() => void copyShareText('text')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
                     >
-                      Contractor Pro — $149/mo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => goCheckout('ic_project')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
-                    >
-                      IC Project Report — $1,500
+                      Copy receipt text
                     </button>
                   </>
                 )}
@@ -1193,47 +1200,11 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Partner → Pro upgrade */}
-          {isDeep && isPartnerTier && (
-            <section className="rounded-xl border border-teal-500/30 bg-teal-500/10 p-4">
-              <h3 className="text-white font-bold text-sm mb-1">
-                Upgrade for fuller, more in-depth results
-              </h3>
-              <p className="text-gray-300 text-sm mb-3">
-                Partner is great for client screens. Contractor Pro ($149/mo) adds metered local confirm +
-                light federal/state/local scout for your own bid-week sites.
-              </p>
-              <button
-                type="button"
-                onClick={() => goCheckout('contractor_pro')}
-                className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
-              >
-                Upgrade to Contractor Pro — $149/mo
-              </button>
-            </section>
-          )}
+          {/* F2: prove Pro uniqueness once when deep */}
+          {renderProDelta()}
 
-          {/* Pro / deep → IC fuller depth (uses server upgrade_offer when present) */}
-          {isDeep && !isPartnerTier && depthTier !== 'ic_full' && (
-            <section className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4">
-              <h3 className="text-white font-bold text-sm mb-1">
-                {offer?.message || 'Upgrade for fuller, more in-depth results'}
-              </h3>
-              <p className="text-gray-300 text-sm mb-3">
-                {offer?.detail ||
-                  'IC Project Report ($1,500): full Universal Scout (federal + state + local passes) plus Research Memo, Punch List, and Permit Package PDFs for this site. Planning aid — not an AHJ filing.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => goCheckout('ic_project')}
-                className="px-4 py-3 min-h-[48px] rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm"
-              >
-                {offer?.cta_label || 'Get IC Project Report — $1,500'}
-              </button>
-            </section>
-          )}
-
-          {depthTier === 'ic_full' && renderUpgradeOffer(true)}
+          {/* F1: exactly one primary paid CTA for this results view */}
+          {renderPrimaryUpgrade()}
 
           {/* Deep plan — Pro only */}
           {isDeep && view.pro_summary_markdown ? (
@@ -1269,10 +1240,18 @@ export default function ResultsViewerModal({
               <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
                 <button
                   type="button"
-                  onClick={() => (canUnlockDeeper && onUnlockDeeper ? onUnlockDeeper() : goCheckout('contractor_pro'))}
+                  onClick={() => {
+                    if (canUnlockDeeper && onUnlockDeeper) {
+                      onUnlockDeeper();
+                      return;
+                    }
+                    document
+                      .getElementById('rg-primary-upgrade')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }}
                   className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                 >
-                  Unlock deep action plan
+                  {canUnlockDeeper ? 'Unlock deep action plan' : 'See upgrade options above'}
                 </button>
               </div>
             </section>
@@ -1629,11 +1608,6 @@ export default function ResultsViewerModal({
                 </div>
               )}
             </section>
-          )}
-
-          {/* After local fees/gotchas — nudge next depth */}
-          {isDeep && depthTier !== 'ic_full' && (
-            <div className="my-1">{renderUpgradeOffer(true)}</div>
           )}
 
           {/* Environmental findings */}

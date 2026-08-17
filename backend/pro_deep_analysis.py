@@ -250,6 +250,7 @@ async def run_pro_deep_analysis(
         DEPTH_PRO_LIGHT,
         DEPTH_PRO_LOCAL,
         DEPTH_PRO_PARTIAL,
+        stamp_pro_delta,
         stamp_upgrade_offer,
     )
 
@@ -311,6 +312,7 @@ async def run_pro_deep_analysis(
                 "Light / full Universal Scout was off or day-capped for this run.\n"
             )
         stamp_upgrade_offer(out, depth_tier=DEPTH_PRO_LOCAL)
+        stamp_pro_delta(out)
         logger.info(
             "Pro path local-confirm only: finops=%s paid_local=%s",
             out.get("finops_mode"),
@@ -366,12 +368,13 @@ async def run_pro_deep_analysis(
             stamp_upgrade_offer(merged, depth_tier=DEPTH_IC_FULL)
         else:
             stamp_upgrade_offer(merged, depth_tier=DEPTH_PRO_LIGHT)
+        stamp_pro_delta(merged)
         # Clarify notes for light vs full
         if scout_mode == "light":
             next_steps = list(merged.get("next_steps") or [])
             next_steps.insert(
                 0,
-                "Pro light scout complete (AHJ / permits / codes). Upgrade to IC for full federal/state/local passes + PDFs.",
+                "Pro light scout complete (AHJ / permits / codes). IC adds full federal/vertical passes + PDFs.",
             )
             merged["next_steps"] = next_steps[:8]
         logger.info(
@@ -393,4 +396,5 @@ async def run_pro_deep_analysis(
         base["pro_source_urls"] = list(base.get("pro_source_urls") or [])
         base["pro_deep_error"] = str(e)[:240]
         stamp_upgrade_offer(base, depth_tier=DEPTH_PRO_PARTIAL)
+        stamp_pro_delta(base)
         return base
