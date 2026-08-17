@@ -9,7 +9,8 @@ Caps (env):
   PAID_LOCAL_CONFIRM_MAX_PAGES=8
   PAID_LOCAL_CONFIRM_MAX_PER_DAY=25   (per email; 0 = unlimited)
   PAID_LOCAL_CONFIRM_CACHE_TTL_SEC=86400
-  PAID_UNIVERSAL_SCOUT=0              (default off — set 1 or force_scout for IC)
+  PAID_UNIVERSAL_SCOUT=0              (default off — set 1 for full scout on all paid)
+  PAID_PRO_LIGHT_SCOUT=1              (default on — Pro runs 3-pass light Universal Scout)
 
 Quota + result cache are file/in-process under REGGUARD_DATA_DIR (default /tmp).
 Multi-instance: use a shared disk or set REDIS_URL later — single-instance sticky until then.
