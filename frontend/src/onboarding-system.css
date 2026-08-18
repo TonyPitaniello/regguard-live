@@ -327,11 +327,13 @@
   }
 }
 
-/* TUTORIAL BUTTON (When modal is closed) */
+/* TUTORIAL BUTTON — top-right so it never covers bottom-left “Launch app” PWA banner */
 .onboarding-trigger {
   position: fixed;
-  bottom: 20px;
-  left: 20px;
+  top: 72px;
+  right: 16px;
+  bottom: auto;
+  left: auto;
   padding: 10px 16px;
   background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
   color: white;

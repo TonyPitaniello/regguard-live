@@ -107,7 +107,10 @@ class TwilioSMSService(SMSService):
         state = project_info.get("state", "")
 
         high_risk = summary.get("high_risk_count", 0)
-        total_cost = summary.get("estimated_total_cost", 0)
+        try:
+            total_cost = float(summary.get("estimated_total_cost") or 0)
+        except (TypeError, ValueError):
+            total_cost = 0.0
         timeline = summary.get("estimated_timeline", "TBD")
         honesty = research_data.get("honesty") or {}
         unverified = (
