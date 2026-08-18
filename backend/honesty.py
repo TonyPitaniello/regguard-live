@@ -89,15 +89,39 @@ def apply_honesty_layer(
         findings = env.get("findings") or []
         for finding in findings:
             if isinstance(finding, dict):
+                # Preserve GIS-backed findings (FEMA NFHL / NWI) — do not strip to PRELIMINARY
+                if finding.get("verified") and finding.get("source_url"):
+                    finding["risk_level"] = finding.get("risk_level_raw") or finding.get("risk_level")
+                    continue
                 lvl = str(finding.get("risk_level", "")).upper()
                 if lvl in ("LOW", "MEDIUM", "HIGH", "CRITICAL"):
                     finding["risk_level_raw"] = finding.get("risk_level")
                     finding["risk_level"] = PRELIMINARY
                     finding["verified"] = False
 
+        # Overall score stays UNAVAILABLE until full parcel suite is verified;
+        # partial GIS (flood/wetlands) still shows per-finding verified badges.
+        verified_n = sum(
+            1
+            for f in findings
+            if isinstance(f, dict) and f.get("verified") and f.get("source_url")
+        )
+        if verified_n:
+            env["risk_honesty_note"] = (
+                f"{verified_n} finding(s) GIS-verified (FEMA/NWI). "
+                "Overall risk score still unavailable until remaining layers are parcel-verified."
+            )
+            honesty["labels"]["risk"] = env["risk_honesty_note"]
+
         summary = out.setdefault("summary", {})
-        # Do not count PRELIMINARY as high/critical environmental risk
-        summary["high_risk_count"] = 0
+        # Count only verified HIGH/CRITICAL toward high_risk_count
+        summary["high_risk_count"] = sum(
+            1
+            for f in findings
+            if isinstance(f, dict)
+            and f.get("verified")
+            and str(f.get("risk_level") or "").upper() in ("HIGH", "CRITICAL")
+        )
         summary["risk_level_display"] = UNAVAILABLE
         summary["estimates_unverified"] = True
 

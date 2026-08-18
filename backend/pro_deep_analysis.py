@@ -206,28 +206,18 @@ def _merge_deep_into_analysis(
         )
         existing_tasks.add(task.lower())
 
-    # Refresh critical path from top verified/high items
-    critical: List[Dict[str, Any]] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        if (item.get("priority") or "").upper() in ("CRITICAL", "HIGH"):
-            critical.append(
-                {
-                    "task": item.get("task"),
-                    "source_url": item.get("source_url"),
-                    "source_label": item.get("source_label"),
-                    "verified": bool(item.get("verified")),
-                    "cost_verified": bool(item.get("cost_verified")),
-                    "estimated_cost": item.get("estimated_cost"),
-                }
-            )
-        if len(critical) >= 5:
-            break
+    from punch_rank import normalize_punch_items, rebuild_critical_path
+
+    pi = analysis.get("project_info") or {}
+    ptype = str(pi.get("type") or "").lower().replace(" ", "_").replace("-", "_")
+    is_dc = any(x in ptype for x in ("data_center", "datacenter", "dc", "colo"))
+    items = normalize_punch_items(items, is_dc=is_dc)
+    critical = rebuild_critical_path(items)
 
     punch["punch_list"] = items
     if critical:
         punch["critical_path"] = critical
+    punch["ranked"] = True
     analysis["punch_list"] = punch
 
     summary_block = dict(analysis.get("summary") or {})
@@ -250,7 +240,7 @@ def _merge_deep_into_analysis(
     else:
         next_steps.insert(
             0,
-            "Contractor Pro deep research complete — review citeable punch list + sources first.",
+            "Contractor Pro deep research complete — review ranked punch list + sources first.",
         )
     analysis["next_steps"] = next_steps[:8]
     return analysis

@@ -26,6 +26,9 @@ class EnvironmentalRisk:
     action_items: List[str]
     data_sources: List[str]
     research_cost_usd: float
+    verified: bool = False
+    source_url: Optional[str] = None
+    source_label: Optional[str] = None
 
 
 class EnvironmentalScreeningEngine:
@@ -43,14 +46,29 @@ class EnvironmentalScreeningEngine:
         Comprehensive environmental screening for a given site
         Returns: {risk_level, findings: [EnvironmentalRisk, ...], total_research_cost, action_plan}
         """
+        from geocode import is_null_island
+
+        if is_null_island(latitude, longitude):
+            logger.warning("screen_site refused Null Island coords for %s", address)
+            return {
+                "risk_level": "UNAVAILABLE",
+                "findings": [],
+                "total_research_cost": 0,
+                "action_plan": [
+                    "Address did not resolve to map coordinates — re-select the site before parcel environmental claims."
+                ],
+                "risk_score_hidden": True,
+                "risk_honesty_note": "Parcel GIS skipped — missing coordinates.",
+            }
+
         logger.info(f"🌍 Starting real environmental screening for {address}")
         
         findings = []
         total_cost = 0.0
         
-        # Parallel API calls to all data sources
+        # Parallel API calls — FEMA NFHL + NWI are free GIS; others stay search-assisted
         tasks = [
-            self._check_wetlands(zip_code, city, state),
+            self._check_wetlands(zip_code, city, state, latitude, longitude),
             self._check_endangered_species(latitude, longitude, state),
             self._check_flood_zones(latitude, longitude),
             self._check_noise_ordinances(city, state),
@@ -80,54 +98,66 @@ class EnvironmentalScreeningEngine:
             "timestamp": self._get_timestamp(),
         }
     
-    async def _check_wetlands(self, zip_code: str, city: str, state: str) -> EnvironmentalRisk:
-        """Check USGS Wetlands Database via Firecrawl"""
+    async def _check_wetlands(
+        self,
+        zip_code: str,
+        city: str,
+        state: str,
+        latitude: float = 0.0,
+        longitude: float = 0.0,
+    ) -> EnvironmentalRisk:
+        """NWI point intersect (free GIS)."""
+        nwi_url = "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper"
         try:
-            logger.info(f"🔍 Checking wetlands for {city}, {state}")
-            
-            # Search for wetlands in the area using Firecrawl
-            search_result = await self._firecrawl_search(
-                query=f"USGS wetlands map {city} {state} {zip_code}",
-                location=f"{city}, {state}"
-            )
-            
-            # Parse wetlands data
-            has_wetlands = self._parse_wetlands_result(search_result)
-            
-            if has_wetlands:
+            hit = await self._nwi_point_intersect(latitude, longitude)
+            if hit is True:
                 return EnvironmentalRisk(
                     category="wetlands",
                     risk_level="HIGH",
-                    description="Potential wetlands on or near site. Requires Army Corps of Engineers permit (404 permit) if affected.",
+                    description=(
+                        "NWI wetlands feature intersects this map pin. "
+                        "Confirm delineation with Corps before assuming impact."
+                    ),
                     action_items=[
-                        "Contact Army Corps of Engineers District Office for official wetlands determination",
-                        "Hire wetlands specialist for delineation survey ($5K-15K)",
-                        "Allow 4-6 weeks for permit review if wetlands present",
-                        "Budget for mitigation if unavoidable impact",
+                        "Open NWI Wetlands Mapper and confirm the polygon at this pin",
+                        "If impact possible, request Corps jurisdictional determination",
+                        "Budget delineation survey only if NWI/field review warrants it",
                     ],
-                    data_sources=["USGS National Wetlands Inventory", "Army Corps of Engineers"],
-                    research_cost_usd=200.0,
+                    data_sources=["USFWS National Wetlands Inventory"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=nwi_url,
+                    source_label="NWI Wetlands Mapper",
                 )
-            else:
+            if hit is False:
                 return EnvironmentalRisk(
                     category="wetlands",
                     risk_level="LOW",
-                    description="No wetlands detected in immediate area based on USGS mapping.",
-                    action_items=["Proceed with standard environmental review"],
-                    data_sources=["USGS National Wetlands Inventory"],
-                    research_cost_usd=50.0,
+                    description="No NWI wetlands polygon at this map pin (point query).",
+                    action_items=["Still confirm on NWI mapper if grading near water features"],
+                    data_sources=["USFWS National Wetlands Inventory"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=nwi_url,
+                    source_label="NWI Wetlands Mapper",
                 )
         except Exception as e:
-            logger.error(f"Wetlands check failed: {e}")
-            return EnvironmentalRisk(
-                category="wetlands",
-                risk_level="UNKNOWN",
-                description="Unable to determine wetlands status. Manual review required.",
-                action_items=["Contact Army Corps of Engineers directly"],
-                data_sources=["Manual inquiry required"],
-                research_cost_usd=0.0,
-            )
-    
+            logger.warning("NWI GIS failed: %s", e)
+        return EnvironmentalRisk(
+            category="wetlands",
+            risk_level="UNKNOWN",
+            description=(
+                f"Wetlands not GIS-verified for {city}, {state}. "
+                "Open NWI mapper — do not assume presence or absence."
+            ),
+            action_items=["Check NWI Wetlands Mapper at the site pin"],
+            data_sources=["USFWS National Wetlands Inventory"],
+            research_cost_usd=0.0,
+            verified=False,
+            source_url=nwi_url,
+            source_label="NWI Wetlands Mapper",
+        )
+
     async def _check_endangered_species(self, latitude: float, longitude: float, state: str) -> EnvironmentalRisk:
         """Check USFWS Threatened & Endangered Species Database"""
         try:
@@ -157,11 +187,14 @@ class EnvironmentalScreeningEngine:
             else:
                 return EnvironmentalRisk(
                     category="endangered_species",
-                    risk_level="LOW",
-                    description="No known endangered species habitat in immediate area.",
-                    action_items=["Proceed with standard environmental review"],
-                    data_sources=["USFWS Database"],
-                    research_cost_usd=50.0,
+                    risk_level="UNKNOWN",
+                    description="Species habitat not GIS-verified — run USFWS IPaC at this pin.",
+                    action_items=["Generate an IPaC resource list for the project footprint"],
+                    data_sources=["USFWS IPaC"],
+                    research_cost_usd=0.0,
+                    verified=False,
+                    source_url="https://ipac.ecosphere.fws.gov/",
+                    source_label="USFWS IPaC",
                 )
         except Exception as e:
             logger.error(f"Species check failed: {e}")
@@ -175,51 +208,133 @@ class EnvironmentalScreeningEngine:
             )
     
     async def _check_flood_zones(self, latitude: float, longitude: float) -> EnvironmentalRisk:
-        """Check FEMA Flood Maps"""
+        """FEMA NFHL point query (free)."""
+        msc = f"https://msc.fema.gov/portal/search?addressAscii={latitude}%2C{longitude}"
         try:
-            logger.info(f"🔍 Checking flood zones for lat {latitude}, lng {longitude}")
-            
-            search_result = await self._firecrawl_search(
-                query=f"FEMA flood map zone {latitude} {longitude} flood plain",
-                location=f"{latitude},{longitude}"
-            )
-            
-            flood_zone = self._parse_flood_result(search_result)
-            
-            if flood_zone and flood_zone != "X":  # X = minimal flood risk
+            zone, sfha = await self._fema_nfhl_point(latitude, longitude)
+            if zone is None:
+                raise ValueError("no NFHL hit")
+            zup = (zone or "").upper()
+            if sfha or (zup and zup not in ("X", "AREA NOT INCLUDED", "D")):
+                level = "HIGH" if zup in ("VE", "V", "AE", "A", "AO", "AH") else "MEDIUM"
                 return EnvironmentalRisk(
                     category="flood_zones",
-                    risk_level="MEDIUM" if flood_zone in ["AE", "A"] else "HIGH",
-                    description=f"Property in FEMA flood zone {flood_zone}. Flood insurance may be required.",
+                    risk_level=level,
+                    description=(
+                        f"FEMA NFHL at pin: flood zone {zone}"
+                        + (" (Special Flood Hazard Area)." if sfha else ".")
+                    ),
                     action_items=[
-                        "Obtain final FEMA flood determination letter ($50-200)",
-                        "If in Special Flood Hazard Area, elevation survey required ($2K-5K)",
-                        "Budget for flood insurance annually ($500-5K+ depending on zone)",
-                        "Consider elevation or floodproofing if in high-risk zone",
+                        "Download the FEMA FIRMette for this pin from MSC",
+                        "Confirm insurance / elevation needs with lender and AHJ",
                     ],
-                    data_sources=["FEMA National Flood Hazard Layer", "Local Flood Insurance Study"],
-                    research_cost_usd=100.0,
+                    data_sources=["FEMA National Flood Hazard Layer", "FEMA MSC"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=msc,
+                    source_label="FEMA MSC",
                 )
-            else:
-                return EnvironmentalRisk(
-                    category="flood_zones",
-                    risk_level="LOW",
-                    description="Property not in Special Flood Hazard Area (100-year flood plain).",
-                    action_items=["Standard flood risk review"],
-                    data_sources=["FEMA Flood Map"],
-                    research_cost_usd=30.0,
-                )
+            return EnvironmentalRisk(
+                category="flood_zones",
+                risk_level="LOW",
+                description=f"FEMA NFHL at pin: zone {zone or 'X'} — not mapped as SFHA.",
+                action_items=["Still download FIRMette before finalizing contingency"],
+                data_sources=["FEMA National Flood Hazard Layer", "FEMA MSC"],
+                research_cost_usd=0.0,
+                verified=True,
+                source_url=msc,
+                source_label="FEMA MSC",
+            )
         except Exception as e:
-            logger.error(f"Flood check failed: {e}")
+            logger.error("Flood check failed: %s", e)
             return EnvironmentalRisk(
                 category="flood_zones",
                 risk_level="UNKNOWN",
-                description="Unable to determine flood risk.",
-                action_items=["Check FEMA Map directly"],
-                data_sources=["Manual inquiry required"],
+                description="Unable to query FEMA NFHL for this pin — open MSC manually.",
+                action_items=["Check FEMA Map Service Center at the site coordinates"],
+                data_sources=["FEMA MSC"],
                 research_cost_usd=0.0,
+                verified=False,
+                source_url="https://msc.fema.gov/portal/home",
+                source_label="FEMA MSC",
             )
-    
+
+    async def _fema_nfhl_point(self, lat: float, lng: float):
+        """Return (FLD_ZONE, sfha_bool) from FEMA NFHL MapServer layer 28."""
+        import json
+        import urllib.parse
+        import urllib.request
+
+        base = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer/28/query"
+        params = urllib.parse.urlencode(
+            {
+                "geometry": f"{lng},{lat}",
+                "geometryType": "esriGeometryPoint",
+                "inSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "FLD_ZONE,ZONE_SUBTY,SFHA_TF",
+                "returnGeometry": "false",
+                "f": "json",
+            }
+        )
+        url = f"{base}?{params}"
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"}
+        )
+
+        def _fetch():
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                return json.load(resp)
+
+        data = await asyncio.to_thread(_fetch)
+        feats = data.get("features") or []
+        if not feats:
+            return "X", False
+        attrs = feats[0].get("attributes") or {}
+        zone = str(attrs.get("FLD_ZONE") or "").strip() or "X"
+        sfha_raw = str(attrs.get("SFHA_TF") or "").strip().upper()
+        sfha = sfha_raw in ("T", "TRUE", "Y", "YES", "1")
+        return zone, sfha
+
+    async def _nwi_point_intersect(self, lat: float, lng: float):
+        """True/False if NWI wetlands intersect; None on failure."""
+        import json
+        import urllib.parse
+        import urllib.request
+
+        base = (
+            "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/"
+            "Wetlands/MapServer/0/query"
+        )
+        pad = 0.0003
+        params = urllib.parse.urlencode(
+            {
+                "geometry": f"{lng-pad},{lat-pad},{lng+pad},{lat+pad}",
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "WETLAND_TYPE,ATTRIBUTE",
+                "returnGeometry": "false",
+                "f": "json",
+            }
+        )
+        url = f"{base}?{params}"
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"}
+        )
+
+        def _fetch():
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                return json.load(resp)
+
+        try:
+            data = await asyncio.to_thread(_fetch)
+        except Exception:
+            return None
+        if data.get("error"):
+            return None
+        return len(data.get("features") or []) > 0
+
     async def _check_noise_ordinances(self, city: str, state: str) -> EnvironmentalRisk:
         """Check municipal noise ordinances and zoning"""
         try:

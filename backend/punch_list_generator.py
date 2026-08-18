@@ -152,22 +152,33 @@ class PunchListGenerator:
             item.task_id = f"task_{i:03d}"
 
         self._attach_citations(punch_list, location, environmental_risks)
-        
-        # Calculate timeline and costs
+
+        # Rank Critical→Low, demote hygiene, strip markdown (presentation 10/10)
+        from punch_rank import normalize_punch_items, rebuild_critical_path
+
+        as_dicts = [self._item_to_dict(item) for item in punch_list]
+        ptype = (project_type or "").lower().replace(" ", "_").replace("-", "_")
+        is_dc = any(x in ptype for x in ("data_center", "datacenter", "dc", "colo"))
+        ranked = normalize_punch_items(as_dicts, is_dc=is_dc)
+        critical_path = rebuild_critical_path(ranked)
+
+        # Calculate timeline and costs from ranked items
         timeline = self._calculate_timeline(punch_list)
-        total_cost = sum(item.estimated_cost or 0 for item in punch_list)
-        critical_path = self._identify_critical_path(punch_list)
-        
-        logger.info(f"✅ Punch list generated: {len(punch_list)} items, {timeline} duration, ${total_cost:,.0f} estimated")
-        
+        total_cost = sum(int(i.get("estimated_cost") or 0) for i in ranked)
+
+        logger.info(
+            f"✅ Punch list generated: {len(ranked)} items ranked, {timeline} duration, ${total_cost:,.0f} estimated"
+        )
+
         return {
-            "punch_list": [self._item_to_dict(item) for item in punch_list],
+            "punch_list": ranked,
             "timeline_summary": timeline,
             "estimated_total_cost": total_cost,
             "critical_path": critical_path,
             "milestones": self._generate_milestones(punch_list),
             "who_to_call": self._generate_contacts(location),
             "estimates_verified": False,
+            "ranked": True,
         }
 
     def _attach_citations(

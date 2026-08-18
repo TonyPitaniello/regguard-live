@@ -559,6 +559,40 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             "buyer": "IC consultants, electrical PMs, GC bid leads (TX beachhead)",
         }
 
+    # Rank punch list + community friction (presentation / completeness)
+    try:
+        from punch_rank import normalize_analysis_punch
+
+        out = normalize_analysis_punch(out)
+        items = _punch_items(out)
+        crit, high, unverified = _count_priorities(items)
+        out["margin_killers"] = build_margin_killers(out, limit=3)
+        out["contingency_band"] = _build_contingency(crit, high, unverified, est, is_dc=is_dc)
+        exp_mids = []
+        for k in out["margin_killers"]:
+            pe = (k or {}).get("planning_exposure") or {}
+            if isinstance(pe.get("usd_mid"), (int, float)):
+                exp_mids.append(int(pe["usd_mid"]))
+        out["planning_exposure_summary"] = {
+            "label": "Sum of killer planning-exposure mids",
+            "usd_mid_total": sum(exp_mids) if exp_mids else None,
+            "killer_count": len(out["margin_killers"]),
+            "verified": False,
+            "disclaimer": (
+                "Sum of heuristic planning-exposure midpoints for top killers — "
+                "not guaranteed savings and not a quote. Confirm with AHJ/utility."
+            ),
+            "data_center_mode": is_dc,
+        }
+    except Exception:
+        pass
+    try:
+        from community_friction import build_community_friction
+
+        out["community_friction"] = build_community_friction(out)
+    except Exception:
+        pass
+
     # Snapshot for job recheck diffs
     out["arbitrage_snapshot"] = {
         "critical": crit,

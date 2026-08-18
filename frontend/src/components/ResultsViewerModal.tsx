@@ -90,9 +90,13 @@ export interface AnalysisData {
       action_items: string[];
       data_sources: string[];
       research_cost_usd: number;
+      verified?: boolean;
+      source_url?: string | null;
+      source_label?: string | null;
     }>;
     total_research_cost: number;
     action_plan: string[];
+    risk_honesty_note?: string;
   };
   punch_list: {
     punch_list: PunchListItemData[];
@@ -244,6 +248,23 @@ export interface AnalysisData {
     headline?: string;
     pitch?: string;
     buyer?: string;
+  };
+  community_friction?: {
+    title?: string;
+    headline?: string;
+    score?: number;
+    score_max?: number;
+    band?: string;
+    signals?: Array<{
+      id?: string;
+      label?: string;
+      level?: number;
+      detail?: string;
+      verified?: boolean;
+      source_url?: string | null;
+    }>;
+    verified?: boolean;
+    disclaimer?: string;
   };
   recheck_diff?: {
     change_count?: number;
@@ -433,6 +454,17 @@ function getPriorityBadge(priority: string) {
     default:
       return 'bg-gray-100 text-gray-800 border border-gray-300';
   }
+}
+
+const PRIORITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
+
+function rankedPunchItems(view: AnalysisData): PunchListItemData[] {
+  const items = [...(view.punch_list?.punch_list || [])];
+  const rank = (p: string) => {
+    const i = PRIORITY_ORDER.indexOf((p || '').toUpperCase() as (typeof PRIORITY_ORDER)[number]);
+    return i === -1 ? 9 : i;
+  };
+  return items.sort((a, b) => rank(a.priority) - rank(b.priority));
 }
 
 export function buildSummaryFromAnalysis(analysis: AnalysisData): ResultsSummaryPayload {
@@ -1274,91 +1306,84 @@ export default function ResultsViewerModal({
             {expanded.critical && (
               <div className="space-y-2">
                 <p className="text-xs text-gray-400 px-1 pb-1">
-                  Coverage: <span className="text-gray-200 font-semibold">{coverage.badge}</span>
+                  Ranked Critical → Low. Coverage:{' '}
+                  <span className="text-gray-200 font-semibold">{coverage.badge}</span>
                   {!coverage.feesAllowed
                     ? ' — fee dollars not shown; open the AHJ portal to confirm.'
                     : ' — confirm fee dollars on the official schedule.'}
                 </p>
-                {(view.punch_list?.critical_path || []).slice(0, Math.min(5, punchVisible)).map((task, idx) => {
-                  const meta = typeof task === 'string' ? { task } : task;
-                  return (
-                    <div key={idx} className="bg-red-900/20 border border-red-500/30 rounded-lg p-3">
-                      <p className="text-gray-200 text-sm">
-                        <span className="text-red-400 font-bold mr-2">{idx + 1}.</span>
-                        {criticalPathTask(task)}
-                      </p>
-                      <CitationBadge
-                        source_url={meta.source_url}
-                        source_label={meta.source_label}
-                        verified={meta.verified}
-                        cost_verified={meta.cost_verified}
-                        estimated_cost={meta.estimated_cost}
-                      />
-                    </div>
-                  );
-                })}
-                {(view.punch_list?.punch_list || []).slice(0, punchVisible).map((item, idx) => (
-                  <div key={`pl-${idx}`} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-3">
-                    <div className="flex justify-between gap-2 mb-1">
-                      <p className="text-white text-sm font-semibold">{item.task}</p>
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getPriorityBadge(item.priority)}`}
-                      >
-                        {item.priority}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {item.timeline} • {item.responsible_party}
-                      {!softLocked && item.estimated_cost != null && item.estimated_cost > 0
-                        ? ` • $${item.estimated_cost.toLocaleString()}`
-                        : ''}
-                    </p>
-                    <CitationBadge
-                      source_url={item.source_url}
-                      source_label={item.source_label}
-                      verified={item.verified}
-                      cost_verified={item.cost_verified}
-                      estimated_cost={softLocked ? undefined : item.estimated_cost}
-                    />
-                  </div>
-                ))}
-                {softLocked &&
-                  ((view.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE ||
-                    (view.punch_list?.critical_path || []).length > FREE_PUNCH_VISIBLE) && (
-                    <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
-                      <p className="text-sm text-purple-100 mb-3">
-                        {Math.max(
-                          0,
-                          (view.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE
-                        )}{' '}
-                        more punch lines locked — forward the Bid Risk Receipt or upgrade to unlock.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                        <button
-                          type="button"
-                          onClick={() => void downloadBidReceipt()}
-                          disabled={packetLoading}
-                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
+                {(() => {
+                  const ranked = rankedPunchItems(view).slice(0, punchVisible);
+                  let lastPri = '';
+                  return ranked.map((item, idx) => {
+                    const pri = (item.priority || 'MEDIUM').toUpperCase();
+                    const showHeader = pri !== lastPri;
+                    lastPri = pri;
+                    return (
+                      <div key={`pl-${idx}`}>
+                        {showHeader && (
+                          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500 px-1 pt-2 pb-1">
+                            {pri}
+                          </p>
+                        )}
+                        <div
+                          className={`rounded-lg p-3 border ${
+                            pri === 'CRITICAL'
+                              ? 'bg-red-900/20 border-red-500/30'
+                              : 'bg-slate-800/50 border-slate-700/50'
+                          }`}
                         >
-                          {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void copyShareText('text')}
-                          className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
-                        >
-                          Copy receipt text
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => goCheckout('contractor_pro')}
-                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                        >
-                          Unlock with Pro
-                        </button>
+                          <div className="flex justify-between gap-2 mb-1">
+                            <p className="text-white text-sm font-semibold">{item.task}</p>
+                            <span
+                              className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getPriorityBadge(item.priority)}`}
+                            >
+                              {item.priority}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            {item.timeline} • {item.responsible_party}
+                            {!softLocked && item.estimated_cost != null && item.estimated_cost > 0
+                              ? ` • $${item.estimated_cost.toLocaleString()}`
+                              : ''}
+                          </p>
+                          <CitationBadge
+                            source_url={item.source_url}
+                            source_label={item.source_label}
+                            verified={item.verified}
+                            cost_verified={item.cost_verified}
+                            estimated_cost={softLocked ? undefined : item.estimated_cost}
+                          />
+                        </div>
                       </div>
+                    );
+                  });
+                })()}
+                {softLocked && (view.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE && (
+                  <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
+                    <p className="text-sm text-purple-100 mb-3">
+                      {(view.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE} more punch
+                      lines locked — forward the Bid Risk Receipt or upgrade to unlock.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                      <button
+                        type="button"
+                        onClick={() => void downloadBidReceipt()}
+                        disabled={packetLoading}
+                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
+                      >
+                        {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void copyShareText('text')}
+                        className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+                      >
+                        Copy receipt text
+                      </button>
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -1610,6 +1635,50 @@ export default function ResultsViewerModal({
             </section>
           )}
 
+
+          {/* Community friction signals */}
+          {view.community_friction && (
+            <section className="rounded-xl border border-slate-600 bg-slate-800/40 p-4 sm:p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-lg font-bold text-white">
+                  {view.community_friction.title || 'Community friction signals'}
+                </h3>
+                <span className="text-xs font-bold uppercase tracking-wide text-amber-200 border border-amber-500/40 rounded px-2 py-1">
+                  {view.community_friction.band || 'Heuristic'} · {view.community_friction.score ?? 0}/
+                  {view.community_friction.score_max ?? 12}
+                </span>
+              </div>
+              <p className="text-sm text-gray-300">
+                {view.community_friction.headline}
+              </p>
+              <ul className="space-y-2">
+                {(view.community_friction.signals || []).map((s) => (
+                  <li
+                    key={s.id || s.label}
+                    className="text-sm text-gray-200 border border-slate-700/60 rounded-lg p-3"
+                  >
+                    <div className="flex justify-between gap-2 mb-1">
+                      <span className="font-semibold">{s.label}</span>
+                      <span className="text-xs text-gray-400">Level {s.level ?? 0}/3</span>
+                    </div>
+                    <p className="text-xs text-gray-400">{s.detail}</p>
+                    {s.source_url ? (
+                      <a
+                        href={s.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-emerald-300 underline mt-1 inline-block"
+                      >
+                        Open source
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-amber-200/90">{view.community_friction.disclaimer}</p>
+            </section>
+          )}
+
           {/* Environmental findings */}
           <section>
             <button
@@ -1651,8 +1720,9 @@ export default function ResultsViewerModal({
                     )}
                     <CitationBadge
                       data_sources={finding.data_sources}
-                      verified={false}
-                      source_label={(finding.data_sources || [])[0]}
+                      source_url={finding.source_url}
+                      source_label={finding.source_label || (finding.data_sources || [])[0]}
+                      verified={Boolean(finding.verified)}
                     />
                   </div>
                 ))}
