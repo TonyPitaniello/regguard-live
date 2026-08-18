@@ -320,34 +320,58 @@ def _build_contingency(
     high: int,
     unverified: int,
     estimated_total: float,
+    *,
+    is_dc: bool = False,
 ) -> Dict[str, Any]:
     """
     Heuristic contingency band for bid — labeled estimate, not a quote.
     Base 3% + 1.5% per Critical + 0.75% per High + 0.5% per Unverified line (capped).
+    Data-center / large-load: floor at 18% mid for parallel-track schedule risk;
+    hide laughable USD when rollup is a stub (<$100k).
     """
     pct = 3.0 + (crit * 1.5) + (high * 0.75) + (min(unverified, 20) * 0.5)
     pct = max(3.0, min(pct, 25.0))
+    if is_dc:
+        pct = max(pct, 18.0)
+        pct = min(pct, 28.0)
     low_pct = max(2.0, pct - 2.0)
-    high_pct = min(30.0, pct + 3.0)
+    high_pct = min(35.0 if is_dc else 30.0, pct + 3.0)
     base = max(0.0, float(estimated_total or 0))
+    # Stub rollups understate interconnect — show % only for DC when base is tiny
+    show_usd = base >= 100_000 or not is_dc
+    drivers: Dict[str, Any] = {
+        "critical_items": crit,
+        "high_items": high,
+        "unverified_items": unverified,
+        "estimated_total_cost": base or None,
+    }
+    if is_dc:
+        drivers["data_center_parallel_track"] = True
+    disclaimer = (
+        "Planning aid only — not a quote. Based on Critical/High/Unverified "
+        "punch counts. Confirm fees and scope with the AHJ before bid."
+    )
+    if is_dc:
+        disclaimer = (
+            "Planning aid only — not a quote. Data-center / large-load sites often "
+            "run AHJ + utility/ERCOT + federal diligence on parallel clocks. "
+            "Percent band is schedule-risk planning; confirm interconnect exposure "
+            "with utility/RTO before bid. Dollar rollup may understate large-load costs."
+        )
     return {
-        "label": "Suggested bid contingency band",
+        "label": (
+            "Suggested bid contingency band (parallel-track)"
+            if is_dc
+            else "Suggested bid contingency band"
+        ),
         "pct_low": round(low_pct, 1),
         "pct_mid": round(pct, 1),
         "pct_high": round(high_pct, 1),
-        "usd_low": int(base * low_pct / 100) if base else None,
-        "usd_mid": int(base * pct / 100) if base else None,
-        "usd_high": int(base * high_pct / 100) if base else None,
-        "drivers": {
-            "critical_items": crit,
-            "high_items": high,
-            "unverified_items": unverified,
-            "estimated_total_cost": base or None,
-        },
-        "disclaimer": (
-            "Planning aid only — not a quote. Based on Critical/High/Unverified "
-            "punch counts. Confirm fees and scope with the AHJ before bid."
-        ),
+        "usd_low": int(base * low_pct / 100) if show_usd and base else None,
+        "usd_mid": int(base * pct / 100) if show_usd and base else None,
+        "usd_high": int(base * high_pct / 100) if show_usd and base else None,
+        "drivers": drivers,
+        "disclaimer": disclaimer,
         "verified": False,
     }
 
@@ -393,6 +417,52 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     else:
         fee_rows = []
 
+    # Catalog-backed fees/gotchas when city pack is generic but AHJ catalog hit (ZIP beachhead)
+    catalog_citeable = False
+    catalog_gotchas: list = []
+    try:
+        from ahj_catalog import ahj_identity_conflict, lookup_ahj
+
+        rec = lookup_ahj(city, state, zip_code)
+        conflict = ahj_identity_conflict(city, state, zip_code)
+        if conflict:
+            out["ahj_identity"] = conflict
+        if rec:
+            catalog_citeable = True
+            if not fee_rows:
+                for fee in rec.get("fees") or []:
+                    fee_rows.append(
+                        {
+                            "label": fee.get("label") or "Permit fee",
+                            "amount_usd": fee.get("amount_usd"),
+                            "detail": fee.get("citation_note") or "Confirm on official schedule",
+                            "source_url": fee.get("citation_url") or rec.get("portal_url"),
+                            "source_label": rec.get("city") or "AHJ catalog",
+                            "verified": bool(
+                                fee.get("verified")
+                                and fee.get("amount_usd") is not None
+                                and not fee.get("amount_requires_schedule")
+                            ),
+                            "amount_requires_schedule": bool(fee.get("amount_requires_schedule")),
+                        }
+                    )
+            for g in rec.get("gotchas") or []:
+                catalog_gotchas.append(
+                    {
+                        "id": g.get("id"),
+                        "title": g.get("title"),
+                        "detail": "; ".join(g.get("checklist") or [])[:240],
+                        "priority": "HIGH",
+                        "source_url": g.get("citation_url") or rec.get("portal_url"),
+                        "source_label": rec.get("city") or "AHJ catalog",
+                        "verified": bool(g.get("citation_url") or rec.get("portal_url")),
+                        "checklist": g.get("checklist") or [],
+                        "anti_patterns": g.get("anti_patterns") or [],
+                    }
+                )
+    except Exception:
+        rec = None
+
     timeline = (
         summary.get("estimated_timeline")
         or punch.get("timeline_summary")
@@ -400,15 +470,16 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         or "Confirm with AHJ"
     )
 
+    citeable = bool(pack.get("citeable")) or catalog_citeable
     out["fee_card"] = {
         "title": "Fee & timeline extract",
         "timeline": timeline,
         "timeline_hint": pack.get("timeline_hint") or "",
         "fees": fee_rows,
-        "citeable_coverage": bool(pack.get("citeable")),
+        "citeable_coverage": citeable,
         "disclaimer": (
             "Confirm all fees on the official AHJ schedule before bid or filing."
-            if pack.get("citeable")
+            if citeable
             else (
                 "Fee amounts hidden — portal seed / federal-state coverage only. "
                 "Confirm the official AHJ schedule before bid."
@@ -418,22 +489,34 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     ahj = pack.get("ahj") or {}
     who = (punch.get("who_to_call") or {}) if isinstance(punch.get("who_to_call"), dict) else {}
+    # Prefer catalog portal/name when ZIP beachhead resolves (AHJ identity lock)
+    cat_name = None
+    cat_portal = None
+    cat_fees_url = None
+    if rec:
+        cat_name = f"{rec.get('city')}, {rec.get('state') or 'TX'} AHJ"
+        cat_portal = rec.get("portal_url") or ""
+        cat_fees_url = rec.get("fees_url") or cat_portal
+    identity_note = ""
+    if isinstance(out.get("ahj_identity"), dict) and out["ahj_identity"].get("note"):
+        identity_note = str(out["ahj_identity"]["note"])
     out["ahj_card"] = {
         "title": "AHJ portal & contact",
-        "name": ahj.get("name") or who.get("building_department") or "Local AHJ",
-        "portal_url": ahj.get("portal_url") or "",
-        "fees_url": ahj.get("fees_url") or "",
+        "name": cat_name or ahj.get("name") or who.get("building_department") or "Local AHJ",
+        "portal_url": cat_portal or ahj.get("portal_url") or "",
+        "fees_url": cat_fees_url or ahj.get("fees_url") or "",
         "phone": ahj.get("phone") or who.get("phone") or "",
-        "notes": ahj.get("notes") or "",
-        "citeable_coverage": bool(pack.get("citeable")),
+        "notes": identity_note or ahj.get("notes") or "",
+        "citeable_coverage": citeable,
         "extra_contacts": who,
     }
 
+    gotcha_items = list(pack.get("gotchas") or []) or catalog_gotchas
     out["gotcha_watchlist"] = {
         "title": "Local gotcha watchlist",
-        "items": list(pack.get("gotchas") or []),
-        "citeable_coverage": bool(pack.get("citeable")),
-        "pack_key": pack.get("pack_key"),
+        "items": gotcha_items,
+        "citeable_coverage": citeable,
+        "pack_key": (rec or {}).get("ahj_id") if rec else pack.get("pack_key"),
     }
 
     docs = list(pack.get("documents") or [])
@@ -441,10 +524,11 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "title": "Document / submittal checklist",
         "items": [{"task": d, "done": False} for d in docs],
         "disclaimer": "Typical AHJ asks — confirm exact submittal list for this permit type.",
-        "citeable_coverage": bool(pack.get("citeable")),
+        "citeable_coverage": citeable,
     }
 
-    out["contingency_band"] = _build_contingency(crit, high, unverified, est)
+    is_dc = _project_is_data_center(out)
+    out["contingency_band"] = _build_contingency(crit, high, unverified, est, is_dc=is_dc)
     out["margin_killers"] = build_margin_killers(out, limit=3)
 
     # Roll up planning exposure (sum of mid bands) — still not guaranteed savings

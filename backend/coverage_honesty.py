@@ -147,6 +147,12 @@ def strip_non_pack_fees(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     if tier == "full_pack":
         return analysis
+    # Catalog-backed beachhead fees (ZIP AHJ) — keep when fee_card already citeable
+    if (analysis.get("fee_card") or {}).get("citeable_coverage") and (
+        (analysis.get("ahj") or {}).get("ahj_id")
+        or (analysis.get("gotcha_watchlist") or {}).get("pack_key")
+    ):
+        return analysis
     # Paid local confirm grounded fees — keep them
     if tier == "paid_local" or (analysis.get("finops_mode") == "paid_local_confirm" and (
         (analysis.get("fee_card") or {}).get("paid_local_confirm")

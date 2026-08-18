@@ -191,6 +191,12 @@ def generate_bid_risk_receipt_pdf(
         _ascii(f"AHJ: {str(ahj.get('name') or 'Local AHJ')}"),
         ln=1,
     )
+    identity = data.get("ahj_identity") or {}
+    if identity.get("conflict") and identity.get("note"):
+        pdf.set_x(MARGIN + 4)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*AMBER)
+        pdf.multi_cell(CONTENT_W - 8, 3.2, _ascii(str(identity.get("note"))[:160]))
     pdf.set_y(y0 + 24)
 
     portal = str(ahj.get("portal_url") or "").strip()

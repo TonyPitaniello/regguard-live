@@ -33,6 +33,8 @@ class JurisdictionProfile:
     state_long: str
     formatted_address: str
     label: str  # one-line human summary for logs / UI
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
     def to_scout_dict(self) -> Dict[str, Any]:
         return {
@@ -45,6 +47,8 @@ class JurisdictionProfile:
             "state_long": self.state_long,
             "formatted_address": self.formatted_address,
             "label": self.label,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
         }
 
 
@@ -81,6 +85,8 @@ def _county_base_name(admin2: str) -> str:
 def build_profile_from_components(
     components: List[Dict[str, Any]],
     formatted_address: str,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> JurisdictionProfile:
     street_num = _first_long(components, "street_number")
     route = _first_long(components, "route")
@@ -136,6 +142,8 @@ def build_profile_from_components(
         state_long=state_long,
         formatted_address=(formatted_address or "").strip(),
         label=label,
+        latitude=latitude,
+        longitude=longitude,
     )
 
 
@@ -180,12 +188,12 @@ def fetch_place_profile(place_id: str) -> JurisdictionProfile:
 
 
 def geocode_profile_from_address(address: str) -> JurisdictionProfile:
-    """Resolve city / county / ZIP via ``geocode.google_geocode_us_address`` (Google Geocoding API)."""
-    components, formatted = google_geocode_us_address(address)
-    return build_profile_from_components(components, formatted)
+    """Resolve city / county / ZIP / lat/lng via ``geocode.google_geocode_us_address``."""
+    components, formatted, lat, lng = google_geocode_us_address(address)
+    return build_profile_from_components(components, formatted, lat, lng)
 
 
 def geocode_profile_from_zip(zip5: str) -> JurisdictionProfile:
-    """Approximate city / county for a U.S. ZIP via ``geocode.google_geocode_us_zip``."""
-    components, formatted = google_geocode_us_zip(zip5)
-    return build_profile_from_components(components, formatted)
+    """Approximate city / county / lat/lng for a U.S. ZIP via ``geocode.google_geocode_us_zip``."""
+    components, formatted, lat, lng = google_geocode_us_zip(zip5)
+    return build_profile_from_components(components, formatted, lat, lng)

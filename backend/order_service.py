@@ -380,13 +380,27 @@ def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
 
 
 def get_raw_orders_for_email(email: str) -> List[Dict[str, Any]]:
-    """Raw in-memory orders for email, newest first."""
+    """
+    Raw orders for email, newest first.
+
+    Warm memory from Supabase first (same hydrate path as list_orders_for_email)
+    so IC fulfillment survives Render restarts.
+    """
     email_l = (email or "").strip().lower()
+    if "?" in email_l:
+        email_l = email_l.split("?", 1)[0]
+    if email_l:
+        try:
+            list_orders_for_email(email_l)
+        except Exception:
+            pass
     out: List[Dict[str, Any]] = []
+    seen = set()
     for sid in _ORDERS_BY_EMAIL.get(email_l, []):
         order = _ORDERS_BY_SESSION.get(sid)
-        if order:
+        if order and sid not in seen:
             out.append(order)
+            seen.add(sid)
     return out
 
 

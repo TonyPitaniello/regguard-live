@@ -76,6 +76,8 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
     paid = has_paid_access(email_l)
     tiers: list[str] = []
     ic_report_pending = False
+    has_ic = False
+    has_ic_pdfs = False
     if email_l:
         try:
             from order_service import list_orders_for_email
@@ -86,8 +88,11 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
                 if tier in PAID_TIERS and tier not in tiers:
                     tiers.append(tier)
                 if is_ic_tier(tier):
-                    # IC buyers can generate or replace PDFs via explicit confirm
-                    ic_report_pending = True
+                    has_ic = True
+                    if pdfs_are_ready(order.get("pdfs")):
+                        has_ic_pdfs = True
+            # Pending only when IC purchased and PDFs not ready yet
+            ic_report_pending = has_ic and not has_ic_pdfs
         except Exception:
             pass
     return {
@@ -97,4 +102,5 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
         "tiers": tiers,
         "primary_tier": tiers[0] if tiers else ("free" if email_l else "anonymous"),
         "ic_report_pending": ic_report_pending,
+        "ic_pdfs_ready": has_ic_pdfs,
     }

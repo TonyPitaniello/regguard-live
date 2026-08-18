@@ -37,18 +37,39 @@ async def run_option_a_analysis(
     logger.info(f"🚀 Option A MVP Analysis: {project_type} in {city}, {state}")
     
     try:
-        # Step 1: Run real environmental screening
+        from geocode import is_null_island
+
+        # Step 1: Run real environmental screening (skip parcel GIS on Null Island)
         from real_environmental_screening import get_environmental_screening_engine
-        
+
         env_engine = get_environmental_screening_engine()
-        environmental_data = await env_engine.screen_site(
-            address=address,
-            latitude=latitude,
-            longitude=longitude,
-            city=city,
-            state=state,
-            zip_code=zip_code,
-        )
+        if is_null_island(latitude, longitude):
+            logger.warning(
+                "Null Island / missing coords — skipping parcel GIS env queries for %s",
+                address,
+            )
+            environmental_data = {
+                "risk_level": "UNAVAILABLE",
+                "findings": [],
+                "total_research_cost": 0,
+                "action_plan": [
+                    "Address did not resolve to map coordinates — re-select the site from Places autocomplete before treating environmental findings as parcel-specific."
+                ],
+                "risk_score_hidden": True,
+                "risk_honesty_note": (
+                    "Environmental parcel checks skipped — coordinates missing or (0,0). "
+                    "Federal/state checklist still applies."
+                ),
+            }
+        else:
+            environmental_data = await env_engine.screen_site(
+                address=address,
+                latitude=latitude,
+                longitude=longitude,
+                city=city,
+                state=state,
+                zip_code=zip_code,
+            )
         
         logger.info(f"✅ Environmental screening complete")
         
@@ -97,7 +118,7 @@ async def run_option_a_analysis(
                 "1. Treat this as a preliminary checklist — risk scores are not parcel-verified",
                 "2. Contact your local Authority Having Jurisdiction (AHJ) with your punch list",
                 "3. Confirm every dollar and day estimate with the AHJ / utility before bidding",
-                "4. Upgrade to Contractor Pro for citeable research memos with source URLs",
+                "4. Forward the Bid Risk Receipt before bid day — or open My Orders for IC PDFs if purchased",
             ],
         }
 

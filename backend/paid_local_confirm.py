@@ -470,6 +470,21 @@ def run_paid_local_confirm(
         return analysis
 
     portal = allowlisted_confirm_url(pack)
+    # Prefer curated AHJ catalog portal when ZIP beachhead resolves (cost: $0)
+    try:
+        from ahj_catalog import lookup_ahj
+
+        cat = lookup_ahj(city, state, zip_code)
+        if cat and cat.get("portal_url"):
+            portal = str(cat["portal_url"])
+            pack = dict(pack)
+            ahj = dict(pack.get("ahj") or {})
+            ahj["portal_url"] = portal
+            ahj["fees_url"] = str(cat.get("fees_url") or portal)
+            ahj["name"] = f"{cat.get('city')}, {cat.get('state') or 'TX'} AHJ"
+            pack["ahj"] = ahj
+    except Exception:
+        pass
     pack_urls = [
         str((pack.get("ahj") or {}).get("fees_url") or ""),
         str((pack.get("ahj") or {}).get("portal_url") or ""),

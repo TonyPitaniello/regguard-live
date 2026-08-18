@@ -1595,6 +1595,23 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         zip_code = req_zip or geo_zip
         lat = float(getattr(profile, "latitude", 0.0) or 0.0) if profile else 0.0
         lng = float(getattr(profile, "longitude", 0.0) or 0.0) if profile else 0.0
+        try:
+            from geocode import is_null_island
+
+            if is_null_island(lat, lng):
+                lat, lng = 0.0, 0.0
+        except Exception:
+            pass
+        # Prefer ZIP catalog city for paid AHJ resolve when typed city conflicts
+        city_for_ahj = city
+        try:
+            from ahj_catalog import ahj_identity_conflict
+
+            _conflict = ahj_identity_conflict(city, state, zip_code)
+            if _conflict and _conflict.get("resolved_city"):
+                city_for_ahj = str(_conflict["resolved_city"])
+        except Exception:
+            pass
 
         if paid:
             from pro_deep_analysis import run_pro_deep_analysis
@@ -1610,7 +1627,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             analysis = await asyncio.wait_for(
                 run_pro_deep_analysis(
                     address=request_body.address,
-                    city=city,
+                    city=city_for_ahj,
                     state=state,
                     zip_code=zip_code,
                     latitude=lat,
@@ -1650,7 +1667,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             analysis = await asyncio.wait_for(
                 run_free_pack_confirm(
                     address=request_body.address,
-                    city=city,
+                    city=city_for_ahj,
                     state=state,
                     zip_code=zip_code,
                     latitude=lat,
@@ -1730,6 +1747,21 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         from arbitrage_enrichment import enrich_analysis_with_arbitrage
 
         if isinstance(analysis, dict):
+            # Preserve typed-city vs ZIP catalog conflict even when resolve used catalog city
+            try:
+                from ahj_catalog import ahj_identity_conflict
+
+                typed = (getattr(request_body, "city", None) or "").strip()
+                pi = analysis.get("project_info") or {}
+                conflict = ahj_identity_conflict(
+                    typed or pi.get("city"),
+                    getattr(request_body, "state", None) or pi.get("state"),
+                    getattr(request_body, "zip", None) or pi.get("zip"),
+                )
+                if conflict:
+                    analysis["ahj_identity"] = conflict
+            except Exception:
+                pass
             analysis = enrich_analysis_with_arbitrage(analysis)
     except Exception as arb_err:
         logger.warning("Arbitrage enrichment failed (non-blocking): %s", arb_err)

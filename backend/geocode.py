@@ -195,11 +195,13 @@ def google_reverse_geocode_us_latlng(lat: float, lon: float) -> Tuple[str, str, 
     )
 
 
-def google_geocode_us_address(address: str) -> Tuple[List[dict[str, Any]], str]:
+def google_geocode_us_address(
+    address: str,
+) -> Tuple[List[dict[str, Any]], str, Optional[float], Optional[float]]:
     """
     Forward geocode a U.S. postal address string (e.g. Places formatted_address).
 
-    Returns ``(address_components, formatted_address)`` for jurisdiction classification.
+    Returns ``(address_components, formatted_address, latitude, longitude)``.
     """
     raw = (address or "").strip()
     if not raw:
@@ -233,11 +235,18 @@ def google_geocode_us_address(address: str) -> Tuple[List[dict[str, Any]], str]:
         raise ValueError("Only U.S. addresses are supported.")
 
     formatted = str(top.get("formatted_address") or raw)
-    return components, formatted
+    loc = (top.get("geometry") or {}).get("location") or {}
+    lat = loc.get("lat")
+    lng = loc.get("lng")
+    lat_f = float(lat) if isinstance(lat, (int, float)) else None
+    lng_f = float(lng) if isinstance(lng, (int, float)) else None
+    return components, formatted, lat_f, lng_f
 
 
-def google_geocode_us_zip(zip5: str) -> Tuple[List[dict[str, Any]], str]:
-    """Geocode a 5-digit U.S. ZIP (centroid / area) for approximate city / county."""
+def google_geocode_us_zip(
+    zip5: str,
+) -> Tuple[List[dict[str, Any]], str, Optional[float], Optional[float]]:
+    """Geocode a 5-digit U.S. ZIP (centroid / area) for approximate city / county / lat/lng."""
     z = "".join(ch for ch in (zip5 or "") if ch.isdigit())[:5]
     if len(z) != 5:
         raise ValueError("A 5-digit U.S. ZIP is required for ZIP geocoding.")
@@ -263,4 +272,19 @@ def google_geocode_us_zip(zip5: str) -> Tuple[List[dict[str, Any]], str]:
         raise ValueError("Invalid Geocoding response (no address_components).")
 
     formatted = str(top.get("formatted_address") or f"ZIP {z}")
-    return components, formatted
+    loc = (top.get("geometry") or {}).get("location") or {}
+    lat = loc.get("lat")
+    lng = loc.get("lng")
+    lat_f = float(lat) if isinstance(lat, (int, float)) else None
+    lng_f = float(lng) if isinstance(lng, (int, float)) else None
+    return components, formatted, lat_f, lng_f
+
+
+def is_null_island(lat: Optional[float], lng: Optional[float]) -> bool:
+    """True when coords are missing or Null Island (0,0) — do not run parcel GIS."""
+    try:
+        if lat is None or lng is None:
+            return True
+        return abs(float(lat)) < 1e-4 and abs(float(lng)) < 1e-4
+    except (TypeError, ValueError):
+        return True

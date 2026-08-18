@@ -30,30 +30,91 @@ def load_ahj_catalog() -> List[Dict[str, Any]]:
     return records
 
 
+def _city_matches_record(city: str, rec: Dict[str, Any]) -> bool:
+    c = (city or "").strip().lower()
+    if not c:
+        return False
+    aliases = [a.lower() for a in (rec.get("aliases") or [])]
+    return c == (rec.get("city") or "").lower() or c in aliases
+
+
 def lookup_ahj(
     city: Optional[str] = None,
     state: Optional[str] = None,
     zip_code: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Resolve AHJ record by ZIP (preferred) or city+state."""
+    """
+    Resolve AHJ record by ZIP or city+state.
+
+    When typed city conflicts with ZIP catalog city (e.g. Richardson + 75075),
+    prefer the ZIP beachhead record — ZIP is authoritative for curated packs —
+    and callers should stamp an identity warning for the receipt/UI.
+    """
     z = (zip_code or "").strip()
     c = (city or "").strip().lower()
     s = (state or "").strip().upper()
     catalog = load_ahj_catalog()
 
+    zip_hit: Optional[Dict[str, Any]] = None
     if len(z) >= 5:
         z5 = z[:5]
         for rec in catalog:
             if z5 in (rec.get("zips") or []):
-                return rec
+                zip_hit = rec
+                break
 
+    city_hit: Optional[Dict[str, Any]] = None
     if c and s in ("TX", "TEXAS", ""):
         for rec in catalog:
-            aliases = [a.lower() for a in (rec.get("aliases") or [])]
-            if c == (rec.get("city") or "").lower() or c in aliases:
+            if _city_matches_record(c, rec):
                 if not s or s in ("TX", "TEXAS") or s == (rec.get("state") or "").upper():
-                    return rec
+                    city_hit = rec
+                    break
+
+    if zip_hit and city_hit:
+        if zip_hit.get("ahj_id") == city_hit.get("ahj_id"):
+            return zip_hit
+        # Conflict: ZIP wins for beachhead citeable fees (identity stamped elsewhere)
+        return zip_hit
+    if zip_hit:
+        return zip_hit
+    if city_hit:
+        return city_hit
     return None
+
+
+def ahj_identity_conflict(
+    city: Optional[str] = None,
+    state: Optional[str] = None,
+    zip_code: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """If typed city ≠ ZIP catalog city, return a warning payload for UI/receipt."""
+    z = (zip_code or "").strip()
+    c = (city or "").strip()
+    if len(z) < 5 or not c:
+        return None
+    catalog = load_ahj_catalog()
+    z5 = z[:5]
+    zip_hit = None
+    for rec in catalog:
+        if z5 in (rec.get("zips") or []):
+            zip_hit = rec
+            break
+    if not zip_hit:
+        return None
+    if _city_matches_record(c, zip_hit):
+        return None
+    return {
+        "conflict": True,
+        "typed_city": c,
+        "resolved_city": zip_hit.get("city"),
+        "resolved_ahj_id": zip_hit.get("ahj_id"),
+        "zip": z5,
+        "note": (
+            f"ZIP {z5} maps to {zip_hit.get('city')} AHJ citeable fees/gotchas. "
+            f"Typed city was {c}. Confirm which building department owns this site before bid."
+        ),
+    }
 
 
 def format_fee_lines(record: Dict[str, Any]) -> List[str]:

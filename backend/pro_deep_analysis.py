@@ -147,7 +147,27 @@ def _merge_deep_into_analysis(
     items = list(punch.get("punch_list") or [])
     md_tasks = _checklist_tasks_from_markdown(summary, limit=10)
 
-    # Attach rotating citeable sources to existing punch lines
+    # Attach scout URLs as related links — never auto-verify (kills SOURCE theater).
+    # verified=True only when URL host matches AHJ portal / fee citation hosts.
+    from urllib.parse import urlparse
+
+    def _host(u: str) -> str:
+        try:
+            return (urlparse(u).netloc or "").lower().removeprefix("www.")
+        except Exception:
+            return ""
+
+    ahj_hosts: set = set()
+    ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
+    for u in list(ahj_block.get("ahj_citation_urls") or []) + [
+        ahj_block.get("ahj_portal_url") or "",
+        ((analysis.get("ahj_card") or {}).get("portal_url") or ""),
+        ((analysis.get("paid_local") or {}).get("portal_url") or ""),
+    ]:
+        h = _host(str(u))
+        if h:
+            ahj_hosts.add(h)
+
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             continue
@@ -155,8 +175,10 @@ def _merge_deep_into_analysis(
             url = source_urls[i % len(source_urls)]
             item = dict(item)
             item["source_url"] = url
-            item["source_label"] = "Scout source"
-            item["verified"] = True
+            host = _host(url)
+            bound = bool(host and host in ahj_hosts)
+            item["verified"] = bound
+            item["source_label"] = "AHJ source" if bound else "Related scout link"
             items[i] = item
 
     # Prepend deep checklist tasks not already present
@@ -165,6 +187,8 @@ def _merge_deep_into_analysis(
         if task.lower() in existing_tasks:
             continue
         url = source_urls[0] if source_urls else None
+        host = _host(url or "")
+        bound = bool(url and host and host in ahj_hosts)
         items.insert(
             0,
             {
@@ -176,7 +200,7 @@ def _merge_deep_into_analysis(
                 "notes": "From Contractor Pro deep research",
                 "source_url": url,
                 "source_label": "Deep research action plan" if url else None,
-                "verified": bool(url),
+                "verified": bound,
                 "cost_verified": False,
             },
         )
@@ -212,7 +236,22 @@ def _merge_deep_into_analysis(
     analysis["summary"] = summary_block
 
     next_steps = list(analysis.get("next_steps") or [])
-    next_steps.insert(0, "Contractor Pro deep research complete — review citeable punch list + sources first.")
+    # Drop stale free→Pro upgrade pitches for paid/deep runs
+    next_steps = [
+        s
+        for s in next_steps
+        if "upgrade to contractor pro" not in str(s).lower()
+    ]
+    if analysis.get("research_depth") == "ic" or analysis.get("depth_tier") == "ic_full":
+        next_steps.insert(
+            0,
+            "IC Project package ready — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
+        )
+    else:
+        next_steps.insert(
+            0,
+            "Contractor Pro deep research complete — review citeable punch list + sources first.",
+        )
     analysis["next_steps"] = next_steps[:8]
     return analysis
 
@@ -366,6 +405,18 @@ async def run_pro_deep_analysis(
             merged["fee_card"] = fc
         if scout_mode == "full" and force_scout:
             stamp_upgrade_offer(merged, depth_tier=DEPTH_IC_FULL)
+            merged["preview"] = False
+            next_steps = [
+                s
+                for s in list(merged.get("next_steps") or [])
+                if "upgrade to contractor pro" not in str(s).lower()
+                and "pro light scout" not in str(s).lower()
+            ]
+            next_steps.insert(
+                0,
+                "IC full scout complete — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
+            )
+            merged["next_steps"] = next_steps[:8]
         else:
             stamp_upgrade_offer(merged, depth_tier=DEPTH_PRO_LIGHT)
         stamp_pro_delta(merged)
