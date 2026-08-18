@@ -61,7 +61,7 @@ export default function PwaInstallBanner() {
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 z-[90] mx-auto max-w-lg rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 shadow-lg backdrop-blur sm:left-auto"
+      className="fixed bottom-4 left-4 right-4 z-[600] mx-auto max-w-lg rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 shadow-lg backdrop-blur sm:left-auto"
       role="dialog"
       aria-label="Install Reg Guard"
     >
