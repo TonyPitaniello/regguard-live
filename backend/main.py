@@ -2454,7 +2454,16 @@ def reverse_geocode_address(latitude: float, longitude: float) -> Dict[str, str]
     manual-entry toast instead of receiving fabricated address data.
     """
     try:
+        from geocode import is_null_island
+
+        if is_null_island(latitude, longitude):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid map pin — pick a location on the map or enter the address manually.",
+            )
         formatted, zip5, city = google_reverse_geocode_us_latlng(latitude, longitude)
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:  # noqa: BLE001 — surface as 400, never a 500, so the UI can recover.
@@ -2462,7 +2471,30 @@ def reverse_geocode_address(latitude: float, longitude: float) -> Dict[str, str]
             status_code=400,
             detail="Reverse geocoding is unavailable right now — enter the site address manually.",
         ) from e
-    return {"formatted_address": formatted, "zip": zip5, "city": city or ""}
+
+    # Parse street + state from formatted (e.g. "123 Main St, Sarasota, FL 34201, USA")
+    street = ""
+    state = ""
+    fmt = (formatted or "").strip()
+    parts = [p.strip() for p in fmt.split(",") if p.strip()]
+    if parts:
+        street = parts[0]
+    import re
+
+    m = re.search(r"\b([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b", fmt)
+    if m:
+        state = m.group(1)
+        if not zip5:
+            zip5 = m.group(2)
+    return {
+        "formatted_address": fmt,
+        "zip": zip5 or "",
+        "city": city or "",
+        "state": state,
+        "street": street,
+        "latitude": str(latitude),
+        "longitude": str(longitude),
+    }
 
 
 def _normalize_research_image_upload(

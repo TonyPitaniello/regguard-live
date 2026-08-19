@@ -1,16 +1,22 @@
 /**
  * LocationPicker — Auto-detect location or pick on map
- * Uses Geolocation API + OpenStreetMap (free, no API key needed)
- *
- * Map is intentionally position:relative (never sticky/fixed) so it stays
- * in document flow while the page scrolls — especially after results open.
+ * Reverse geocode goes through Reg Guard API (Google) — not browser Nominatim (CORS/hangs).
+ * Confirm This Location always appears once a pin is set, with editable fields for missing ZIP/city.
  */
 
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
 import { MapPin, Navigation, AlertCircle } from 'lucide-react';
+import { backendUrl } from '../env';
 
 interface LocationPickerProps {
-  onLocationSelect: (address: string, city: string, state: string, zip: string, lat: number, lng: number) => void;
+  onLocationSelect: (
+    address: string,
+    city: string,
+    state: string,
+    zip: string,
+    lat: number,
+    lng: number
+  ) => void;
   disabled?: boolean;
   /** When true (e.g. results modal open), hide/destroy the map so it cannot float over the page */
   collapseMap?: boolean;
@@ -33,6 +39,12 @@ const MAP_SHELL_STYLE: CSSProperties = {
   WebkitTransform: 'none',
 };
 
+function parseStateZip(formatted: string): { state: string; zip: string } {
+  const m = formatted.match(/\b([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b/);
+  if (!m) return { state: '', zip: '' };
+  return { state: m[1], zip: m[2] };
+}
+
 export function LocationPicker({
   onLocationSelect,
   disabled = false,
@@ -54,6 +66,8 @@ export function LocationPicker({
   const unlockFields = () => setFieldsUnlocked(true);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const latLngRef = useRef<{ lat: number; lng: number } | null>(null);
 
   const destroyMap = () => {
     if (mapRef.current) {
@@ -65,6 +79,7 @@ export function LocationPicker({
       }
       mapRef.current = null;
     }
+    markerRef.current = null;
   };
 
   // Sync voice-fill / external parent values into local fields
@@ -85,7 +100,6 @@ export function LocationPicker({
       onLocationSelect(nextAddress, nextCity, nextState, nextZip, 0, 0);
       setLocationConfirmed(true);
     }
-    // intentionally only when externalValues identity/content changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     externalValues?.address,
@@ -94,106 +108,152 @@ export function LocationPicker({
     externalValues?.zip,
   ]);
 
-  // After research results open: tear down Leaflet so tiles/panes cannot float while scrolling
   useEffect(() => {
-    if (collapseMap) {
-      destroyMap();
-    }
+    if (collapseMap) destroyMap();
   }, [collapseMap]);
 
   useEffect(() => () => destroyMap(), []);
 
-  // Auto-detect current location
-  const handleAutoDetect = async () => {
+  const placeMarker = (latitude: number, longitude: number) => {
+    const L = (window as any).L;
+    const map = mapRef.current;
+    if (!L || !map) return;
+    if (markerRef.current) {
+      try {
+        map.removeLayer(markerRef.current);
+      } catch {
+        /* ignore */
+      }
+    }
+    markerRef.current = L.marker([latitude, longitude], { title: 'Selected Location' }).addTo(map);
+    try {
+      map.setView([latitude, longitude], Math.max(map.getZoom(), 13));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const reverseGeocode = async (latitude: number, longitude: number) => {
     setLoading(true);
     setError('');
+    setLocationConfirmed(false);
+    try {
+      const q = new URLSearchParams({
+        latitude: String(latitude),
+        longitude: String(longitude),
+      });
+      const controller = new AbortController();
+      const t = window.setTimeout(() => controller.abort(), 15000);
+      const res = await fetch(`${backendUrl('/reverse-geocode-address')}?${q}`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      window.clearTimeout(t);
+
+      if (!res.ok) {
+        let detail = 'Could not read that map pin — fill city / state / ZIP below, then confirm.';
+        try {
+          const body = await res.json();
+          if (typeof body?.detail === 'string' && body.detail.trim()) detail = body.detail;
+        } catch {
+          /* ignore */
+        }
+        setError(detail);
+        setFieldsUnlocked(true);
+        // Keep coords so Confirm UI still shows; user can type missing fields
+        if (!address) setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        return;
+      }
+
+      const data = (await res.json()) as {
+        formatted_address?: string;
+        zip?: string;
+        city?: string;
+        state?: string;
+        street?: string;
+      };
+      const formatted = (data.formatted_address || '').trim();
+      const parsed = parseStateZip(formatted);
+      const nextStreet = (data.street || formatted.split(',')[0] || '').trim();
+      const nextCity = (data.city || '').trim();
+      const nextState = (data.state || parsed.state || '').trim();
+      const nextZip = ((data.zip || parsed.zip || '').match(/\d{5}/) || [''])[0];
+
+      setAddress(nextStreet || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      setCity(nextCity);
+      setState(nextState);
+      setZip(nextZip);
+      setFieldsUnlocked(true);
+
+      if (!nextCity || !nextState || !nextZip) {
+        setError(
+          'Pin set — complete any missing city / state / ZIP below, then tap Confirm This Location.'
+        );
+      }
+    } catch {
+      setError(
+        'Address lookup timed out — keep the pin, fill city / state / ZIP below, then confirm.'
+      );
+      setFieldsUnlocked(true);
+      if (!address) setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const applyPin = async (latitude: number, longitude: number) => {
+    latLngRef.current = { lat: latitude, lng: longitude };
+    setLat(latitude);
+    setLng(longitude);
+    setMapVisible(true);
+    setUseManualEntry(false);
+    placeMarker(latitude, longitude);
+    await reverseGeocode(latitude, longitude);
+  };
+
+  const handleAutoDetect = () => {
+    setLoading(true);
+    setError('');
+    setLocationConfirmed(false);
 
     if (!navigator.geolocation) {
-      setError('Geolocation not supported in your browser');
+      setError('Geolocation not supported — click the map or use Manual Entry.');
+      setMapVisible(true);
+      setUseManualEntry(false);
       setLoading(false);
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
-        setLat(latitude);
-        setLng(longitude);
-        reverseGeocode(latitude, longitude);
-        setMapVisible(true);
+        void applyPin(position.coords.latitude, position.coords.longitude);
       },
       () => {
-        setError(`Location access denied. Try clicking the map to pick a location.`);
+        setError('Location access denied — click the map to pick a site, or use Manual Entry.');
         setMapVisible(true);
+        setUseManualEntry(false);
         setLoading(false);
-      }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
     );
   };
 
-  // Reverse geocode coordinates to address
-  const reverseGeocode = async (latitude: number, longitude: number) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`
-      );
-      const data = await response.json();
-
-      const addr = data.address;
-      setAddress(data.name || addr.road || addr.house_number || `${latitude}, ${longitude}`);
-      setCity(addr.city || addr.town || addr.village || '');
-      setState(addr.state || '');
-      setZip(addr.postcode || '');
-      setLoading(false);
-    } catch {
-      setError('Could not determine address from coordinates');
-      setLoading(false);
-    }
-  };
-
-  // Initialize map (only when visible and not collapsed by results modal)
+  // Initialize map once when visible
   useEffect(() => {
     if (collapseMap || !mapVisible || !mapContainer.current || mapRef.current) return;
-
-    const loadLeaflet = async () => {
-      const L = (window as any).L;
-      if (!L) {
-        if (!document.querySelector('link[data-rg-leaflet]')) {
-          const cssLink = document.createElement('link');
-          cssLink.rel = 'stylesheet';
-          cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-          cssLink.setAttribute('data-rg-leaflet', '1');
-          document.head.appendChild(cssLink);
-        }
-
-        if (!document.querySelector('script[data-rg-leaflet]')) {
-          const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-          script.setAttribute('data-rg-leaflet', '1');
-          script.onload = () => {
-            initializeMap();
-          };
-          document.body.appendChild(script);
-        } else {
-          const existing = document.querySelector('script[data-rg-leaflet]') as HTMLScriptElement;
-          if ((window as any).L) initializeMap();
-          else existing.addEventListener('load', () => initializeMap(), { once: true });
-        }
-      } else {
-        initializeMap();
-      }
-    };
 
     const initializeMap = () => {
       if (!mapContainer.current || mapRef.current) return;
       const L = (window as any).L;
       if (!L) return;
-      const initialLat = lat || 38.5;
-      const initialLng = lng || -96.5;
+      const seed = latLngRef.current;
+      const initialLat = seed?.lat ?? lat ?? 27.99;
+      const initialLng = seed?.lng ?? lng ?? -82.53;
 
-      const map = L.map(mapContainer.current, {
-        // Prefer non-CSS-transform path where possible to avoid compositor "float" bugs
-        preferCanvas: true,
-      }).setView([initialLat, initialLng], 13);
+      const map = L.map(mapContainer.current, { preferCanvas: true }).setView(
+        [initialLat, initialLng],
+        seed || (lat && lng) ? 13 : 6
+      );
       mapRef.current = map;
 
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -201,31 +261,15 @@ export function LocationPicker({
         maxZoom: 19,
       }).addTo(map);
 
-      if (lat && lng) {
-        L.marker([lat, lng], {
-          title: 'Selected Location',
-        }).addTo(map);
+      if (seed || (lat != null && lng != null)) {
+        placeMarker(seed?.lat ?? (lat as number), seed?.lng ?? (lng as number));
       }
 
-      map.on('click', async (e: any) => {
+      map.on('click', (e: any) => {
         const { lat: clickLat, lng: clickLng } = e.latlng;
-        setLat(clickLat);
-        setLng(clickLng);
-
-        map.eachLayer((layer: any) => {
-          if (layer instanceof L.Marker) {
-            map.removeLayer(layer);
-          }
-        });
-
-        L.marker([clickLat, clickLng], {
-          title: 'Selected Location',
-        }).addTo(map);
-
-        await reverseGeocode(clickLat, clickLng);
+        void applyPin(clickLat, clickLng);
       });
 
-      // Ensure size is correct after layout
       setTimeout(() => {
         try {
           map.invalidateSize();
@@ -235,24 +279,64 @@ export function LocationPicker({
       }, 100);
     };
 
-    loadLeaflet();
-  }, [mapVisible, lat, lng, collapseMap]);
-
-  const handleConfirmLocation = () => {
-    if (!address || !city || !state || !zip || lat === null || lng === null) {
-      setError('Please select a valid location with ZIP code');
+    const L = (window as any).L;
+    if (L) {
+      initializeMap();
       return;
     }
-    const fullAddress = `${address}, ${city}, ${state} ${zip}`;
-    onLocationSelect(fullAddress, city, state, zip, lat, lng);
+
+    if (!document.querySelector('link[data-rg-leaflet]')) {
+      const cssLink = document.createElement('link');
+      cssLink.rel = 'stylesheet';
+      cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      cssLink.setAttribute('data-rg-leaflet', '1');
+      document.head.appendChild(cssLink);
+    }
+
+    const existing = document.querySelector('script[data-rg-leaflet]') as HTMLScriptElement | null;
+    if (existing) {
+      if ((window as any).L) initializeMap();
+      else existing.addEventListener('load', () => initializeMap(), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    script.setAttribute('data-rg-leaflet', '1');
+    script.onload = () => initializeMap();
+    document.body.appendChild(script);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapVisible, collapseMap]);
+
+  // Keep marker in sync after map exists
+  useEffect(() => {
+    if (lat != null && lng != null && mapRef.current) {
+      placeMarker(lat, lng);
+    }
+  }, [lat, lng]);
+
+  const handleConfirmLocation = () => {
+    const zip5 = (zip || '').replace(/\D/g, '').slice(0, 5);
+    if (!address.trim() || !city.trim() || !state.trim() || zip5.length !== 5) {
+      setError('Fill street, city, state, and 5-digit ZIP, then confirm.');
+      setFieldsUnlocked(true);
+      return;
+    }
+    if (lat === null || lng === null) {
+      setError('Click the map (or Auto-Detect) to set a pin first.');
+      return;
+    }
+    const fullAddress = `${address.trim()}, ${city.trim()}, ${state.trim()} ${zip5}`;
+    onLocationSelect(fullAddress, city.trim(), state.trim(), zip5, lat, lng);
     setLocationConfirmed(true);
+    setError('');
   };
 
   const showMapUi = mapVisible && !collapseMap;
+  const pinReady = lat != null && lng != null;
 
   return (
     <div className="space-y-4 relative" style={{ position: 'relative', zIndex: 0, transform: 'none' }}>
-      {/* Pin Leaflet panes inside the shell — never sticky/fixed to the viewport */}
       <style>{`
         .rg-location-map-shell,
         .rg-location-map-shell .leaflet-container {
@@ -283,11 +367,13 @@ export function LocationPicker({
         }
       `}</style>
 
-      {/* Manual Entry Toggle */}
       <div className="flex gap-2">
         <button
           type="button"
-          onClick={() => setUseManualEntry(false)}
+          onClick={() => {
+            setUseManualEntry(false);
+            setMapVisible(true);
+          }}
           disabled={disabled}
           className={`flex-1 px-4 py-2 rounded-lg font-bold transition ${
             !useManualEntry
@@ -312,7 +398,6 @@ export function LocationPicker({
         </button>
       </div>
 
-      {/* Manual Entry */}
       {useManualEntry && (
         <div className="space-y-4">
           <div>
@@ -321,7 +406,10 @@ export function LocationPicker({
               type="text"
               name="rg_street"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                setLocationConfirmed(false);
+              }}
               onFocus={unlockFields}
               placeholder="Street address"
               autoComplete="off"
@@ -343,16 +431,16 @@ export function LocationPicker({
                 type="text"
                 name="rg_city"
                 value={city}
-                onChange={(e) => setCity(e.target.value)}
+                onChange={(e) => {
+                  setCity(e.target.value);
+                  setLocationConfirmed(false);
+                }}
                 onFocus={unlockFields}
                 placeholder="City"
                 autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
                 readOnly={!fieldsUnlocked}
                 data-lpignore="true"
                 data-1p-ignore="true"
-                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -363,16 +451,16 @@ export function LocationPicker({
                 type="text"
                 name="rg_state"
                 value={state}
-                onChange={(e) => setState(e.target.value)}
+                onChange={(e) => {
+                  setState(e.target.value);
+                  setLocationConfirmed(false);
+                }}
                 onFocus={unlockFields}
                 placeholder="State"
                 autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
                 readOnly={!fieldsUnlocked}
                 data-lpignore="true"
                 data-1p-ignore="true"
-                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -383,16 +471,17 @@ export function LocationPicker({
                 type="text"
                 name="rg_zip"
                 value={zip}
-                onChange={(e) => setZip(e.target.value)}
+                onChange={(e) => {
+                  setZip(e.target.value);
+                  setLocationConfirmed(false);
+                }}
                 onFocus={unlockFields}
                 placeholder="ZIP"
                 autoComplete="off"
                 inputMode="numeric"
-                spellCheck={false}
                 readOnly={!fieldsUnlocked}
                 data-lpignore="true"
                 data-1p-ignore="true"
-                data-form-type="other"
                 disabled={disabled}
                 className="w-full px-4 py-3 bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
               />
@@ -401,13 +490,21 @@ export function LocationPicker({
           <button
             type="button"
             onClick={() => {
-              if (address && city && state && zip) {
-                const fullAddress = `${address}, ${city}, ${state} ${zip}`;
-                onLocationSelect(fullAddress, city, state, zip, 0, 0);
+              const zip5 = zip.replace(/\D/g, '').slice(0, 5);
+              if (address && city && state && zip5.length === 5) {
+                onLocationSelect(
+                  `${address}, ${city}, ${state} ${zip5}`,
+                  city,
+                  state,
+                  zip5,
+                  lat ?? 0,
+                  lng ?? 0
+                );
                 setLocationConfirmed(true);
+                setError('');
               }
             }}
-            disabled={disabled || !address || !city || !state || !zip}
+            disabled={disabled || !address || !city || !state || zip.replace(/\D/g, '').length < 5}
             className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Confirm Address
@@ -415,7 +512,6 @@ export function LocationPicker({
         </div>
       )}
 
-      {/* Map / Auto-Detect */}
       {!useManualEntry && (
         <div className="space-y-4 relative" style={{ position: 'relative', zIndex: 0 }}>
           <button
@@ -425,13 +521,13 @@ export function LocationPicker({
             className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg transition shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Navigation className="w-4 h-4" />
-            {loading ? 'Detecting...' : 'Auto-Detect My Location'}
+            {loading ? 'Detecting / reading address…' : 'Auto-Detect My Location'}
           </button>
 
           {error && (
-            <div className="flex gap-3 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-300 text-sm">{error}</p>
+            <div className="flex gap-3 p-4 bg-amber-500/15 border border-amber-500/35 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" />
+              <p className="text-amber-100 text-sm">{error}</p>
             </div>
           )}
 
@@ -448,48 +544,86 @@ export function LocationPicker({
                 className="rg-location-map-shell w-full h-80 rounded-lg border border-purple-500/30 bg-slate-700"
                 style={MAP_SHELL_STYLE}
               />
-              <p className="text-gray-400 text-sm text-center">Click on the map to select your location</p>
+              <p className="text-gray-400 text-sm text-center">
+                Click the map to drop a pin — then confirm below
+              </p>
 
-              {address && city && state && zip && (
-                <>
-                  <fieldset className="bg-slate-700/50 p-4 rounded-lg border border-purple-500/30 space-y-2">
-                    <legend className="sr-only">Selected Location Details</legend>
-                    <div className="text-gray-300">
-                      <label className="text-gray-400">Address:</label> {address}
+              {/* Always show confirm panel once a pin exists (even if geocode incomplete) */}
+              {pinReady && (
+                <div className="bg-slate-700/50 p-4 rounded-lg border border-purple-500/30 space-y-3">
+                  <p className="text-sm font-bold text-white">Selected pin</p>
+                  <p className="text-xs text-gray-400">
+                    Coordinates: {lat!.toFixed(5)}, {lng!.toFixed(5)}
+                  </p>
+                  <div>
+                    <label className="block text-gray-300 text-xs font-semibold mb-1">Street *</label>
+                    <input
+                      type="text"
+                      value={address}
+                      onChange={(e) => {
+                        setAddress(e.target.value);
+                        setLocationConfirmed(false);
+                      }}
+                      onFocus={unlockFields}
+                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                      placeholder="Street or place name"
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-gray-300 text-xs font-semibold mb-1">City *</label>
+                      <input
+                        type="text"
+                        value={city}
+                        onChange={(e) => {
+                          setCity(e.target.value);
+                          setLocationConfirmed(false);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                      />
                     </div>
-                    <div className="text-gray-300">
-                      <label className="text-gray-400">City:</label> {city}
+                    <div>
+                      <label className="block text-gray-300 text-xs font-semibold mb-1">State *</label>
+                      <input
+                        type="text"
+                        value={state}
+                        onChange={(e) => {
+                          setState(e.target.value);
+                          setLocationConfirmed(false);
+                        }}
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                        placeholder="FL"
+                      />
                     </div>
-                    <div className="text-gray-300">
-                      <label className="text-gray-400">State:</label> {state}
+                    <div>
+                      <label className="block text-gray-300 text-xs font-semibold mb-1">ZIP *</label>
+                      <input
+                        type="text"
+                        value={zip}
+                        onChange={(e) => {
+                          setZip(e.target.value);
+                          setLocationConfirmed(false);
+                        }}
+                        inputMode="numeric"
+                        className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+                        placeholder="34201"
+                      />
                     </div>
-                    <div className="text-gray-300">
-                      <label className="text-gray-400">ZIP:</label> {zip}
-                    </div>
-                    {lat && lng && (
-                      <div className="text-gray-400 text-xs">
-                        Coordinates: {lat.toFixed(4)}, {lng.toFixed(4)}
-                      </div>
-                    )}
-                  </fieldset>
+                  </div>
 
-                  {!locationConfirmed && (
+                  {!locationConfirmed ? (
                     <button
                       type="button"
                       onClick={handleConfirmLocation}
-                      disabled={disabled}
+                      disabled={disabled || loading}
                       className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Confirm This Location
                     </button>
+                  ) : (
+                    <div className="text-center text-green-400 font-bold">✓ Location confirmed</div>
                   )}
-
-                  {locationConfirmed && (
-                    <div className="text-center text-green-400 font-bold">
-                      ✓ Location confirmed
-                    </div>
-                  )}
-                </>
+                </div>
               )}
             </div>
           )}
