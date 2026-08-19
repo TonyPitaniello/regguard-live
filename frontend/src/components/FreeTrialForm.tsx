@@ -174,7 +174,9 @@ export default function FreeTrialForm({
     setProgressStep('geocode');
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
-      setError('Please confirm the address or finish filling in all fields of the address');
+      setError(
+        'Confirm the map pin (green “Confirm This Location”) or finish Manual Entry — street, city, state, ZIP, and email are required.'
+      );
       setLoading(false);
       return;
     }
