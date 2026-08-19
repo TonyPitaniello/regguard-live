@@ -87,6 +87,11 @@ class TestSMSMessageFormatting:
         assert "Report:" in message or "app.regguardagent.com" in message
         # Timeline may be omitted in short receipt format
         assert "RegGuard" in message
+        # Carrier-safe: no emoji / pictographs
+        assert "💰" not in message and "⚠️" not in message
+        from sms_service import _strip_emoji
+
+        assert message == _strip_emoji(message)
 
     def test_message_length_reasonable(self):
         service = TwilioSMSService("test", "test", "+1234567890")
@@ -170,3 +175,32 @@ class TestSMSErrors:
         
         with pytest.raises(SMSValidationError):
             await service.send_sms("invalid", research_data, "user-123")
+
+
+class TestTwilioErrorSurfacing:
+    def test_strip_emoji(self):
+        from sms_service import _strip_emoji
+
+        assert _strip_emoji("Risk ⚠️ High 💰 $1") == "Risk High $1"
+        assert "emoji" in _strip_emoji("plain emoji text")
+
+    def test_twilio_user_message_known_codes(self):
+        from sms_service import twilio_user_message
+
+        msg = twilio_user_message(21608, "unverified")
+        assert "21608" in msg
+        assert "verified" in msg.lower() or "trial" in msg.lower()
+
+        msg34 = twilio_user_message(30034, "")
+        assert "30034" in msg34
+        assert "A2P" in msg34 or "10DLC" in msg34
+
+    def test_extract_code_from_text(self):
+        from sms_service import _extract_twilio_code, SMSDeliveryError
+
+        code, _ = _extract_twilio_code(Exception("Twilio rejected SMS (code 21608): unverified"))
+        assert code == 21608
+
+        err = SMSDeliveryError("x", twilio_code=30007, user_message="filtered")
+        assert err.twilio_code == 30007
+        assert err.user_message == "filtered"

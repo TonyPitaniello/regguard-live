@@ -3700,6 +3700,25 @@ def _resolve_research_data(
     )
 
 
+def _sms_failure_http(result: Dict[str, Any]) -> None:
+    """Raise HTTPException with structured detail so the UI can show Twilio codes."""
+    err = str(result.get("error") or "Failed to send SMS")
+    twilio_code = result.get("twilio_code")
+    detail: Dict[str, Any] = {"message": err}
+    if twilio_code is not None:
+        try:
+            detail["twilio_code"] = int(twilio_code)
+        except (TypeError, ValueError):
+            detail["twilio_code"] = twilio_code
+    low = err.lower()
+    if "rate limit" in low:
+        raise HTTPException(status_code=429, detail=detail)
+    if "not configured" in low:
+        raise HTTPException(status_code=503, detail=detail)
+    # Trial / A2P / carrier — still 400 so FE can show code + Open in Messages
+    raise HTTPException(status_code=400, detail=detail)
+
+
 @app.post("/research/send-sms", tags=["Results"])
 async def send_result_sms_standalone(
     request: Request,
@@ -3725,24 +3744,26 @@ async def send_result_sms_standalone(
         )
 
         if result["status"] == "failed":
-            err = result.get("error", "Failed to send SMS")
-            if "rate limit" in str(err).lower():
-                raise HTTPException(status_code=429, detail=str(err))
-            if "not configured" in str(err).lower() or "twilio" in str(err).lower():
-                raise HTTPException(status_code=503, detail=str(err))
-            raise HTTPException(status_code=400, detail=err)
+            _sms_failure_http(result)
 
         return {
-            "status": "sent",
+            "status": "accepted",
             "message_id": result.get("message_id"),
             "phone": result.get("phone"),
             "delivery_id": result.get("delivery_id"),
+            "note": (
+                "Handed to Twilio (queued). This is not confirmation the phone received it — "
+                "trial accounts only deliver to verified numbers."
+            ),
         }
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error sending SMS: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Failed to send SMS: {str(e)}"},
+        )
 
 
 @app.post("/research/send-email", tags=["Results"])
@@ -3827,25 +3848,27 @@ async def send_result_sms(
         )
 
         if result["status"] == "failed":
-            err = result.get("error", "Failed to send SMS")
-            if "rate limit" in str(err).lower():
-                raise HTTPException(status_code=429, detail=str(err))
-            if "not configured" in str(err).lower() or "twilio" in str(err).lower():
-                raise HTTPException(status_code=503, detail=str(err))
-            raise HTTPException(status_code=400, detail=err)
+            _sms_failure_http(result)
 
         return {
-            "status": "sent",
+            "status": "accepted",
             "message_id": result.get("message_id"),
             "phone": result.get("phone"),
             "delivery_id": result.get("delivery_id"),
+            "note": (
+                "Handed to Twilio (queued). This is not confirmation the phone received it — "
+                "trial accounts only deliver to verified numbers."
+            ),
         }
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error sending SMS: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to send SMS: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"message": f"Failed to send SMS: {str(e)}"},
+        )
 
 
 @app.post("/research/{research_id}/send-email", tags=["Results"])

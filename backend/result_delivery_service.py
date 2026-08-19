@@ -11,7 +11,12 @@ from typing import Dict, Any, Optional
 from uuid import UUID
 import uuid
 
-from sms_service import get_sms_service, SMSValidationError, SMSRateLimitError
+from sms_service import (
+    get_sms_service,
+    SMSValidationError,
+    SMSRateLimitError,
+    SMSDeliveryError,
+)
 from email_service import get_email_service
 
 logger = logging.getLogger(__name__)
@@ -259,6 +264,24 @@ class ResultDeliveryService:
                 "status": "failed",
                 "error": str(e),
             }
+
+        except SMSDeliveryError as e:
+            logger.error(f"SMS delivery error: {e.user_message}")
+            await self.track_delivery(
+                research_id=research_id,
+                user_id=user_id,
+                delivery_method="sms",
+                destination=phone_number,
+                status="failed",
+                error_message=e.user_message,
+            )
+            out: Dict[str, Any] = {
+                "status": "failed",
+                "error": e.user_message,
+            }
+            if e.twilio_code is not None:
+                out["twilio_code"] = e.twilio_code
+            return out
 
         except Exception as e:
             logger.error(f"Error sending SMS: {str(e)}")

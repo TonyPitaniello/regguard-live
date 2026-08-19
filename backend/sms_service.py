@@ -7,11 +7,27 @@ import os
 import logging
 import re
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from datetime import datetime, timedelta
 import uuid
 
 logger = logging.getLogger(__name__)
+
+# Common Twilio Messaging error codes → contractor-facing copy
+_TWILIO_USER_HINTS: Dict[int, str] = {
+    20003: "Twilio auth failed — check TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN on the server.",
+    21211: "That phone number looks invalid. Use a 10-digit US mobile number.",
+    21408: "SMS is not enabled for this region on the Twilio account.",
+    21608: "Twilio trial can only text verified numbers. Verify this phone in Twilio Console, or upgrade the account.",
+    21610: "This number has opted out of SMS (STOP). Ask them to reply START, or use email.",
+    21614: "That number cannot receive SMS (landline or invalid mobile).",
+    30003: "Carrier could not reach the handset (unreachable).",
+    30005: "Unknown handset — number may be disconnected.",
+    30006: "Landline or unreachable carrier — try a mobile number.",
+    30007: "Carrier filtered the message (spam/A2P). Register US A2P 10DLC or use Open in Messages.",
+    30008: "Carrier reported an unknown delivery error.",
+    30034: "US A2P 10DLC not registered — carriers often block these texts until brand/campaign approval.",
+}
 
 
 class SMSValidationError(Exception):
@@ -22,6 +38,66 @@ class SMSValidationError(Exception):
 class SMSRateLimitError(Exception):
     """Raised when SMS rate limit is exceeded"""
     pass
+
+
+class SMSDeliveryError(Exception):
+    """Twilio (or config) rejected the send — includes optional numeric error code."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        twilio_code: Optional[int] = None,
+        user_message: Optional[str] = None,
+    ):
+        super().__init__(message)
+        self.twilio_code = twilio_code
+        self.user_message = user_message or message
+
+
+def _strip_emoji(text: str) -> str:
+    """Remove emoji / pictographs so carriers don't filter plain SMS bodies."""
+    if not text:
+        return ""
+    # BMP symbols + supplemental emoji ranges + variation selectors / ZWJ
+    cleaned = re.sub(
+        r"[\U0001F300-\U0001FAFF\U00002700-\U000027BF\U00002600-\U000026FF"
+        r"\U0001F1E0-\U0001F1FF\U0000FE00-\U0000FE0F\U0000200D\U000020E3]",
+        "",
+        text,
+    )
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned.strip()
+
+
+def twilio_user_message(code: Optional[int], raw: str = "") -> str:
+    """Map Twilio error code to a clear user-facing sentence."""
+    if code is not None and code in _TWILIO_USER_HINTS:
+        hint = _TWILIO_USER_HINTS[code]
+        return f"Twilio error {code}: {hint}"
+    if code is not None:
+        base = (raw or "delivery failed").strip()
+        return f"Twilio error {code}: {base}"
+    return (raw or "SMS delivery failed").strip()
+
+
+def _extract_twilio_code(exc: BaseException) -> Tuple[Optional[int], str]:
+    """Pull numeric code + message from Twilio RestException or plain Exception."""
+    code = getattr(exc, "code", None)
+    if code is None:
+        code = getattr(exc, "status", None)
+    try:
+        code_i = int(code) if code is not None else None
+    except (TypeError, ValueError):
+        code_i = None
+    msg = str(getattr(exc, "msg", None) or getattr(exc, "message", None) or exc).strip()
+    # Also parse "Twilio rejected SMS (code 21608): ..."
+    if code_i is None:
+        m = re.search(r"(?:code|error)\s*[:=]?\s*(\d{4,5})", msg, re.I)
+        if m:
+            code_i = int(m.group(1))
+    return code_i, msg
 
 
 class SMSService:
@@ -121,7 +197,7 @@ class TwilioSMSService(SMSService):
         risk_verified = honesty.get("risk_verified") is True
         cost_tag = "~" if unverified else ""
         risk_line = (
-            f"⚠️  {high_risk} High Risks\n"
+            f"{high_risk} High Risks\n"
             if risk_verified
             else "Risk score: unavailable (preview)\n"
         )
@@ -139,14 +215,14 @@ class TwilioSMSService(SMSService):
         killer_bits = []
         for k in killers[:2]:
             if isinstance(k, dict) and k.get("title"):
-                killer_bits.append(str(k["title"])[:48])
+                killer_bits.append(_strip_emoji(str(k["title"]))[:48])
         killer_line = ("; ".join(killer_bits) + "\n") if killer_bits else ""
 
         message = (
             f"RegGuard Bid Risk: {city}, {state} {zip_code}\n"
             f"{risk_line}"
             f"{killer_line}"
-            f"💰 {cost_tag}${total_cost:,.0f}"
+            f"{cost_tag}${total_cost:,.0f}"
             f"{' (est.)' if unverified else ''}\n"
             f"Report: {share or 'https://app.regguardagent.com/'}"
         )
@@ -158,7 +234,7 @@ class TwilioSMSService(SMSService):
                 f"{share or 'https://app.regguardagent.com/'}"
             )
 
-        return message
+        return _strip_emoji(message)
 
     async def send_sms(
         self,
@@ -183,21 +259,26 @@ class TwilioSMSService(SMSService):
 
         Raises:
             SMSValidationError: If validation fails
-            Exception: If Twilio API fails
+            SMSDeliveryError: If Twilio rejects / fails the send
         """
         if not self.twilio_client:
-            raise Exception("Twilio client not initialized")
+            raise SMSDeliveryError(
+                "Twilio client not initialized",
+                user_message=(
+                    "SMS not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and "
+                    "TWILIO_FROM_NUMBER on the server."
+                ),
+            )
 
         # Validate and normalize phone number
         normalized_phone = self._validate_phone_number(phone_number)
 
-        # Format message
+        # Format message (plain text — no emoji)
         message_body = self._format_sms_message(research_data)
 
         logger.info(f"Sending SMS to {normalized_phone} for user {user_id}")
 
         try:
-            # Send message via Twilio
             message = await asyncio.to_thread(
                 self.twilio_client.messages.create,
                 body=message_body,
@@ -205,26 +286,38 @@ class TwilioSMSService(SMSService):
                 to=normalized_phone,
             )
 
-            logger.info(f"SMS sent successfully: {message.sid}")
+            logger.info(f"SMS accepted by Twilio: {message.sid}")
 
             err_code = getattr(message, "error_code", None)
             err_msg = getattr(message, "error_message", None) or ""
             if err_code:
-                raise Exception(
-                    f"Twilio rejected SMS (code {err_code}): {err_msg or 'delivery failed'}. "
-                    "If this is a Twilio trial account, verify the destination number in Twilio Console "
-                    "or upgrade the account."
+                try:
+                    code_i = int(err_code)
+                except (TypeError, ValueError):
+                    code_i = None
+                user = twilio_user_message(code_i, err_msg)
+                raise SMSDeliveryError(
+                    f"Twilio rejected SMS (code {err_code}): {err_msg or 'delivery failed'}",
+                    twilio_code=code_i,
+                    user_message=user,
                 )
 
             return {
-                "status": "sent",
+                "status": "accepted",  # Twilio queued — not handset-confirmed
                 "message_id": message.sid,
                 "phone": normalized_phone,
+                "twilio_status": getattr(message, "status", None) or "queued",
             }
 
-        except Exception as e:
-            logger.error(f"Failed to send SMS to {normalized_phone}: {str(e)}")
+        except SMSDeliveryError:
             raise
+        except SMSValidationError:
+            raise
+        except Exception as e:
+            code_i, raw = _extract_twilio_code(e)
+            user = twilio_user_message(code_i, raw)
+            logger.error(f"Failed to send SMS to {normalized_phone}: {user}")
+            raise SMSDeliveryError(raw or str(e), twilio_code=code_i, user_message=user) from e
 
 
 class MockSMSService(SMSService):
@@ -297,9 +390,12 @@ class UnconfiguredSMSService(SMSService):
         research_data: Dict[str, Any],
         user_id: str,
     ) -> Dict[str, str]:
-        raise Exception(
-            "SMS not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and "
-            "TWILIO_FROM_NUMBER (or TWILIO_PHONE_NUMBER) on the server."
+        raise SMSDeliveryError(
+            "SMS not configured",
+            user_message=(
+                "SMS not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and "
+                "TWILIO_FROM_NUMBER (or TWILIO_PHONE_NUMBER) on the server."
+            ),
         )
 
 

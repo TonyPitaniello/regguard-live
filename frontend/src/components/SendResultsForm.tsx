@@ -1,7 +1,7 @@
 /**
  * Dual phone + email send form for research results.
  * Email: try API first, then auto-fallback to mailto so delivery always works.
- * SMS: try Twilio API; on failure show clear message + "Open in Messages" (no auto-open).
+ * SMS: try Twilio API; on failure show Twilio code + "Open in Messages" (no auto-open).
  */
 
 import { useState, useEffect } from 'react';
@@ -30,6 +30,33 @@ interface SendResultsFormProps {
   defaultEmail?: string;
   defaultPhone?: string;
   compact?: boolean;
+}
+
+/** FastAPI may return detail as string or { message, twilio_code }. */
+function parseApiDetail(errBody: unknown): { message: string; twilioCode?: number } {
+  if (!errBody || typeof errBody !== 'object') return { message: '' };
+  const detail = (errBody as { detail?: unknown }).detail;
+  if (typeof detail === 'string') return { message: detail };
+  if (detail && typeof detail === 'object') {
+    const d = detail as { message?: unknown; twilio_code?: unknown; msg?: unknown };
+    const message = String(d.message || d.msg || '').trim();
+    let twilioCode: number | undefined;
+    if (d.twilio_code != null && d.twilio_code !== '') {
+      const n = Number(d.twilio_code);
+      if (!Number.isNaN(n)) twilioCode = n;
+    }
+    return { message, twilioCode };
+  }
+  return { message: '' };
+}
+
+function formatSmsError(message: string, twilioCode?: number): string {
+  if (twilioCode != null && message) {
+    if (new RegExp(`\\b${twilioCode}\\b`).test(message)) return message;
+    return `Twilio error ${twilioCode}: ${message}`;
+  }
+  if (twilioCode != null) return `Twilio error ${twilioCode}. Use Open in Messages as a backup.`;
+  return message || 'Text could not be sent.';
 }
 
 function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData | null, researchId?: string | null): string {
@@ -106,7 +133,7 @@ export default function SendResultsForm({
 
   const validatePhone = (value: string): boolean => {
     const digits = value.replace(/\D/g, '');
-    return digits.length === 10 || digits.length === 11;
+    return digits.length === 10 || (digits.length === 11 && digits.startsWith('1'));
   };
 
   const validateEmail = (value: string): boolean =>
@@ -149,61 +176,66 @@ export default function SendResultsForm({
     setSmsSuccess('');
     setShowSmsNativeFallback(false);
     if (!phone || !validatePhone(phone)) {
-      setError('Please enter a valid US phone number (10 digits)');
+      setError('Enter a valid US mobile number (10 digits, or 1 + 10 digits).');
       return;
     }
     setLoadingSms(true);
     try {
-      // Always use standalone route with analysis/summary (research_id path 404s if not persisted)
       const path = '/research/send-sms';
       const response = await fetch(backendUrl(path), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(buildBody({ phone_number: phone })),
       });
-      if (response.status === 429) {
-        let detail = 'Too many texts — try again in a few minutes.';
+
+      let errBody: unknown = null;
+      if (!response.ok) {
         try {
-          const errBody = await response.json();
-          if (errBody?.detail) detail = String(errBody.detail);
+          errBody = await response.json();
         } catch {
           /* ignore */
         }
-        setError(detail);
+      }
+
+      if (response.status === 429) {
+        const { message, twilioCode } = parseApiDetail(errBody);
+        setError(formatSmsError(message || 'Too many texts — try again in a few minutes.', twilioCode));
+        setShowSmsNativeFallback(true);
         return;
       }
+
       if (response.ok) {
+        let note = '';
+        try {
+          const okBody = await response.json();
+          if (okBody?.note) note = String(okBody.note);
+        } catch {
+          /* ignore */
+        }
         setSmsSuccess(
-          `Text queued to ${formatPhoneDisplay(phone)}. If it doesn’t arrive in ~60s (Twilio trial limits), use Open in Messages.`,
+          note ||
+            `Handed to Twilio for ${formatPhoneDisplay(phone)}. ` +
+              `If nothing arrives in ~60s (trial / unverified numbers often fail quietly), tap Open in Messages.`,
         );
         setShowSmsNativeFallback(true);
         return;
       }
-      let detail = '';
-      try {
-        const errBody = await response.json();
-        if (errBody?.detail) detail = String(errBody.detail);
-      } catch {
-        /* ignore */
-      }
+
+      const { message, twilioCode } = parseApiDetail(errBody);
+      const formatted = formatSmsError(message, twilioCode);
+
       if (response.status === 404) {
-        setError('Text API route missing on the server (backend needs redeploy). Opening Messages…');
-      } else if (/trial|unverified|not configured|twilio/i.test(detail)) {
-        setError(
-          detail ||
-            'Twilio could not deliver (trial accounts only text verified numbers). Opening Messages…',
-        );
+        setError('Text API route missing on the server (backend needs redeploy). Use Open in Messages.');
+      } else if (response.status === 503) {
+        setError(formatted || 'SMS is not configured on the server. Use Open in Messages.');
       } else {
-        setError(detail || 'Server text unavailable. Opening Messages with the receipt…');
+        setError(formatted || 'Server could not send the text. Use Open in Messages.');
       }
+      // Manual fallback only — no auto-open (avoids jumping apps on every Twilio reject)
       setShowSmsNativeFallback(true);
-      openNativeSms(phone);
-      setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
     } catch {
-      setError('Text could not be sent (network error). Opening Messages with the receipt…');
+      setError('Network error — could not reach the text API. Use Open in Messages.');
       setShowSmsNativeFallback(true);
-      openNativeSms(phone);
-      setSmsSuccess(`Opening Messages for ${formatPhoneDisplay(phone)}…`);
     } finally {
       setLoadingSms(false);
     }
@@ -275,8 +307,9 @@ export default function SendResultsForm({
         <h3 className="text-lg font-black text-white">Text or email these results</h3>
       </div>
       <p className="text-sm text-gray-300">
-        Email includes the full punch list + sources + a shareable /r/ link for your GC bid file.
-        Texts send a short summary with the same link.
+        Email includes the full punch list + sources + a shareable link. Texts send a short
+        plain-text summary with the same link. &ldquo;Sent&rdquo; means Twilio accepted the
+        message — not that your phone already got it.
       </p>
 
       {error && (
@@ -331,13 +364,19 @@ export default function SendResultsForm({
           </button>
         </div>
         {showSmsNativeFallback && phone && validatePhone(phone) && (
-          <button
-            type="button"
-            onClick={() => openNativeSms(phone)}
-            className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-emerald-300 border border-emerald-500/40 rounded-lg hover:bg-emerald-500/10 transition"
-          >
-            Open in Messages
-          </button>
+          <div className="space-y-2 pt-1">
+            <p className="text-xs text-gray-400">
+              Twilio trial only delivers to verified numbers. If the text never arrives, open your
+              Messages app with the full receipt pre-filled.
+            </p>
+            <button
+              type="button"
+              onClick={() => openNativeSms(phone)}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-emerald-300 border border-emerald-500/40 rounded-lg hover:bg-emerald-500/10 transition"
+            >
+              Open in Messages
+            </button>
+          </div>
         )}
       </div>
 
