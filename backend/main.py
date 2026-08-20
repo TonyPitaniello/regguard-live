@@ -1709,7 +1709,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         message = "Instant preview ready in the app. Deeper research continues in the background."
         status = "success"
         if paid:
+            # Keep soft-unlock semantics for punch visibility, but do not claim finished Pro depth
             analysis["research_depth"] = "pro_partial"
+            analysis["preview"] = True
+            analysis.setdefault("honesty", {})
+            if isinstance(analysis["honesty"], dict):
+                analysis["honesty"].setdefault("source", "instant")
+            analysis["depth_claim_note"] = (
+                "Instant preview — paid deep research did not finish. "
+                "Not full Contractor Pro depth until map pin + deep path complete."
+            )
 
     # Absolute guarantee: never return without analysis_data
     if not analysis or not isinstance(analysis, dict):
@@ -1735,6 +1744,9 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     # Persist so shareable /r/{id} works even if the client never calls /research/persist
     research_id = trial_id or analysis.get("research_id") or analysis.get("timestamp", "preview")
     try:
+        from research_store import stamp_depth_badge
+
+        analysis = stamp_depth_badge(analysis)
         meta = save_research(analysis, research_id=str(research_id))
         analysis["research_id"] = meta["research_id"]
         analysis["share_url"] = meta["share_url"]
@@ -4314,10 +4326,19 @@ async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     if not data.get("fee_card") or not data.get("margin_killers"):
         data = enrich_analysis_with_arbitrage(data)
+    from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+
+    data = stamp_depth_badge(data)
+    # Persist so PDF CTA can always point at /r/{id}
+    if not resolve_forward_share_url(data, share_url=share_url):
+        meta = save_research(data, research_id=data.get("research_id"))
+        data["research_id"] = meta["research_id"]
+        data["share_url"] = meta["share_url"]
+    resolved = resolve_forward_share_url(data, share_url=share_url)
     path = generate_bid_risk_receipt_pdf(
         data,
         generated_for=str(generated_for) if generated_for else None,
-        share_url=str(share_url) if share_url else None,
+        share_url=resolved or None,
     )
     token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
     _BID_RECEIPT_CACHE[token] = path
@@ -4379,10 +4400,18 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Di
             "artifact": "bid_packet",
         }
 
+    from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+
+    data = stamp_depth_badge(data)
+    if not resolve_forward_share_url(data, share_url=share_url):
+        meta = save_research(data, research_id=data.get("research_id"))
+        data["research_id"] = meta["research_id"]
+        data["share_url"] = meta["share_url"]
+    resolved = resolve_forward_share_url(data, share_url=share_url)
     path = generate_bid_risk_receipt_pdf(
         data,
         generated_for=str(generated_for) if generated_for else None,
-        share_url=str(share_url) if share_url else None,
+        share_url=resolved or None,
     )
     token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
     _BID_RECEIPT_CACHE[token] = path

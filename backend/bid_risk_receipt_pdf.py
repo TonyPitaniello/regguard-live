@@ -124,7 +124,20 @@ def generate_bid_risk_receipt_pdf(
     state = _ascii(str(pi.get("state") or ""))
     zip_code = _ascii(str(pi.get("zip") or ""))
     who = _ascii((generated_for or "").strip() or "Estimator")
-    cta = _ascii((share_url or f"{APP_URL}/?utm_source=bid_receipt").strip())
+    try:
+        from research_store import resolve_forward_share_url
+
+        resolved = resolve_forward_share_url(data, share_url=share_url)
+    except Exception:
+        resolved = (share_url or "").strip()
+        if "utm_source=bid_receipt" in resolved or "/r/" not in resolved:
+            resolved = ""
+    if resolved:
+        cta = _ascii(resolved)
+        cta_line = f"Full shareable report: {cta}"
+    else:
+        cta = ""
+        cta_line = "Full shareable report: unavailable — re-open results in Reg Guard (do not use homepage link)."
 
     killers = data.get("margin_killers")
     if not isinstance(killers, list) or not killers:
@@ -346,7 +359,7 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(*DIM)
-    pdf.multi_cell(CONTENT_W, 3.5, _ascii(f"Recipient: run your own address if needed - {cta}"))
+    pdf.multi_cell(CONTENT_W, 3.5, _ascii(cta_line))
 
     if not output_path:
         out_dir = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data") / "bid_receipts"

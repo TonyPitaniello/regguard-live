@@ -65,8 +65,11 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
   let share =
     (analysis?.share_url || '').trim() ||
     (rid ? `https://app.regguardagent.com/r/${rid}` : 'https://app.regguardagent.com/');
-  if (share.endsWith('/r/') || share.endsWith('/r')) {
-    share = 'https://app.regguardagent.com/';
+  if (share.endsWith('/r/') || share.endsWith('/r') || share.includes('utm_source=bid_receipt')) {
+    share = rid ? `https://app.regguardagent.com/r/${rid}` : '';
+  }
+  if (!share || share === 'https://app.regguardagent.com/') {
+    share = rid ? `https://app.regguardagent.com/r/${rid}` : '';
   }
   const punch = analysis?.punch_list?.punch_list || [];
   const killers = analysis?.margin_killers || [];
@@ -101,7 +104,9 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
       return `${i + 1}. [${item.priority}] ${item.task}${cost}`;
     }),
     '',
-    `Full shareable report: ${share}`,
+    share
+      ? `Full shareable report: ${share}`
+      : 'Full shareable report: unavailable — open results in Reg Guard (not the homepage form).',
   ].filter(Boolean);
   return lines.join('\n');
 }

@@ -75,8 +75,12 @@ export default function SharedReportPage() {
         <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
         <h1 className="text-2xl font-black text-white">Report unavailable</h1>
         <p className="text-gray-300 text-sm">{error || 'This link may have expired.'}</p>
-        <Link to="/" className="inline-flex text-sm font-semibold text-purple-300 hover:text-purple-200">
-          Run a new site lookup
+        <p className="text-gray-400 text-xs">
+          This page does not open the address form. If you expected results here, ask the sender to
+          re-share from Reg Guard results (the link must look like /r/…uuid…).
+        </p>
+        <Link to="/jobs" className="inline-flex text-sm font-semibold text-purple-300 hover:text-purple-200">
+          Open saved jobs
         </Link>
       </div>
     );

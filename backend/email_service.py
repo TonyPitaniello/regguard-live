@@ -44,11 +44,36 @@ def build_research_result_html(research_data: dict) -> str:
 
     share = str(research_data.get("share_url") or "").strip()
     rid = research_data.get("research_id")
-    if not share and rid:
-        share = f"{_app_base_url()}/r/{rid}"
-    if not share or share.endswith("/r/"):
-        share = f"{_app_base_url()}/"
-    share_esc = html_lib.escape(share)
+    try:
+        from research_store import resolve_forward_share_url
+
+        share = resolve_forward_share_url(research_data, share_url=share, research_id=rid)
+    except Exception:
+        if not share and rid:
+            share = f"{_app_base_url()}/r/{rid}"
+        if (
+            not share
+            or share.endswith("/r/")
+            or share.endswith("/r")
+            or "utm_source=bid_receipt" in share
+            or share.rstrip("/").endswith("regguardagent.com")
+        ):
+            share = f"{_app_base_url()}/r/{rid}" if rid else ""
+    share_esc = html_lib.escape(share) if share else ""
+    share_cta_html = (
+        f"""
+                            <a href="{share_esc}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
+                                Open shareable report
+                            </a>
+                            <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;word-break:break-all;">{share_esc}</p>
+"""
+        if share_esc
+        else """
+                            <p style="margin:0;font-size:13px;color:#b45309;font-weight:600;">
+                                Share link unavailable — open your results in the Reg Guard app (this email will not send you to the homepage form).
+                            </p>
+"""
+    )
 
     punch_rows = []
     for i, item in enumerate(punch[:8], 1):
@@ -144,10 +169,7 @@ def build_research_result_html(research_data: dict) -> str:
                     </tr>
                     <tr>
                         <td style="padding: 30px; text-align: center;">
-                            <a href="{share_esc}" style="display: inline-block; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 14px;">
-                                Open shareable report
-                            </a>
-                            <p style="margin:12px 0 0 0;font-size:12px;color:#6b7280;word-break:break-all;">{share_esc}</p>
+                            {share_cta_html}
                         </td>
                     </tr>
                     <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">

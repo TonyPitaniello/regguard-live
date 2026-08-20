@@ -63,6 +63,123 @@ def share_url_for(research_id: str) -> str:
     return f"{app_base_url()}/r/{research_id}"
 
 
+def is_valid_forward_share_url(url: Optional[str]) -> bool:
+    """True only for a real /r/{id} link — never bare homepage or utm landing."""
+    u = (url or "").strip()
+    if not u:
+        return False
+    low = u.lower()
+    if "utm_source=bid_receipt" in low:
+        return False
+    if "/r/" not in low:
+        return False
+    if low.rstrip("/").endswith("/r"):
+        return False
+    # Must have something after /r/
+    try:
+        after = low.split("/r/", 1)[1]
+    except IndexError:
+        return False
+    rid = after.split("?", 1)[0].split("#", 1)[0].strip("/")
+    return bool(rid) and rid not in ("ephemeral",)
+
+
+def resolve_forward_share_url(
+    analysis: Optional[Dict[str, Any]] = None,
+    *,
+    share_url: Optional[str] = None,
+    research_id: Optional[str] = None,
+) -> str:
+    """
+    Canonical forwardable report URL for email + PDF CTAs.
+    Never returns the marketing homepage (/ or /?utm...).
+    """
+    for candidate in (share_url, (analysis or {}).get("share_url")):
+        if is_valid_forward_share_url(str(candidate or "")):
+            return str(candidate).strip()
+
+    rid = (research_id or (analysis or {}).get("research_id") or "").strip()
+    if rid and not rid.startswith("ephemeral-") and rid.lower() not in ("preview", "unknown"):
+        cleaned = re.sub(r"[^a-zA-Z0-9_\-]", "", rid)[:80]
+        if cleaned:
+            return share_url_for(cleaned)
+    return ""
+
+
+def has_usable_coords(analysis: Optional[Dict[str, Any]]) -> bool:
+    """True when project has real (non–Null Island) coordinates for GIS."""
+    if not isinstance(analysis, dict):
+        return False
+    pi = analysis.get("project_info") or {}
+    pairs = [
+        (analysis.get("latitude"), analysis.get("longitude")),
+        (analysis.get("lat"), analysis.get("lng")),
+        (pi.get("latitude"), pi.get("longitude")),
+        (pi.get("lat"), pi.get("lng")),
+    ]
+    for lat_raw, lng_raw in pairs:
+        try:
+            lat = float(lat_raw)
+            lng = float(lng_raw)
+        except (TypeError, ValueError):
+            continue
+        if abs(lat) < 1e-6 and abs(lng) < 1e-6:
+            continue
+        if -90.0 <= lat <= 90.0 and -180.0 <= lng <= 180.0:
+            return True
+    return False
+
+
+def is_instant_preview_payload(analysis: Optional[Dict[str, Any]]) -> bool:
+    """True when results are still Instant Preview (not completed deep research)."""
+    if not isinstance(analysis, dict):
+        return True
+    honesty = analysis.get("honesty") or {}
+    src = str(honesty.get("source") or "").strip().lower()
+    if src in ("instant", "preview", "delivery_summary"):
+        return True
+    # Paid timeout / fallback often stamps pro_partial + preview with no GIS pin
+    if analysis.get("preview") and not has_usable_coords(analysis):
+        return True
+    return False
+
+
+def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """Honest depth badge for UI / share — never claim Pro when still instant."""
+    if not isinstance(analysis, dict):
+        return analysis
+    depth = str(analysis.get("research_depth") or "").strip().lower()
+    tier = str(analysis.get("depth_tier") or "").strip().lower()
+    scout = str(analysis.get("scout_mode") or "").strip().lower()
+    instant = is_instant_preview_payload(analysis)
+    coords_ok = has_usable_coords(analysis)
+
+    if tier == "ic_full" and not instant:
+        label = "IC Project — full federal / state / local scout"
+    elif instant or (depth in ("pro", "pro_partial") and not coords_ok):
+        label = "Instant preview — deep research incomplete (not full Pro)"
+        # Keep entitlement unlock semantics, but surface honesty
+        analysis["depth_claim_honest"] = False
+    elif tier == "pro_light" or scout == "light":
+        label = "Contractor Pro — local confirm + light scout"
+        analysis["depth_claim_honest"] = True
+    elif depth == "pro_partial" or tier == "pro_partial":
+        label = "Contractor Pro — partial deep research"
+        analysis["depth_claim_honest"] = True
+    elif tier == "pro_local" or (depth == "pro" and scout in ("", "none")):
+        label = "Contractor Pro — paid local confirm"
+        analysis["depth_claim_honest"] = True
+    elif depth == "pro":
+        label = "Contractor Pro — deep research"
+        analysis["depth_claim_honest"] = True
+    else:
+        label = "Free preview"
+        analysis["depth_claim_honest"] = True
+
+    analysis["depth_badge"] = label
+    return analysis
+
+
 def _strip_pii(obj: Any) -> Any:
     if isinstance(obj, dict):
         out = {}

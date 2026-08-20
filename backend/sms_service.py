@@ -204,11 +204,13 @@ class TwilioSMSService(SMSService):
         share = research_data.get("share_url") or ""
         if not share and research_data.get("research_id"):
             try:
-                from research_store import share_url_for
+                from research_store import resolve_forward_share_url, share_url_for
 
-                share = share_url_for(str(research_data["research_id"]))
+                share = resolve_forward_share_url(research_data) or share_url_for(
+                    str(research_data["research_id"])
+                )
             except Exception:
-                share = "https://app.regguardagent.com/"
+                share = ""
 
         # Prefer share link + short receipt (Twilio concatenates; keep under ~480)
         killers = research_data.get("margin_killers") or []
@@ -218,20 +220,21 @@ class TwilioSMSService(SMSService):
                 killer_bits.append(_strip_emoji(str(k["title"]))[:48])
         killer_line = ("; ".join(killer_bits) + "\n") if killer_bits else ""
 
+        report_line = f"Report: {share}" if share else "Report: open Reg Guard results (share link missing)"
         message = (
             f"RegGuard Bid Risk: {city}, {state} {zip_code}\n"
             f"{risk_line}"
             f"{killer_line}"
             f"{cost_tag}${total_cost:,.0f}"
             f"{' (est.)' if unverified else ''}\n"
-            f"Report: {share or 'https://app.regguardagent.com/'}"
+            f"{report_line}"
         )
 
         if len(message) > 480:
             message = (
                 f"RegGuard {city}, {state}\n"
                 f"{'Est ' if unverified else ''}{cost_tag}${total_cost:,.0f}\n"
-                f"{share or 'https://app.regguardagent.com/'}"
+                f"{share or 'app.regguardagent.com'}"
             )
 
         return _strip_emoji(message)

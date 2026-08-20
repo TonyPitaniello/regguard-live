@@ -11,8 +11,6 @@ import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 
-const APP_URL = 'https://app.regguardagent.com/';
-
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
 const FREE_FINDINGS_VISIBLE = 3;
@@ -46,7 +44,16 @@ export interface AnalysisData {
   preview?: boolean;
   research_depth?: string;
   depth_tier?: string;
+  depth_badge?: string;
+  depth_claim_note?: string;
   scout_mode?: string;
+  honesty?: {
+    risk_verified?: boolean;
+    cost_verified?: boolean;
+    timeline_verified?: boolean;
+    source?: string;
+    labels?: Record<string, string>;
+  };
   upgrade_offer?: {
     message?: string;
     detail?: string;
@@ -347,28 +354,49 @@ interface ResultsViewerModalProps {
   unlockLoading?: boolean;
 }
 
-function freeRunUrl(): string {
-  try {
-    const ref =
-      sessionStorage.getItem('affiliateCode') ||
-      sessionStorage.getItem('referralCode') ||
-      localStorage.getItem('referralCode');
-    if (ref) return `${APP_URL}?ref=${encodeURIComponent(ref)}&utm_source=bid_receipt`;
-  } catch {
-    /* ignore */
-  }
-  return `${APP_URL}?utm_source=bid_receipt`;
-}
-
-/** Canonical shareable report link for social + clipboard. */
+/** Canonical shareable report link for social + clipboard + PDF/email CTAs. Never homepage. */
 function reportShareUrl(analysis: AnalysisData, researchId?: string | null): string {
   const fromAnalysis = (analysis.share_url || '').trim();
-  if (fromAnalysis && !fromAnalysis.endsWith('/r/') && !fromAnalysis.endsWith('/r')) {
+  if (
+    fromAnalysis &&
+    fromAnalysis.includes('/r/') &&
+    !fromAnalysis.endsWith('/r/') &&
+    !fromAnalysis.endsWith('/r') &&
+    !fromAnalysis.includes('utm_source=bid_receipt')
+  ) {
     return fromAnalysis;
   }
   const rid = (researchId || analysis.research_id || '').trim();
-  if (rid) return `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`;
-  return freeRunUrl();
+  if (rid && !rid.startsWith('ephemeral-')) {
+    return `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`;
+  }
+  // Do not fall back to marketing homepage — callers should persist first
+  return '';
+}
+
+function hasUsableCoords(analysis: AnalysisData): boolean {
+  const pi = analysis.project_info || ({} as AnalysisData['project_info']);
+  const pairs: Array<[unknown, unknown]> = [
+    [(analysis as { latitude?: unknown }).latitude, (analysis as { longitude?: unknown }).longitude],
+    [(analysis as { lat?: unknown }).lat, (analysis as { lng?: unknown }).lng],
+    [(pi as { lat?: unknown }).lat, (pi as { lng?: unknown }).lng],
+    [(pi as { latitude?: unknown }).latitude, (pi as { longitude?: unknown }).longitude],
+  ];
+  for (const [la, ln] of pairs) {
+    const lat = Number(la);
+    const lng = Number(ln);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6) continue;
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return true;
+  }
+  return false;
+}
+
+function isInstantPreviewDepth(analysis: AnalysisData): boolean {
+  const src = String(analysis.honesty?.source || '').toLowerCase();
+  if (src === 'instant' || src === 'preview' || src === 'delivery_summary') return true;
+  if (analysis.preview && !hasUsableCoords(analysis)) return true;
+  return false;
 }
 
 /** SMS/chat-forwardable receipt — short, CYA, not an ad. */
@@ -419,8 +447,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
     isDc ? 'Note: AHJ + utility often run parallel (not an interconnect study).' : '',
     `— ${who} · Reg Guard Bid Risk Receipt`,
     `Planning aid only. Confirm with AHJ. Not a filing.`,
-    `Report: ${link}`,
-    `Own site: ${freeRunUrl()}`,
+    link ? `Report: ${link}` : 'Report: open your Reg Guard results (share link missing)',
   ]
     .filter(Boolean)
     .join('\n');
@@ -551,6 +578,10 @@ export default function ResultsViewerModal({
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
 
   const depthBadgeLabel = (() => {
+    if (view.depth_badge) return view.depth_badge;
+    if (isInstantPreviewDepth(view)) {
+      return 'Instant preview — deep research incomplete (not full Pro)';
+    }
     if (depthTier === 'ic_full') return 'IC Project — full federal / state / local scout';
     if (depthTier === 'pro_light' || scoutMode === 'light')
       return 'Contractor Pro — local confirm + light scout';
@@ -661,13 +692,14 @@ export default function ResultsViewerModal({
   const downloadBidReceipt = async () => {
     setPacketLoading(true);
     try {
+      const share = reportShareUrl(view, effectiveResearchId);
       const res = await fetch(backendUrl('/bid-receipt/pdf'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           analysis_data: view,
           generated_for: emailForCheckout || undefined,
-          share_url: freeRunUrl(),
+          ...(share ? { share_url: share } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -884,15 +916,24 @@ export default function ResultsViewerModal({
               {view.project_info.address} • {view.project_info.city},{' '}
               {view.project_info.state} {view.project_info.zip}
             </p>
-            {(view.research_depth === 'pro' || view.research_depth === 'pro_partial' || depthBadgeLabel) && (
-              <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+            {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
+              <p
+                className={`mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide border ${
+                  isInstantPreviewDepth(view)
+                    ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
+                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                }`}
+              >
                 {depthBadgeLabel ||
                   (view.research_depth === 'pro'
                     ? 'Contractor Pro — deep research'
                     : 'Contractor Pro — partial deep research')}
               </p>
             )}
-            {!isDeep && (
+            {view.depth_claim_note && (
+              <p className="mt-1.5 text-xs text-amber-200/90 max-w-2xl">{view.depth_claim_note}</p>
+            )}
+            {!isDeep && !depthBadgeLabel && (
               <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
                 Free preview — citeable pack fees & top punch lines
               </p>
