@@ -94,6 +94,8 @@ export default function FreeTrialForm({
     projectType: preferredType || 'data-center',
     email: '',
     phone: '',
+    lat: null as number | null,
+    lng: null as number | null,
   });
   const [externalLocation, setExternalLocation] = useState<{
     address?: string;
@@ -129,15 +131,21 @@ export default function FreeTrialForm({
     city: string,
     state: string,
     zip: string,
-    _lat: number,
-    _lng: number
+    lat: number,
+    lng: number
   ) => {
+    const usable =
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6);
     setFormData((prev) => ({
       ...prev,
       address,
       city,
       state,
       zip,
+      lat: usable ? lat : null,
+      lng: usable ? lng : null,
     }));
     setError('');
   };
@@ -175,7 +183,7 @@ export default function FreeTrialForm({
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
       setError(
-        'Confirm the map pin (green “Confirm This Location”) or finish Manual Entry — street, city, state, ZIP, and email are required.'
+        'Confirm a site with Places search or the map pin (green Confirm), plus email — street, city, state, and ZIP are required.'
       );
       setLoading(false);
       return;
@@ -282,6 +290,9 @@ export default function FreeTrialForm({
           phone: data.phone || undefined,
           generate_ic_report: generateIcReport,
           ic_idempotency_key: icKey,
+          ...(data.lat != null && data.lng != null
+            ? { latitude: data.lat, longitude: data.lng }
+            : {}),
         }),
       });
       window.clearTimeout(timeoutId);

@@ -23,6 +23,9 @@ class FreeTrialRequest(BaseModel):
     city: Optional[str] = None
     state: Optional[str] = None
     phone: Optional[str] = None
+    # Map pin / Places selection — preferred over server forward-geocode when valid
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     # Explicit opt-in: consume IC Project Report slot for this address
     generate_ic_report: Optional[bool] = False
     # Client-generated key to dedupe double-submit / refresh races (premortem F5)

@@ -9,12 +9,18 @@ import {
 
 const CALLBACK_PREFIX = "__rgGoogleMapsCb_";
 
-/** After a Places selection: formatted line + ZIP + locality for server scout alignment. */
+/** After a Places selection: formatted line + ZIP + locality + coordinates. */
 export type AddressSelection = {
   formattedAddress: string;
   zip: string;
   /** Google Places `locality` (or sublocality) — forwarded as ``client_city`` on research. */
   city?: string;
+  /** USPS state code (administrative_area_level_1). */
+  state?: string;
+  /** street_number + route when available (no city/state/ZIP tail). */
+  street?: string;
+  lat?: number;
+  lng?: number;
 };
 
 export type AddressAutocompleteHandle = {
@@ -65,6 +71,45 @@ function extractLocalityFromPlaceComponents(
   );
   const text = (locality?.longText ?? sub?.longText ?? "").trim();
   return text.length > 0 ? text : null;
+}
+
+function extractStateFromPlaceComponents(
+  components: google.maps.places.AddressComponent[],
+): string | null {
+  const st = components.find((c) => c.types.includes("administrative_area_level_1"));
+  const text = (st?.shortText ?? st?.longText ?? "").trim();
+  return text.length >= 2 ? text.slice(0, 2).toUpperCase() : null;
+}
+
+function extractStreetFromPlaceComponents(
+  components: google.maps.places.AddressComponent[],
+  formatted: string,
+): string {
+  const num = components.find((c) => c.types.includes("street_number"))?.longText?.trim() || "";
+  const route = components.find((c) => c.types.includes("route"))?.longText?.trim() || "";
+  const street = [num, route].filter(Boolean).join(" ").trim();
+  if (street) return street;
+  // Fallback: first comma segment of formatted address
+  return (formatted.split(",")[0] || formatted).trim();
+}
+
+function readPlaceLatLng(place: google.maps.places.Place): { lat?: number; lng?: number } {
+  const loc = place.location as
+    | { lat: () => number; lng: () => number }
+    | { lat: number; lng: number }
+    | null
+    | undefined;
+  if (!loc) return {};
+  try {
+    const lat = typeof loc.lat === "function" ? loc.lat() : Number(loc.lat);
+    const lng = typeof loc.lng === "function" ? loc.lng() : Number(loc.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6)) {
+      return { lat, lng };
+    }
+  } catch {
+    /* ignore */
+  }
+  return {};
 }
 
 export function mapsAutocompleteEnabled(): boolean {
@@ -206,7 +251,7 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
           }
           try {
             await place.fetchFields({
-              fields: ["formattedAddress", "addressComponents"],
+              fields: ["formattedAddress", "addressComponents", "location"],
             });
           } catch {
             lastCommittedAddr.current = null;
@@ -232,11 +277,18 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
             return;
           }
           const cityFromPlace = extractLocalityFromPlaceComponents(comp);
+          const stateFromPlace = extractStateFromPlaceComponents(comp);
+          const streetFromPlace = extractStreetFromPlaceComponents(comp, formatted);
+          const { lat, lng } = readPlaceLatLng(place);
           lastCommittedAddr.current = formatted;
           onSelRef.current({
             formattedAddress: formatted,
             zip,
             ...(cityFromPlace ? { city: cityFromPlace } : {}),
+            ...(stateFromPlace ? { state: stateFromPlace } : {}),
+            ...(streetFromPlace ? { street: streetFromPlace } : {}),
+            ...(lat != null ? { lat } : {}),
+            ...(lng != null ? { lng } : {}),
           });
           onAddrSearchRef.current?.(formatted);
         };

@@ -1573,6 +1573,19 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
 
     # Step 2: Always produce analysis_data for the in-app modal
     analysis: Optional[Dict[str, Any]] = None
+    lat, lng = 0.0, 0.0
+    try:
+        from geocode import is_null_island as _null_island
+
+        _clat = getattr(request_body, "latitude", None)
+        _clng = getattr(request_body, "longitude", None)
+        if _clat is not None and _clng is not None:
+            _clat_f, _clng_f = float(_clat), float(_clng)
+            if not _null_island(_clat_f, _clng_f):
+                lat, lng = _clat_f, _clng_f
+    except Exception:
+        lat, lng = 0.0, 0.0
+
     try:
         profile = geocode_profile_from_address(request_body.address)
 
@@ -1593,8 +1606,9 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         city = req_city or geo_city
         state = req_state or geo_state
         zip_code = req_zip or geo_zip
-        lat = float(getattr(profile, "latitude", 0.0) or 0.0) if profile else 0.0
-        lng = float(getattr(profile, "longitude", 0.0) or 0.0) if profile else 0.0
+        if not lat and not lng:
+            lat = float(getattr(profile, "latitude", 0.0) or 0.0) if profile else 0.0
+            lng = float(getattr(profile, "longitude", 0.0) or 0.0) if profile else 0.0
         try:
             from geocode import is_null_island
 
@@ -1705,6 +1719,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             zip_code=zip_hint if isinstance(zip_hint, str) else "",
             city=getattr(request_body, "city", None),
             state=getattr(request_body, "state", None),
+            latitude=lat,
+            longitude=lng,
         )
         message = "Instant preview ready in the app. Deeper research continues in the background."
         status = "success"
@@ -1727,6 +1743,19 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             project_type=request_body.project_type,
             zip_code=getattr(request_body, "zip", None) or "",
         )
+
+    # Stamp resolved coordinates onto project_info (Places / map pin preferred)
+    try:
+        from geocode import is_null_island
+
+        if isinstance(analysis, dict) and lat and lng and not is_null_island(lat, lng):
+            pi = dict(analysis.get("project_info") or {})
+            pi["lat"] = lat
+            pi["lng"] = lng
+            pi["coordinates"] = {"latitude": lat, "longitude": lng}
+            analysis["project_info"] = pi
+    except Exception:
+        pass
 
     # Honesty safety net: free-trial never returns confident stub risk scores
     from honesty import apply_honesty_layer

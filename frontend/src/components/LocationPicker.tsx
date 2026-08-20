@@ -5,8 +5,13 @@
  */
 
 import { useState, useEffect, useRef, type CSSProperties } from 'react';
-import { MapPin, Navigation, AlertCircle } from 'lucide-react';
+import { MapPin, Navigation, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { backendUrl } from '../env';
+import {
+  AddressAutocomplete,
+  mapsAutocompleteEnabled,
+  type AddressSelection,
+} from '../AddressAutocomplete';
 
 interface LocationPickerProps {
   onLocationSelect: (
@@ -97,8 +102,9 @@ export function LocationPicker({
     if (nextState) setState(nextState);
     if (nextZip) setZip(nextZip);
     if (nextAddress && nextCity && nextState && nextZip) {
+      // Voice fill has no pin — parent may still run; do not fake coords
       onLocationSelect(nextAddress, nextCity, nextState, nextZip, 0, 0);
-      setLocationConfirmed(true);
+      setLocationConfirmed(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -160,7 +166,6 @@ export function LocationPicker({
         }
         setError(detail);
         setFieldsUnlocked(true);
-        // Keep coords so Confirm UI still shows; user can type missing fields
         if (!address) setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
         return;
       }
@@ -185,7 +190,12 @@ export function LocationPicker({
       setZip(nextZip);
       setFieldsUnlocked(true);
 
-      if (!nextCity || !nextState || !nextZip) {
+      if (nextStreet && nextCity && nextState && nextZip.length === 5) {
+        // Auto-confirm happy path — no extra green-button tap
+        onLocationSelect(nextStreet, nextCity, nextState, nextZip, latitude, longitude);
+        setLocationConfirmed(true);
+        setError('');
+      } else {
         setError(
           'Pin set — complete any missing city / state / ZIP below, then tap Confirm This Location.'
         );
@@ -323,17 +333,59 @@ export function LocationPicker({
       return;
     }
     if (lat === null || lng === null) {
-      setError('Click the map (or Auto-Detect) to set a pin first.');
+      setError('Search an address, use Auto-Detect, or click the map to set a pin first.');
       return;
     }
-    const fullAddress = `${address.trim()}, ${city.trim()}, ${state.trim()} ${zip5}`;
-    onLocationSelect(fullAddress, city.trim(), state.trim(), zip5, lat, lng);
+    // Street only — parent + backend compose place parts (avoids duplicated address)
+    onLocationSelect(address.trim(), city.trim(), state.trim(), zip5, lat, lng);
     setLocationConfirmed(true);
     setError('');
   };
 
+  const handlePlacesSelection = (sel: AddressSelection | null) => {
+    if (!sel) {
+      setLocationConfirmed(false);
+      return;
+    }
+    const street = (sel.street || sel.formattedAddress.split(',')[0] || '').trim();
+    const nextCity = (sel.city || '').trim();
+    const nextState = (sel.state || '').trim();
+    const nextZip = (sel.zip || '').replace(/\D/g, '').slice(0, 5);
+    setAddress(street);
+    if (nextCity) setCity(nextCity);
+    if (nextState) setState(nextState);
+    if (nextZip) setZip(nextZip);
+    setFieldsUnlocked(true);
+    setUseManualEntry(false);
+
+    const latitude = sel.lat;
+    const longitude = sel.lng;
+    if (
+      latitude != null &&
+      longitude != null &&
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      !(Math.abs(latitude) < 1e-6 && Math.abs(longitude) < 1e-6)
+    ) {
+      latLngRef.current = { lat: latitude, lng: longitude };
+      setLat(latitude);
+      setLng(longitude);
+      setMapVisible(true);
+      placeMarker(latitude, longitude);
+      if (street && nextCity && nextState && nextZip.length === 5) {
+        onLocationSelect(street, nextCity, nextState, nextZip, latitude, longitude);
+        setLocationConfirmed(true);
+        setError('');
+        return;
+      }
+    }
+    setLocationConfirmed(false);
+    setError('Address found — confirm city / state / ZIP, then tap Confirm This Location.');
+  };
+
   const showMapUi = mapVisible && !collapseMap;
   const pinReady = lat != null && lng != null;
+  const placesOn = mapsAutocompleteEnabled();
 
   return (
     <div className="space-y-4 relative" style={{ position: 'relative', zIndex: 0, transform: 'none' }}>
@@ -365,7 +417,41 @@ export function LocationPicker({
           position: absolute !important;
           max-width: none !important;
         }
+        .rg-place-autocomplete-host {
+          min-height: 2.75rem;
+          width: 100%;
+        }
+        .rg-place-autocomplete-host rg-place-autocomplete,
+        .rg-place-autocomplete-host .rg-address-autocomplete-widget {
+          width: 100%;
+          display: block;
+          --gmp-mat-color-surface: #1e293b;
+          --gmp-mat-color-on-surface: #f8fafc;
+          color-scheme: dark;
+        }
       `}</style>
+
+      {placesOn && (
+        <div className="space-y-2">
+          <label
+            id="job-site-address-label"
+            className="block text-sm font-bold text-emerald-300"
+          >
+            Search address (Places) — pin + confirm in one step
+          </label>
+          <AddressAutocomplete disabled={disabled} onSelection={handlePlacesSelection} />
+          <p className="text-xs text-gray-400">
+            Pick a Google suggestion to lock street, city, ZIP, and map coordinates. Use Map only
+            if you need to nudge the pin.
+          </p>
+          {locationConfirmed && pinReady && (
+            <p className="flex items-center gap-2 text-sm text-emerald-300 font-semibold">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              Pin locked — ready to run research
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <button
@@ -492,16 +578,24 @@ export function LocationPicker({
             onClick={() => {
               const zip5 = zip.replace(/\D/g, '').slice(0, 5);
               if (address && city && state && zip5.length === 5) {
+                const hasPin =
+                  lat != null &&
+                  lng != null &&
+                  !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6);
                 onLocationSelect(
-                  `${address}, ${city}, ${state} ${zip5}`,
+                  address.trim(),
                   city,
                   state,
                   zip5,
-                  lat ?? 0,
-                  lng ?? 0
+                  hasPin ? lat! : 0,
+                  hasPin ? lng! : 0
                 );
-                setLocationConfirmed(true);
-                setError('');
+                setLocationConfirmed(hasPin);
+                setError(
+                  hasPin
+                    ? ''
+                    : 'Address saved — add a map pin (Places search or Map) for flood/wetlands GIS.'
+                );
               }
             }}
             disabled={disabled || !address || !city || !state || zip.replace(/\D/g, '').length < 5}
