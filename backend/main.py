@@ -1747,6 +1747,18 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         from research_store import stamp_depth_badge
 
         analysis = stamp_depth_badge(analysis)
+        try:
+            from site_address import clean_project_info_address
+
+            analysis = clean_project_info_address(analysis)
+        except Exception:
+            pass
+        try:
+            from citation_honesty import apply_citation_honesty
+
+            analysis = apply_citation_honesty(analysis)
+        except Exception:
+            pass
         meta = save_research(analysis, research_id=str(research_id))
         analysis["research_id"] = meta["research_id"]
         analysis["share_url"] = meta["share_url"]

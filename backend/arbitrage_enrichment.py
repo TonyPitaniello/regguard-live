@@ -224,19 +224,37 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
             estimated_total=est,
             is_dc=is_dc,
         )
-        killers.append(
-            {
-                "title": str(title)[:120],
-                "detail": str(detail or "")[:200],
-                "kind": kind,
-                "priority": str(priority or "NOTE").upper(),
-                "verified": bool(verified) and bool(source_url),
-                "source_url": source_url,
-                "source_label": source_label
-                or ("Source" if verified and source_url else "Unverified"),
-                "planning_exposure": exposure,
-            }
+        from citation_honesty import citation_badge_label, citation_tier_for
+
+        draft = {
+            "title": str(title)[:120],
+            "detail": str(detail or "")[:200],
+            "kind": kind,
+            "priority": str(priority or "NOTE").upper(),
+            "verified": bool(verified) and bool(source_url),
+            "source_url": source_url,
+            "source_label": source_label,
+            "jurisdiction_layer": None,
+            "planning_exposure": exposure,
+        }
+        # Prefer explicit portal-link honesty over "verified because URL exists"
+        if kind in ("gotcha", "punch") and source_url and not verified:
+            draft["citation_tier"] = "link"
+            draft["verified"] = False
+        tier = citation_tier_for(draft)
+        draft["citation_tier"] = tier
+        if tier != "verified":
+            draft["verified"] = False
+        draft["source_label"] = source_label or citation_badge_label(tier).title().replace(
+            "Source", "Source"
         )
+        if tier == "link" and not source_label:
+            draft["source_label"] = "Portal link"
+        elif tier == "unverified":
+            draft["source_label"] = "Unverified"
+        elif tier == "verified" and not source_label:
+            draft["source_label"] = "Source"
+        killers.append(draft)
 
     gotchas = (analysis.get("gotcha_watchlist") or {}).get("items") or []
 
@@ -262,7 +280,7 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
             str(g.get("detail") or ""),
             kind="gotcha",
             priority=str(g.get("priority") or "HIGH"),
-            verified=bool(g.get("source_url")),
+            verified=bool(g.get("verified")) and bool(g.get("source_url")),
             source_url=g.get("source_url"),
             source_label=g.get("source_label"),
         )
@@ -530,6 +548,22 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     is_dc = _project_is_data_center(out)
     out["contingency_band"] = _build_contingency(crit, high, unverified, est, is_dc=is_dc)
     out["margin_killers"] = build_margin_killers(out, limit=3)
+
+    try:
+        from site_address import clean_project_info_address
+
+        out = clean_project_info_address(out)
+    except Exception:
+        pass
+    try:
+        from citation_honesty import apply_citation_honesty
+
+        out = apply_citation_honesty(out)
+        # Rebuild killers after punch citation demotion so badges match
+        out["margin_killers"] = build_margin_killers(out, limit=3)
+        out = apply_citation_honesty(out)
+    except Exception:
+        pass
 
     # Roll up planning exposure (sum of mid bands) — still not guaranteed savings
     exp_mids = []

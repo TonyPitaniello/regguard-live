@@ -25,6 +25,7 @@ export type PunchListItemData = {
   source_url?: string | null;
   source_label?: string | null;
   verified?: boolean;
+  citation_tier?: string | null;
   cost_verified?: boolean;
 };
 
@@ -47,6 +48,7 @@ export interface AnalysisData {
   depth_badge?: string;
   depth_claim_note?: string;
   scout_mode?: string;
+  ic_package?: boolean | Record<string, unknown>;
   honesty?: {
     risk_verified?: boolean;
     cost_verified?: boolean;
@@ -231,6 +233,7 @@ export interface AnalysisData {
     kind?: string;
     priority?: string;
     verified?: boolean;
+    citation_tier?: string;
     source_url?: string | null;
     source_label?: string | null;
     planning_exposure?: {
@@ -422,7 +425,13 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const killerLines = killers
     .slice(0, 3)
     .map((k, i) => {
-      const ver = k.verified && k.source_url ? 'Source' : 'Unverified';
+      const tier = String((k as { citation_tier?: string }).citation_tier || '').toLowerCase();
+      const ver =
+        tier === 'verified' || (k.verified && k.source_url)
+          ? 'Source'
+          : k.source_url
+            ? 'Link'
+            : 'Unverified';
       const pri = (k.priority || 'NOTE').toUpperCase();
       const title = (k.title || 'Item').slice(0, 90);
       return `${i + 1}. [${pri}] [${ver}] ${title}`;
@@ -913,8 +922,16 @@ export default function ResultsViewerModal({
               Your Site Diligence Analysis
             </h2>
             <p className="text-gray-400 text-sm mt-1">
-              {view.project_info.address} • {view.project_info.city},{' '}
-              {view.project_info.state} {view.project_info.zip}
+              {(() => {
+                const street = (view.project_info.address || '').trim();
+                const place = `${view.project_info.city}, ${view.project_info.state} ${view.project_info.zip}`.trim();
+                const sn = street.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const cn = (view.project_info.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cn && sn.includes(cn) && street.includes(String(view.project_info.zip || ''))) {
+                  return street;
+                }
+                return `${street} · ${place}`;
+              })()}
             </p>
             {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
               <p
@@ -1064,15 +1081,6 @@ export default function ResultsViewerModal({
                   >
                     <Copy className="w-4 h-4" />
                     Copy forward text
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidReceipt()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-white/10 border border-emerald-500/40 text-white text-sm font-semibold disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4" />
-                    {packetLoading ? 'Building…' : 'PDF for thread'}
                   </button>
                 </div>
               </div>
@@ -1483,16 +1491,18 @@ export default function ResultsViewerModal({
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
                   >
                     <Download className="w-4 h-4" />
-                    {packetLoading ? 'Building…' : 'Export Receipt PDF'}
+                    {packetLoading ? 'Building…' : 'Download Receipt PDF'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidPacketFull()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-slate-500/50 text-white text-sm font-semibold disabled:opacity-50 min-h-[44px]"
-                  >
-                    Full packet
-                  </button>
+                  {(depthTier === 'ic_full' || Boolean(view.ic_package)) && (
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidPacketFull()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-slate-500/50 text-white text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+                    >
+                      Full packet
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => void runRecheck()}

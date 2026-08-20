@@ -248,6 +248,7 @@ def jurisdiction_punch_items(
             # Skip null-URL fillers — they dilute citeable punch ratios.
             if not (g.get("source_url") or "").strip():
                 continue
+            _ = citeable  # pack may still be citeable as a layer; rows are portal links
             items.append(
                 {
                     "priority": str(g.get("priority") or "MEDIUM").upper(),
@@ -256,11 +257,12 @@ def jurisdiction_punch_items(
                     "timeline": "Before bid",
                     "estimated_cost": 0,
                     "notes": str(g.get("detail") or ""),
-                    "verified": bool(g.get("source_url")) and citeable,
+                    # Portal / catalog URL — LINK, not parcel-verified SOURCE
+                    "verified": False,
+                    "citation_tier": "link",
                     "cost_verified": False,
                     "source_url": g.get("source_url"),
-                    "source_label": g.get("source_label")
-                    or ("Source" if citeable else "Unverified"),
+                    "source_label": g.get("source_label") or "Portal link",
                     "jurisdiction_layer": pack.get("layer") or layer_key,
                 }
             )

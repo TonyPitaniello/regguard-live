@@ -274,7 +274,15 @@ def generate_bid_risk_receipt_pdf(
     for i, k in enumerate(list(killers)[:3], 1):
         if not isinstance(k, dict):
             continue
-        ver = "SOURCE" if k.get("verified") and k.get("source_url") else "UNVERIFIED"
+        ver_tier = str(k.get("citation_tier") or "").lower()
+        if not ver_tier:
+            if k.get("verified") and k.get("source_url"):
+                ver_tier = "verified"
+            elif k.get("source_url"):
+                ver_tier = "link"
+            else:
+                ver_tier = "unverified"
+        ver = "SOURCE" if ver_tier == "verified" else ("LINK" if ver_tier == "link" else "UNVERIFIED")
         pri = str(k.get("priority") or "NOTE").upper()
         title = _ascii(str(k.get("title") or "Item"))[:90]
         detail = _ascii(str(k.get("detail") or ""))[:110]
@@ -310,6 +318,8 @@ def generate_bid_risk_receipt_pdf(
         bx2 += 2
         if ver == "UNVERIFIED":
             _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
+        elif ver == "LINK":
+            _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
         else:
             _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
 

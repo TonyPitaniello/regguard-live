@@ -273,7 +273,7 @@ export default function FreeTrialForm({
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          address: `${data.address}, ${data.city}, ${data.state}, ${data.zip}`,
+          address: data.address,
           zip: data.zip,
           city: data.city,
           state: data.state,
