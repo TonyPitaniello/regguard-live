@@ -161,7 +161,21 @@ def generate_bid_packet_pdf(
     output_path: Optional[str] = None,
 ) -> str:
     """Write branded bid packet PDF; return path."""
+    try:
+        from delivery_parity import prepare_analysis_for_delivery, citation_label_for_item
+
+        analysis_data = prepare_analysis_for_delivery(analysis_data)
+    except Exception:
+        analysis_data = _ensure_arbitrage(analysis_data)
+        citation_label_for_item = None  # type: ignore
+
     analysis_data = _ensure_arbitrage(analysis_data)
+
+    try:
+        from punch_rank import strip_md_bold
+    except Exception:
+        def strip_md_bold(t: str) -> str:  # type: ignore
+            return t or ""
 
     pi = analysis_data.get("project_info") or {}
     address = _ascii(str(pi.get("address") or "Site"))
@@ -184,6 +198,18 @@ def generate_bid_packet_pdf(
     punch = (analysis_data.get("punch_list") or {}).get("punch_list") or []
     dc = analysis_data.get("dc_positioning") or {}
     summary = analysis_data.get("summary") or {}
+    honesty = analysis_data.get("honesty") or {}
+    depth = str(
+        analysis_data.get("research_depth")
+        or honesty.get("depth")
+        or honesty.get("source")
+        or ""
+    ).strip()
+    coverage = str(
+        (analysis_data.get("coverage") or {}).get("label")
+        or honesty.get("coverage_label")
+        or ""
+    ).strip()
 
     low_s = _fmt_pct(band.get("pct_low"))
     mid_s = _fmt_pct(band.get("pct_mid"))
@@ -210,6 +236,9 @@ def generate_bid_packet_pdf(
         "Forwardable pre-bid diligence  |  Site-specific CYA stamp  |  Not a quote, not a filing",
         8,
     )
+    if depth or coverage:
+        bits = [b for b in (depth.replace("_", " ").title(), coverage) if b]
+        _muted(pdf, "  |  ".join(bits), 8)
     pdf.ln(1)
 
     # --- Site line ---
@@ -283,14 +312,17 @@ def generate_bid_packet_pdf(
     _section_title(pdf, "Top 3 risk flags")
     if not killers:
         _muted(pdf, "No high-confidence killers extracted - confirm Critical/High with AHJ.")
-    for i, k in enumerate(killers[:3], 1):
+    for i, k in enumerate(killers[:5], 1):
         if pdf.get_y() > 240:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         pri = str(k.get("priority") or "NOTE").upper()
-        ver = "SOURCE" if k.get("verified") and k.get("source_url") else "UNVERIFIED"
-        title = _ascii(str(k.get("title") or "Item"))[:88]
-        detail = _ascii(str(k.get("detail") or ""))[:140]
+        if citation_label_for_item:
+            ver = citation_label_for_item(k)
+        else:
+            ver = "SOURCE" if k.get("verified") and k.get("source_url") else "UNVERIFIED"
+        title = _ascii(strip_md_bold(str(k.get("title") or "Item")))[:88]
+        detail = _ascii(strip_md_bold(str(k.get("detail") or "")))[:140]
 
         box_h = 18 + (4 if detail else 0)
         pe = k.get("planning_exposure") or {}
@@ -313,6 +345,8 @@ def generate_bid_packet_pdf(
         badge_x += 2
         if ver == "UNVERIFIED":
             _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=badge_x, y=by)
+        elif ver == "LINK":
+            _badge(pdf, ver, fg=WHITE, bg=PURPLE, x=badge_x, y=by)
         else:
             _badge(pdf, ver, fg=BG, bg=EMERALD, x=badge_x, y=by)
 
@@ -437,28 +471,42 @@ def generate_bid_packet_pdf(
     if pdf.get_y() > 220:
         pdf.add_page()
         pdf.set_y(MARGIN + 4)
-    _section_title(pdf, "Punch list (forwardable)")
-    _muted(pdf, "Every line is Source or Unverified. Forward only what you can defend.")
+    _section_title(pdf, "Punch list (Critical -> Low)")
+    _muted(
+        pdf,
+        "Ranked to match the app. SOURCE = parcel-backed; LINK = portal URL; UNVERIFIED = confirm with AHJ.",
+    )
     if not punch:
         _muted(pdf, "No punch lines in this run.")
-    for i, item in enumerate(punch[:25], 1):
+    for i, item in enumerate(punch[:40], 1):
         if pdf.get_y() > 255:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         if not isinstance(item, dict):
             continue
-        task = (item.get("task") or "")[:95]
+        task = strip_md_bold(str(item.get("task") or ""))[:110]
         pri = str(item.get("priority") or "").upper()
-        ver = "Source" if item.get("verified") and item.get("source_url") else "Unverified"
+        if citation_label_for_item:
+            ver = citation_label_for_item(item)
+        else:
+            ver = "Source" if item.get("verified") and item.get("source_url") else "Unverified"
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*AMBER if pri in ("HIGH", "CRITICAL") else MUTED)
+        pdf.set_text_color(
+            *(239, 68, 68)
+            if pri == "CRITICAL"
+            else AMBER
+            if pri == "HIGH"
+            else MUTED
+        )
         pdf.cell(10, 4.2, f"{i}.", ln=0)
-        pdf.set_text_color(*AMBER_SOFT if ver == "Unverified" else EMERALD)
-        pdf.cell(28, 4.2, f"[{pri}] [{ver}]", ln=0)
+        pdf.set_text_color(
+            *AMBER_SOFT if ver.upper() == "UNVERIFIED" else PURPLE if ver.upper() == "LINK" else EMERALD
+        )
+        pdf.cell(36, 4.2, f"[{pri}] [{ver}]", ln=0)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 38, 4.2, _ascii(task))
+        pdf.multi_cell(CONTENT_W - 46, 4.2, _ascii(task))
 
     # --- Closing CYA ---
     pdf.ln(4)

@@ -22,6 +22,18 @@ def build_research_result_html(research_data: dict) -> str:
     """Shared HTML for SendGrid + Resend research-result delivery."""
     import html as html_lib
 
+    try:
+        from delivery_parity import prepare_analysis_for_delivery, citation_label_for_item
+        from punch_rank import strip_md_bold
+
+        research_data = prepare_analysis_for_delivery(research_data)
+    except Exception:
+        def strip_md_bold(t: str) -> str:  # type: ignore
+            return (t or "").replace("**", "")
+
+        def citation_label_for_item(item: dict) -> str:  # type: ignore
+            return "SOURCE" if item.get("verified") and item.get("source_url") else "UNVERIFIED"
+
     project_info = research_data.get("project_info") or {}
     summary = research_data.get("summary") or {}
     punch = (research_data.get("punch_list") or {}).get("punch_list") or []
@@ -76,21 +88,24 @@ def build_research_result_html(research_data: dict) -> str:
     )
 
     punch_rows = []
-    for i, item in enumerate(punch[:8], 1):
+    # Match app: Critical → Low, show more than 8, with citation tier
+    for i, item in enumerate(punch[:16], 1):
         if not isinstance(item, dict):
             continue
-        task = html_lib.escape(str(item.get("task") or "")[:160])
-        pri = html_lib.escape(str(item.get("priority") or "NOTE"))
+        task = html_lib.escape(strip_md_bold(str(item.get("task") or ""))[:200])
+        pri = html_lib.escape(str(item.get("priority") or "NOTE").upper())
+        tier = html_lib.escape(citation_label_for_item(item))
         if not task:
             continue
         punch_rows.append(
-            f'<li style="margin:0 0 8px 0;font-size:13px;color:#374151;"><strong>[{pri}]</strong> {task}</li>'
+            f'<li style="margin:0 0 8px 0;font-size:13px;color:#374151;">'
+            f'<strong>[{pri}]</strong> <span style="color:#6b7280;font-size:11px;">[{tier}]</span> {task}</li>'
         )
     for i, k in enumerate(killers[:3], 1):
         if not isinstance(k, dict):
             continue
-        title = html_lib.escape(str(k.get("title") or "")[:140])
-        pri = html_lib.escape(str(k.get("priority") or "NOTE"))
+        title = html_lib.escape(strip_md_bold(str(k.get("title") or ""))[:140])
+        pri = html_lib.escape(str(k.get("priority") or "NOTE").upper())
         if title:
             punch_rows.append(
                 f'<li style="margin:0 0 8px 0;font-size:13px;color:#374151;"><strong>Risk [{pri}]</strong> {title}</li>'
@@ -163,7 +178,8 @@ def build_research_result_html(research_data: dict) -> str:
                     </tr>
                     <tr>
                         <td style="padding: 30px; border-bottom: 1px solid #e5e7eb;">
-                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">Top flags ({total_items} punch items)</h2>
+                            <h2 style="margin: 0 0 15px 0; font-size: 16px; color: #1f2937; font-weight: 600;">Site Diligence Punch List — Critical → Low ({total_items} items)</h2>
+                            <p style="margin:0 0 12px 0;font-size:12px;color:#6b7280;">Same ranking as the app. Open the share link for the full packet, fees, and gotchas.</p>
                             <ul style="margin:0;padding-left:18px;">{punch_html}</ul>
                         </td>
                     </tr>

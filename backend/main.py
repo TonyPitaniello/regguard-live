@@ -152,6 +152,79 @@ def _ensure_bottom_line_section(summary_md: str, *, ahj_hint: str = "") -> str:
     )
     return f"{text}\n\n### The Bottom Line\n\n{sentences}\n"
 
+
+def sanitize_action_plan_jurisdiction_bleed(
+    summary_md: str,
+    *,
+    city: str = "",
+    state: str = "",
+) -> str:
+    """
+    Strip cross-jurisdiction theater (e.g. Plano bottom line on a Bradenton job).
+    Safe no-op when the site itself is Plano, TX.
+    """
+    text = summary_md or ""
+    if not text.strip():
+        return text
+    city_l = (city or "").strip().lower()
+    state_u = (state or "").strip().upper()
+    is_plano = city_l == "plano" and state_u in ("TX", "TEXAS", "")
+    if is_plano:
+        return text
+
+    # Replace known Plano-hardcoded red-alert bottom line
+    plano_bleed = re.compile(
+        r"Plano has a strict structural\s+property setback rule and a massive local noise-barrier mandate[^.]*\.",
+        re.I | re.S,
+    )
+    if plano_bleed.search(text):
+        loc = ", ".join(p for p in ((city or "").strip(), state_u) if p) or "this site"
+        replacement = (
+            f"Hold electrical layouts for **{loc}** until AHJ permit path and utility interconnection "
+            f"windows are confirmed. Do not apply Plano (or other cities') setback/noise rules here."
+        )
+        text = plano_bleed.sub(replacement, text)
+
+    # Soft-warn if Plano still appears as a controlling AHJ when site isn't Plano
+    if "plano" in text.lower() and city_l and city_l != "plano":
+        text += (
+            "\n\n> **Jurisdiction check:** This memo mentioned Plano while the site is "
+            f"**{city}, {state_u}**. Treat Plano-specific fees/ordinances as non-controlling "
+            "unless a scout source explicitly maps them to this site.\n"
+        )
+
+    # Rewrite Reference Links block when present to drop neighbor-city portals
+    if "### Reference Links" in text:
+        parts = text.split("### Reference Links", 1)
+        head, rest = parts[0], parts[1]
+        # Split off next ### section if any
+        m = re.search(r"\n###\s+", rest)
+        if m:
+            ref_body, tail = rest[: m.start()], rest[m.start() :]
+        else:
+            ref_body, tail = rest, ""
+        urls = re.findall(r"https?://[^\s\)\]]+", ref_body)
+        if urls:
+            filtered = _filter_reference_urls_for_locality(urls, city=city, state=state)
+            ref_lines = "\n".join(f"- {u}" for u in filtered) if filtered else "- *(No locality-matched URLs.)*"
+            text = f"{head}### Reference Links\n\n{ref_lines}\n{tail}"
+
+    # Non-TX: soft-flag ERCOT / TDSP theater in industrial memos
+    if state_u not in ("TX", "TEXAS", "") and re.search(r"\bERCOT\b", text):
+        text = re.sub(
+            r"utility\s*/\s*ERCOT\s+interconnection",
+            "utility interconnection",
+            text,
+            flags=re.I,
+        )
+        if "ERCOT" in text and "outside Texas" not in text:
+            text += (
+                "\n\n> **Grid check:** ERCOT / TDSP language appeared for a non-Texas site. "
+                "Confirm the serving utility for this address; do not use ERCOT rules here.\n"
+            )
+
+    return text
+
 _BACKEND_BOOT_ID = uuid.uuid4().hex[:10]
 
 # Temporarily off: very fast heartbeats were suspected of flooding the stream.
@@ -544,6 +617,80 @@ def _fallback_memo_is_industrial_context(
     return bool(dc.get("vertical") == "data_center")
 
 
+def _filter_reference_urls_for_locality(
+    urls: List[str],
+    *,
+    city: str = "",
+    state: str = "",
+) -> List[str]:
+    """
+    Prefer URLs that match this city/state; demote obvious neighbor-city portals
+    (e.g. Sarasota.gov on a Bradenton job) unless no better links exist.
+    Always keep federal / statewide / municode library roots.
+    """
+    if not urls:
+        return []
+    city_l = (city or "").strip().lower()
+    state_l = (state or "").strip().lower()
+    keep_always = (
+        "municode.com",
+        "permits.performance.gov",
+        "permitting.gov",
+        "floridadep.gov",
+        "epa.gov",
+        "federalregister.gov",
+        "whitehouse.gov",
+        "fema.gov",
+        "census.gov",
+        "osha.gov",
+    )
+    neighbor_hints = {
+        "bradenton": ("sarasota", "sarasotafl.gov"),
+        "plano": ("dallas", "frisco", "richardson"),
+    }
+    demote_needles = neighbor_hints.get(city_l, ())
+
+    preferred: List[str] = []
+    federalish: List[str] = []
+    demoted: List[str] = []
+    other: List[str] = []
+    for u in urls:
+        ul = (u or "").lower()
+        if not ul.startswith("http"):
+            continue
+        if any(n in ul for n in demote_needles):
+            demoted.append(u)
+            continue
+        if any(k in ul for k in keep_always):
+            federalish.append(u)
+            continue
+        if city_l and city_l.replace(" ", "") in ul.replace(" ", ""):
+            preferred.append(u)
+            continue
+        if state_l in ("fl", "florida") and ("florida" in ul or ".fl." in ul or "fl.gov" in ul):
+            preferred.append(u)
+            continue
+        if state_l in ("tx", "texas") and ("texas" in ul or ".tx." in ul or "tx.gov" in ul):
+            preferred.append(u)
+            continue
+        other.append(u)
+
+    out = preferred + federalish + other
+    # Never promote demoted neighbor-city portals when we already have
+    # locality-relevant or federal/statewide anchors.
+    if not out and demoted:
+        out.extend(demoted)
+    # Dedupe preserve order
+    seen = set()
+    deduped: List[str] = []
+    for u in out:
+        if u in seen:
+            continue
+        seen.add(u)
+        deduped.append(u)
+    return deduped[:24]
+
+
 def _research_action_plan_fallback_markdown(
     raw: Dict[str, Any],
     source_urls: List[str],
@@ -582,24 +729,35 @@ def _research_action_plan_fallback_markdown(
         loc_short = ju_line or f"ZIP {zip_str}"
 
     if industrial_ctx:
+        # ERCOT is Texas-only — never imply ERCOT for FL / other states
+        util_label = (
+            "utility / ERCOT interconnection"
+            if (state or "").upper() == "TX"
+            else "utility interconnection"
+        )
         permit_scope = (
-            f"Coordinate **AHJ permits**, **utility / ERCOT interconnection**, and **federal diligence** for **{loc_short}**; "
+            f"Coordinate **AHJ permits**, **{util_label}**, and **federal diligence** for **{loc_short}**; "
             "confirm department names and application types on official `.gov` portals from the scout links."
         )
         doc_title = "## Contractor Action Plan — Large-load & interconnection compliance (AHJ + federal)"
+        grid_coord = (
+            "align **TDSP** work windows, **witness tests**, and **protection / relay** requirements"
+            if (state or "").upper() == "TX"
+            else "align utility work windows, **witness tests**, and **protection / relay** requirements"
+        )
         inspection_body = [
-            "- [ ] **Utility / grid coordination:** align **TDSP** work windows, **witness tests**, and **protection / relay** "
-            "requirements with stamped interconnect exhibits when scout sources support them.",
+            f"- [ ] **Utility / grid coordination:** {grid_coord} "
+            "with stamped interconnect exhibits when scout sources support them.",
             "- [ ] **Industrial substation / switchyard:** grounding, clearances, signage, and **NESC**-class items when "
             "cited in digest results.",
             "- [ ] **AHJ finals:** structural / fire / electrical inspections required for **occupancy** or **energization** at this scope.",
             "",
         ]
         bottom_two = (
-            "🚧 Red Alert Summary: Hold electrical layouts immediately. Plano has a strict structural "
-            "property setback rule and a massive local noise-barrier mandate for large power systems. We are "
-            "running parallel approval tracks with the local city building inspectors and the power utility "
-            "grid engineers before you pour any concrete. Do not purchase equipment until utility windows align."
+            f"🚧 Red Alert Summary: Hold electrical layouts for **{loc_short}** until AHJ permit path "
+            f"and utility interconnection windows are confirmed for this site. Run parallel tracks with "
+            f"the local building department and the serving utility before you pour concrete or order "
+            f"long-lead gear. Do not treat other cities' setback/noise rules as controlling here."
         )
     else:
         permit_scope = (
@@ -735,14 +893,35 @@ def _research_action_plan_fallback_markdown(
                 "- [ ] **May 5, 2026 posture / FAST-41 Transparency:** Confirm White House / Federal Register materials — **EO 14141 is rescinded** in Reg Guard’s conflict profile; "
                 "do **not** cite EO **14141** clean-energy acceleration. Map diligence to the **FAST-41 Transparency Project** when parsed load hints exceed **100 MW** "
                 f"(digest flags transparency candidate: **{cand}** — verify IT/nameplate assumptions).",
-                "- [ ] **Bill-specific flashpoints:** If **`bill_specific_flags`** cites **Virginia HB 1515**, capture **interconnection-block** risk for counsel review; "
-                "if **Ohio 2026 ballot** narratives appear, track **>25 MW** ban/moratorium petition chatter — verify against Ohio SOS filings.",
                 f"- [ ] **Infrastructure surcharge (planning):** Illustrative band **{band_txt}** — utility **LGIA** controls cash timing.",
-                "- [ ] **Moratorium High Alert states (VA, NY, OK, GA, OH):** Upgrade scrutiny on `step_dc_local_moratorium` / `step_dc_state_energy` hits; assume active session risk.",
-                "- [ ] **State energy / moratorium scout:** Review **`step_dc_state_energy`** and **`step_dc_local_moratorium`** URLs for riders, pledges, and pause ordinances.",
+                "- [ ] **State energy / moratorium scout:** Review **`step_dc_state_energy`** and **`step_dc_local_moratorium`** URLs for riders, pledges, and pause ordinances that apply to **this** site’s state.",
                 "",
             ]
         )
+        # Only surface out-of-state bill flashpoints when the site is in that state
+        # or the digest already flagged them — never dump VA/OH theater onto FL jobs.
+        st_u = (state or "").upper()
+        flags = dc_intel.get("bill_specific_flags") or []
+        flag_blob = " ".join(str(f) for f in flags).lower() if isinstance(flags, list) else str(flags).lower()
+        bill_lines: List[str] = []
+        if st_u in ("VA", "VIRGINIA") or "hb 1515" in flag_blob or "virginia" in flag_blob:
+            bill_lines.append(
+                "- [ ] **Virginia HB 1515 flashpoint:** capture **interconnection-block** risk for counsel review when "
+                "scout sources cite HB 1515 for this project."
+            )
+        if st_u in ("OH", "OHIO") or "ohio 2026" in flag_blob or ">25 mw" in flag_blob:
+            bill_lines.append(
+                "- [ ] **Ohio 2026 ballot flashpoint:** track **>25 MW** ban/moratorium petition chatter — verify against Ohio SOS filings."
+            )
+        if st_u in ("VA", "NY", "OK", "GA", "OH", "VIRGINIA", "NEW YORK", "OKLAHOMA", "GEORGIA", "OHIO"):
+            bill_lines.append(
+                "- [ ] **Moratorium High Alert state:** Upgrade scrutiny on `step_dc_local_moratorium` / `step_dc_state_energy` hits; assume active session risk."
+            )
+        if bill_lines:
+            # Insert after DC header block (before optional mor_red)
+            insert_at = len(lines) - (1 if lines and lines[-1] == "" else 0)
+            for bl in reversed(bill_lines):
+                lines.insert(insert_at, bl)
         if mor_red:
             lines.extend(
                 [
@@ -781,10 +960,20 @@ def _research_action_plan_fallback_markdown(
     nec_200a_fallback: List[str] = []
     if scout_has_no_trusted_results(raw):
         if industrial_ctx:
+            util_check = (
+                "**AHJ + TDSP / ERCOT** checks"
+                if (state or "").upper() == "TX"
+                else "**AHJ + serving utility** checks"
+            )
+            interconnect_line = (
+                "- [ ] **Interconnection posture** — confirm **PUCT / ERCOT / TDSP** materials match the site address and **Batch Zero** / performance-milestone narratives when cited."
+                if (state or "").upper() == "TX"
+                else "- [ ] **Interconnection posture** — confirm serving-utility materials match the site address; do not apply Texas ISO / PUCT interconnection narratives outside Texas."
+            )
             nec_200a_fallback = [
-                "- [ ] **Empty scout — industrial / interconnection baseline** (tag every bullet for **AHJ + TDSP / ERCOT** checks):",
+                f"- [ ] **Empty scout — industrial / interconnection baseline** (tag every bullet for {util_check}):",
                 "- [ ] **Large-load permits** and **municipal** reviews (building, fire, grading) appropriate to the facility class described.",
-                "- [ ] **Interconnection posture** — confirm **PUCT / ERCOT / TDSP** materials match the site address and **Batch Zero** / performance-milestone narratives when cited.",
+                interconnect_line,
                 "",
             ]
         else:
@@ -885,8 +1074,9 @@ def _research_action_plan_fallback_markdown(
     lines.extend(inspection_body)
     lines.append("### Reference Links")
     lines.append("")
-    if source_urls:
-        for u in source_urls:
+    filtered_urls = _filter_reference_urls_for_locality(source_urls, city=city, state=state)
+    if filtered_urls:
+        for u in filtered_urls:
             lines.append(f"- {u}")
     else:
         lines.append("- *(No URLs returned in this run.)*")
@@ -3384,6 +3574,16 @@ def _iter_research_sse_events(ctx: Dict[str, Any]) -> Iterator[str]:
             ju_complete = scout_jurisdiction or {}
             ahj_bl = str(ju_complete.get("label") or ju_complete.get("city") or "").strip()
             summary = _ensure_bottom_line_section(summary, ahj_hint=ahj_bl)
+            summary = sanitize_action_plan_jurisdiction_bleed(
+                summary,
+                city=str(ju_complete.get("city") or raw.get("city") or ""),
+                state=str(
+                    ju_complete.get("state")
+                    or ju_complete.get("state_short")
+                    or raw.get("state")
+                    or ""
+                ),
+            )
             _dc_intel_run = compute_data_center_intel_snapshot(raw, jd, enhanced_query or "")
             summary = inject_bottom_line_permit_conflict(
                 summary,

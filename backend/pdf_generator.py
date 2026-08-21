@@ -160,7 +160,7 @@ class ResearchMemoPDF(RegGuardPDF):
             
             # Findings
             findings = env.get("findings", [])
-            for finding in findings[:6]:  # Top 6 findings
+            for finding in findings[:8]:  # Top findings (includes contractor action plan)
                 self.set_font("Helvetica", "B", 10)
                 self.set_text_color(*self.color_primary)
                 category = finding.get("category", "").replace("_", " ").title()
@@ -172,6 +172,38 @@ class ResearchMemoPDF(RegGuardPDF):
                 self.multi_cell(170, 4, desc)
                 
                 self.ln(2)
+
+            # Contingency band (parity with app Bid-time arbitrage)
+            band = analysis_data.get("contingency_band") or {}
+            if band.get("pct_low") is not None and band.get("pct_high") is not None:
+                self.add_section_title("BID CONTINGENCY BAND (PLANNING AID)")
+                self.set_font("Helvetica", "B", 12)
+                self.set_text_color(*self.color_accent)
+                self.multi_cell(
+                    180,
+                    6,
+                    f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
+                    f"(mid {band.get('pct_mid', 'n/a')}%) - not a quote",
+                )
+                self.ln(2)
+
+            killers = [
+                k for k in (analysis_data.get("margin_killers") or []) if isinstance(k, dict)
+            ][:5]
+            if killers:
+                self.add_section_title("TOP MARGIN RISK FLAGS")
+                for i, k in enumerate(killers, 1):
+                    self.set_font("Helvetica", "B", 9)
+                    self.set_text_color(*self.color_dark)
+                    pri = str(k.get("priority") or "").upper()
+                    title = str(k.get("title") or "")[:100]
+                    self.multi_cell(180, 5, f"{i}. [{pri}] {title}")
+                    detail = str(k.get("detail") or "").strip()
+                    if detail:
+                        self.set_font("Helvetica", "", 8)
+                        self.set_text_color(80, 80, 80)
+                        self.multi_cell(180, 4, detail[:220])
+                    self.ln(1)
             
             # Action items summary
             self.add_section_title("RECOMMENDED NEXT STEPS")
@@ -235,8 +267,8 @@ class PunchListPDF(RegGuardPDF):
             project_info = analysis_data.get("project_info", {})
             address = project_info.get("address", "Unknown")
             self.add_header(
-                "ACTION PLAN: COMPREHENSIVE PUNCH LIST",
-                f"Complete action items for: {address}"
+                "CONTRACTOR PUNCH LIST (Critical -> Low)",
+                f"Ranked action items for: {address}"
             )
             
             # Summary stats
@@ -251,9 +283,13 @@ class PunchListPDF(RegGuardPDF):
             item_count = len(punch_data.get("punch_list", []))
             
             self.cell(50, 7, f"Timeline: {timeline}")
-            self.cell(0, 7, f"Est. Cost: ${cost:,.0f}", ln=True)
+            try:
+                cost_f = float(cost or 0)
+            except (TypeError, ValueError):
+                cost_f = 0.0
+            self.cell(0, 7, f"Est. Cost: ${cost_f:,.0f}", ln=True)
             self.cell(50, 7, f"Action Items: {item_count}")
-            self.cell(0, 7, "", ln=True)
+            self.cell(0, 7, "Sorted Critical -> High -> Medium -> Low", ln=True)
             self.ln(5)
             
             # Punch list table
@@ -264,20 +300,19 @@ class PunchListPDF(RegGuardPDF):
             self.set_fill_color(*self.color_primary)
             self.set_text_color(255, 255, 255)
             self.cell(10, 8, "#")
-            self.cell(60, 8, "Action Item")
-            self.cell(30, 8, "Priority")
-            self.cell(30, 8, "Timeline")
-            self.cell(30, 8, "Est. Cost")
+            self.cell(95, 8, "Action Item")
+            self.cell(28, 8, "Priority")
+            self.cell(28, 8, "Citation")
             self.ln()
             
             # Table rows
             punch_list = punch_data.get("punch_list", [])
-            for i, item in enumerate(punch_list[:30], 1):  # Limit to 30 items per page
-                if self.get_y() > 250:  # Near bottom of page, add new page
+            for i, item in enumerate(punch_list[:40], 1):
+                if self.get_y() > 250:
                     self.add_page()
                     self.add_footer()
                 
-                priority = item.get("priority", "MEDIUM")
+                priority = str(item.get("priority", "MEDIUM")).upper()
                 priority_color = {
                     "CRITICAL": (220, 38, 38),
                     "HIGH": (239, 68, 68),
@@ -288,30 +323,24 @@ class PunchListPDF(RegGuardPDF):
                 self.set_font("Helvetica", "", 8)
                 self.set_text_color(*priority_color.get(priority, (100, 100, 100)))
                 
-                # Item number
+                y0 = self.get_y()
                 self.cell(10, 7, str(i))
                 
-                # Task (word wrap)
                 self.set_text_color(50, 50, 50)
-                task = item.get("task", "")[:50]  # Truncate long text
-                self.cell(60, 7, task)
-                
-                # Priority
+                task = str(item.get("task", "") or "")[:120]
+                # Use multi_cell for task; then place priority/citation on same row start
+                x_task = self.get_x()
+                self.multi_cell(95, 4.5, task)
+                y1 = self.get_y()
+                self.set_xy(15 + 10 + 95, y0)
                 self.set_text_color(*priority_color.get(priority, (100, 100, 100)))
-                self.cell(30, 7, priority)
-                
-                # Timeline
-                self.set_text_color(50, 50, 50)
-                self.cell(30, 7, item.get("timeline", ""))
-                
-                # Cost
-                cost = item.get("estimated_cost", 0)
-                if cost:
-                    self.cell(30, 7, f"${cost:,.0f}")
-                else:
-                    self.cell(30, 7, "TBD")
-                
-                self.ln()
+                self.cell(28, 7, priority)
+                cite = str(item.get("citation_label") or item.get("source_label") or "")
+                if not cite:
+                    cite = "SOURCE" if item.get("verified") else "UNVERIFIED"
+                self.set_text_color(80, 80, 80)
+                self.cell(28, 7, cite[:12])
+                self.set_y(max(y1, y0 + 7) + 1)
             
             # Generate file
             if output_path is None:

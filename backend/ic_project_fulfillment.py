@@ -102,11 +102,23 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(loc, dict):
             pi["address"] = loc.get("address") or pi.get("address") or "Project site"
             pi.setdefault("city", loc.get("city") or "")
-            pi.setdefault("state", loc.get("state") or "TX")
+            pi.setdefault("state", loc.get("state") or "")
             pi.setdefault("zip", loc.get("zip") or loc.get("zip_code") or "")
     pi.setdefault("type", data.get("project_type") or "commercial")
-    pi.setdefault("state", "TX")
+    # Do NOT invent TX when state is missing — blank is safer than wrong RTO/AHJ
+    if not str(pi.get("state") or "").strip():
+        loc = data.get("location") or {}
+        if isinstance(loc, dict) and loc.get("state"):
+            pi["state"] = loc.get("state")
     data["project_info"] = pi
+
+    try:
+        from delivery_parity import prepare_analysis_for_delivery
+
+        data = prepare_analysis_for_delivery(data)
+        pi = data.get("project_info") or pi
+    except Exception:
+        pass
 
     env = dict(data.get("environmental_screening") or {})
     if not env.get("findings") and data.get("pro_summary_markdown"):
@@ -116,6 +128,20 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 "description": _ascii_safe(data["pro_summary_markdown"], 1200),
             }
         ]
+    # Prefer action-plan memo as a dedicated finding when present
+    if data.get("pro_summary_markdown") and not any(
+        isinstance(f, dict) and f.get("category") == "contractor_action_plan"
+        for f in (env.get("findings") or [])
+    ):
+        findings = list(env.get("findings") or [])
+        findings.insert(
+            0,
+            {
+                "category": "contractor_action_plan",
+                "description": _ascii_safe(data["pro_summary_markdown"], 2500),
+            },
+        )
+        env["findings"] = findings[:8]
     # Sanitize findings for Helvetica PDF fonts
     cleaned_findings = []
     for finding in env.get("findings") or []:
@@ -144,6 +170,16 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     items = punch.get("punch_list") or punch.get("items") or []
     if not isinstance(items, list):
         items = []
+    try:
+        from punch_rank import strip_md_bold
+        from delivery_parity import citation_label_for_item
+    except Exception:
+        def strip_md_bold(t: str) -> str:  # type: ignore
+            return t or ""
+
+        def citation_label_for_item(item: dict) -> str:  # type: ignore
+            return "SOURCE" if item.get("verified") else "UNVERIFIED"
+
     safe_items = []
     for item in items:
         if not isinstance(item, dict):
@@ -151,9 +187,10 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         safe_items.append(
             {
                 **item,
-                "task": _ascii_safe(item.get("task"), 200),
+                "task": _ascii_safe(strip_md_bold(item.get("task")), 220),
                 "timeline": _ascii_safe(item.get("timeline"), 40),
                 "notes": _ascii_safe(item.get("notes"), 300),
+                "citation_label": citation_label_for_item(item),
             }
         )
     punch["punch_list"] = safe_items
@@ -163,6 +200,7 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     data["punch_list"] = punch
     if data.get("pro_summary_markdown"):
         data["pro_summary_markdown"] = _ascii_safe(data["pro_summary_markdown"], 8000)
+    data["skip_upgrade_cta"] = True
     return data
 
 
@@ -190,7 +228,7 @@ def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
     # Prefer real AHJ worksheet for permits
     site = pi.get("address") or "Project site"
     city = pi.get("city") or ""
-    state = pi.get("state") or "TX"
+    state = pi.get("state") or ""
     zip_code = str(pi.get("zip") or "")
     scope_bits = [
         f"IC Project Report permit planning worksheet for {site}.",
@@ -215,7 +253,7 @@ def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
         logger.warning("build_permit_package_pdf failed, falling back to PermitPackagePDF: %s", e)
         with tempfile.TemporaryDirectory(prefix="ic_permit_") as tmp:
             path = os.path.join(tmp, "permits.pdf")
-            PermitPackagePDF().generate(shaped, state=state or "TX", output_path=path)
+            PermitPackagePDF().generate(shaped, state=state or "FL", output_path=path)
             out["permits"] = _read_file_bytes(path)
 
     return out
