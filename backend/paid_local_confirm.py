@@ -97,6 +97,31 @@ FEE_PLANNING_AID = (
 )
 
 
+def _stamp_local_pack(
+    analysis: Dict[str, Any],
+    *,
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+) -> Dict[str, Any]:
+    """Persist order-attached local_pack after paid local confirm (best-effort)."""
+    try:
+        from local_pack_store import attach_local_pack_from_analysis, apply_local_pack_to_cards
+
+        analysis = attach_local_pack_from_analysis(
+            analysis,
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            persist=True,
+            record_hit=True,
+        )
+        analysis = apply_local_pack_to_cards(analysis)
+    except Exception as e:
+        logger.warning("local_pack stamp failed: %s", e)
+    return analysis
+
+
 def _day_key() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -418,6 +443,7 @@ def run_paid_local_confirm(
     state: str = "",
     zip_code: str = "",
     email: str = "",
+    skip_quota: bool = False,
 ) -> Dict[str, Any]:
     """
     Mutate analysis with bounded paid local AHJ confirm.
@@ -436,7 +462,12 @@ def run_paid_local_confirm(
     state = state or str(pi.get("state") or "")
     zip_code = zip_code or str(pi.get("zip") or "")
 
-    allowed, usage = consume_paid_local_lookup(email)
+    if skip_quota:
+        usage = get_paid_local_usage(email)
+        usage = {**usage, "allowed": True, "skip_quota": True}
+        allowed = True
+    else:
+        allowed, usage = consume_paid_local_lookup(email)
     analysis["finops_mode"] = "paid_local_confirm"
     analysis["paid_local_quota"] = usage
 
@@ -467,7 +498,7 @@ def run_paid_local_confirm(
         }
         _apply_paid_coverage(analysis, resolved, pack, [])
         logger.info("Paid local confirm capped for email=%s used=%s", usage.get("email"), usage.get("used"))
-        return analysis
+        return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
     portal = allowlisted_confirm_url(pack)
     # Prefer curated AHJ catalog portal when ZIP beachhead resolves (cost: $0)
@@ -526,7 +557,7 @@ def run_paid_local_confirm(
             ),
         }
         _apply_paid_coverage(analysis, resolved, pack, [])
-        return analysis
+        return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
     ck = _cache_key(city, state, zip_code, portal)
     cached = _cache_get(ck)
@@ -555,7 +586,7 @@ def run_paid_local_confirm(
             "fee_rows_extracted": len(fee_rows),
         }
         _apply_paid_coverage(analysis, resolved, pack, fee_rows)
-        return analysis
+        return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
     pages_cap = max_pages()
     pages_scraped = 0
@@ -617,7 +648,7 @@ def run_paid_local_confirm(
                 model="cheap",
                 meta={"method": method, "fees": len(fee_rows), "pages": 0},
             )
-            return analysis
+            return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
     except Exception as e:
         logger.warning("Paid local cheap confirm failed: %s", e)
 
@@ -723,7 +754,7 @@ def run_paid_local_confirm(
         len(fee_rows),
         method,
     )
-    return analysis
+    return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
 
 def _apply_paid_coverage(

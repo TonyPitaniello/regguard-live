@@ -27,6 +27,19 @@ def load_ahj_catalog() -> List[Dict[str, Any]]:
             records.append(json.loads(path.read_text(encoding="utf-8")))
         except Exception as e:
             logger.warning(f"Failed loading AHJ data {path}: {e}")
+    # Runtime promotes (ops) — same schema as ahj_data/
+    try:
+        from local_pack_store import list_promoted
+
+        for rec in list_promoted():
+            if not isinstance(rec, dict) or not rec.get("ahj_id"):
+                continue
+            # Prefer git-committed over promote on same ahj_id
+            if any(r.get("ahj_id") == rec.get("ahj_id") for r in records):
+                continue
+            records.append(rec)
+    except Exception as e:
+        logger.warning("promoted AHJ load failed: %s", e)
     return records
 
 

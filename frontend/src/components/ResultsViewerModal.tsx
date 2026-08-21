@@ -49,6 +49,17 @@ export interface AnalysisData {
   depth_claim_note?: string;
   scout_mode?: string;
   ic_package?: boolean | Record<string, unknown>;
+  local_pack?: {
+    tier?: string;
+    citeable?: boolean;
+    promote_candidate?: boolean;
+    city?: string;
+    state?: string;
+    zip?: string;
+    ahj?: { name?: string; portal_url?: string; fees_url?: string };
+    fees?: unknown[];
+    gotchas?: unknown[];
+  };
   honesty?: {
     risk_verified?: boolean;
     cost_verified?: boolean;
@@ -1191,6 +1202,13 @@ export default function ResultsViewerModal({
               )}
             </div>
             <p className="text-sm text-gray-200">{coverage.warning}</p>
+            {view.local_pack?.tier && (
+              <p className="text-xs text-indigo-200/90 mt-2 font-semibold">
+                Order local pack: {view.local_pack.tier}
+                {view.local_pack.citeable ? ' (citeable)' : ' — confirm fees with AHJ'}
+                {view.local_pack.promote_candidate ? ' · promote candidate' : ''}
+              </p>
+            )}
             {coverage.note && coverage.note !== coverage.warning && (
               <p className="text-xs text-gray-400 mt-2">{coverage.note}</p>
             )}

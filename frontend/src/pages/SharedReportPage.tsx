@@ -112,6 +112,12 @@ export default function SharedReportPage() {
   const coverageBadge = analysis.coverage?.badge || analysis.coverage?.badge_short;
   const depthBadge = analysis.depth_badge;
   const band = analysis.contingency_band;
+  const localPack = (analysis as { local_pack?: { tier?: string; citeable?: boolean } }).local_pack;
+  const localPackLabel = localPack?.tier
+    ? localPack.citeable
+      ? `Local pack: ${localPack.tier}`
+      : `Local pack: ${localPack.tier} (confirm AHJ)`
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -139,6 +145,11 @@ export default function SharedReportPage() {
             {coverageBadge && (
               <span className="inline-flex px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-slate-800 text-gray-200 border border-slate-600">
                 {coverageBadge}
+              </span>
+            )}
+            {localPackLabel && (
+              <span className="inline-flex px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-indigo-500/15 text-indigo-200 border border-indigo-500/35">
+                {localPackLabel}
               </span>
             )}
           </div>

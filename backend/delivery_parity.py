@@ -26,6 +26,23 @@ def prepare_analysis_for_delivery(analysis: Optional[Dict[str, Any]]) -> Dict[st
         pass
 
     try:
+        from local_pack_store import attach_local_pack_from_analysis, apply_local_pack_to_cards
+
+        pi = out.get("project_info") or {}
+        out = attach_local_pack_from_analysis(
+            out,
+            city=str(pi.get("city") or ""),
+            state=str(pi.get("state") or ""),
+            zip_code=str(pi.get("zip") or ""),
+            research_id=str(out.get("research_id") or ""),
+            persist=True,
+            record_hit=False,
+        )
+        out = apply_local_pack_to_cards(out)
+    except Exception:
+        pass
+
+    try:
         from punch_rank import normalize_analysis_punch
 
         out = normalize_analysis_punch(out)

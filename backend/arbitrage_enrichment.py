@@ -413,6 +413,45 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:
         pack = resolve_city_pack(city, state, zip_code) or generic_thin_pack(city, state)
 
+    # Prefer order-attached / ZIP-cache / promoted local_pack when present
+    try:
+        from local_pack_store import (
+            attach_local_pack_from_analysis,
+            apply_local_pack_to_cards,
+            load_zip_pack,
+        )
+
+        if not out.get("local_pack"):
+            cached = load_zip_pack(str(zip_code or ""))
+            if cached:
+                out["local_pack"] = cached
+            else:
+                out = attach_local_pack_from_analysis(
+                    out,
+                    city=city,
+                    state=state,
+                    zip_code=str(zip_code or ""),
+                    persist=False,
+                    record_hit=False,
+                )
+        out = apply_local_pack_to_cards(out)
+        lp = out.get("local_pack") or {}
+        if lp.get("citeable") or lp.get("tier") in ("paid_local", "portal_seed", "full_pack"):
+            # Overlay pack for fee/gotcha enrichment below
+            pack = {
+                **pack,
+                "citeable": bool(lp.get("citeable")),
+                "portal_only": lp.get("tier") == "portal_seed",
+                "fees": lp.get("fees") or pack.get("fees") or [],
+                "gotchas": lp.get("gotchas") or pack.get("gotchas") or [],
+                "documents": lp.get("documents") or pack.get("documents") or [],
+                "timeline_hint": lp.get("timeline_hint") or pack.get("timeline_hint"),
+                "ahj": lp.get("ahj") or pack.get("ahj") or {},
+                "pack_key": lp.get("pack_key") or pack.get("pack_key"),
+            }
+    except Exception as e:
+        logger.warning("local_pack enrich overlay failed: %s", e)
+
     items = _punch_items(out)
     crit, high, unverified = _count_priorities(items)
     summary = out.get("summary") or {}
@@ -424,6 +463,9 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     fee_rows = list(pack.get("fees") or [])
     # Prefer punch-extracted $ when present; keep pack fees first
     # P1: never surface fee dollars for portal-only / non-citeable packs
+    # Exception: paid_local / order local_pack may keep planning-aid fee rows (amounts OK as aids)
+    lp_tier = str((out.get("local_pack") or {}).get("tier") or "")
+    allow_aid_fees = lp_tier in ("paid_local", "full_pack") or bool(pack.get("citeable"))
     if pack.get("citeable") and not pack.get("portal_only"):
         extracted = _extract_fees_from_punch(items)
         seen = {str(r.get("label") or "")[:40] for r in fee_rows}
@@ -432,6 +474,17 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             if key not in seen:
                 fee_rows.append(row)
                 seen.add(key)
+    elif allow_aid_fees and fee_rows:
+        # Keep scraped planning-aid fees; strip verified theater
+        cleaned = []
+        for row in fee_rows:
+            if not isinstance(row, dict):
+                continue
+            r = dict(row)
+            r["verified"] = bool(pack.get("citeable") and r.get("verified"))
+            r.setdefault("detail", (r.get("detail") or "") + " (planning aid)")
+            cleaned.append(r)
+        fee_rows = cleaned
     else:
         fee_rows = []
 

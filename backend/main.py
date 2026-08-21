@@ -4845,6 +4845,97 @@ async def admin_mark_commission_paid(
     return {"status": "ok", "commission": row}
 
 
+@app.get("/admin/local-packs", tags=["Admin"])
+async def admin_list_local_packs(
+    min_hits: int = 1,
+    limit: int = 50,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Ops queue: draft local packs ranked by paid demand (exclude full_pack)."""
+    _require_admin_secret(x_admin_secret)
+    from local_pack_store import list_draft_packs, list_promoted, rank_zips_by_demand
+
+    return {
+        "drafts": list_draft_packs(min_hits=max(1, min_hits), limit=max(1, min(100, limit))),
+        "demand": rank_zips_by_demand(limit=max(1, min(100, limit))),
+        "promoted": list_promoted(),
+    }
+
+
+@app.get("/admin/local-packs/demand", tags=["Admin"])
+async def admin_local_pack_demand(
+    limit: int = 50,
+    days: int = 90,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from local_pack_store import rank_zips_by_demand
+
+    return {"zips": rank_zips_by_demand(limit=max(1, min(100, limit)), days=max(1, min(365, days)))}
+
+
+class SeedLocalPacksRequest(BaseModel):
+    limit: int = 10
+    max_pages: int = 6
+
+
+@app.post("/admin/local-packs/seed", tags=["Admin"])
+async def admin_seed_local_packs(
+    body: SeedLocalPacksRequest,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Demand-driven seed: top unpaid ZIPs via bounded paid_local_confirm."""
+    _require_admin_secret(x_admin_secret)
+    from local_pack_store import seed_top_zips
+
+    return seed_top_zips(
+        limit=max(1, min(25, int(body.limit or 10))),
+        max_pages=max(1, min(8, int(body.max_pages or 6))),
+    )
+
+
+@app.get("/admin/local-packs/{zip_code}", tags=["Admin"])
+async def admin_get_local_pack(
+    zip_code: str,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from local_pack_store import load_promoted_record, load_zip_pack
+
+    pack = load_zip_pack(zip_code)
+    if not pack:
+        raise HTTPException(status_code=404, detail=f"No draft pack for ZIP {zip_code}")
+    return {
+        "pack": pack,
+        "promoted": load_promoted_record(zip_code=zip_code),
+    }
+
+
+class PromoteLocalPackRequest(BaseModel):
+    reviewer: str = ""
+    edits: Optional[Dict[str, Any]] = None
+
+
+@app.post("/admin/local-packs/{zip_code}/promote", tags=["Admin"])
+async def admin_promote_local_pack(
+    zip_code: str,
+    body: PromoteLocalPackRequest,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Human promote draft → citeable ahj_promoted library (never auto)."""
+    _require_admin_secret(x_admin_secret)
+    from local_pack_store import promote_zip_pack
+
+    try:
+        return promote_zip_pack(
+            zip_code,
+            reviewer=(body.reviewer or "ops").strip(),
+            edits=body.edits or {},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+
+
 
 def _running_on_vercel() -> bool:
     return bool(

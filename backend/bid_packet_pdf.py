@@ -239,6 +239,14 @@ def generate_bid_packet_pdf(
     if depth or coverage:
         bits = [b for b in (depth.replace("_", " ").title(), coverage) if b]
         _muted(pdf, "  |  ".join(bits), 8)
+    lp = analysis_data.get("local_pack") or {}
+    if lp.get("tier"):
+        _muted(
+            pdf,
+            f"Local pack: {lp.get('tier')}  |  "
+            f"{'citeable' if lp.get('citeable') else 'planning aid — confirm with AHJ'}",
+            8,
+        )
     pdf.ln(1)
 
     # --- Site line ---
