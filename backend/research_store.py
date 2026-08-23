@@ -177,6 +177,26 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
         analysis["depth_claim_honest"] = True
 
     analysis["depth_badge"] = label
+    if analysis.get("depth_claim_honest") is False:
+        analysis["depth_claim_note"] = (
+            "This run did not finish site-pinned deep research (missing map coordinates or still "
+            "Instant Preview). Confirm the pin on the map and re-run before treating this as "
+            "Contractor Pro / IC diligence you can forward to a GC."
+        )
+        analysis["research_incomplete"] = True
+        # Soft-demote depth stamp so UIs don't unlock Pro-only chrome
+        if str(analysis.get("honesty", {}).get("source") or "").lower() not in (
+            "instant",
+            "preview",
+            "delivery_summary",
+        ):
+            honesty = dict(analysis.get("honesty") or {})
+            honesty.setdefault("source", "instant")
+            analysis["honesty"] = honesty
+    else:
+        analysis.pop("research_incomplete", None)
+        if not analysis.get("depth_claim_note"):
+            analysis.pop("depth_claim_note", None)
     return analysis
 
 

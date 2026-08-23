@@ -279,6 +279,19 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "name": "City of Jacksonville Building Inspection",
         "portal_url": "https://www.jacksonville.gov/departments/planning-and-development/building-inspection-division",
     },
+    "bradenton, fl": {
+        "city": "Bradenton",
+        "state": "FL",
+        "name": "City of Bradenton Building & Permitting",
+        "portal_url": "https://cityofbradenton.com/index.asp?SEC=%7B36A732FE-19FC-4DB5-A162-DE823D72E1ED%7D",
+        "phone": "941-932-9414",
+    },
+    "sarasota, fl": {
+        "city": "Sarasota",
+        "state": "FL",
+        "name": "City of Sarasota Building & Permitting",
+        "portal_url": "https://www.sarasotafl.gov/Department-Pages/Development-Services/Building-Permitting",
+    },
     "new york, ny": {
         "city": "New York",
         "state": "NY",

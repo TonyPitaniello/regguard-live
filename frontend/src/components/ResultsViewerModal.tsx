@@ -47,6 +47,8 @@ export interface AnalysisData {
   depth_tier?: string;
   depth_badge?: string;
   depth_claim_note?: string;
+  depth_claim_honest?: boolean;
+  research_incomplete?: boolean;
   scout_mode?: string;
   ic_package?: boolean | Record<string, unknown>;
   local_pack?: {
@@ -588,7 +590,13 @@ export default function ResultsViewerModal({
   const depth = (view.research_depth || '').toLowerCase();
   const depthTier = (view.depth_tier || '').toLowerCase();
   const scoutMode = (view.scout_mode || '').toLowerCase();
-  const isDeep = depth === 'pro' || depth === 'pro_partial';
+  const incompleteRun =
+    isInstantPreviewDepth(view) ||
+    view.research_incomplete === true ||
+    view.depth_claim_honest === false;
+  // Never treat Instant Preview / missing pin as "deep Pro" for unlock chrome
+  const isDeep =
+    (depth === 'pro' || depth === 'pro_partial' || depthTier === 'ic_full') && !incompleteRun;
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
@@ -598,10 +606,13 @@ export default function ResultsViewerModal({
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
 
   const depthBadgeLabel = (() => {
-    if (view.depth_badge) return view.depth_badge;
-    if (isInstantPreviewDepth(view)) {
-      return 'Instant preview — deep research incomplete (not full Pro)';
+    if (incompleteRun) {
+      return (
+        view.depth_badge ||
+        'Instant preview — deep research incomplete (not full Pro)'
+      );
     }
+    if (view.depth_badge) return view.depth_badge;
     if (depthTier === 'ic_full') return 'IC Project — full federal / state / local scout';
     if (depthTier === 'pro_light' || scoutMode === 'light')
       return 'Contractor Pro — local confirm + light scout';
@@ -976,6 +987,25 @@ export default function ResultsViewerModal({
             <X className="w-6 h-6" />
           </button>
         </div>
+
+        {incompleteRun && (
+          <div className="mx-5 sm:mx-8 mt-4 rounded-xl border border-amber-500/45 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm font-bold text-amber-100">Run finished — deep site research incomplete</p>
+            <p className="text-xs text-amber-200/90 mt-1 leading-relaxed">
+              {view.depth_claim_note ||
+                'Confirm the map pin (lat/lng) and re-check before forwarding as Contractor Pro / IC diligence. Environmental cards marked PRELIMINARY mean GIS did not run for this parcel.'}
+            </p>
+            {onUnlockDeeper && (
+              <button
+                type="button"
+                onClick={() => onUnlockDeeper()}
+                className="mt-3 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+              >
+                Confirm pin &amp; re-run deep research
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Text / Email + social share — scrolls with results (page scroll) */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
@@ -1763,20 +1793,29 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
-                {(view.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => (
+                {(view.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => {
+                  const risk = String(finding.risk_level || '').toUpperCase();
+                  const isPrelim = risk === 'PRELIMINARY' || risk === 'UNKNOWN' || incompleteRun;
+                  return (
                   <div key={idx} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2 gap-2">
                       <h4 className="font-bold text-white capitalize">
                         {finding.category.replace(/_/g, ' ')}
                       </h4>
                       <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold ${getRiskColor(finding.risk_level)}`}
+                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                          isPrelim ? 'bg-amber-500/20 text-amber-200' : getRiskColor(finding.risk_level)
+                        }`}
                       >
-                        {finding.risk_level}
+                        {isPrelim ? 'NOT RUN — confirm pin' : finding.risk_level}
                       </span>
                     </div>
-                    <p className="text-gray-300 text-sm mb-2">{finding.description}</p>
-                    {(finding.action_items || []).length > 0 && (
+                    <p className="text-gray-300 text-sm mb-2">
+                      {isPrelim
+                        ? 'Parcel GIS / environmental layers did not complete for this run. Confirm the map pin and re-check to replace this placeholder.'
+                        : finding.description}
+                    </p>
+                    {!isPrelim && (finding.action_items || []).length > 0 && (
                       <ul className="space-y-1 mb-2">
                         {finding.action_items.slice(0, 3).map((item, i) => (
                           <li key={i} className="text-xs text-gray-400 flex gap-2">
@@ -1786,14 +1825,17 @@ export default function ResultsViewerModal({
                         ))}
                       </ul>
                     )}
+                    {!isPrelim && (
                     <CitationBadge
                       data_sources={finding.data_sources}
                       source_url={finding.source_url}
                       source_label={finding.source_label || (finding.data_sources || [])[0]}
                       verified={Boolean(finding.verified)}
                     />
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
