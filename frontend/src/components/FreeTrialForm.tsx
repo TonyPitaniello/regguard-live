@@ -183,7 +183,7 @@ export default function FreeTrialForm({
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
       setError(
-        'Confirm a site with Places search or the map pin (green Confirm), plus email — street, city, state, and ZIP are required.'
+        'Enter street, city, state, and ZIP (map pin locks automatically), plus email.'
       );
       setLoading(false);
       return;

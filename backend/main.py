@@ -2740,6 +2740,59 @@ def reverse_geocode_address(latitude: float, longitude: float) -> Dict[str, str]
     }
 
 
+@app.get("/geocode-address")
+def geocode_address_forward(
+    address: str = "",
+    street: str = "",
+    city: str = "",
+    state: str = "",
+    zip: str = "",
+) -> Dict[str, str]:
+    """
+    Forward geocode a U.S. site line (typed address fields → lat/lng + normalized parts).
+    Used by LocationPicker so typing street/city/state/ZIP drops a map pin without Places.
+    """
+    from jurisdiction import geocode_profile_from_address
+
+    street_s = (street or "").strip()
+    city_s = (city or "").strip()
+    state_s = (state or "").strip().upper()[:2]
+    zip_s = "".join(ch for ch in (zip or "") if ch.isdigit())[:5]
+    line = (address or "").strip()
+    if not line:
+        tail = f"{state_s} {zip_s}".strip()
+        line = ", ".join(p for p in (street_s, city_s, tail) if p)
+    if not line or len(line) < 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Enter a street address with city/state or ZIP to place the pin.",
+        )
+    try:
+        profile = geocode_profile_from_address(line)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(
+            status_code=400,
+            detail="Address lookup unavailable — try Places search or click the map.",
+        ) from e
+
+    lat = profile.latitude
+    lng = profile.longitude
+    if lat is None or lng is None:
+        raise HTTPException(status_code=400, detail="Could not resolve coordinates for that address.")
+
+    return {
+        "formatted_address": profile.formatted_address or line,
+        "zip": profile.zip5 or zip_s,
+        "city": profile.city or city_s,
+        "state": profile.state_short or state_s,
+        "street": profile.street_line or street_s or (profile.formatted_address or "").split(",")[0],
+        "latitude": str(lat),
+        "longitude": str(lng),
+    }
+
+
 def _normalize_research_image_upload(
     image: Optional[UploadFile],
     raw_bytes: Optional[bytes],
