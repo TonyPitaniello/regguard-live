@@ -164,6 +164,23 @@ class TwilioSMSService(SMSService):
         # Return in E.164 format
         return f"+{digits}"
 
+    def _twilio_create_kwargs(self, body: str, to_phone: str) -> Dict[str, Any]:
+        """Build Twilio messages.create kwargs, including status callback when configured."""
+        kwargs: Dict[str, Any] = {
+            "body": body,
+            "from_": self.from_number,
+            "to": to_phone,
+        }
+        try:
+            from sms_delivery_store import status_callback_url
+
+            cb = status_callback_url()
+            if cb:
+                kwargs["status_callback"] = cb
+        except Exception:
+            pass
+        return kwargs
+
     def _format_sms_message(self, research_data: Dict[str, Any]) -> str:
         """
         Format research data into concise SMS message (≤160 chars for single SMS).
@@ -284,12 +301,26 @@ class TwilioSMSService(SMSService):
         try:
             message = await asyncio.to_thread(
                 self.twilio_client.messages.create,
-                body=message_body,
-                from_=self.from_number,
-                to=normalized_phone,
+                **self._twilio_create_kwargs(message_body, normalized_phone),
             )
 
             logger.info(f"SMS accepted by Twilio: {message.sid}")
+
+            try:
+                from sms_delivery_store import record_outbound
+
+                record_outbound(
+                    message_sid=message.sid,
+                    to_phone=normalized_phone,
+                    research_id=str(
+                        (research_data or {}).get("research_id")
+                        or (research_data or {}).get("id")
+                        or ""
+                    ),
+                    status=getattr(message, "status", None) or "queued",
+                )
+            except Exception as log_err:
+                logger.debug("sms delivery log skip: %s", log_err)
 
             err_code = getattr(message, "error_code", None)
             err_msg = getattr(message, "error_message", None) or ""

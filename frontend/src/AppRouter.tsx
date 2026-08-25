@@ -5,6 +5,7 @@ import { DataCenterRequestForm } from './DataCenterRequestForm';
 import { DataCenterHub } from './pages/DataCenterHub';
 import FreeTrialForm from './components/FreeTrialForm';
 import { SalesLeadsDashboard } from './SalesLeadsDashboard';
+import { AdminLocalPacksDashboard } from './AdminLocalPacksDashboard';
 import { QueueLanding } from './Queue/QueueLanding';
 import { QueueUploadForm } from './Queue/QueueUploadForm';
 import QueueMonitorDashboard from './Queue/QueueMonitorDashboard';
@@ -180,6 +181,7 @@ export function AppRouter() {
           {/* Data Center B2B Routes */}
           <Route path="/data-center" element={<DataCenterPage />} />
           <Route path="/admin/leads" element={<AdminLeadsPage />} />
+          <Route path="/admin/packs" element={<AdminPacksPage />} />
 
           {/* Existing Compliance Routes */}
           <Route path="/agent" element={<App />} />
@@ -308,6 +310,20 @@ function AdminLeadsPage() {
         </div>
       </div>
       <SalesLeadsDashboard backendUrl={backendUrl('')} />
+    </div>
+  );
+}
+
+function AdminPacksPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Local Packs</h1>
+          <p>Draft queue · promote · demand</p>
+        </div>
+      </div>
+      <AdminLocalPacksDashboard />
     </div>
   );
 }

@@ -201,7 +201,20 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     if data.get("pro_summary_markdown"):
         data["pro_summary_markdown"] = _ascii_safe(data["pro_summary_markdown"], 8000)
     data["skip_upgrade_cta"] = True
-    return data
+    return _deep_ascii_strings(data)
+
+
+def _deep_ascii_strings(obj: Any, *, _depth: int = 0) -> Any:
+    """Helvetica-safe strings throughout the PDF payload (packs often use em dashes)."""
+    if _depth > 12:
+        return obj
+    if isinstance(obj, dict):
+        return {k: _deep_ascii_strings(v, _depth=_depth + 1) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_deep_ascii_strings(v, _depth=_depth + 1) for v in obj]
+    if isinstance(obj, str):
+        return _ascii_safe(obj, 8000)
+    return obj
 
 
 def _read_file_bytes(path: str) -> bytes:
@@ -386,19 +399,45 @@ async def fulfill_ic_project_artifacts(
     pdfs = build_pdf_meta(order_id, email_l, byte_map, download_token=token)
     address = (analysis.get("project_info") or {}).get("address") or ""
 
+    # Persist a fresh shareable research record so email/forward ≠ Instant Preview
+    shaped = analysis_for_pdfs(analysis)
+    shaped["preview"] = False
+    shaped["depth_tier"] = "ic_full"
+    shaped["research_depth"] = "ic"
+    shaped.pop("research_id", None)  # force new id
+    shaped.pop("share_url", None)
+    share_meta: Dict[str, Any] = {}
+    try:
+        from research_store import save_research, stamp_depth_badge
+
+        shaped = stamp_depth_badge(shaped)
+        share_meta = save_research(shaped)
+        shaped["research_id"] = share_meta.get("research_id")
+        shaped["share_url"] = share_meta.get("share_url")
+    except Exception as e:
+        logger.warning("IC share refresh failed: %s", e)
+        shaped = analysis_for_pdfs(analysis)
+
     # Update pdf_status on raw order before artifact patch
     order["pdf_status"] = "ready"
+    if share_meta.get("share_url"):
+        order["share_url"] = share_meta["share_url"]
+    if share_meta.get("research_id"):
+        order["research_id"] = share_meta["research_id"]
     updated = update_order_artifacts(
         order_id,
         pdfs=pdfs,
-        analysis_json=analysis_for_pdfs(analysis),
+        analysis_json=shaped,
         address=str(address),
+        share_url=share_meta.get("share_url"),
+        research_id=share_meta.get("research_id"),
     )
     logger.info(
-        "✅ IC Project PDFs ready order=%s email=%s sizes=%s",
+        "✅ IC Project PDFs ready order=%s email=%s sizes=%s share=%s",
         order_id,
         email_l,
         {k: len(v) for k, v in byte_map.items()},
+        share_meta.get("share_url") or "n/a",
     )
 
     if idem:

@@ -415,11 +415,33 @@ def load_zip_pack(zip_code: str) -> Optional[Dict[str, Any]]:
 def save_zip_pack(zip_code: str, pack: Dict[str, Any]) -> Path:
     z5 = _zip5(zip_code)
     path = packs_dir() / f"{z5}.json"
+    prev: Optional[Dict[str, Any]] = None
+    if path.is_file():
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                prev = raw
+        except Exception:
+            prev = None
     payload = dict(pack)
     payload["zip"] = z5
     payload["saved_at"] = _now_iso()
     with _LOCK:
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    try:
+        from pack_storage_sync import push_pack_file
+
+        push_pack_file(path, kind="local_packs")
+    except Exception as e:
+        logger.debug("pack sync skip: %s", e)
+    # Rising-edge notify when pack becomes promote-ready
+    if payload.get("promote_candidate") and not (prev or {}).get("promote_candidate"):
+        try:
+            from promote_notify import notify_promote_candidate
+
+            notify_promote_candidate(payload, zip_code=z5)
+        except Exception as e:
+            logger.warning("promote notify failed: %s", e)
     return path
 
 
@@ -467,6 +489,12 @@ def list_draft_packs(*, min_hits: int = 1, limit: int = 50) -> List[Dict[str, An
             continue
         if load_promoted_record(zip_code=z5):
             continue
+        try:
+            from pack_quality import promote_readiness_score
+
+            readiness = promote_readiness_score(pack)
+        except Exception:
+            readiness = 0.0
         out.append(
             {
                 **row,
@@ -475,6 +503,7 @@ def list_draft_packs(*, min_hits: int = 1, limit: int = 50) -> List[Dict[str, An
                 "gotcha_count": len(pack.get("gotchas") or []),
                 "portal_url": (pack.get("ahj") or {}).get("portal_url") or "",
                 "promote_candidate": bool(pack.get("promote_candidate")),
+                "readiness": readiness,
                 "pack": pack or None,
             }
         )
@@ -675,14 +704,22 @@ def promote_zip_pack(
     edits: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Human promote: write ahj_promoted record + upgrade ZIP cache to full_pack."""
+    from pack_quality import validate_pack_for_promote, validate_promoted_record
+
     z5 = _zip5(zip_code)
     pack = load_zip_pack(z5)
     if not pack:
         raise ValueError(f"No draft pack for ZIP {z5}")
-    if not (pack.get("ahj") or {}).get("portal_url") and not (edits or {}).get("portal_url"):
-        raise ValueError("Promote requires a portal_url on the pack or in edits")
+    edits = edits or {}
+    ok, errors = validate_pack_for_promote(pack, edits=edits)
+    if not ok:
+        raise ValueError("; ".join(errors))
 
     rec = draft_to_ahj_record(pack, reviewer=reviewer, edits=edits)
+    ok_rec, rec_errors = validate_promoted_record(rec)
+    if not ok_rec:
+        raise ValueError("Promoted record schema: " + "; ".join(rec_errors))
+
     path = promoted_dir() / f"{rec['ahj_id']}.json"
     with _LOCK:
         path.write_text(json.dumps(rec, indent=2), encoding="utf-8")
@@ -693,6 +730,13 @@ def promote_zip_pack(
             load_ahj_catalog.cache_clear()
         except Exception:
             pass
+
+    try:
+        from pack_storage_sync import push_pack_file
+
+        push_pack_file(path, kind="ahj_promoted")
+    except Exception as e:
+        logger.debug("promoted pack sync skip: %s", e)
 
     # Upgrade ZIP cache
     runtime = _pack_from_ahj_record(rec, tier="full_pack", source="promoted")

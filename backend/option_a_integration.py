@@ -86,8 +86,39 @@ async def run_option_a_analysis(
         
         logger.info(f"✅ Punch list generated with {len(punch_list_data['punch_list'])} items")
 
-        # Option A env parsers are still heuristic/stub — never treat risk as verified.
+        # Option A: risk verified when pin is real and flood/wetlands GIS returned verified hits.
         from honesty import apply_honesty_layer
+        from geocode import is_null_island
+
+        findings = environmental_data.get("findings") or []
+        gis_cats = {
+            "wetlands",
+            "flood",
+            "floodplain",
+            "flood_zone",
+            "flood zones",
+        }
+        verified_gis = [
+            f
+            for f in findings
+            if isinstance(f, dict)
+            and f.get("verified") is True
+            and str(f.get("category") or "").strip().lower() in gis_cats
+        ]
+        pin_ok = not is_null_island(latitude, longitude)
+        risk_verified = bool(pin_ok and verified_gis)
+        # Never leave PRELIMINARY overall when GIS parcel checks succeeded
+        if risk_verified and str(environmental_data.get("risk_level") or "").upper() in (
+            "PRELIMINARY",
+            "UNAVAILABLE",
+            "",
+        ):
+            levels = [str(f.get("risk_level") or "LOW").upper() for f in verified_gis]
+            rank = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
+            best = max((rank.get(lv, 0) for lv in levels), default=1)
+            inv = {v: k for k, v in rank.items() if k != "UNKNOWN"}
+            environmental_data["risk_level"] = inv.get(best, "LOW")
+            environmental_data["risk_gis_verified"] = True
 
         combined_analysis = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -115,7 +146,9 @@ async def run_option_a_analysis(
                 "estimates_unverified": True,
             },
             "next_steps": [
-                "1. Treat this as a preliminary checklist — risk scores are not parcel-verified",
+                "1. Treat this as a preliminary checklist — risk scores are not parcel-verified"
+                if not risk_verified
+                else "1. Review GIS-verified flood/wetlands findings against your site plan",
                 "2. Contact your local Authority Having Jurisdiction (AHJ) with your punch list",
                 "3. Confirm every dollar and day estimate with the AHJ / utility before bidding",
                 "4. Forward the Bid Risk Receipt before bid day — or open My Orders for IC PDFs if purchased",
@@ -125,7 +158,7 @@ async def run_option_a_analysis(
         stamped = apply_honesty_layer(
             combined_analysis,
             source="option_a",
-            risk_verified=False,
+            risk_verified=risk_verified,
             cost_verified=False,
             timeline_verified=False,
         )

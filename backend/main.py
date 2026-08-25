@@ -4759,6 +4759,71 @@ async def cron_day7_win_emails(
     return {"status": "ok", "due": len(due), "sent": sent, "failed": failed}
 
 
+@app.post("/cron/seed-local-packs", tags=["Cron"])
+async def cron_seed_local_packs(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+    limit: int = 10,
+    max_pages: int = 6,
+) -> Dict[str, Any]:
+    """
+    Weekly demand-driven local pack seed (top unpaid ZIPs).
+    Schedule (e.g. cron-job.org weekly):
+      POST /cron/seed-local-packs
+      Header: X-Cron-Secret: $CRON_SECRET
+    """
+    _require_cron_secret(x_cron_secret)
+    from local_pack_store import seed_top_zips
+
+    result = seed_top_zips(
+        limit=max(1, min(25, int(limit or 10))),
+        max_pages=max(1, min(8, int(max_pages or 6))),
+    )
+    return {"status": "ok", **(result if isinstance(result, dict) else {"result": result})}
+
+
+@app.post("/cron/sync-local-packs", tags=["Cron"])
+async def cron_sync_local_packs(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+) -> Dict[str, Any]:
+    """
+    Hydrate missing packs from optional S3/Supabase (PACK_SYNC_BACKEND).
+    No-op when PACK_SYNC_BACKEND=none.
+    """
+    _require_cron_secret(x_cron_secret)
+    from pack_storage_sync import pull_missing_packs
+
+    return pull_missing_packs()
+
+
+@app.post("/webhooks/twilio/sms-status", tags=["Webhooks"])
+async def twilio_sms_status_webhook(request: Request) -> Dict[str, Any]:
+    """Twilio Message Status Callback — stores delivered/failed + error codes."""
+    from sms_delivery_store import record_status_callback
+
+    try:
+        form = await request.form()
+        payload = {k: form.get(k) for k in form.keys()}
+    except Exception:
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    return record_status_callback(payload)
+
+
+@app.get("/admin/sms-delivery", tags=["Admin"])
+async def admin_sms_delivery(
+    limit: int = 50,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from sms_delivery_store import recent
+
+    return {"events": recent(limit=max(1, min(200, limit)))}
+
+
 @app.get("/sample/plano-punch-list.pdf", tags=["Samples"])
 async def download_sample_plano_pdf():
     """Labeled SAMPLE Plano punch-list PDF for pricing / landing."""

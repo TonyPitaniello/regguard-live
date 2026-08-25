@@ -370,6 +370,147 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "name": "City of Cheyenne (confirm Planning & Development on city site)",
         "portal_url": "https://www.cheyennecity.org/",
     },
+    # FL Gulf / sales metros
+    "clearwater, fl": {
+        "city": "Clearwater",
+        "state": "FL",
+        "name": "City of Clearwater Building & Permitting",
+        "portal_url": "https://www.myclearwater.com/government/city-departments/planning-development/building-construction",
+    },
+    "st petersburg, fl": {
+        "city": "St Petersburg",
+        "state": "FL",
+        "name": "City of St. Petersburg Construction Services & Permitting",
+        "portal_url": "https://www.stpete.org/business/development/construction_services___permitting.php",
+    },
+    "st. petersburg, fl": {
+        "city": "St Petersburg",
+        "state": "FL",
+        "name": "City of St. Petersburg Construction Services & Permitting",
+        "portal_url": "https://www.stpete.org/business/development/construction_services___permitting.php",
+    },
+    "lakeland, fl": {
+        "city": "Lakeland",
+        "state": "FL",
+        "name": "City of Lakeland Building Inspection",
+        "portal_url": "https://www.lakelandgov.net/departments/community-economic-development/building-inspection/",
+    },
+    "fort myers, fl": {
+        "city": "Fort Myers",
+        "state": "FL",
+        "name": "City of Fort Myers Community Development / Building",
+        "portal_url": "https://www.fortmyers.gov/1633/Building",
+    },
+    "naples, fl": {
+        "city": "Naples",
+        "state": "FL",
+        "name": "City of Naples Building Department",
+        "portal_url": "https://www.naplesgov.com/building",
+    },
+    "fort lauderdale, fl": {
+        "city": "Fort Lauderdale",
+        "state": "FL",
+        "name": "City of Fort Lauderdale Building Services",
+        "portal_url": "https://www.fortlauderdale.gov/government/departments-a-h/development-services/building-services",
+    },
+    "west palm beach, fl": {
+        "city": "West Palm Beach",
+        "state": "FL",
+        "name": "City of West Palm Beach Development Services",
+        "portal_url": "https://www.wpb.org/government/development-services",
+    },
+    "tallahassee, fl": {
+        "city": "Tallahassee",
+        "state": "FL",
+        "name": "City of Tallahassee Growth Management / Building",
+        "portal_url": "https://www.talgov.com/place/pln-building.aspx",
+    },
+    # TX sales metros beyond full packs
+    "arlington, tx": {
+        "city": "Arlington",
+        "state": "TX",
+        "name": "City of Arlington Planning & Development Services",
+        "portal_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+    },
+    "irving, tx": {
+        "city": "Irving",
+        "state": "TX",
+        "name": "City of Irving Building Inspections",
+        "portal_url": "https://www.cityofirving.org/353/Building-Inspections",
+    },
+    "garland, tx": {
+        "city": "Garland",
+        "state": "TX",
+        "name": "City of Garland Building Inspection",
+        "portal_url": "https://www.garlandtx.gov/353/Building-Inspection",
+    },
+    "mckinney, tx": {
+        "city": "McKinney",
+        "state": "TX",
+        "name": "City of McKinney Building Inspections",
+        "portal_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+    },
+    "frisco, tx": {
+        "city": "Frisco",
+        "state": "TX",
+        "name": "City of Frisco Building Inspections",
+        "portal_url": "https://www.friscotexas.gov/147/Building-Inspections",
+    },
+    "round rock, tx": {
+        "city": "Round Rock",
+        "state": "TX",
+        "name": "City of Round Rock Building Inspections",
+        "portal_url": "https://www.roundrocktexas.gov/departments/building-inspections/",
+    },
+    "denton, tx": {
+        "city": "Denton",
+        "state": "TX",
+        "name": "City of Denton Building Inspections",
+        "portal_url": "https://www.cityofdenton.com/200/Building-Inspections",
+    },
+    "el paso, tx": {
+        "city": "El Paso",
+        "state": "TX",
+        "name": "City of El Paso Planning & Inspections",
+        "portal_url": "https://www.elpasotexas.gov/planning-and-inspections/",
+    },
+    "corpus christi, tx": {
+        "city": "Corpus Christi",
+        "state": "TX",
+        "name": "City of Corpus Christi Development Services",
+        "portal_url": "https://www.cctexas.com/departments/development-services",
+    },
+    "lubbock, tx": {
+        "city": "Lubbock",
+        "state": "TX",
+        "name": "City of Lubbock Building Inspection",
+        "portal_url": "https://ci.lubbock.tx.us/departments/planning/building-inspection",
+    },
+    # Additional national sales metros
+    "boise, id": {
+        "city": "Boise",
+        "state": "ID",
+        "name": "City of Boise Planning & Development Services",
+        "portal_url": "https://www.cityofboise.org/departments/planning-and-development-services/",
+    },
+    "omaha, ne": {
+        "city": "Omaha",
+        "state": "NE",
+        "name": "City of Omaha Planning Department / Permits",
+        "portal_url": "https://planning.cityofomaha.org/",
+    },
+    "louisville, ky": {
+        "city": "Louisville",
+        "state": "KY",
+        "name": "Louisville Metro Codes & Regulations",
+        "portal_url": "https://louisvilleky.gov/government/codes-regulations",
+    },
+    "birmingham, al": {
+        "city": "Birmingham",
+        "state": "AL",
+        "name": "City of Birmingham Department of Planning, Engineering & Permits",
+        "portal_url": "https://www.birminghamal.gov/about/city-directory/planning-engineering-and-permits",
+    },
 }
 
 

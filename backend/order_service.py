@@ -410,6 +410,8 @@ def update_order_artifacts(
     pdfs: Optional[List[Dict[str, Any]]] = None,
     analysis_json: Optional[Dict[str, Any]] = None,
     address: Optional[str] = None,
+    share_url: Optional[str] = None,
+    research_id: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Update in-memory order PDFs/analysis; best-effort Supabase PATCH."""
     order = get_raw_order_by_id(order_id)
@@ -424,6 +426,10 @@ def update_order_artifacts(
         order["analysis_json"] = analysis_json
     if address is not None:
         order["address"] = address
+    if share_url:
+        order["share_url"] = share_url
+    if research_id:
+        order["research_id"] = research_id
     remember_order(order)
     _persist_order_artifacts_supabase(order)
     return order_to_frontend(order)
@@ -446,6 +452,10 @@ def _persist_order_artifacts_supabase(order: Dict[str, Any]) -> None:
         patch["download_token"] = order["download_token"]
     if order.get("pdf_status"):
         patch["pdf_status"] = order["pdf_status"]
+    if order.get("share_url"):
+        patch["share_url"] = order["share_url"]
+    if order.get("research_id"):
+        patch["research_id"] = order["research_id"]
     if not patch:
         return
     if sid:
