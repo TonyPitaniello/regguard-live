@@ -86,6 +86,7 @@ def test_metro_seeds_include_gulf_tx():
         ("Fort Myers", "FL"),
         ("Frisco", "TX"),
         ("Arlington", "TX"),
+        ("Midlothian", "TX"),
         ("Boise", "ID"),
     ):
         pack = resolve_metro_portal_pack(city, state)
@@ -104,7 +105,7 @@ def test_gis_risk_verified_when_flood_verified(monkeypatch):
             "risk_level": "MEDIUM",
             "findings": [
                 {
-                    "category": "flood",
+                    "category": "flood_zones",
                     "risk_level": "MEDIUM",
                     "description": "Zone AE",
                     "verified": True,

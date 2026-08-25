@@ -28,12 +28,35 @@ def _address_fingerprint(address: str) -> str:
 
 
 def api_public_base() -> str:
-    return (
-        os.getenv("BACKEND_PUBLIC_URL")
-        or os.getenv("RENDER_EXTERNAL_URL")
-        or os.getenv("API_BASE_URL")
-        or "https://api.regguardagent.com"
-    ).rstrip("/")
+    """
+    Public base for PDF/download links in emails and order JSON.
+    Prefer a custom API host — bare *.onrender.com URLs often trip Chrome
+    Safe Browsing when opened via window.open in a new tab.
+    """
+    for key in (
+        "BACKEND_PUBLIC_URL",
+        "API_PUBLIC_BASE",
+        "REG_GUARD_API_PUBLIC_URL",
+        "API_BASE_URL",
+    ):
+        val = (os.getenv(key) or "").strip().rstrip("/")
+        if val:
+            return val
+    return "https://api.regguardagent.com"
+
+
+def rewrite_pdf_url_for_client(url: str) -> str:
+    """Strip host so the SPA can download via backendUrl() / same-origin proxy."""
+    raw = (url or "").strip()
+    if not raw:
+        return raw
+    if raw.startswith("/"):
+        return raw
+    for marker in ("/orders/", "/bid-receipt/", "/bid-packet/", "/sample/"):
+        idx = raw.find(marker)
+        if idx >= 0:
+            return raw[idx:]
+    return raw
 
 
 def is_ic_tier(tier: str) -> bool:

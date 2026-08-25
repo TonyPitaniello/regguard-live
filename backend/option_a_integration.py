@@ -96,6 +96,7 @@ async def run_option_a_analysis(
             "flood",
             "floodplain",
             "flood_zone",
+            "flood_zones",
             "flood zones",
         }
         verified_gis = [

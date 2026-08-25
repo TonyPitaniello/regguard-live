@@ -1448,7 +1448,7 @@ async def download_order_pdf(
         content=data,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'inline; filename="{filename}"',
+            "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "private, max-age=300",
         },
     )

@@ -121,8 +121,9 @@ class ResearchMemoPDF(RegGuardPDF):
         
         try:
             self.add_page()
-            self.add_footer()
-            
+            # Do NOT call add_footer() before content — that paints at y=-20 on an
+            # empty page and commonly yields a blank first page in viewers.
+
             # Header
             project_info = analysis_data.get("project_info", {})
             address = project_info.get("address", "Unknown")
@@ -261,9 +262,7 @@ class PunchListPDF(RegGuardPDF):
         
         try:
             self.add_page()
-            self.add_footer()
-            
-            # Header
+            # Header first — avoid blank page from footer-before-content
             project_info = analysis_data.get("project_info", {})
             address = project_info.get("address", "Unknown")
             self.add_header(
@@ -364,9 +363,6 @@ class PermitPackagePDF(RegGuardPDF):
         
         try:
             self.add_page()
-            self.add_footer()
-            
-            # Header
             project_info = analysis_data.get("project_info", {})
             address = project_info.get("address", "Unknown")
             self.add_header(

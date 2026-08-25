@@ -111,11 +111,14 @@ def has_usable_coords(analysis: Optional[Dict[str, Any]]) -> bool:
     if not isinstance(analysis, dict):
         return False
     pi = analysis.get("project_info") or {}
+    coords = pi.get("coordinates") if isinstance(pi.get("coordinates"), dict) else {}
     pairs = [
         (analysis.get("latitude"), analysis.get("longitude")),
         (analysis.get("lat"), analysis.get("lng")),
         (pi.get("latitude"), pi.get("longitude")),
         (pi.get("lat"), pi.get("lng")),
+        (coords.get("latitude"), coords.get("longitude")),
+        (coords.get("lat"), coords.get("lng")),
     ]
     for lat_raw, lng_raw in pairs:
         try:

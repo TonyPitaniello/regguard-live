@@ -392,11 +392,16 @@ function reportShareUrl(analysis: AnalysisData, researchId?: string | null): str
 
 function hasUsableCoords(analysis: AnalysisData): boolean {
   const pi = analysis.project_info || ({} as AnalysisData['project_info']);
+  const nested =
+    (pi as { coordinates?: { latitude?: unknown; longitude?: unknown; lat?: unknown; lng?: unknown } })
+      .coordinates || {};
   const pairs: Array<[unknown, unknown]> = [
     [(analysis as { latitude?: unknown }).latitude, (analysis as { longitude?: unknown }).longitude],
     [(analysis as { lat?: unknown }).lat, (analysis as { lng?: unknown }).lng],
     [(pi as { lat?: unknown }).lat, (pi as { lng?: unknown }).lng],
     [(pi as { latitude?: unknown }).latitude, (pi as { longitude?: unknown }).longitude],
+    [nested.latitude, nested.longitude],
+    [nested.lat, nested.lng],
   ];
   for (const [la, ln] of pairs) {
     const lat = Number(la);
@@ -544,6 +549,7 @@ export default function ResultsViewerModal({
     environmental: true,
     punchList: true,
     critical: true,
+    deepPlan: false,
   });
   const [copied, setCopied] = useState<'link' | 'text' | 'facebook' | 'instagram' | null>(null);
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
@@ -1253,7 +1259,15 @@ export default function ResultsViewerModal({
                 onClick={() => {
                   setExpanded((prev) => ({ ...prev, punchList: true, critical: true }));
                   const el = document.getElementById('bid-arbitrage');
-                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return;
+                  }
+                  showToast(
+                    coverage.tier === 'federal_state' || coverage.tier === 'portal_seed'
+                      ? 'No curated local fees yet for this ZIP — open the AHJ portal to confirm, or promote a pack from /admin/packs.'
+                      : 'Local fees section is not on this results view — expand punch list or re-run with a pin.'
+                  );
                 }}
               >
                 Open local fees & gotchas
@@ -1338,13 +1352,28 @@ export default function ResultsViewerModal({
           {/* Deep plan — Pro only */}
           {isDeep && view.pro_summary_markdown ? (
             <section className="bg-slate-800/40 border border-emerald-500/20 rounded-lg p-4">
-              <h3 className="text-sm font-bold text-emerald-300 mb-2">Deep research action plan</h3>
-              <pre className="whitespace-pre-wrap text-xs text-gray-300 max-h-64 overflow-y-auto font-sans">
-                {view.pro_summary_markdown.slice(0, 6000)}
-              </pre>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="text-sm font-bold text-emerald-300">Deep research action plan</h3>
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline"
+                  onClick={() =>
+                    setExpanded((prev) => ({ ...prev, deepPlan: !prev.deepPlan }))
+                  }
+                >
+                  {expanded.deepPlan ? 'Collapse' : 'Expand full plan'}
+                </button>
+              </div>
+              <div
+                className={`whitespace-pre-wrap text-sm text-gray-200 font-sans leading-relaxed ${
+                  expanded.deepPlan ? '' : 'max-h-80 overflow-y-auto'
+                }`}
+              >
+                {view.pro_summary_markdown.slice(0, expanded.deepPlan ? 20000 : 6000)}
+              </div>
               {(view.pro_source_urls || []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {view.pro_source_urls.slice(0, 6).map((url) => (
+                  {view.pro_source_urls.slice(0, 8).map((url) => (
                     <a
                       key={url}
                       href={url}
@@ -1795,7 +1824,14 @@ export default function ResultsViewerModal({
               <div className="space-y-3">
                 {(view.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => {
                   const risk = String(finding.risk_level || '').toUpperCase();
-                  const isPrelim = risk === 'PRELIMINARY' || risk === 'UNKNOWN' || incompleteRun;
+                  const verified = Boolean(finding.verified);
+                  const pinMissing = !hasUsableCoords(view);
+                  // Only claim "NOT RUN" when the pin is missing. PRELIMINARY/UNKNOWN with a pin
+                  // means the layer ran but is not parcel-GIS verified — show the real description.
+                  const notRun =
+                    pinMissing && (risk === 'PRELIMINARY' || risk === 'UNKNOWN' || incompleteRun);
+                  const unverified =
+                    !notRun && !verified && (risk === 'PRELIMINARY' || risk === 'UNKNOWN');
                   return (
                   <div key={idx} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2 gap-2">
@@ -1804,18 +1840,24 @@ export default function ResultsViewerModal({
                       </h4>
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          isPrelim ? 'bg-amber-500/20 text-amber-200' : getRiskColor(finding.risk_level)
+                          notRun || unverified
+                            ? 'bg-amber-500/20 text-amber-200'
+                            : getRiskColor(finding.risk_level)
                         }`}
                       >
-                        {isPrelim ? 'NOT RUN — confirm pin' : finding.risk_level}
+                        {notRun
+                          ? 'NOT RUN — confirm pin'
+                          : unverified
+                            ? `${finding.risk_level || 'UNKNOWN'} — not GIS-verified`
+                            : finding.risk_level}
                       </span>
                     </div>
                     <p className="text-gray-300 text-sm mb-2">
-                      {isPrelim
+                      {notRun
                         ? 'Parcel GIS / environmental layers did not complete for this run. Confirm the map pin and re-check to replace this placeholder.'
                         : finding.description}
                     </p>
-                    {!isPrelim && (finding.action_items || []).length > 0 && (
+                    {!notRun && (finding.action_items || []).length > 0 && (
                       <ul className="space-y-1 mb-2">
                         {finding.action_items.slice(0, 3).map((item, i) => (
                           <li key={i} className="text-xs text-gray-400 flex gap-2">
@@ -1825,12 +1867,12 @@ export default function ResultsViewerModal({
                         ))}
                       </ul>
                     )}
-                    {!isPrelim && (
+                    {!notRun && (
                     <CitationBadge
                       data_sources={finding.data_sources}
                       source_url={finding.source_url}
                       source_label={finding.source_label || (finding.data_sources || [])[0]}
-                      verified={Boolean(finding.verified)}
+                      verified={verified}
                     />
                     )}
                   </div>

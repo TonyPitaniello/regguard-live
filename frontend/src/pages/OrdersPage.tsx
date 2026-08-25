@@ -333,9 +333,30 @@ export default function OrdersPage() {
     }
   };
 
-  const downloadPDF = (pdf: PDF) => {
-    // Open PDF in new tab (browser handles download)
-    window.open(pdf.url, '_blank');
+  const downloadPDF = async (pdf: PDF) => {
+    // Fetch as blob then download — avoids Chrome Safe Browsing interstitial on
+    // bare *.onrender.com navigations (window.open to Render PDF URLs).
+    try {
+      const raw = (pdf.url || '').trim();
+      const pathStart = raw.search(/\/orders\//);
+      const fetchUrl =
+        pathStart >= 0 ? backendUrl(raw.slice(pathStart)) : raw.startsWith('http') ? raw : backendUrl(raw);
+      const res = await fetch(fetchUrl, { credentials: 'omit' });
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+    } catch (err) {
+      console.error(err);
+      // Last resort: open URL (may hit Safe Browsing on onrender hosts)
+      window.open(pdf.url, '_blank', 'noopener,noreferrer');
+    }
   };
 
   const formatDate = (dateString: string) => {

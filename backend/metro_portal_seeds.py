@@ -486,6 +486,13 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "name": "City of Lubbock Building Inspection",
         "portal_url": "https://ci.lubbock.tx.us/departments/planning/building-inspection",
     },
+    "midlothian, tx": {
+        "city": "Midlothian",
+        "state": "TX",
+        "name": "City of Midlothian Building Inspections / Development Services",
+        "portal_url": "https://www.midlothian.tx.us/149/Building-Inspections",
+        "phone": "972-775-3481",
+    },
     # Additional national sales metros
     "boise, id": {
         "city": "Boise",
