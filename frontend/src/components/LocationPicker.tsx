@@ -160,7 +160,6 @@ export function LocationPicker({
     nextCity: string,
     nextState: string,
     nextZip: string,
-    *,
     autoConfirm: boolean
   ) => {
     latLngRef.current = { lat: latitude, lng: longitude };
@@ -234,7 +233,7 @@ export function LocationPicker({
         nextCity,
         nextState,
         nextZip,
-        { autoConfirm: Boolean(nextStreet && nextCity && nextState && nextZip.length === 5) }
+        Boolean(nextStreet && nextCity && nextState && nextZip.length === 5)
       );
       if (!(nextStreet && nextCity && nextState && nextZip.length === 5)) {
         setError(
@@ -260,6 +259,51 @@ export function LocationPicker({
     await reverseGeocode(latitude, longitude);
   };
 
+  const forwardGeocodeViaMapsJs = async (
+    query: string
+  ): Promise<{
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+    lat: number;
+    lng: number;
+  } | null> => {
+    const g = (window as any).google?.maps;
+    if (!g?.Geocoder) return null;
+    try {
+      const geocoder = new g.Geocoder();
+      const response = await new Promise<any>((resolve, reject) => {
+        geocoder.geocode({ address: query, componentRestrictions: { country: 'US' } }, (results: any, status: string) => {
+          if (status === 'OK' && results?.[0]) resolve(results[0]);
+          else reject(new Error(status || 'ZERO_RESULTS'));
+        });
+      });
+      const loc = response.geometry?.location;
+      const lat = typeof loc?.lat === 'function' ? loc.lat() : Number(loc?.lat);
+      const lng = typeof loc?.lng === 'function' ? loc.lng() : Number(loc?.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+      const comps: any[] = response.address_components || [];
+      const longOf = (...types: string[]) => {
+        const hit = comps.find((c) => (c.types || []).some((t: string) => types.includes(t)));
+        return (hit?.long_name || hit?.longText || '').trim();
+      };
+      const shortOf = (...types: string[]) => {
+        const hit = comps.find((c) => (c.types || []).some((t: string) => types.includes(t)));
+        return (hit?.short_name || hit?.shortText || '').trim();
+      };
+      const num = longOf('street_number');
+      const route = longOf('route');
+      const street = [num, route].filter(Boolean).join(' ') || String(response.formatted_address || '').split(',')[0];
+      const city = longOf('locality') || longOf('sublocality', 'sublocality_level_1');
+      const state = shortOf('administrative_area_level_1').slice(0, 2).toUpperCase();
+      const zip = (longOf('postal_code').match(/\d{5}/) || [''])[0];
+      return { street, city, state, zip, lat, lng };
+    } catch {
+      return null;
+    }
+  };
+
   const forwardGeocode = async (
     street: string,
     nextCity: string,
@@ -283,23 +327,7 @@ export function LocationPicker({
         zip: nextZip.replace(/\D/g, '').slice(0, 5),
         address: query,
       });
-      const res = await fetch(`${backendUrl('/geocode-address')}?${params}`, {
-        cache: 'no-store',
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        let detail = 'Could not place that address on the map — check spelling or click the map.';
-        try {
-          const body = await res.json();
-          if (typeof body?.detail === 'string' && body.detail.trim()) detail = body.detail;
-        } catch {
-          /* ignore */
-        }
-        setError(detail);
-        setLocationConfirmed(false);
-        return;
-      }
-      const data = (await res.json()) as {
+      let data: {
         street?: string;
         city?: string;
         state?: string;
@@ -307,7 +335,41 @@ export function LocationPicker({
         latitude?: string;
         longitude?: string;
         formatted_address?: string;
-      };
+      } | null = null;
+
+      try {
+        const res = await fetch(`${backendUrl('/geocode-address')}?${params}`, {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          data = await res.json();
+        }
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return;
+      }
+
+      // Fallback: browser Google Geocoder when API is behind / missing the route
+      if (!data) {
+        const viaMaps = await forwardGeocodeViaMapsJs(query);
+        if (viaMaps) {
+          data = {
+            street: viaMaps.street,
+            city: viaMaps.city,
+            state: viaMaps.state,
+            zip: viaMaps.zip,
+            latitude: String(viaMaps.lat),
+            longitude: String(viaMaps.lng),
+          };
+        }
+      }
+
+      if (!data) {
+        setError('Could not place that address on the map — check spelling or click the map.');
+        setLocationConfirmed(false);
+        return;
+      }
+
       const latitude = Number(data.latitude);
       const longitude = Number(data.longitude);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -319,14 +381,10 @@ export function LocationPicker({
       const resolvedState = (data.state || nextState || '').trim();
       const resolvedZip = ((data.zip || nextZip || '').match(/\d{5}/) || [''])[0];
 
-      // Prefer geocoder city/state/ZIP when user left blanks; keep typed street if present
       if (!city.trim() && resolvedCity) setCity(resolvedCity);
       if (!state.trim() && resolvedState) setState(resolvedState);
       if (zip.replace(/\D/g, '').length < 5 && resolvedZip) setZip(resolvedZip);
-      if (resolvedStreet && resolvedStreet !== address.trim()) {
-        // Only fill street from geocoder when user street was incomplete
-        if (street.trim().length < 5) setAddress(resolvedStreet);
-      }
+      if (resolvedStreet && street.trim().length < 5) setAddress(resolvedStreet);
 
       commitPin(
         latitude,
@@ -335,14 +393,12 @@ export function LocationPicker({
         resolvedCity || nextCity.trim(),
         resolvedState || nextState.trim(),
         resolvedZip || nextZip.replace(/\D/g, '').slice(0, 5),
-        {
-          autoConfirm: Boolean(
-            (resolvedStreet || street.trim()) &&
-              (resolvedCity || nextCity.trim()) &&
-              (resolvedState || nextState.trim()) &&
-              (resolvedZip || nextZip).replace(/\D/g, '').length === 5
-          ),
-        }
+        Boolean(
+          (resolvedStreet || street.trim()) &&
+            (resolvedCity || nextCity.trim()) &&
+            (resolvedState || nextState.trim()) &&
+            (resolvedZip || nextZip).replace(/\D/g, '').length === 5
+        )
       );
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
@@ -511,9 +567,7 @@ export function LocationPicker({
       Number.isFinite(longitude) &&
       !(Math.abs(latitude) < 1e-6 && Math.abs(longitude) < 1e-6)
     ) {
-      commitPin(latitude, longitude, street, nextCity, nextState, nextZip, {
-        autoConfirm: Boolean(street && nextCity && nextState && nextZip.length === 5),
-      });
+      commitPin(latitude, longitude, street, nextCity, nextState, nextZip, Boolean(street && nextCity && nextState && nextZip.length === 5));
       if (!(street && nextCity && nextState && nextZip.length === 5)) {
         setError('Address found — confirm city / state / ZIP, then tap Confirm This Location.');
       }
