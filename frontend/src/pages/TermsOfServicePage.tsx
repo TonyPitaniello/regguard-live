@@ -57,11 +57,19 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-2xl font-bold text-white">SMS consent</h2>
             <p>
-              By submitting your mobile phone number and requesting text delivery, you consent to receive
-              SMS messages from RegGuard about your research request and related account/status updates.
-              Message frequency varies. Message and data rates may apply. Reply <strong className="text-white">STOP</strong> to
-              opt out and <strong className="text-white">HELP</strong> for help. Consent to SMS is not a condition of
-              purchasing RegGuard services where alternatives (such as email) are available.
+              By submitting your mobile phone number and requesting text delivery in the RegGuard app, you
+              consent to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about your research
+              request, Bid Risk Receipt or share links, and related order/PDF status updates. Message
+              frequency varies. Message and data rates may apply. Reply{' '}
+              <strong className="text-white">STOP</strong> to opt out and{' '}
+              <strong className="text-white">HELP</strong> for help. Consent to SMS is not a condition of
+              purchasing RegGuard services where alternatives (such as email) are available. We do not share,
+              sell, or provide your mobile phone number or messaging consent data to third parties or
+              affiliates for marketing or promotional purposes. See our{' '}
+              <Link className="text-purple-300 underline" to="/privacy">
+                Privacy Policy
+              </Link>
+              .
             </p>
           </section>
 
