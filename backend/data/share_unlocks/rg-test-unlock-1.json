@@ -1,0 +1,15 @@
+{
+  "research_id": "rg-test-unlock-1",
+  "unlocked": true,
+  "emails": [
+    "ops@example.com"
+  ],
+  "events": [
+    {
+      "ts": "2026-08-27T01:27:08Z",
+      "channel": "test",
+      "email": "ops@example.com"
+    }
+  ],
+  "updated_at": "2026-08-27T01:27:08Z"
+}

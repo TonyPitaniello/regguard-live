@@ -2027,6 +2027,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 project_type=str(project.get("type") or request_body.project_type or "general"),
                 last_research_id=str(research_id),
                 share_url=analysis.get("share_url"),
+                phone=str(getattr(request_body, "phone", "") or ""),
                 summary_snapshot={
                     "estimated_timeline": summary.get("estimated_timeline"),
                     "estimated_total_cost": summary.get("estimated_total_cost"),
@@ -4306,6 +4307,71 @@ async def persist_research_report(body: PersistResearchRequest) -> Dict[str, Any
     return {"status": "ok", **meta}
 
 
+class ShareUnlockRequest(BaseModel):
+    email: Optional[str] = None
+    channel: Optional[str] = "share"
+
+
+@app.post("/research/{research_id}/share-unlock", tags=["Results"])
+async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUnlockRequest()) -> Dict[str, Any]:
+    """Persist share unlock so phone→desktop soft-lock clears."""
+    from share_unlock_store import grant_unlock
+
+    try:
+        data = grant_unlock(
+            research_id,
+            email=body.email or "",
+            channel=(body.channel or "share")[:40],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "unlocked": True, "research_id": research_id, "emails": data.get("emails") or []}
+
+
+@app.get("/research/{research_id}/share-unlock", tags=["Results"])
+async def get_share_unlock(
+    research_id: str,
+    email: Optional[str] = None,
+) -> Dict[str, Any]:
+    from share_unlock_store import is_unlocked
+
+    return {
+        "research_id": research_id,
+        "unlocked": is_unlocked(research_id, email or ""),
+    }
+
+
+class BidSheetRequest(BaseModel):
+    analysis: Dict[str, Any]
+
+
+@app.post("/research/bid-sheet.csv", tags=["Results"])
+async def post_bid_sheet_csv(body: BidSheetRequest):
+    """CSV export of punch + planning fees for estimator bid sheets."""
+    from fastapi.responses import Response
+
+    from bid_sheet_export import analysis_to_bid_csv
+
+    if not body.analysis or not isinstance(body.analysis, dict):
+        raise HTTPException(status_code=400, detail="analysis required")
+    csv_text = analysis_to_bid_csv(body.analysis)
+    return Response(
+        content=csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Sheet.csv"',
+        },
+    )
+
+
+@app.get("/stats/forwards", tags=["Results"])
+async def stats_forwards() -> Dict[str, Any]:
+    """Public-ish forward/share unlock count for social proof."""
+    from share_unlock_store import forward_count
+
+    return {"forwards": forward_count()}
+
+
 @app.get("/research/{research_id}/report", tags=["Results"])
 async def get_research_report(research_id: str) -> Dict[str, Any]:
     """Public JSON for shareable report page /r/{id}."""
@@ -4816,6 +4882,116 @@ async def cron_weekly_job_reminders(
         "sent": sent,
         "failed": failed,
     }
+
+
+@app.post("/cron/zip-watch", tags=["Cron"])
+async def cron_zip_watch(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """
+    Detect local pack / AHJ fingerprint changes on Saved Job ZIPs and email owners.
+    Schedule daily: POST /cron/zip-watch with X-Cron-Secret.
+    """
+    _require_cron_secret(x_cron_secret)
+    from email_service import get_email_service
+    from zip_watch import run_zip_watch
+
+    result = run_zip_watch(dry_run=dry_run)
+    if dry_run:
+        return result
+
+    svc = get_email_service()
+    emailed = 0
+    texted = 0
+    for change in result.get("change_list") or []:
+        for email in change.get("emails") or []:
+            try:
+                if svc and hasattr(svc, "send_zip_watch_alert"):
+                    ok = await svc.send_zip_watch_alert(email, change)
+                    if ok:
+                        emailed += 1
+            except Exception as e:
+                logger.warning("zip watch email failed %s: %s", email, e)
+        for phone in change.get("phones") or []:
+            try:
+                from sms_service import get_sms_service
+
+                sms = get_sms_service()
+                if not sms or not getattr(sms, "twilio_client", None):
+                    continue
+                z = change.get("zip") or ""
+                app = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+                msg = (
+                    f"RegGuard: local diligence changed for ZIP {z}. "
+                    f"Re-check Saved Jobs before bid: {app}/jobs"
+                )
+                normalized = sms._validate_phone_number(str(phone))  # noqa: SLF001
+                message = await asyncio.to_thread(
+                    sms.twilio_client.messages.create,
+                    **sms._twilio_create_kwargs(msg, normalized),  # noqa: SLF001
+                )
+                if getattr(message, "sid", None):
+                    texted += 1
+                    try:
+                        from sms_delivery_store import record_outbound
+
+                        record_outbound(
+                            message_sid=message.sid,
+                            to_phone=normalized,
+                            research_id=f"zip-watch-{z}",
+                            status=getattr(message, "status", None) or "queued",
+                        )
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.warning("zip watch sms failed: %s", e)
+    result["emailed"] = emailed
+    result["texted"] = texted
+    return result
+
+
+@app.get("/admin/gotcha-credits", tags=["Admin"])
+async def admin_list_gotcha_credits(
+    limit: int = 50,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from gotcha_credit_store import recent
+
+    return {"credits": recent(limit=max(1, min(200, limit)))}
+
+
+@app.post("/admin/gotcha-credits/{credit_id}/approve", tags=["Admin"])
+async def admin_approve_gotcha_credit(
+    credit_id: str,
+    reviewer: str = "ops",
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from gotcha_credit_store import approve_credit
+
+    try:
+        row = approve_credit(credit_id, reviewer=reviewer)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "credit": row}
+
+
+@app.post("/admin/gotcha-credits/{credit_id}/reject", tags=["Admin"])
+async def admin_reject_gotcha_credit(
+    credit_id: str,
+    reviewer: str = "ops",
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from gotcha_credit_store import reject_credit
+
+    try:
+        row = reject_credit(credit_id, reviewer=reviewer)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "credit": row}
 
 
 @app.post("/cron/day7-win-emails", tags=["Cron"])

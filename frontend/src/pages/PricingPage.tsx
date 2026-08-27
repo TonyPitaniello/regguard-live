@@ -293,6 +293,13 @@ export default function PricingPage() {
               Yes. 7-day refund if you&apos;re unsatisfied, plus our accuracy guarantee on critical findings.
             </p>
           </div>
+          <div>
+            <h3 className="text-lg font-bold text-white mb-2">Is the IC Queue / RTO tracker live?</h3>
+            <p className="text-gray-400">
+              No. Interconnection queue tools are demo-only and disabled in production. Buy IC Project
+              Report for citeable site diligence PDFs — not live RTO queue positions.
+            </p>
+          </div>
         </div>
       </section>
 

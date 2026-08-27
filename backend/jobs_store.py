@@ -245,6 +245,7 @@ def upsert_job(
     summary_snapshot: Optional[Dict[str, Any]] = None,
     notes: str = "",
     status: str = "active",
+    phone: str = "",
 ) -> Dict[str, Any]:
     """Create or update a job. Dedupes by email+address+zip when job_id omitted."""
     email = _norm_email(owner_email)
@@ -284,6 +285,7 @@ def upsert_job(
         "zip": (zip_code or "").strip(),
         "project_type": project_type or (existing or {}).get("project_type") or "general",
         "status": status or "active",
+        "phone": (phone or "").strip() or (existing or {}).get("phone") or "",
         "last_research_id": last_research_id or (existing or {}).get("last_research_id"),
         "share_url": share_url or (existing or {}).get("share_url"),
         "last_run_at": now if last_research_id or not existing else (existing or {}).get("last_run_at"),

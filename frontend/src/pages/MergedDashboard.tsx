@@ -3,12 +3,24 @@
  * Dark purple / slate / green aesthetic preserved.
  */
 
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import FreeTrialForm from '../components/FreeTrialForm';
+import { backendUrl } from '../env';
 
 export function PlatformDashboard() {
   const navigate = useNavigate();
+  const [forwards, setForwards] = useState<number | null>(null);
+
+  useEffect(() => {
+    void fetch(backendUrl('/stats/forwards'))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (typeof d?.forwards === 'number' && d.forwards > 0) setForwards(d.forwards);
+      })
+      .catch(() => undefined);
+  }, []);
 
   const scrollToFreeTrial = () => {
     document.getElementById('free-trial-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -65,6 +77,12 @@ export function PlatformDashboard() {
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
             Built for commercial, industrial, and data-center-adjacent bids — DFW / Austin first.
+            {forwards != null && forwards > 0 ? (
+              <>
+                {' '}
+                · {forwards.toLocaleString()}+ Bid Risk Receipts forwarded
+              </>
+            ) : null}
           </p>
         </div>
       </section>

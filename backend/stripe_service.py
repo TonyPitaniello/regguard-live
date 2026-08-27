@@ -130,6 +130,24 @@ async def create_checkout_session(
         mode = tier_config.get("mode") or "subscription"
         price_id = (tier_config.get("price_id") or "").strip() or None
         amount_cents = tier_config["amount_cents"]
+        credit_applied_usd = 0.0
+        email_clean = (email or "").strip().lower()
+        if email_clean and not price_id:
+            try:
+                from account_credits import consume_credit, get_balance_usd
+
+                bal = get_balance_usd(email_clean)
+                if bal > 0:
+                    # Apply at most the line amount minus $1 floor
+                    max_apply = max(0.0, (amount_cents - 100) / 100.0)
+                    apply = min(bal, max_apply)
+                    if apply >= 1:
+                        credit_applied_usd = consume_credit(
+                            email_clean, apply, reason=f"checkout:{tier}"
+                        )
+                        amount_cents = max(100, amount_cents - int(round(credit_applied_usd * 100)))
+            except Exception as e:
+                logger.warning("account credit apply failed: %s", e)
 
         if price_id:
             line_items = [{"price": price_id, "quantity": 1}]
@@ -161,11 +179,12 @@ async def create_checkout_session(
             ]
             mode = "payment"
 
-        email_clean = (email or "").strip().lower()
         metadata = {
             "user_id": user_id,
             "tier": tier,
         }
+        if credit_applied_usd:
+            metadata["credit_applied_usd"] = str(credit_applied_usd)
         if email_clean:
             metadata["email"] = email_clean
         if name:

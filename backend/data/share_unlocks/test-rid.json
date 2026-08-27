@@ -1,0 +1,15 @@
+{
+  "research_id": "test-rid",
+  "unlocked": true,
+  "emails": [
+    "a@b.com"
+  ],
+  "events": [
+    {
+      "ts": "2026-08-27T01:25:59Z",
+      "channel": "share",
+      "email": "a@b.com"
+    }
+  ],
+  "updated_at": "2026-08-27T01:25:59Z"
+}

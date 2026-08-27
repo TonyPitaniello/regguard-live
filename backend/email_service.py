@@ -259,6 +259,14 @@ class EmailService:
         """Weekly Saved Jobs digest — nudge to re-run or bid."""
         raise NotImplementedError
 
+    async def send_zip_watch_alert(
+        self,
+        to_email: str,
+        change: dict,
+    ) -> bool:
+        """Local pack / fee / gotcha fingerprint changed on a watched ZIP."""
+        raise NotImplementedError
+
     async def send_plan_win_email(
         self,
         to_email: str,
@@ -738,6 +746,9 @@ RegGuard © 2026
             logger.error("SendGrid weekly job reminder failed: %s", e)
             return False
 
+    async def send_zip_watch_alert(self, to_email: str, change: dict) -> bool:
+        return False
+
     async def send_plan_win_email(
         self, to_email: str, tier: str, *, day7: bool = False
     ) -> bool:
@@ -957,6 +968,56 @@ class ResendEmailService(EmailService):
             return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
         except Exception as e:
             logger.error("Resend weekly job reminder failed: %s", e)
+            return False
+
+    async def send_zip_watch_alert(self, to_email: str, change: dict) -> bool:
+        if not self.resend:
+            return False
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        z = (change or {}).get("zip") or ""
+        city = (change or {}).get("city") or ""
+        state = (change or {}).get("state") or ""
+        after = (change or {}).get("after") or {}
+        jobs = (change or {}).get("jobs") or []
+        job_lines = "".join(
+            f"<li>{(j.get('address') or 'Site')} — "
+            f"<a href=\"{(j.get('share_url') or app_url)}\">open</a></li>"
+            for j in jobs[:5]
+            if isinstance(j, dict)
+        )
+        html = f"""
+        <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+          <h1 style="font-size:20px;margin:0 0 12px">Local diligence changed — {z}</h1>
+          <p style="color:#444;font-size:14px;line-height:1.5">
+            Reg Guard detected an update to fees / gotchas / portal intel for
+            <strong>{city} {state} {z}</strong> on a site in your Saved Jobs.
+          </p>
+          <p style="color:#333;font-size:13px">
+            Source: {after.get('source') or 'pack'} ·
+            Fees tracked: {after.get('fee_count', 0)} ·
+            Gotchas: {after.get('gotcha_count', 0)} ·
+            Last verified: {after.get('last_verified') or 'n/a'}
+          </p>
+          <ul style="font-size:14px;line-height:1.6">{job_lines or '<li>Open Saved Jobs to re-check</li>'}</ul>
+          <p style="margin:20px 0">
+            <a href="{app_url}/jobs"
+               style="background:#059669;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+              Re-check Saved Jobs
+            </a>
+          </p>
+          <p style="color:#888;font-size:12px">Planning aid — confirm on the official AHJ schedule before bid.</p>
+        </div>
+        """
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": f"Reg Guard — local change on ZIP {z}",
+                "html": html,
+            })
+            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+        except Exception as e:
+            logger.error("Resend zip watch failed: %s", e)
             return False
 
     async def send_plan_win_email(

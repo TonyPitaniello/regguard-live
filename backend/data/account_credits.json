@@ -1,0 +1,21 @@
+{
+  "balances": {
+    "partner@example.com": 15.0
+  },
+  "ledger": [
+    {
+      "ts": "2026-08-27T01:27:08Z",
+      "email": "partner@example.com",
+      "delta_usd": 20.0,
+      "balance_usd": 20.0,
+      "reason": "gotcha_approved:gc-5e61350e573a:zip:75074"
+    },
+    {
+      "ts": "2026-08-27T01:27:08Z",
+      "email": "partner@example.com",
+      "delta_usd": -5.0,
+      "balance_usd": 15.0,
+      "reason": "test"
+    }
+  ]
+}

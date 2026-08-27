@@ -7,6 +7,7 @@ import FreeTrialForm from './components/FreeTrialForm';
 import { SalesLeadsDashboard } from './SalesLeadsDashboard';
 import { AdminLocalPacksDashboard } from './AdminLocalPacksDashboard';
 import { AdminSmsDeliveryDashboard } from './AdminSmsDeliveryDashboard';
+import { AdminGotchaCreditsDashboard } from './AdminGotchaCreditsDashboard';
 import { QueueLanding } from './Queue/QueueLanding';
 import { QueueUploadForm } from './Queue/QueueUploadForm';
 import QueueMonitorDashboard from './Queue/QueueMonitorDashboard';
@@ -165,6 +166,7 @@ export function AppRouter() {
           <Route path="/admin/leads" element={<AdminLeadsPage />} />
           <Route path="/admin/packs" element={<AdminPacksPage />} />
           <Route path="/admin/sms" element={<AdminSmsPage />} />
+          <Route path="/admin/gotcha-credits" element={<AdminGotchaCreditsPage />} />
 
           {/* Existing Compliance Routes */}
           <Route path="/agent" element={<App />} />
@@ -321,6 +323,20 @@ function AdminSmsPage() {
         </div>
       </div>
       <AdminSmsDeliveryDashboard />
+    </div>
+  );
+}
+
+function AdminGotchaCreditsPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Gotcha credits</h1>
+          <p>Approve Partner tips → $20 account credit</p>
+        </div>
+      </div>
+      <AdminGotchaCreditsDashboard />
     </div>
   );
 }

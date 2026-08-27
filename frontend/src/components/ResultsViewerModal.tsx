@@ -596,6 +596,27 @@ export default function ResultsViewerModal({
     setLiveAnalysis(null);
   }, [analysis]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const rid = researchId || analysis?.research_id;
+    if (!rid) return;
+    const email = (defaultEmail || '').trim();
+    const q = email ? `?email=${encodeURIComponent(email)}` : '';
+    void fetch(backendUrl(`/research/${encodeURIComponent(String(rid))}/share-unlock${q}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.unlocked) {
+          try {
+            sessionStorage.setItem('shareUnlocked', '1');
+          } catch {
+            /* ignore */
+          }
+          setShareUnlocked(true);
+        }
+      })
+      .catch(() => undefined);
+  }, [isOpen, researchId, analysis?.research_id, defaultEmail]);
+
   if (!isOpen || !analysis) return null;
 
   const view = liveAnalysis || analysis;
@@ -757,20 +778,54 @@ export default function ResultsViewerModal({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Bid Risk Receipt failed');
       if (data.download_url) {
-        window.open(data.download_url, '_blank', 'noopener,noreferrer');
-        setToast('Bid Risk Receipt PDF ready — forward it');
-        try {
-          sessionStorage.setItem('shareUnlocked', '1');
-        } catch {
-          /* ignore */
-        }
-        setShareUnlocked(true);
+        const blobUrl = data.download_url.startsWith('http')
+          ? data.download_url
+          : backendUrl(data.download_url);
+        const fileRes = await fetch(blobUrl);
+        const blob = await fileRes.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objectUrl;
+        a.download = 'RegGuard_Bid_Risk_Receipt.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        grantShareUnlock('bid_receipt_pdf');
       }
-    } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Bid Risk Receipt failed');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Receipt download failed');
     } finally {
       setPacketLoading(false);
-      window.setTimeout(() => setToast(''), 3500);
+    }
+  };
+
+  const downloadBidSheetCsv = async () => {
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/research/bid-sheet.csv'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: view }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_Bid_Sheet.csv';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('Bid sheet CSV downloaded — paste into your estimate.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'CSV export failed');
+    } finally {
+      setPacketLoading(false);
     }
   };
 
@@ -855,7 +910,7 @@ export default function ResultsViewerModal({
     navigate(`/checkout/${tier}${q}`);
   };
 
-  const grantShareUnlock = () => {
+  const grantShareUnlock = (channel: string = 'share') => {
     try {
       sessionStorage.setItem('shareUnlocked', '1');
     } catch {
@@ -864,6 +919,17 @@ export default function ResultsViewerModal({
     setShareUnlocked(true);
     setToast('Full free punch list unlocked — forward the Bid Risk Receipt next.');
     window.setTimeout(() => setToast(''), 4000);
+    const rid = effectiveResearchId;
+    if (rid) {
+      void fetch(backendUrl(`/research/${encodeURIComponent(rid)}/share-unlock`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: (defaultEmail || '').trim(),
+          channel,
+        }),
+      }).catch(() => undefined);
+    }
   };
 
   const toggle = (key: keyof typeof expanded) => {
@@ -1573,6 +1639,15 @@ export default function ResultsViewerModal({
                   >
                     <Download className="w-4 h-4" />
                     {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidSheetCsv()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                    title="Punch list + planning fees as CSV for your bid sheet"
+                  >
+                    Export bid sheet CSV
                   </button>
                   <button
                     type="button"
