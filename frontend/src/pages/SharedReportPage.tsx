@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { backendUrl } from '../env';
 import { areEstimatesUnverified, isRiskScoreHidden } from '../components/honesty';
@@ -45,6 +45,7 @@ function siteLines(analysis: AnalysisData): { street: string; place: string } {
 
 export default function SharedReportPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [report, setReport] = useState<ReportPayload | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -55,6 +56,11 @@ export default function SharedReportPage() {
   const [wrText, setWrText] = useState('');
   const [wrBusy, setWrBusy] = useState(false);
   const [wrError, setWrError] = useState('');
+  const [wrToken, setWrToken] = useState(() => searchParams.get('wr') || '');
+  const [wrMeta, setWrMeta] = useState<{
+    writes_enabled?: boolean;
+    durable_backend?: string;
+  }>({});
 
   useEffect(() => {
     if (!id) {
@@ -75,7 +81,32 @@ export default function SharedReportPage() {
         const wr = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`));
         if (wr.ok) {
           const wrData = await wr.json();
-          if (!cancelled) setWarComments(wrData.comments || []);
+          if (!cancelled) {
+            setWarComments(wrData.comments || []);
+            setWrMeta({
+              writes_enabled: wrData.writes_enabled,
+              durable_backend: wrData.durable_backend,
+            });
+          }
+        }
+        let token = searchParams.get('wr') || '';
+        if (!token) {
+          const tokRes = await fetch(
+            backendUrl(`/research/${encodeURIComponent(id)}/war-room/token`),
+            { method: 'POST' }
+          );
+          if (tokRes.ok) {
+            const tokData = await tokRes.json();
+            token = tokData.write_token || '';
+            if (token && !cancelled) {
+              setWrToken(token);
+              const next = new URLSearchParams(searchParams);
+              next.set('wr', token);
+              setSearchParams(next, { replace: true });
+            }
+          }
+        } else if (!cancelled) {
+          setWrToken(token);
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load report');
@@ -89,7 +120,10 @@ export default function SharedReportPage() {
   }, [id]);
 
   const copyLink = async () => {
-    const url = report?.share_url || window.location.href;
+    const base = report?.share_url || window.location.href.split('?')[0];
+    const url = wrToken
+      ? `${base}${base.includes('?') ? '&' : '?'}wr=${encodeURIComponent(wrToken)}`
+      : report?.share_url || window.location.href;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
@@ -103,7 +137,12 @@ export default function SharedReportPage() {
       const res = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author: wrAuthor, role: wrRole, text: wrText }),
+        body: JSON.stringify({
+          author: wrAuthor,
+          role: wrRole,
+          text: wrText,
+          write_token: wrToken,
+        }),
       });
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));
@@ -263,7 +302,15 @@ export default function SharedReportPage() {
         {radar?.headline && (
           <section className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
             <h2 className="text-xl font-bold">Moratorium radar</h2>
+            {radar.stale_banner ? (
+              <p className="text-xs text-amber-100 border border-amber-500/40 rounded-lg p-2">
+                {radar.stale_banner}
+              </p>
+            ) : null}
             <p className="text-sm text-amber-50">{radar.headline}</p>
+            {radar.updated ? (
+              <p className="text-xs text-gray-500">Updated {radar.updated}</p>
+            ) : null}
             {(radar.metros || []).slice(0, 3).map((m) => (
               <p key={m.metro} className="text-xs text-gray-300">
                 {m.metro}: {m.summary}
@@ -352,7 +399,15 @@ export default function SharedReportPage() {
           <p className="text-xs text-gray-400">
             Owner / IC / GC / utility / counsel can leave notes on this shared receipt. Not a chat
             product — keep comments bid-file useful.
+            {wrMeta.durable_backend
+              ? ` Storage: ${wrMeta.durable_backend}.`
+              : ''}
           </p>
+          {wrMeta.writes_enabled === false ? (
+            <p className="text-xs text-amber-200">
+              Writes disabled until durable storage (Supabase) is configured.
+            </p>
+          ) : null}
           <ul className="space-y-2">
             {warComments.length === 0 ? (
               <li className="text-sm text-gray-500">No comments yet — add the first note.</li>
@@ -397,7 +452,7 @@ export default function SharedReportPage() {
           {wrError ? <p className="text-xs text-amber-300">{wrError}</p> : null}
           <button
             type="button"
-            disabled={wrBusy || !wrText.trim()}
+            disabled={wrBusy || !wrText.trim() || wrMeta.writes_enabled === false}
             onClick={() => void postWarRoom()}
             className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50"
           >

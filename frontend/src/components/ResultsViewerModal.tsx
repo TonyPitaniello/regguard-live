@@ -312,6 +312,11 @@ export interface AnalysisData {
     scout_hits?: Array<{ title?: string; url?: string; snippet?: string }>;
     bill_notes?: string[];
     disclaimer?: string;
+    updated?: string;
+    age_days?: number | null;
+    is_stale?: boolean;
+    stale_banner?: string;
+    high_alert_suppressed_stale?: boolean;
   };
   power_path_card?: {
     title?: string;
@@ -2125,13 +2130,30 @@ export default function ResultsViewerModal({
                     <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
                       {view.moratorium_radar.title || 'Moratorium radar'}
                     </h4>
-                    {view.moratorium_radar.high_alert_state ? (
+                    {view.moratorium_radar.is_stale ? (
+                      <span className="text-xs font-bold uppercase tracking-wide text-amber-100 border border-amber-400/50 rounded px-2 py-0.5">
+                        Stale
+                      </span>
+                    ) : view.moratorium_radar.high_alert_state ? (
                       <span className="text-xs font-bold uppercase tracking-wide text-amber-100 border border-amber-400/50 rounded px-2 py-0.5">
                         High alert
                       </span>
                     ) : null}
                   </div>
+                  {view.moratorium_radar.stale_banner ? (
+                    <p className="text-xs text-amber-100 border border-amber-500/40 rounded-lg p-2">
+                      {view.moratorium_radar.stale_banner}
+                    </p>
+                  ) : null}
                   <p className="text-sm text-gray-300">{view.moratorium_radar.headline}</p>
+                  {view.moratorium_radar.updated ? (
+                    <p className="text-xs text-gray-500">
+                      Radar updated: {view.moratorium_radar.updated}
+                      {typeof view.moratorium_radar.age_days === 'number'
+                        ? ` (${view.moratorium_radar.age_days}d ago)`
+                        : ''}
+                    </p>
+                  ) : null}
                   <ul className="space-y-2">
                     {(view.moratorium_radar.metros || []).slice(0, 4).map((m) => (
                       <li key={`${m.metro}-${m.state}`} className="text-xs text-gray-300">

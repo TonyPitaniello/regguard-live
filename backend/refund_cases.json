@@ -1,0 +1,32 @@
+{
+  "updated": "2026-08-27",
+  "disclaimer": "Illustrative guarantee narratives for trust. Replace with real public cases once ops completes a refund.",
+  "cases": [
+    {
+      "id": "case-beachhead-fee",
+      "title": "Wrong Critical electrical fee on beachhead ZIP",
+      "status": "template",
+      "promise": "If a Critical fee/gotcha we labeled SOURCE is wrong vs the official schedule on that date, we refund 100% of that paid run.",
+      "what_happened": "Placeholder — publish the first real refund here (ZIP, fee label, schedule URL, refund date).",
+      "resolution": "Full refund of the paid lookup / Partner month credit — ops attaches Stripe receipt id.",
+      "proof_required": [
+        "Official fee schedule URL + archive date",
+        "RegGuard receipt showing SOURCE Critical fee",
+        "Stripe refund id"
+      ]
+    },
+    {
+      "id": "case-gotcha-miss",
+      "title": "Missed inspection sequence gotcha that cost a re-inspection",
+      "status": "template",
+      "promise": "If our verified gotcha omitted a published inspection prerequisite that bites the same week, we refund.",
+      "what_happened": "Placeholder — anonymized GC story after first payout.",
+      "resolution": "Refund + pack correction within 48h.",
+      "proof_required": [
+        "AHJ inspection checklist URL",
+        "RegGuard gotcha list from that run",
+        "Refund confirmation"
+      ]
+    }
+  ]
+}

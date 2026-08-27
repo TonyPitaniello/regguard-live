@@ -29,6 +29,7 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import AffiliatePage from './pages/AffiliatePage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
+import RefundCasesPage from './pages/RefundCasesPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import PwaInstallBanner from './components/PwaInstallBanner';
@@ -131,6 +132,8 @@ export function AppRouter() {
 
           {/* Sample Report */}
           <Route path="/sample-report" element={<SampleReportPage />} />
+          <Route path="/refund-cases" element={<RefundCasesPage />} />
+          <Route path="/guarantee" element={<RefundCasesPage />} />
 
           {/* Affiliate */}
           <Route path="/affiliate" element={<AffiliatePage />} />

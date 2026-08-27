@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -186,6 +187,22 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
                 }
             )
 
+    # Include seeded DC ZIPs (no email alert unless a job also watches that ZIP)
+    for z, prev in zips_state.items():
+        if z in watch:
+            continue
+        meta = (prev or {}).get("meta") or {}
+        if not meta.get("seed") and not meta.get("city"):
+            continue
+        watch[z] = {
+            "zip": z,
+            "city": meta.get("city") or "",
+            "state": meta.get("state") or "",
+            "emails": set(),
+            "phones": set(),
+            "jobs": [],
+        }
+
     for z, entry in watch.items():
         checked += 1
         try:
@@ -242,3 +259,135 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
             for c in changes
         ],
     }
+
+
+# Seed DC / large-load watch ZIPs (fingerprint baselines even without saved jobs)
+DC_WATCH_SEEDS = [
+    {"zip": "20147", "city": "Ashburn", "state": "VA"},
+    {"zip": "20148", "city": "Ashburn", "state": "VA"},
+    {"zip": "43054", "city": "New Albany", "state": "OH"},
+    {"zip": "43016", "city": "Dublin", "state": "OH"},
+    {"zip": "30024", "city": "Suwanee", "state": "GA"},
+    {"zip": "30126", "city": "Mableton", "state": "GA"},
+    {"zip": "73134", "city": "Oklahoma City", "state": "OK"},
+    {"zip": "12302", "city": "Schenectady", "state": "NY"},
+    {"zip": "75074", "city": "Plano", "state": "TX"},
+    {"zip": "75201", "city": "Dallas", "state": "TX"},
+    {"zip": "78701", "city": "Austin", "state": "TX"},
+    {"zip": "85226", "city": "Chandler", "state": "AZ"},
+    {"zip": "98052", "city": "Redmond", "state": "WA"},
+    {"zip": "60563", "city": "Naperville", "state": "IL"},
+    {"zip": "60143", "city": "Itasca", "state": "IL"},
+    {"zip": "75034", "city": "Frisco", "state": "TX"},
+    {"zip": "75024", "city": "Plano", "state": "TX"},
+    {"zip": "22102", "city": "McLean", "state": "VA"},
+    {"zip": "20171", "city": "Herndon", "state": "VA"},
+    {"zip": "43017", "city": "Dublin", "state": "OH"},
+]
+
+
+def watch_health(*, stale_after_hours: float = 26.0) -> Dict[str, Any]:
+    state = _load_state()
+    last = str(state.get("last_run_at") or "")
+    age_hours = None
+    is_stale = True
+    if last:
+        try:
+            dt = datetime.strptime(last.replace("Z", ""), "%Y-%m-%dT%H:%M:%S").replace(
+                tzinfo=timezone.utc
+            )
+            age_hours = (datetime.now(timezone.utc) - dt).total_seconds() / 3600.0
+            is_stale = age_hours > float(stale_after_hours)
+        except Exception:
+            is_stale = True
+    zips = state.get("zips") or {}
+    return {
+        "last_run_at": last or None,
+        "age_hours": round(age_hours, 2) if age_hours is not None else None,
+        "stale_after_hours": stale_after_hours,
+        "is_stale": is_stale,
+        "watched_zip_count": len(zips),
+        "recent_alerts": list(state.get("alerts") or [])[-10:],
+        "healthy": (not is_stale) and len(zips) > 0,
+    }
+
+
+def seed_dc_watches(*, force: bool = False) -> Dict[str, Any]:
+    """Baseline fingerprints for DC metro ZIPs so cron has something to watch."""
+    state = _load_state()
+    zips_state: Dict[str, Any] = dict(state.get("zips") or {})
+    added = 0
+    updated = 0
+    for seed in DC_WATCH_SEEDS:
+        z = seed["zip"]
+        if z in zips_state and not force:
+            continue
+        try:
+            fp, meta = pack_fingerprint(seed["city"], seed["state"], z)
+        except Exception as e:
+            logger.warning("seed fingerprint failed %s: %s", z, e)
+            continue
+        existed = z in zips_state
+        zips_state[z] = {
+            "fingerprint": fp,
+            "meta": {**meta, "seed": True, "city": seed["city"], "state": seed["state"]},
+            "updated_at": _now(),
+        }
+        if existed:
+            updated += 1
+        else:
+            added += 1
+    with _LOCK:
+        st = _load_state()
+        st["zips"] = zips_state
+        st["dc_seeds_at"] = _now()
+        _save_state(st)
+    return {
+        "status": "ok",
+        "added": added,
+        "updated": updated,
+        "watched_zip_count": len(zips_state),
+        "seeds": len(DC_WATCH_SEEDS),
+    }
+
+
+def maybe_self_heal(
+    *,
+    stale_after_hours: float = 26.0,
+    force: bool = False,
+) -> Dict[str, Any]:
+    """
+    If last zip-watch run is older than stale_after_hours, run once.
+    Guarded by lock file so concurrent workers don't stampede.
+    """
+    import os
+
+    if (os.getenv("ZIP_WATCH_SELF_HEAL") or "1").strip().lower() in (
+        "0",
+        "false",
+        "no",
+        "off",
+    ):
+        return {"skipped": True, "reason": "ZIP_WATCH_SELF_HEAL disabled"}
+
+    health = watch_health(stale_after_hours=stale_after_hours)
+    if not force and not health.get("is_stale"):
+        return {"skipped": True, "reason": "fresh", "health": health}
+
+    lock_path = _STATE_PATH.parent / "zip_watch_self_heal.lock"
+    _STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        if not force and lock_path.is_file():
+            age = time.time() - lock_path.stat().st_mtime
+            if age < 3600:
+                return {"skipped": True, "reason": "lock_held", "health": health}
+        lock_path.write_text(_now(), encoding="utf-8")
+    except Exception:
+        pass
+
+    # Ensure seeds exist so heal does something useful on empty state
+    if int(health.get("watched_zip_count") or 0) == 0:
+        seed_dc_watches()
+
+    result = run_zip_watch(dry_run=False)
+    return {"skipped": False, "ran": True, "result": result, "health_before": health}

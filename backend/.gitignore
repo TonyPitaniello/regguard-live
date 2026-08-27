@@ -13,3 +13,6 @@ data/zip_watch_state.json
 data/share_unlocks.json
 data/gotcha_credits.json
 data/account_credits.json
+data/diligence_webhooks.json
+data/receipt_attachments.json
+data/zip_watch_self_heal.lock

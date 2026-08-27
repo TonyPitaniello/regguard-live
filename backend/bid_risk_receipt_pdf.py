@@ -419,14 +419,23 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*WHITE)
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
+    stamp_lines = [
+        f"Flagged by: {who}",
+        f"Date: {stamp_date} UTC",
+        "Re-check before bid - fees and portal asks move.",
+    ]
+    if data.get("procurement_stamp") or data.get("lender_stamp") or data.get("surety_stamp"):
+        stamp_lines.append(
+            "PROCUREMENT / LENDER / SURETY ATTACH: Bid Risk Receipt included for "
+            "pre-bid diligence. Not an insurance quote, bond, or legal opinion."
+        )
+    radar = data.get("moratorium_radar") or {}
+    if radar.get("is_stale") and radar.get("stale_banner"):
+        stamp_lines.append(str(radar.get("stale_banner"))[:180])
     pdf.multi_cell(
         CONTENT_W,
         4,
-        _ascii(
-            f"Flagged by: {who}\n"
-            f"Date: {stamp_date} UTC\n"
-            "Re-check before bid - fees and portal asks move."
-        ),
+        _ascii("\n".join(stamp_lines)),
     )
     pdf.ln(1)
     pdf.set_x(MARGIN)

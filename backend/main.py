@@ -467,6 +467,17 @@ async def _log_firecrawl_key_prefix() -> None:
         )
     except Exception as ex:
         print(f"FinOps — status unavailable: {ex}")
+    # Self-heal ZIP watch if cron has been silent (non-blocking best-effort)
+    try:
+        from zip_watch import maybe_self_heal
+
+        heal = maybe_self_heal()
+        if heal.get("ran"):
+            print(f"ZIP watch self-heal ran: {heal.get('result', {}).get('checked')} checked")
+        else:
+            print(f"ZIP watch self-heal: {heal.get('reason')}")
+    except Exception as ex:
+        print(f"ZIP watch self-heal skipped: {ex}")
 
 
 app.add_middleware(
@@ -1246,7 +1257,26 @@ def root() -> Dict[str, str]:
 @app.get("/health")
 def health() -> Dict[str, Any]:
     """Lightweight probe for dashboards (frontend gate + load balancers)."""
-    return {"ok": True, "service": "reg-guard-api"}
+    out: Dict[str, Any] = {"ok": True, "service": "reg-guard-api"}
+    try:
+        from zip_watch import watch_health
+
+        zh = watch_health()
+        out["zip_watch"] = {
+            "healthy": zh.get("healthy"),
+            "last_run_at": zh.get("last_run_at"),
+            "watched_zip_count": zh.get("watched_zip_count"),
+            "is_stale": zh.get("is_stale"),
+        }
+    except Exception:
+        pass
+    try:
+        from war_room_store import durable_backend
+
+        out["war_room_backend"] = durable_backend()
+    except Exception:
+        pass
+    return out
 
 
 @app.get("/debug/routes")
@@ -4375,43 +4405,124 @@ async def stats_forwards() -> Dict[str, Any]:
 @app.get("/dc/moratorium-radar", tags=["DataCenter"])
 async def get_moratorium_radar(state: Optional[str] = None) -> Dict[str, Any]:
     """Seeded metro moratorium / pause radar (planning aid)."""
-    from dc_diligence import load_moratorium_radar, radar_for_state
+    from dc_diligence import load_moratorium_radar, radar_for_state, radar_stale_meta
 
     data = load_moratorium_radar()
     metros = radar_for_state(state or "") if state else list(data.get("metros") or [])
+    stale = radar_stale_meta(data)
     return {
         "updated": data.get("updated"),
         "disclaimer": data.get("disclaimer"),
         "state": (state or "").strip().upper()[:2] or None,
         "metros": metros,
         "count": len(metros),
+        **stale,
     }
+
+
+class MoratoriumRadarUpdate(BaseModel):
+    metros: List[Dict[str, Any]]
+    updated: Optional[str] = None
+    disclaimer: Optional[str] = None
+
+
+@app.post("/admin/moratorium-radar", tags=["Admin"])
+async def admin_update_moratorium_radar(
+    body: MoratoriumRadarUpdate,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Replace seeded radar metros and bump updated date (no deploy required)."""
+    _require_admin_secret(x_admin_secret)
+    from dc_diligence import radar_stale_meta, save_moratorium_radar
+
+    try:
+        saved = save_moratorium_radar(
+            body.metros,
+            updated=body.updated,
+            disclaimer=body.disclaimer,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "radar": saved, "stale": radar_stale_meta(saved)}
 
 
 class WarRoomCommentRequest(BaseModel):
     author: Optional[str] = None
     role: Optional[str] = "other"
     text: str
+    write_token: Optional[str] = None
 
 
 @app.get("/research/{research_id}/war-room", tags=["Results"])
 async def get_war_room(research_id: str) -> Dict[str, Any]:
-    from war_room_store import list_comments
+    from war_room_store import list_comments, room_meta
 
     comments = list_comments(research_id)
-    return {"research_id": research_id, "comments": comments, "count": len(comments)}
+    meta = room_meta(research_id)
+    return {
+        "research_id": research_id,
+        "comments": comments,
+        "count": len(comments),
+        **meta,
+    }
+
+
+@app.post("/research/{research_id}/war-room/token", tags=["Results"])
+async def mint_war_room_token(
+    research_id: str,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """
+    Mint/return write token for share links (?wr=TOKEN).
+    Allowed with admin secret, or when research report exists (owner share path).
+    """
+    from research_store import get_research
+    from war_room_store import ensure_write_token, writes_enabled
+
+    admin_ok = False
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    if expected and (x_admin_secret or "").strip() == expected:
+        admin_ok = True
+    record = get_research(research_id)
+    if not admin_ok and not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not writes_enabled():
+        raise HTTPException(
+            status_code=503,
+            detail="War room writes disabled until durable storage is configured",
+        )
+    token = ensure_write_token(research_id)
+    return {
+        "research_id": research_id,
+        "write_token": token,
+        "share_hint": f"?wr={token}",
+    }
 
 
 @app.post("/research/{research_id}/war-room", tags=["Results"])
-async def post_war_room(research_id: str, body: WarRoomCommentRequest) -> Dict[str, Any]:
+async def post_war_room(
+    request: Request,
+    research_id: str,
+    body: WarRoomCommentRequest,
+) -> Dict[str, Any]:
     from war_room_store import add_comment
 
+    client_key = (
+        (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+        or (request.client.host if request.client else "")
+        or "anon"
+    )
+    token = body.write_token or request.query_params.get("wr") or request.headers.get(
+        "X-War-Room-Token"
+    )
     try:
         comment = add_comment(
             research_id,
             author=body.author or "",
             role=body.role or "other",
             text=body.text or "",
+            write_token=token,
+            client_key=client_key,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
@@ -4442,6 +4553,122 @@ async def post_dc_diligence_export(body: DiligenceExportRequest) -> Dict[str, An
     if not analysis:
         raise HTTPException(status_code=400, detail="analysis or research_id required")
     return diligence_export_payload(analysis)
+
+
+class DiligenceWebhookRegister(BaseModel):
+    url: str
+    label: Optional[str] = ""
+
+
+class DiligenceWebhookDeliver(BaseModel):
+    research_id: Optional[str] = None
+    analysis: Optional[Dict[str, Any]] = None
+    hook_id: Optional[str] = None
+    url: Optional[str] = None
+
+
+@app.post("/admin/diligence-webhooks", tags=["Admin"])
+async def admin_register_diligence_webhook(
+    body: DiligenceWebhookRegister,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from diligence_webhook import register_webhook
+
+    try:
+        hook = register_webhook(url=body.url, label=body.label or "")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "hook": hook}
+
+
+@app.get("/admin/diligence-webhooks", tags=["Admin"])
+async def admin_list_diligence_webhooks(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from diligence_webhook import list_webhooks
+
+    return {"hooks": list_webhooks()}
+
+
+@app.post("/dc/diligence-webhook/deliver", tags=["DataCenter"])
+async def deliver_diligence_webhook(
+    body: DiligenceWebhookDeliver,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Push regguard.dc_diligence.v1 JSON to registered (or inline) webhook with HMAC."""
+    _require_admin_secret(x_admin_secret)
+    from dc_diligence import diligence_export_payload
+    from diligence_webhook import deliver_payload
+    from research_store import get_research
+
+    analysis: Dict[str, Any] = {}
+    if body.research_id:
+        record = get_research(body.research_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Report not found")
+        analysis = dict(record.get("analysis") or {})
+        analysis.setdefault("research_id", body.research_id)
+        analysis.setdefault("share_url", record.get("share_url"))
+    if body.analysis and isinstance(body.analysis, dict):
+        analysis = {**analysis, **body.analysis}
+    if not analysis:
+        raise HTTPException(status_code=400, detail="analysis or research_id required")
+    payload = diligence_export_payload(analysis)
+    try:
+        result = deliver_payload(payload, hook_id=body.hook_id, url=body.url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "payload_schema": payload.get("schema"), **result}
+
+
+class ReceiptAttachRequest(BaseModel):
+    research_id: str
+    external_system: str = "procore"
+    external_project_id: str
+    share_url: Optional[str] = ""
+    note: Optional[str] = ""
+    requester_email: Optional[str] = ""
+
+
+@app.post("/integrations/attach-receipt", tags=["Integrations"])
+async def post_attach_receipt(body: ReceiptAttachRequest) -> Dict[str, Any]:
+    """Record attach-intent for Procore / bid software (design-partner plumbing)."""
+    from receipt_attach import attach_receipt
+
+    try:
+        row = attach_receipt(
+            research_id=body.research_id,
+            external_system=body.external_system,
+            external_project_id=body.external_project_id,
+            share_url=body.share_url or "",
+            note=body.note or "",
+            requester_email=body.requester_email or "",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "attachment": row}
+
+
+@app.get("/integrations/attach-receipt/{research_id}", tags=["Integrations"])
+async def get_attach_receipts(research_id: str) -> Dict[str, Any]:
+    from receipt_attach import list_attachments
+
+    rows = list_attachments(research_id)
+    return {"research_id": research_id, "attachments": rows, "count": len(rows)}
+
+
+@app.get("/refund-cases", tags=["Trust"])
+async def get_refund_cases() -> Dict[str, Any]:
+    """Public guarantee case templates / published refund narratives."""
+    path = Path(__file__).resolve().parent / "refund_cases.json"
+    if not path.is_file():
+        return {"updated": "", "cases": []}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"updated": "", "cases": []}
 
 
 @app.get("/research/{research_id}/report", tags=["Results"])
@@ -5021,6 +5248,37 @@ async def cron_zip_watch(
     result["emailed"] = emailed
     result["texted"] = texted
     return result
+
+
+@app.get("/admin/zip-watch", tags=["Admin"])
+async def admin_zip_watch_health(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from zip_watch import watch_health
+
+    return watch_health()
+
+
+@app.post("/admin/zip-watch/seed-dc", tags=["Admin"])
+async def admin_seed_dc_watches(
+    force: bool = False,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from zip_watch import seed_dc_watches
+
+    return seed_dc_watches(force=force)
+
+
+@app.post("/admin/zip-watch/self-heal", tags=["Admin"])
+async def admin_zip_watch_self_heal(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from zip_watch import maybe_self_heal
+
+    return maybe_self_heal(force=True)
 
 
 @app.get("/admin/gotcha-credits", tags=["Admin"])

@@ -65,8 +65,13 @@ def test_diligence_export_schema():
 
 
 def test_war_room_roundtrip():
+    from war_room_store import ensure_write_token
+
     rid = "rg-test-war-room-1"
-    c = add_comment(rid, author="Alex", role="ic", text="Confirm utility study product")
+    token = ensure_write_token(rid)
+    c = add_comment(
+        rid, author="Alex", role="ic", text="Confirm utility study product", write_token=token
+    )
     assert c["id"].startswith("wr-")
     listed = list_comments(rid)
     assert any(x["id"] == c["id"] for x in listed)

@@ -27,5 +27,26 @@ services:
         value: "25"
       - key: PAID_LOCAL_CONFIRM_CACHE_TTL_SEC
         value: "86400"
+      - key: ZIP_WATCH_SELF_HEAL
+        value: "1"
       # Quota file defaults to /tmp/regguard_data unless REGGUARD_DATA_DIR is set
       # (attach a persistent disk + shared path before multi-instance)
+
+  # Daily ZIP watch — requires paid cron plan OR use cron-job.org against the web service.
+  # Prefer: POST https://regguard-api.onrender.com/cron/zip-watch + X-Cron-Secret
+  - type: cron
+    name: regguard-zip-watch
+    runtime: python
+    plan: starter
+    region: oregon
+    schedule: "0 14 * * *"
+    buildCommand: bash scripts/render_build.sh
+    startCommand: >-
+      python -c "import os,urllib.request; u=(os.environ.get('REG_GUARD_API_URL') or 'https://regguard-api.onrender.com').rstrip('/')+'/cron/zip-watch'; req=urllib.request.Request(u,data=b'',method='POST',headers={'X-Cron-Secret':os.environ.get('CRON_SECRET','')}); print(urllib.request.urlopen(req,timeout=120).read()[:200])"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      - key: CRON_SECRET
+        sync: false
+      - key: REG_GUARD_API_URL
+        value: "https://regguard-api.onrender.com"

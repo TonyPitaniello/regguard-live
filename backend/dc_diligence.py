@@ -85,6 +85,68 @@ def load_moratorium_radar() -> Dict[str, Any]:
         return {"updated": "", "metros": []}
 
 
+def radar_stale_meta(
+    data: Optional[Dict[str, Any]] = None,
+    *,
+    stale_after_days: int = 14,
+) -> Dict[str, Any]:
+    """Compute staleness from radar ``updated`` date (YYYY-MM-DD)."""
+    from datetime import datetime, timezone
+
+    payload = data if isinstance(data, dict) else load_moratorium_radar()
+    updated = str(payload.get("updated") or "").strip()[:10]
+    days = None
+    is_stale = True
+    try:
+        if updated:
+            dt = datetime.strptime(updated, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            days = max(0, int((datetime.now(timezone.utc) - dt).total_seconds() // 86400))
+            is_stale = days > int(stale_after_days)
+    except Exception:
+        is_stale = True
+        days = None
+    return {
+        "updated": updated,
+        "stale_after_days": int(stale_after_days),
+        "age_days": days,
+        "is_stale": is_stale,
+        "stale_banner": (
+            f"Radar last verified {updated or 'unknown'} "
+            f"({days if days is not None else '?'} days ago) — "
+            "do not treat as current law. Verify with counsel."
+            if is_stale
+            else ""
+        ),
+    }
+
+
+def save_moratorium_radar(
+    metros: List[Dict[str, Any]],
+    *,
+    updated: Optional[str] = None,
+    disclaimer: Optional[str] = None,
+) -> Dict[str, Any]:
+    from datetime import datetime, timezone
+
+    existing = load_moratorium_radar()
+    clean = [m for m in (metros or []) if isinstance(m, dict) and m.get("metro")]
+    if not clean:
+        raise ValueError("metros required")
+    stamp = (updated or "").strip()[:10] or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    out = {
+        "updated": stamp,
+        "disclaimer": disclaimer
+        or existing.get("disclaimer")
+        or (
+            "Seeded planning radar — verify ordinance/bill status with counsel. "
+            "Not a live legislative API."
+        ),
+        "metros": clean,
+    }
+    _RADAR_PATH.write_text(json.dumps(out, indent=2) + "\n", encoding="utf-8")
+    return out
+
+
 def radar_for_state(state: str) -> List[Dict[str, Any]]:
     st = (state or "").strip().upper()[:2]
     data = load_moratorium_radar()
@@ -150,18 +212,30 @@ def build_moratorium_radar_card(analysis: Dict[str, Any]) -> Dict[str, Any]:
     show = local or metros[:6]
     high = moratorium_high_alert_for_state(st)
     bills = bill_specific_conflict_notes(st)
+    stale = radar_stale_meta()
+    # Suppress HIGH ALERT styling when radar seed is stale
+    effective_high = bool(high) and not stale.get("is_stale")
     return {
         "title": "Moratorium / pause radar",
         "headline": (
             f"HIGH ALERT — {st} tracked for moratorium / session risk"
-            if high
-            else f"Monitor township/county pauses near {city or st or 'site'}"
+            if effective_high
+            else (
+                f"STALE RADAR — re-verify before LOI ({st or 'site'})"
+                if stale.get("is_stale") and high
+                else f"Monitor township/county pauses near {city or st or 'site'}"
+            )
         ),
-        "high_alert_state": high,
+        "high_alert_state": effective_high,
+        "high_alert_suppressed_stale": bool(high) and bool(stale.get("is_stale")),
         "state": st,
         "metros": show,
         "scout_hits": hits,
         "bill_notes": list(bills.values()),
+        "updated": stale.get("updated"),
+        "age_days": stale.get("age_days"),
+        "is_stale": stale.get("is_stale"),
+        "stale_banner": stale.get("stale_banner") or "",
         "disclaimer": (
             "Seeded planning radar + SERP hits — verify bill/ordinance status with counsel. "
             "Not a live legislative feed."
