@@ -2,8 +2,34 @@
   "ahj_id": "austin_tx",
   "city": "Austin",
   "state": "TX",
-  "zips": ["78701", "78702", "78703", "78704", "78705", "78721", "78722", "78723", "78741", "78745", "78751", "78756", "78757"],
-  "aliases": ["austin"],
+  "zips": [
+    "78701",
+    "78702",
+    "78703",
+    "78704",
+    "78705",
+    "78721",
+    "78722",
+    "78723",
+    "78731",
+    "78741",
+    "78745",
+    "78746",
+    "78748",
+    "78749",
+    "78750",
+    "78751",
+    "78752",
+    "78754",
+    "78756",
+    "78757",
+    "78758",
+    "78759"
+  ],
+  "aliases": [
+    "austin",
+    "city of austin"
+  ],
   "fees": [
     {
       "id": "development_services_fees",
@@ -15,27 +41,42 @@
       "citation_note": "Do not invent dollar amounts. Cite Austin Development Services fee schedule / safety surcharges from the official URL.",
       "verified": true,
       "amount_requires_schedule": true
+    },
+    {
+      "id": "building_ds_fees",
+      "trade": "building",
+      "label": "Building / Development Services fees \u2014 verify live schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.austintexas.gov/development-services/fees",
+      "citation_note": "Do not invent dollars; cite Austin DS fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
     }
   ],
   "gotchas": [
     {
       "id": "design_criteria_gas_clearance",
-      "title": "City of Austin Design Criteria — gas relief clearance",
+      "title": "City of Austin Design Criteria \u2014 gas relief clearance",
       "checklist": [
         "36-inch minimum clearance from gas relief valves",
         "Verify against current Austin Design Criteria / Electrical Service Requirements"
       ],
-      "anti_patterns": ["Generic NEC clearance without Austin Design Criteria check"],
+      "anti_patterns": [
+        "Generic NEC clearance without Austin Design Criteria check"
+      ],
       "citation_url": "https://www.austintexas.gov/department/development-services"
     },
     {
       "id": "design_criteria_225a_bus",
-      "title": "Austin service upgrade — 225A bus / 200A main",
+      "title": "Austin service upgrade \u2014 225A bus / 200A main",
       "checklist": [
         "225A interior panel bus with 200A main where Design Criteria apply",
         "Solar-Ready pattern check for 787xx central Austin ZIPs (incl. 78704)"
       ],
-      "anti_patterns": ["Assuming 200A bus is always sufficient without Austin criteria"],
+      "anti_patterns": [
+        "Assuming 200A bus is always sufficient without Austin criteria"
+      ],
       "citation_url": "https://www.austintexas.gov/department/development-services"
     }
   ],
@@ -54,5 +95,9 @@
       "Austin Texas design criteria electrical service 36 inch gas relief solar ready 225A 200A bus"
     ]
   },
-  "portal_url": "https://www.austintexas.gov/department/development-services"
+  "portal_url": "https://www.austintexas.gov/department/development-services",
+  "fees_url": "https://www.austintexas.gov/development-services/fees",
+  "apply_url": "https://www.austintexas.gov/department/development-services",
+  "inspections_url": "https://www.austintexas.gov/department/development-services",
+  "last_verified": "2026-08-26"
 }

@@ -506,6 +506,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
                         {
                             "label": fee.get("label") or "Permit fee",
                             "amount_usd": fee.get("amount_usd"),
+                            "trade": fee.get("trade") or "general",
                             "detail": fee.get("citation_note") or "Confirm on official schedule",
                             "source_url": fee.get("citation_url") or rec.get("portal_url"),
                             "source_label": rec.get("city") or "AHJ catalog",
@@ -564,22 +565,39 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     cat_name = None
     cat_portal = None
     cat_fees_url = None
+    cat_apply = None
+    cat_insp = None
+    cat_verified = None
+    cat_inspection_seq: list = []
     if rec:
         cat_name = f"{rec.get('city')}, {rec.get('state') or 'TX'} AHJ"
         cat_portal = rec.get("portal_url") or ""
         cat_fees_url = rec.get("fees_url") or cat_portal
+        cat_apply = rec.get("apply_url") or ""
+        cat_insp = rec.get("inspections_url") or ""
+        cat_verified = rec.get("last_verified") or ""
+        cat_inspection_seq = list(rec.get("inspection_sequence") or [])[:10]
     identity_note = ""
     if isinstance(out.get("ahj_identity"), dict) and out["ahj_identity"].get("note"):
         identity_note = str(out["ahj_identity"]["note"])
+    pack_insp = list(pack.get("inspection_sequence") or pack.get("documents") or [])[:10]
     out["ahj_card"] = {
         "title": "AHJ portal & contact",
         "name": cat_name or ahj.get("name") or who.get("building_department") or "Local AHJ",
         "portal_url": cat_portal or ahj.get("portal_url") or "",
         "fees_url": cat_fees_url or ahj.get("fees_url") or "",
+        "apply_url": cat_apply or ahj.get("apply_url") or "",
+        "inspections_url": cat_insp or ahj.get("inspections_url") or "",
         "phone": ahj.get("phone") or who.get("phone") or "",
         "notes": identity_note or ahj.get("notes") or "",
         "citeable_coverage": citeable,
+        "last_verified": cat_verified or pack.get("last_verified") or ahj.get("last_verified") or "",
         "extra_contacts": who,
+    }
+    out["inspection_sequence_card"] = {
+        "title": "Inspection sequence",
+        "steps": cat_inspection_seq or pack_insp,
+        "citeable_coverage": citeable,
     }
 
     gotcha_items = list(pack.get("gotchas") or []) or catalog_gotchas

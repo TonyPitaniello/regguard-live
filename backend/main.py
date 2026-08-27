@@ -2512,20 +2512,61 @@ def geocode_zip(latitude: float, longitude: float) -> Dict[str, str]:
 def post_community_gotcha(
     zip_code: str = Form(..., description="5-digit U.S. ZIP for this inspector note"),
     text: str = Form(..., description="Short crowdsourced field tip for contractors in this ZIP"),
+    email: str = Form(default="", description="Optional email — Partner/Pro unlocks $20 credit review"),
 ) -> Dict[str, Any]:
     """Append one crowdsourced inspector note for a ZIP (Community Scout Moat JSON store)."""
+    email_l = (email or "").strip().lower()
+    partner_tier = ""
+    if email_l:
+        try:
+            from order_service import list_orders_for_email, normalize_tier
+
+            for o in list_orders_for_email(email_l):
+                t = normalize_tier(str(o.get("tier") or ""))
+                if t in ("partner", "contractor_pro", "sponsor", "ic_project", "ic_annual"):
+                    partner_tier = t
+                    break
+        except Exception:
+            partner_tier = ""
+
+    status = "pending_review" if partner_tier else "published"
+    source = "partner" if partner_tier else "community"
     try:
-        note = append_note(zip_code, text)
+        note = append_note(zip_code, text, email=email_l, status=status, source=source)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     z = normalize_us_zip(zip_code)
+    credit = None
+    if partner_tier and email_l:
+        try:
+            from gotcha_credit_store import record_pending_credit
+
+            credit = record_pending_credit(
+                email=email_l,
+                zip_code=z,
+                note_text=text,
+                partner_tier=partner_tier,
+            )
+        except Exception:
+            credit = None
     log_api_usage(
         project_key=z,
         route="community_note_write",
         model=model_for_community_note_context(),
-        meta={"action": "append"},
+        meta={"action": "append", "source": source},
     )
-    return {"ok": True, "zip": z, "note": note}
+    return {
+        "ok": True,
+        "zip": z,
+        "note": note,
+        "credit_pending": bool(credit),
+        "credit_usd": (credit or {}).get("credit_usd"),
+        "message": (
+            "Thanks — queued for review. If accepted, ops will apply a $20 account credit."
+            if credit
+            else "Thanks — note saved for this ZIP."
+        ),
+    }
 
 
 @app.post("/bim/import")

@@ -493,6 +493,61 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.midlothian.tx.us/149/Building-Inspections",
         "phone": "972-775-3481",
     },
+    # DFW / Austin suburbs — portal only (not full citeable packs)
+    "richardson, tx": {
+        "city": "Richardson",
+        "state": "TX",
+        "name": "City of Richardson Building Inspection",
+        "portal_url": "https://www.cor.net/departments/development-services/building-inspection",
+    },
+    "allen, tx": {
+        "city": "Allen",
+        "state": "TX",
+        "name": "City of Allen Building Inspections",
+        "portal_url": "https://www.cityofallen.org/149/Building-Inspections",
+    },
+    "carrollton, tx": {
+        "city": "Carrollton",
+        "state": "TX",
+        "name": "City of Carrollton Building Inspection",
+        "portal_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+    },
+    "lewisville, tx": {
+        "city": "Lewisville",
+        "state": "TX",
+        "name": "City of Lewisville Building Inspections",
+        "portal_url": "https://www.cityoflewisville.com/government/departments/building-inspections",
+    },
+    "mesquite, tx": {
+        "city": "Mesquite",
+        "state": "TX",
+        "name": "City of Mesquite Building Inspection",
+        "portal_url": "https://www.cityofmesquite.com/149/Building-Inspection",
+    },
+    "cedar park, tx": {
+        "city": "Cedar Park",
+        "state": "TX",
+        "name": "City of Cedar Park Building & Development",
+        "portal_url": "https://www.cedarparktexas.gov/149/Building-Development",
+    },
+    "pflugerville, tx": {
+        "city": "Pflugerville",
+        "state": "TX",
+        "name": "City of Pflugerville Development Services Center",
+        "portal_url": "https://www.pflugervilletx.gov/149/Development-Services-Center",
+    },
+    "leander, tx": {
+        "city": "Leander",
+        "state": "TX",
+        "name": "City of Leander Building Inspections",
+        "portal_url": "https://www.leandertx.gov/buildinginspections",
+    },
+    "georgetown, tx": {
+        "city": "Georgetown",
+        "state": "TX",
+        "name": "City of Georgetown Building Inspections",
+        "portal_url": "https://georgetown.org/building-inspections/",
+    },
     # Additional national sales metros
     "boise, id": {
         "city": "Boise",
@@ -547,6 +602,7 @@ def resolve_metro_portal_pack(
         return None
 
     name = str(seed.get("name") or f"{seed.get('city')} AHJ")
+    fees_url = str(seed.get("fees_url") or portal).strip()
     return {
         "pack_key": f"portal:{key}",
         "citeable": False,  # portal known; fees/gotchas not curated
@@ -556,12 +612,15 @@ def resolve_metro_portal_pack(
         "ahj": {
             "name": name,
             "portal_url": portal,
-            "fees_url": portal,
+            "fees_url": fees_url,
+            "apply_url": str(seed.get("apply_url") or "").strip(),
+            "inspections_url": str(seed.get("inspections_url") or "").strip(),
             "phone": seed.get("phone") or "",
             "notes": (
                 "Portal seed — confirm fees, amendments, and submittals on the official "
                 "AHJ schedule before bid. Not a full citeable city pack (no curated fees/gotchas)."
             ),
+            "last_verified": str(seed.get("last_verified") or "").strip(),
         },
         "fees": [],
         "gotchas": [],
@@ -571,5 +630,7 @@ def resolve_metro_portal_pack(
             "Cut sheets",
             "Contractor license / registration",
         ],
+        "inspection_sequence": [],
+        "last_verified": str(seed.get("last_verified") or "").strip(),
         "timeline_hint": f"Confirm plan review and inspection windows with {name}",
     }

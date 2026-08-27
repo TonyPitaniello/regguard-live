@@ -144,9 +144,11 @@ export interface AnalysisData {
     fees?: Array<{
       label?: string;
       amount_usd?: number | null;
+      trade?: string;
       detail?: string;
       verified?: boolean;
       planning_aid?: boolean;
+      amount_requires_schedule?: boolean;
       source_url?: string | null;
       source_label?: string | null;
     }>;
@@ -160,8 +162,16 @@ export interface AnalysisData {
     name?: string;
     portal_url?: string;
     fees_url?: string;
+    apply_url?: string;
+    inspections_url?: string;
     phone?: string;
     notes?: string;
+    citeable_coverage?: boolean;
+    last_verified?: string;
+  };
+  inspection_sequence_card?: {
+    title?: string;
+    steps?: string[];
     citeable_coverage?: boolean;
   };
   gotcha_watchlist?: {
@@ -173,6 +183,8 @@ export interface AnalysisData {
       priority?: string;
       source_url?: string | null;
       source_label?: string | null;
+      checklist?: string[];
+      anti_patterns?: string[];
     }>;
     citeable_coverage?: boolean;
   };
@@ -561,6 +573,9 @@ export default function ResultsViewerModal({
   const [packetLoading, setPacketLoading] = useState(false);
   const [recheckLoading, setRecheckLoading] = useState(false);
   const [liveAnalysis, setLiveAnalysis] = useState<AnalysisData | null>(null);
+  const [gotchaText, setGotchaText] = useState('');
+  const [gotchaBusy, setGotchaBusy] = useState(false);
+  const [gotchaMsg, setGotchaMsg] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Page-scroll takeover: bring results to the top of the viewport (form scrolls away)
@@ -1595,35 +1610,80 @@ export default function ResultsViewerModal({
 
               {view.ahj_card && (
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
-                  <h4 className="text-sm font-bold text-emerald-300 mb-2">
-                    {view.ahj_card.title || 'AHJ portal & contact'}
-                  </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <h4 className="text-sm font-bold text-emerald-300">
+                      {view.ahj_card.title || 'AHJ portal & contact'}
+                    </h4>
+                    {view.ahj_card.last_verified && (
+                      <span className="text-xs font-semibold text-emerald-200/90">
+                        Verified {view.ahj_card.last_verified}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-white font-semibold">{view.ahj_card.name}</p>
-                  {view.ahj_card.portal_url && (
-                    <a
-                      href={view.ahj_card.portal_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-purple-300 underline block mt-1"
-                    >
-                      Open AHJ portal
-                    </a>
-                  )}
-                  {view.ahj_card.fees_url && (
-                    <a
-                      href={view.ahj_card.fees_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-purple-300 underline block"
-                    >
-                      Fee schedule
-                    </a>
-                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                    {view.ahj_card.portal_url && (
+                      <a
+                        href={view.ahj_card.portal_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-purple-300 underline"
+                      >
+                        Portal
+                      </a>
+                    )}
+                    {view.ahj_card.fees_url && (
+                      <a
+                        href={view.ahj_card.fees_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-purple-300 underline"
+                      >
+                        Fees
+                      </a>
+                    )}
+                    {view.ahj_card.apply_url && (
+                      <a
+                        href={view.ahj_card.apply_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-purple-300 underline"
+                      >
+                        Apply
+                      </a>
+                    )}
+                    {view.ahj_card.inspections_url && (
+                      <a
+                        href={view.ahj_card.inspections_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-purple-300 underline"
+                      >
+                        Inspections
+                      </a>
+                    )}
+                  </div>
                   {view.ahj_card.notes && (
                     <p className="text-gray-400 text-xs mt-2">{view.ahj_card.notes}</p>
                   )}
                 </div>
               )}
+
+              {view.inspection_sequence_card &&
+                (view.inspection_sequence_card.steps || []).length > 0 && (
+                  <div className="bg-slate-800/40 border border-indigo-500/30 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-indigo-300 mb-2">
+                      {view.inspection_sequence_card.title || 'Inspection sequence'}
+                    </h4>
+                    <ol className="list-decimal pl-5 space-y-1">
+                      {(view.inspection_sequence_card.steps || []).map((step, i) => (
+                        <li key={i} className="text-sm text-gray-200">
+                          {step}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
 
               {view.fee_card && (
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
@@ -1657,12 +1717,19 @@ export default function ResultsViewerModal({
                     </p>
                   ) : (
                     <ul className="space-y-2">
-                      {(view.fee_card.fees || []).slice(0, 6).map((f, i) => (
+                      {(view.fee_card.fees || []).slice(0, 8).map((f, i) => (
                         <li key={i} className="text-sm text-gray-300">
+                          {f.trade && (
+                            <span className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-slate-700 text-blue-200">
+                              {f.trade}
+                            </span>
+                          )}
                           <span className="text-white font-medium">{f.label}</span>
                           {typeof f.amount_usd === 'number'
                             ? ` — $${f.amount_usd.toLocaleString()}`
-                            : ''}
+                            : f.amount_requires_schedule
+                              ? ' — confirm on schedule'
+                              : ''}
                           {(f.planning_aid ||
                             view.fee_card?.planning_aid ||
                             view.fee_card?.paid_local_confirm) && (
@@ -1693,12 +1760,17 @@ export default function ResultsViewerModal({
                   <h4 className="text-sm font-bold text-amber-300 mb-2">
                     {view.gotcha_watchlist.title || 'Local gotcha watchlist'}
                   </h4>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {(view.gotcha_watchlist.items || []).map((g) => (
                       <li key={g.id || g.title} className="text-sm text-gray-300">
                         <span className="text-amber-200 font-semibold">{g.priority}</span>{' '}
                         <span className="text-white font-medium">{g.title}</span>
                         <p className="text-gray-400 text-xs mt-0.5">{g.detail}</p>
+                        {(g.anti_patterns || []).length > 0 && (
+                          <p className="text-red-300/90 text-xs mt-1">
+                            Don&apos;t: {(g.anti_patterns || []).join('; ')}
+                          </p>
+                        )}
                         <CitationBadge
                           verified={Boolean(g.source_url)}
                           source_url={g.source_url}
@@ -1709,6 +1781,61 @@ export default function ResultsViewerModal({
                   </ul>
                 </div>
               )}
+
+              <div className="bg-slate-800/40 border border-slate-600 rounded-lg p-4 space-y-2">
+                <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
+                <p className="text-xs text-gray-400">
+                  Partner / Pro emails get a $20 credit after ops verifies and cites the portal.
+                </p>
+                <textarea
+                  value={gotchaText}
+                  onChange={(e) => setGotchaText(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Plano rejects X if filed before Y…"
+                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+                />
+                <button
+                  type="button"
+                  disabled={gotchaBusy || !gotchaText.trim()}
+                  className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50"
+                  onClick={() => {
+                    void (async () => {
+                      const zip =
+                        view.project_info?.zip ||
+                        view.jurisdiction?.zip ||
+                        view.coverage?.pack_key ||
+                        '';
+                      if (!zip || String(zip).length < 5) {
+                        setGotchaMsg('Need a ZIP on this result to attach the note.');
+                        return;
+                      }
+                      setGotchaBusy(true);
+                      setGotchaMsg('');
+                      try {
+                        const body = new FormData();
+                        body.set('zip_code', String(zip).slice(0, 5));
+                        body.set('text', gotchaText.trim());
+                        body.set('email', (defaultEmail || '').trim());
+                        const res = await fetch(backendUrl('/community-gotchas'), {
+                          method: 'POST',
+                          body,
+                        });
+                        const data = await res.json().catch(() => ({}));
+                        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                        setGotchaMsg(String(data.message || 'Saved.'));
+                        setGotchaText('');
+                      } catch (e) {
+                        setGotchaMsg(e instanceof Error ? e.message : 'Submit failed');
+                      } finally {
+                        setGotchaBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {gotchaBusy ? 'Sending…' : 'Submit gotcha'}
+                </button>
+                {gotchaMsg && <p className="text-xs text-amber-200">{gotchaMsg}</p>}
+              </div>
 
               {view.document_checklist && (
                 <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">

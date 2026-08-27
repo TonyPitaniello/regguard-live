@@ -2,30 +2,89 @@
   "ahj_id": "dallas_tx",
   "city": "Dallas",
   "state": "TX",
-  "zips": ["75201", "75202", "75204", "75207", "75214", "75219", "75226", "75235"],
-  "aliases": ["dallas", "city of dallas"],
+  "zips": [
+    "75201",
+    "75202",
+    "75203",
+    "75204",
+    "75205",
+    "75206",
+    "75207",
+    "75208",
+    "75209",
+    "75210",
+    "75211",
+    "75212",
+    "75214",
+    "75215",
+    "75216",
+    "75217",
+    "75218",
+    "75219",
+    "75220",
+    "75223",
+    "75224",
+    "75225",
+    "75226",
+    "75228",
+    "75229",
+    "75230",
+    "75231",
+    "75232",
+    "75233",
+    "75235"
+  ],
+  "aliases": [
+    "dallas",
+    "city of dallas",
+    "city of dallas, tx"
+  ],
   "fees": [
     {
       "id": "min_trade_permit_2026",
       "trade": "electrical",
-      "label": "Minimum trade permit (incl. admin) — 2026 Reg Guard sync",
+      "label": "Minimum trade permit (incl. admin) \u2014 2026 Reg Guard sync",
       "amount_usd": 167.0,
       "components": [],
       "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
       "citation_note": "City of Dallas Building Inspection minimum trade permit line. Confirm current schedule before bidding.",
       "verified": true
+    },
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm Dallas Building Inspection schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+      "citation_note": "Amount requires live Dallas fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing / mechanical trade permit \u2014 confirm schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+      "citation_note": "Amount requires live Dallas fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
     }
   ],
   "gotchas": [
     {
       "id": "722_munger_setback",
-      "title": "Deep Ellum / downtown edge — setback diligence",
+      "title": "Deep Ellum / downtown edge \u2014 setback diligence",
       "checklist": [
         "Verify rear/side setbacks against current survey",
         "Confirm ADU / accessory structure path with Dallas Building Inspection",
         "Pull recent commercial permits near parcel via Dallas Open Data when available"
       ],
-      "anti_patterns": ["Assuming Lake Dallas AHJ for 752xx Stemmons addresses"],
+      "anti_patterns": [
+        "Assuming Lake Dallas AHJ for 752xx Stemmons addresses"
+      ],
       "citation_url": "https://www.dallascityhall.com/resource/7vsc-id2i.json"
     }
   ],
@@ -49,5 +108,9 @@
   "open_data": {
     "socrata_url": "https://www.dallascityhall.com/resource/7vsc-id2i.json",
     "label": "Dallas commercial building permits (Open Data)"
-  }
+  },
+  "fees_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+  "apply_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+  "inspections_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+  "last_verified": "2026-08-26"
 }

@@ -218,6 +218,30 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
         pdf.cell(CONTENT_W, 3.5, _ascii(f"Portal: {portal}"), ln=1)
+    fees_u = str(ahj.get("fees_url") or "").strip()
+    if fees_u and fees_u != portal:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        pdf.cell(CONTENT_W, 3.5, _ascii(f"Fees: {fees_u}"), ln=1)
+    verified = str(ahj.get("last_verified") or "").strip()
+    if verified:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 3.5, _ascii(f"Pack last verified: {verified}"), ln=1)
+    insp = data.get("inspection_sequence_card") or {}
+    steps = list(insp.get("steps") or [])[:4]
+    if steps:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.set_text_color(*WHITE)
+        pdf.cell(CONTENT_W, 3.5, "Inspection sequence", ln=1)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        for i, step in enumerate(steps, 1):
+            pdf.set_x(MARGIN)
+            pdf.cell(CONTENT_W, 3.2, _ascii(f"  {i}. {step}"), ln=1)
     if dc.get("headline"):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 7)

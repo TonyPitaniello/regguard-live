@@ -310,10 +310,12 @@ def _pack_from_ahj_record(rec: Dict[str, Any], *, tier: str, source: str) -> Dic
             {
                 "label": fee.get("label") or "Permit fee",
                 "amount_usd": fee.get("amount_usd"),
+                "trade": fee.get("trade") or "general",
                 "detail": fee.get("citation_note") or FEE_PLANNING,
                 "source_url": fee.get("citation_url") or rec.get("portal_url"),
                 "source_label": rec.get("city") or "AHJ",
                 "verified": bool(fee.get("verified")),
+                "amount_requires_schedule": bool(fee.get("amount_requires_schedule")),
             }
         )
     gotchas = []
@@ -326,6 +328,8 @@ def _pack_from_ahj_record(rec: Dict[str, Any], *, tier: str, source: str) -> Dic
                 "priority": "HIGH",
                 "source_url": g.get("citation_url") or rec.get("portal_url"),
                 "source_label": rec.get("city") or "AHJ",
+                "checklist": g.get("checklist") or [],
+                "anti_patterns": g.get("anti_patterns") or [],
             }
         )
     return {
@@ -338,9 +342,12 @@ def _pack_from_ahj_record(rec: Dict[str, Any], *, tier: str, source: str) -> Dic
         "ahj": {
             "name": f"{rec.get('city')}, {rec.get('state')} AHJ",
             "portal_url": rec.get("portal_url") or "",
-            "fees_url": rec.get("portal_url") or "",
+            "fees_url": rec.get("fees_url") or rec.get("portal_url") or "",
+            "apply_url": rec.get("apply_url") or "",
+            "inspections_url": rec.get("inspections_url") or "",
             "phone": "",
             "notes": "Promoted / curated AHJ pack — still confirm dollars on the official schedule.",
+            "last_verified": rec.get("last_verified") or "",
         },
         "fees": fees,
         "gotchas": gotchas,
@@ -351,12 +358,14 @@ def _pack_from_ahj_record(rec: Dict[str, Any], *, tier: str, source: str) -> Dic
             "Cut sheets",
             "Contractor license / registration",
         ],
+        "inspection_sequence": list(rec.get("inspection_sequence") or [])[:10],
         "timeline_hint": "Confirm plan review windows with AHJ",
-        "sources": [rec.get("portal_url")] if rec.get("portal_url") else [],
+        "sources": [u for u in [rec.get("portal_url"), rec.get("fees_url")] if u],
         "generated_at": _now_iso(),
         "promote_candidate": False,
         "source": source,
         "ahj_id": rec.get("ahj_id"),
+        "last_verified": rec.get("last_verified") or "",
     }
 
 
@@ -690,6 +699,16 @@ def draft_to_ahj_record(
             ]
         )[:10],
         "portal_url": portal,
+        "fees_url": str(
+            edits.get("fees_url")
+            or (pack.get("ahj") or {}).get("fees_url")
+            or portal
+        ).strip(),
+        "apply_url": str(edits.get("apply_url") or (pack.get("ahj") or {}).get("apply_url") or "").strip(),
+        "inspections_url": str(
+            edits.get("inspections_url") or (pack.get("ahj") or {}).get("inspections_url") or ""
+        ).strip(),
+        "last_verified": str(edits.get("last_verified") or pack.get("last_verified") or "")[:32],
         "promoted_at": _now_iso(),
         "promoted_by": reviewer or "ops",
         "source_pack_tier": pack.get("tier"),

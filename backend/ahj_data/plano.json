@@ -2,8 +2,21 @@
   "ahj_id": "plano_tx",
   "city": "Plano",
   "state": "TX",
-  "zips": ["75023", "75024", "75025", "75074", "75075", "75093", "75094"],
-  "aliases": ["plano"],
+  "zips": [
+    "75023",
+    "75024",
+    "75025",
+    "75026",
+    "75074",
+    "75075",
+    "75086",
+    "75093",
+    "75094"
+  ],
+  "aliases": [
+    "plano",
+    "city of plano"
+  ],
   "fees": [
     {
       "id": "electrical_permit_2026",
@@ -11,24 +24,54 @@
       "label": "Electrical permit (2026 Reg Guard sync)",
       "amount_usd": 75.0,
       "components": [
-        { "label": "Base permit", "amount_usd": 65.0 },
-        { "label": "Laborer fee", "amount_usd": 10.0 }
+        {
+          "label": "Base permit",
+          "amount_usd": 65.0
+        },
+        {
+          "label": "Laborer fee",
+          "amount_usd": 10.0
+        }
       ],
       "citation_url": "https://www.plano.gov/292/Building-Inspections",
       "citation_note": "Confirm on the official City of Plano building fee schedule / Building Inspections pages.",
       "verified": true
+    },
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm on Development Services fee schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.plano.gov/1648/Development-Services",
+      "citation_note": "Amount requires live Plano fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm on Building Inspections fee schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.plano.gov/292/Building-Inspections",
+      "citation_note": "Amount requires live Plano fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
     }
   ],
   "gotchas": [
     {
       "id": "ord_250_50",
-      "title": "Plano Ordinance 250.50 — grounding",
+      "title": "Plano Ordinance 250.50 \u2014 grounding",
       "checklist": [
         "Two 8-foot grounding rods",
         "Rods 20 feet apart",
         "2/0 AWG bonding conductor between rods"
       ],
-      "anti_patterns": ["6-foot NEC generic rod spacing narrative"],
+      "anti_patterns": [
+        "6-foot NEC generic rod spacing narrative"
+      ],
       "citation_url": "https://library.municode.com/tx/plano"
     }
   ],
@@ -39,8 +82,16 @@
     "Final electrical inspection"
   ],
   "scout_query_extras": {
-    "permits": ["Plano building fee schedule 2026"],
-    "codes": ["Plano TX electrical amendments 2023 NEC"]
+    "permits": [
+      "Plano building fee schedule 2026"
+    ],
+    "codes": [
+      "Plano TX electrical amendments 2023 NEC"
+    ]
   },
-  "portal_url": "https://www.plano.gov/292/Building-Inspections"
+  "portal_url": "https://www.plano.gov/292/Building-Inspections",
+  "fees_url": "https://www.plano.gov/1648/Development-Services",
+  "apply_url": "https://www.plano.gov/350/Building-Inspections-Permits",
+  "inspections_url": "https://www.plano.gov/292/Building-Inspections",
+  "last_verified": "2026-08-26"
 }
