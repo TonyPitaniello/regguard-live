@@ -1203,7 +1203,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Coverage honesty badge — clickable: jump to pack fees/gotchas */}
+          {/* Coverage — one-line honesty */}
           <section
             className={`rounded-xl border p-4 ${
               coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
@@ -1214,7 +1214,7 @@ export default function ResultsViewerModal({
             }`}
             aria-label="Coverage depth"
           >
-            <div className="flex flex-wrap items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide ${
                   coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
@@ -1226,68 +1226,37 @@ export default function ResultsViewerModal({
               >
                 {coverage.badge}
               </span>
-              {coverage.tier !== 'full_pack' && coverage.tier !== 'paid_local' && (
-                <span className="text-xs text-amber-200/90 font-semibold">
-                  Not the same depth as a full city pack
-                </span>
-              )}
-              {coverage.tier === 'paid_local' && (
-                <span className="text-xs text-emerald-200/90 font-semibold">
-                  Page-capped · cached · not a full city pack
-                </span>
+              <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
+              {(coverage.tier === 'full_pack' ||
+                coverage.tier === 'paid_local' ||
+                view.fee_card ||
+                view.gotcha_watchlist ||
+                view.ahj_card) && (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                  onClick={() => {
+                    setExpanded((prev) => ({ ...prev, punchList: true, critical: true }));
+                    const el = document.getElementById('bid-arbitrage');
+                    if (el) {
+                      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      return;
+                    }
+                    showToast(
+                      coverage.tier === 'federal_state' || coverage.tier === 'portal_seed'
+                        ? 'No curated local fees yet for this ZIP — open the AHJ portal to confirm, or promote a pack from /admin/packs.'
+                        : 'Local fees section is not on this results view — expand punch list or re-run with a pin.'
+                    );
+                  }}
+                >
+                  Local fees
+                </button>
               )}
             </div>
-            <p className="text-sm text-gray-200">{coverage.warning}</p>
-            {view.local_pack?.tier && (
-              <p className="text-xs text-indigo-200/90 mt-2 font-semibold">
-                Order local pack: {view.local_pack.tier}
-                {view.local_pack.citeable ? ' (citeable)' : ' — confirm fees with AHJ'}
-                {view.local_pack.promote_candidate ? ' · promote candidate' : ''}
-              </p>
-            )}
-            {coverage.note && coverage.note !== coverage.warning && (
-              <p className="text-xs text-gray-400 mt-2">{coverage.note}</p>
-            )}
-            {(coverage.tier === 'full_pack' ||
-              coverage.tier === 'paid_local' ||
-              view.fee_card ||
-              view.gotcha_watchlist ||
-              view.ahj_card) && (
-              <button
-                type="button"
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                onClick={() => {
-                  setExpanded((prev) => ({ ...prev, punchList: true, critical: true }));
-                  const el = document.getElementById('bid-arbitrage');
-                  if (el) {
-                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    return;
-                  }
-                  showToast(
-                    coverage.tier === 'federal_state' || coverage.tier === 'portal_seed'
-                      ? 'No curated local fees yet for this ZIP — open the AHJ portal to confirm, or promote a pack from /admin/packs.'
-                      : 'Local fees section is not on this results view — expand punch list or re-run with a pin.'
-                  );
-                }}
-              >
-                Open local fees & gotchas
-              </button>
-            )}
             {view.paid_local?.status === 'capped' && (
               <p className="text-sm text-amber-200 mt-3" role="status">
                 {view.paid_local.user_message ||
                   'Daily paid scrape cap reached. Showing federal/state + pack/cache. Try again tomorrow or use an IC Project for heavy research.'}
-              </p>
-            )}
-            {view.paid_local_quota && typeof view.paid_local_quota.limit === 'number' && view.paid_local_quota.limit > 0 && (
-              <p className="text-xs text-gray-400 mt-2">
-                Paid scrape quota today:{' '}
-                <span className="text-gray-200 font-semibold">
-                  {view.paid_local_quota.used ?? 0}/{view.paid_local_quota.limit}
-                </span>
-                {typeof view.paid_local_quota.remaining === 'number'
-                  ? ` · ${view.paid_local_quota.remaining} remaining`
-                  : ''}
               </p>
             )}
           </section>
@@ -1306,7 +1275,7 @@ export default function ResultsViewerModal({
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
                       ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (more citeable sources than free).'
-                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list.'}
+                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list — or start Partner for more monthly lookups.'}
                   </p>
                 </div>
               </div>
@@ -1336,6 +1305,13 @@ export default function ResultsViewerModal({
                       className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
                     >
                       Copy receipt text
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('partner')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
+                    >
+                      Start Partner — $79/mo
                     </button>
                   </>
                 )}
@@ -1473,13 +1449,19 @@ export default function ResultsViewerModal({
                               ? ` • $${item.estimated_cost.toLocaleString()}`
                               : ''}
                           </p>
-                          <CitationBadge
-                            source_url={item.source_url}
-                            source_label={item.source_label}
-                            verified={item.verified}
-                            cost_verified={item.cost_verified}
-                            estimated_cost={softLocked ? undefined : item.estimated_cost}
-                          />
+                          {!softLocked || item.verified || item.source_url ? (
+                            <CitationBadge
+                              source_url={item.source_url}
+                              source_label={item.source_label}
+                              verified={item.verified}
+                              cost_verified={item.cost_verified}
+                              estimated_cost={softLocked ? undefined : item.estimated_cost}
+                            />
+                          ) : (
+                            <p className="text-[11px] text-amber-200/80 mt-1">
+                              Unverified — confirm with AHJ
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
@@ -1506,6 +1488,13 @@ export default function ResultsViewerModal({
                         className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
                       >
                         Copy receipt text
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => goCheckout('partner')}
+                        className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
+                      >
+                        Partner — $79/mo
                       </button>
                     </div>
                   </div>

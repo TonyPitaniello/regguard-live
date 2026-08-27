@@ -354,8 +354,10 @@ export default function OrdersPage() {
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
     } catch (err) {
       console.error(err);
-      // Last resort: open URL (may hit Safe Browsing on onrender hosts)
-      window.open(pdf.url, '_blank', 'noopener,noreferrer');
+      // Never window.open bare *.onrender.com — Chrome Safe Browsing interstitial.
+      window.alert(
+        'Could not download this PDF. Refresh My Orders and try again, or contact support@regguardagent.com.'
+      );
     }
   };
 

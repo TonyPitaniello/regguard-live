@@ -48,7 +48,7 @@ export function DataCenterHub() {
     {
       icon: <MapPin className="w-6 h-6" />,
       title: 'Site Permit Orchestration',
-      description: 'Auto-generate compliant permits for 50+ jurisdictions',
+      description: 'Bid Risk Receipt for TX AHJ + utility clocks — confirm fees on the official schedule',
       status: 'ready',
       value: '$0'
     },

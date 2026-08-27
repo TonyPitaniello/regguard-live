@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Loader2, MapPin, Search, ListChecks } from 'lucide-react';
 import { LocationPicker } from './LocationPicker';
 import { backendUrl } from '../env';
@@ -117,9 +118,11 @@ export default function FreeTrialForm({
     () => typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1'
   );
   const [unlockBanner, setUnlockBanner] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
   const autoUnlockTried = useRef(false);
   const formDataRef = useRef(formData);
   formDataRef.current = formData;
+  const navigate = useNavigate();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -148,6 +151,7 @@ export default function FreeTrialForm({
       lng: usable ? lng : null,
     }));
     setError('');
+    setQuotaExceeded(false);
   };
 
   const showResults = useCallback((analysisPayload: AnalysisData, id: string, email?: string) => {
@@ -178,6 +182,7 @@ export default function FreeTrialForm({
   const runResearch = useCallback(async () => {
     const data = formDataRef.current;
     setError('');
+    setQuotaExceeded(false);
     setLoading(true);
     setProgressStep('geocode');
 
@@ -308,9 +313,10 @@ export default function FreeTrialForm({
       }
 
       if (response.status === 429) {
+        setQuotaExceeded(true);
         setError(
           (payload.detail as string) ||
-            'Too many requests — wait a minute and try again. No charge either way.'
+            'Free monthly lookups used up for this email. Start Partner ($79/mo) or Contractor Pro ($149/mo) — no charge for this blocked run.'
         );
         return;
       }
@@ -694,7 +700,27 @@ export default function FreeTrialForm({
           {error && (
             <div className="flex gap-3 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-300 text-sm">{error}</p>
+              <div className="min-w-0 flex-1 space-y-3">
+                <p className="text-red-300 text-sm">{error}</p>
+                {quotaExceeded && (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="button"
+                      onClick={() => navigate('/checkout/partner')}
+                      className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                    >
+                      Start Partner — $79/mo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/checkout/contractor_pro')}
+                      className="px-4 py-2.5 rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
+                    >
+                      Contractor Pro — $149/mo
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

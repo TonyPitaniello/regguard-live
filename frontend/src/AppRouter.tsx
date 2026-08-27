@@ -6,6 +6,7 @@ import { DataCenterHub } from './pages/DataCenterHub';
 import FreeTrialForm from './components/FreeTrialForm';
 import { SalesLeadsDashboard } from './SalesLeadsDashboard';
 import { AdminLocalPacksDashboard } from './AdminLocalPacksDashboard';
+import { AdminSmsDeliveryDashboard } from './AdminSmsDeliveryDashboard';
 import { QueueLanding } from './Queue/QueueLanding';
 import { QueueUploadForm } from './Queue/QueueUploadForm';
 import QueueMonitorDashboard from './Queue/QueueMonitorDashboard';
@@ -49,26 +50,7 @@ function IcDemoWatermark({ children }: { children: ReactNode }) {
 }
 
 function IcDemoDisabledPage() {
-  return (
-    <div className="max-w-xl mx-auto my-16 px-4 text-center space-y-4">
-      <h1 className="text-2xl font-black text-white">IC Queue demo is offline</h1>
-      <p className="text-gray-300 text-sm leading-relaxed">
-        RegGuard’s interconnection queue tools currently return synthetic demo data.
-        They are disabled in production so contractors and IC buyers are not shown
-        fabricated queue positions or study costs.
-      </p>
-      <p className="text-gray-400 text-xs">
-        Operators can enable the demo with <code className="text-amber-200">VITE_REG_GUARD_IC_DEMO=1</code> and{' '}
-        <code className="text-amber-200">REG_GUARD_IC_DEMO=1</code> for pitch environments only.
-      </p>
-      <Link
-        to="/"
-        className="inline-flex items-center justify-center rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500"
-      >
-        Back to home
-      </Link>
-    </div>
-  );
+  return <Navigate to="/" replace />;
 }
 
 /** Capture ?ref= into sessionStorage and ping affiliate click (once). */
@@ -182,6 +164,7 @@ export function AppRouter() {
           <Route path="/data-center" element={<DataCenterPage />} />
           <Route path="/admin/leads" element={<AdminLeadsPage />} />
           <Route path="/admin/packs" element={<AdminPacksPage />} />
+          <Route path="/admin/sms" element={<AdminSmsPage />} />
 
           {/* Existing Compliance Routes */}
           <Route path="/agent" element={<App />} />
@@ -324,6 +307,20 @@ function AdminPacksPage() {
         </div>
       </div>
       <AdminLocalPacksDashboard />
+    </div>
+  );
+}
+
+function AdminSmsPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>SMS delivery</h1>
+          <p>Twilio status callbacks · delivered / failed</p>
+        </div>
+      </div>
+      <AdminSmsDeliveryDashboard />
     </div>
   );
 }

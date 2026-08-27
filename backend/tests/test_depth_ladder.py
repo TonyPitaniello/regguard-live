@@ -13,13 +13,14 @@ from depth_ladder import (
 )
 
 
-def test_free_bid_desk_points_to_pro():
+def test_free_bid_desk_points_to_partner():
     a = stamp_upgrade_offer(
         {"project_info": {"type": "commercial"}},
         depth_tier=DEPTH_FREE,
     )
     assert a["buyer_persona"] == PERSONA_BID_DESK
-    assert a["upgrade_offer"]["cta_tier"] == "contractor_pro"
+    assert a["upgrade_offer"]["cta_tier"] == "partner"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "contractor_pro"
     assert "accurate" not in (a["upgrade_offer"]["message"] or "").lower()
     assert "accurate" not in (a["upgrade_offer"]["detail"] or "").lower() or "not" in (
         a["upgrade_offer"]["detail"] or ""

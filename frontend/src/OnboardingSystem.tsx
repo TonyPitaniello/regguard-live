@@ -38,7 +38,7 @@ export function OnboardingSystem() {
       description: 'Screen a site before you bid — forward only what you can defend',
       icon: <Lightbulb size={40} />,
       tips: [
-        'Enter any US address to start',
+        'Enter a US address (deepest coverage: Dallas / Plano / Austin)',
         'Review the top punch-list actions',
         'Forward the list to unlock the full free preview',
         'Upgrade for deep scout research and IC PDFs',

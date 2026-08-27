@@ -141,6 +141,8 @@ def _pdfs_for_tier(tier: str, order_id: str) -> List[Dict[str, Any]]:
 
 
 def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
+    from ic_project_fulfillment import rewrite_pdf_url_for_client
+
     tier = order.get("tier") or "contractor_pro"
     order_id = order.get("order_id") or order.get("id") or "unknown"
     created = order.get("created_at") or _now_iso()
@@ -152,6 +154,15 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
     amount = order.get("amount")
     if amount is None:
         amount = _TIER_AMOUNTS.get(normalize_tier(tier), 0)
+    raw_pdfs = order.get("pdfs") or _pdfs_for_tier(tier, str(order_id))
+    pdfs: List[Dict[str, Any]] = []
+    for pdf in raw_pdfs:
+        if not isinstance(pdf, dict):
+            continue
+        row = dict(pdf)
+        if row.get("url"):
+            row["url"] = rewrite_pdf_url_for_client(str(row["url"]))
+        pdfs.append(row)
     # Frontend displays dollars in some places; keep cents as integer (OrdersPage uses amount)
     return {
         "order_id": order_id,
@@ -160,7 +171,7 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
         "status": order.get("status") or "completed",
         "created_at": created if isinstance(created, str) else _now_iso(),
         "amount": int(amount),
-        "pdfs": order.get("pdfs") or _pdfs_for_tier(tier, str(order_id)),
+        "pdfs": pdfs,
         "expires_at": expires,
         "email": order.get("email") or "",
         "stripe_session_id": order.get("stripe_session_id") or "",

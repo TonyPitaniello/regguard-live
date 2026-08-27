@@ -165,18 +165,18 @@ def stamp_upgrade_offer(
             }
         else:
             analysis["upgrade_offer"] = {
-                "message": "Get more citeable sources on your next bid-week sites",
+                "message": "Make bid-week lookups a habit",
                 "detail": (
-                    "Free is a forwardable preview. Contractor Pro adds bounded local AHJ confirm "
-                    "plus light scout (permits / codes) — metered for weekly lookups. "
-                    "More sources, not guaranteed fee accuracy."
+                    "Free is a forwardable preview. Partner ($79/mo) is for permit runners who need "
+                    "more monthly lookups. Contractor Pro adds bounded local AHJ confirm plus light "
+                    "scout — more sources, not guaranteed fee accuracy."
                 ),
-                "cta_label": "Upgrade to Contractor Pro — $149/mo",
-                "cta_tier": "contractor_pro",
-                "secondary_cta_label": "Need PDFs for one big site? IC — $1,500",
-                "secondary_cta_tier": "ic_project",
+                "cta_label": "Start Partner — $79/mo",
+                "cta_tier": "partner",
+                "secondary_cta_label": "Or Contractor Pro — $149/mo",
+                "secondary_cta_tier": "contractor_pro",
                 "current_label": "Free preview",
-                "next_label": "Pro (local confirm + light scout)",
+                "next_label": "Partner (habit) or Pro (local confirm)",
                 "primary_once": True,
                 "honesty_note": (
                     "Deeper research adds sources and packaging. Always confirm fees on the official AHJ schedule."
