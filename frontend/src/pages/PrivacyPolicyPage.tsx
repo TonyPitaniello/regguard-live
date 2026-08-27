@@ -1,12 +1,13 @@
 /**
  * RegGuard Privacy Policy — required for SMS / A2P compliance
+ * Keep in sync with frontend/public/privacy/index.html (static crawler copy).
  */
 
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
-  const updated = 'August 26, 2026';
+  const updated = 'August 27, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -25,6 +26,12 @@ export default function PrivacyPolicyPage() {
           <div>
             <h1 className="text-4xl font-black text-white mb-3">Privacy Policy</h1>
             <p className="text-sm text-gray-400">Last updated: {updated}</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Canonical URL:{' '}
+              <a className="text-purple-300 underline" href="https://app.regguardagent.com/privacy">
+                https://app.regguardagent.com/privacy
+              </a>
+            </p>
           </div>
 
           <p>
@@ -33,9 +40,17 @@ export default function PrivacyPolicyPage() {
             <a className="text-purple-300 underline" href="https://app.regguardagent.com">
               app.regguardagent.com
             </a>
-            . This Privacy Policy explains what information we collect, how we use it, and your choices.
-            This is the privacy policy that applies to our website opt-in and SMS messaging program.
+            . This is the single Privacy Policy that applies to our website, website opt-in flows, and SMS /
+            text messaging program. No other privacy policy applies to RegGuard SMS.
           </p>
+
+          <section className="rounded-lg border-2 border-white/40 bg-slate-900/60 p-4 space-y-2">
+            <h2 className="text-xl font-bold text-white">Mobile information &amp; messaging consent</h2>
+            <p className="font-semibold text-white">
+              We do not share, sell, or provide your mobile phone number or messaging consent data to third
+              parties or affiliates for marketing or promotional purposes.
+            </p>
+          </section>
 
           <section className="space-y-3">
             <h2 className="text-2xl font-bold text-white">Information we collect</h2>
@@ -58,12 +73,18 @@ export default function PrivacyPolicyPage() {
               <li>To run research, deliver reports, and operate the RegGuard service</li>
               <li>
                 To send transactional email or SMS you request (research results, Bid Risk Receipt /
-                share links, order or PDF-ready notices, and related account status)
+                share links, order or PDF-ready notices, ZIP-watch alerts you enable, and related account
+                status)
               </li>
               <li>To process payments, prevent fraud, and provide customer support</li>
               <li>To improve product reliability, security, and user experience</li>
               <li>To comply with legal obligations</li>
             </ul>
+            <p>
+              We use your mobile phone number and messaging consent only to send the transactional texts
+              described in the SMS program section below, to honor STOP/HELP requests, and to keep records
+              of your consent. We do not use mobile opt-in data for third-party marketing.
+            </p>
           </section>
 
           <section id="sms" className="space-y-3">
@@ -72,13 +93,13 @@ export default function PrivacyPolicyPage() {
               If you provide a mobile number in the RegGuard web app and request SMS (for example, by
               entering your number and clicking &quot;Text me&quot; after a site lookup), you consent to
               receive transactional text messages from RegGuard / Pitaniello Perkins LLC about that
-              research request, Bid Risk Receipt or shareable report links, and related order or
-              PDF-ready notices.
+              research request, Bid Risk Receipt or shareable report links, related order or PDF-ready
+              notices, and (if you enable them) Saved Job / ZIP-watch alerts.
             </p>
             <ul className="list-disc ml-5 space-y-2">
               <li>
                 <strong className="text-white">Message frequency varies</strong> based on how often you
-                request SMS delivery in the app.
+                request SMS delivery in the app and whether you enable optional watch alerts.
               </li>
               <li>
                 <strong className="text-white">Message and data rates may apply.</strong>
@@ -87,6 +108,7 @@ export default function PrivacyPolicyPage() {
                 Reply <strong className="text-white">STOP</strong> to opt out of SMS at any time. Reply{' '}
                 <strong className="text-white">HELP</strong> for help.
               </li>
+              <li>Carriers are not liable for delayed or undelivered messages.</li>
               <li>Consent to receive SMS is not a condition of purchasing RegGuard services.</li>
             </ul>
             <p className="font-semibold text-white">
@@ -95,24 +117,27 @@ export default function PrivacyPolicyPage() {
             </p>
             <p>
               We may use operational service providers that help us deliver messages you requested
-              (for example, our SMS gateway). Those providers process your number only to send the
-              messages you asked for and are not permitted to use your mobile information or messaging
-              consent for their own marketing.
+              (for example, our SMS gateway such as Twilio). Those providers process your number only to
+              send the messages you asked for and are not permitted to use your mobile information or
+              messaging consent for their own marketing or promotional purposes.
             </p>
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-2xl font-bold text-white">How we share information</h2>
-            <p>We share information only as needed to operate the service, including with:</p>
-            <ul className="list-disc ml-5 space-y-2">
-              <li>Service providers (hosting, email, SMS delivery, payment processing, analytics)</li>
-              <li>Professional advisors or authorities when required by law</li>
-              <li>Successors in connection with a merger, acquisition, or asset sale</li>
-            </ul>
+            <h2 className="text-2xl font-bold text-white">How we share information (non-SMS vs SMS)</h2>
             <p>
-              We do not sell personal information. Separately, and specifically for SMS:{' '}
+              For general account and product operation (not for marketing your mobile number), we may
+              share limited personal information with service providers that help us run RegGuard
+              (hosting, email delivery, payment processing, analytics), with professional advisors or
+              authorities when required by law, or with successors in a merger or acquisition.{' '}
               <strong className="text-white">
-                we do not share, sell, or provide your mobile phone number or messaging consent data to
+                This does not authorize sharing mobile phone numbers or messaging consent for marketing.
+              </strong>
+            </p>
+            <p>
+              We do not sell personal information.{' '}
+              <strong className="text-white">
+                We do not share, sell, or provide your mobile phone number or messaging consent data to
                 third parties or affiliates for marketing or promotional purposes.
               </strong>
             </p>

@@ -368,6 +368,21 @@ export default function SendResultsForm({
             Text me
           </button>
         </div>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          By tapping Text me, you agree to receive transactional SMS from RegGuard / Pitaniello Perkins
+          LLC about this research request. Message frequency varies. Message and data rates may apply.
+          Reply STOP to opt out; HELP for help. Consent is not a condition of purchase. We do not share
+          mobile numbers or messaging consent with third parties or affiliates for marketing.{' '}
+          <a
+            href="https://app.regguardagent.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald-300 underline"
+          >
+            Privacy Policy
+          </a>
+          .
+        </p>
         {showSmsNativeFallback && phone && validatePhone(phone) && (
           <div className="space-y-2 pt-1">
             <p className="text-xs text-gray-400">

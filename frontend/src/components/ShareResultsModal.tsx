@@ -240,6 +240,22 @@ export const ShareResultsModal: React.FC<ShareResultsModalProps> = ({
                   {errors.phone}
                 </p>
               )}
+              <p className="mt-3 text-xs text-gray-600 leading-relaxed">
+                By entering your number and tapping Send, you agree to receive transactional SMS from
+                RegGuard / Pitaniello Perkins LLC about this research request. Message frequency varies.
+                Message and data rates may apply. Reply STOP to opt out; HELP for help. Consent is not a
+                condition of purchase. We do not share mobile numbers or messaging consent with third
+                parties or affiliates for marketing.{' '}
+                <a
+                  href="https://app.regguardagent.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-indigo-600 underline"
+                >
+                  Privacy Policy
+                </a>
+                .
+              </p>
             </div>
           )}
 
