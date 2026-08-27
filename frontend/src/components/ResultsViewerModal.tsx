@@ -283,6 +283,76 @@ export interface AnalysisData {
     headline?: string;
     pitch?: string;
     buyer?: string;
+    parallel_clocks?: boolean;
+  };
+  parallel_clocks?: {
+    title?: string;
+    headline?: string;
+    clocks?: Array<{
+      track?: string;
+      label?: string;
+      owner?: string;
+      status?: string;
+      url?: string;
+    }>;
+    disclaimer?: string;
+  };
+  moratorium_radar?: {
+    title?: string;
+    headline?: string;
+    high_alert_state?: boolean;
+    state?: string;
+    metros?: Array<{
+      metro?: string;
+      state?: string;
+      status?: string;
+      summary?: string;
+      citation_url?: string;
+    }>;
+    scout_hits?: Array<{ title?: string; url?: string; snippet?: string }>;
+    bill_notes?: string[];
+    disclaimer?: string;
+  };
+  power_path_card?: {
+    title?: string;
+    headline?: string;
+    mw_hint?: number | null;
+    fast41_candidate?: boolean;
+    checklist?: string[];
+    disclaimer?: string;
+  };
+  water_cooling_card?: {
+    title?: string;
+    headline?: string;
+    water_hits?: Array<{ title?: string; url?: string; snippet?: string }>;
+    wue_hits?: Array<{ title?: string; url?: string; snippet?: string }>;
+    checklist?: string[];
+    disclaimer?: string;
+  };
+  opposition_card?: {
+    title?: string;
+    headline?: string;
+    band?: string;
+    score?: number;
+    score_max?: number;
+    hot_signals?: Array<{
+      id?: string;
+      label?: string;
+      level?: number;
+      detail?: string;
+      source_url?: string | null;
+    }>;
+    disclaimer?: string;
+  };
+  fast41_card?: {
+    title?: string;
+    headline?: string;
+    fast41_candidate?: boolean;
+    mw_hint?: number | null;
+    federal_note?: string;
+    conflict?: { active?: boolean; note?: string };
+    portal?: string;
+    disclaimer?: string;
   };
   community_friction?: {
     title?: string;
@@ -1994,6 +2064,253 @@ export default function ResultsViewerModal({
                 ))}
               </ul>
               <p className="text-xs text-amber-200/90">{view.community_friction.disclaimer}</p>
+            </section>
+          )}
+
+          {/* Data-center diligence cards */}
+          {(view.parallel_clocks ||
+            view.moratorium_radar ||
+            view.power_path_card ||
+            view.water_cooling_card ||
+            view.opposition_card ||
+            view.fast41_card) && (
+            <section className="rounded-xl border border-cyan-500/35 bg-cyan-950/30 p-4 sm:p-5 space-y-5">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  {view.dc_positioning?.headline || 'Data-center diligence'}
+                </h3>
+                {view.dc_positioning?.pitch ? (
+                  <p className="text-sm text-gray-300 mt-1">{view.dc_positioning.pitch}</p>
+                ) : null}
+              </div>
+
+              {view.parallel_clocks && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    {view.parallel_clocks.title || 'Parallel clocks'}
+                  </h4>
+                  <p className="text-sm text-gray-300">{view.parallel_clocks.headline}</p>
+                  <ul className="space-y-2">
+                    {(view.parallel_clocks.clocks || []).map((c) => (
+                      <li
+                        key={c.track || c.label}
+                        className="text-sm border border-slate-700/70 rounded-lg p-3 bg-slate-900/40"
+                      >
+                        <p className="font-semibold text-white">{c.label}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {c.owner} · {c.status}
+                        </p>
+                        {c.url ? (
+                          <a
+                            href={c.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-emerald-300 underline mt-1 inline-block"
+                          >
+                            Open track
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {view.parallel_clocks.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.parallel_clocks.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              {view.moratorium_radar && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                      {view.moratorium_radar.title || 'Moratorium radar'}
+                    </h4>
+                    {view.moratorium_radar.high_alert_state ? (
+                      <span className="text-xs font-bold uppercase tracking-wide text-amber-100 border border-amber-400/50 rounded px-2 py-0.5">
+                        High alert
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-gray-300">{view.moratorium_radar.headline}</p>
+                  <ul className="space-y-2">
+                    {(view.moratorium_radar.metros || []).slice(0, 4).map((m) => (
+                      <li key={`${m.metro}-${m.state}`} className="text-xs text-gray-300">
+                        <span className="font-semibold text-white">{m.metro}</span>
+                        {m.status ? ` · ${m.status}` : ''}
+                        {m.summary ? ` — ${m.summary}` : ''}
+                        {m.citation_url ? (
+                          <>
+                            {' '}
+                            <a
+                              href={m.citation_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald-300 underline"
+                            >
+                              cite
+                            </a>
+                          </>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {(view.moratorium_radar.bill_notes || []).slice(0, 2).map((n) => (
+                    <p key={n.slice(0, 40)} className="text-xs text-amber-100/90">
+                      {n.replace(/\*\*/g, '')}
+                    </p>
+                  ))}
+                  {view.moratorium_radar.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.moratorium_radar.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              {view.power_path_card && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    {view.power_path_card.title || 'Power path'}
+                  </h4>
+                  <p className="text-sm text-gray-300">{view.power_path_card.headline}</p>
+                  <p className="text-xs text-gray-400">
+                    {typeof view.power_path_card.mw_hint === 'number'
+                      ? `MW hint: ${view.power_path_card.mw_hint}`
+                      : 'MW hint: not parsed'}
+                    {view.power_path_card.fast41_candidate ? ' · FAST-41 candidate' : ''}
+                  </p>
+                  <ul className="list-disc pl-5 text-xs text-gray-300 space-y-1">
+                    {(view.power_path_card.checklist || []).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {view.power_path_card.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.power_path_card.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              {view.water_cooling_card && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    {view.water_cooling_card.title || 'Water & cooling'}
+                  </h4>
+                  <p className="text-sm text-gray-300">{view.water_cooling_card.headline}</p>
+                  <ul className="list-disc pl-5 text-xs text-gray-300 space-y-1">
+                    {(view.water_cooling_card.checklist || []).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {(view.water_cooling_card.water_hits || [])
+                    .concat(view.water_cooling_card.wue_hits || [])
+                    .slice(0, 3)
+                    .map((h) => (
+                      <p key={h.title || h.url} className="text-xs text-gray-400">
+                        {h.url ? (
+                          <a
+                            href={h.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-300 underline"
+                          >
+                            {h.title || 'Source'}
+                          </a>
+                        ) : (
+                          h.title
+                        )}
+                        {h.snippet ? ` — ${h.snippet}` : ''}
+                      </p>
+                    ))}
+                  {view.water_cooling_card.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.water_cooling_card.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              {view.opposition_card && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    {view.opposition_card.title || 'Opposition early-warning'}
+                  </h4>
+                  <p className="text-sm text-gray-300">{view.opposition_card.headline}</p>
+                  {(view.opposition_card.hot_signals || []).slice(0, 3).map((s) => (
+                    <p key={s.id || s.label} className="text-xs text-gray-300">
+                      <span className="font-semibold text-white">{s.label}</span>
+                      {s.detail ? ` — ${s.detail}` : ''}
+                    </p>
+                  ))}
+                  {view.opposition_card.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.opposition_card.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              {view.fast41_card && (
+                <div className="space-y-2">
+                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    {view.fast41_card.title || 'FAST-41'}
+                  </h4>
+                  <p className="text-sm text-gray-300">{view.fast41_card.headline}</p>
+                  {view.fast41_card.federal_note ? (
+                    <p className="text-xs text-gray-400">{view.fast41_card.federal_note}</p>
+                  ) : null}
+                  {view.fast41_card.conflict?.active && view.fast41_card.conflict.note ? (
+                    <p className="text-xs text-amber-100 border border-amber-500/40 rounded-lg p-2">
+                      {view.fast41_card.conflict.note.replace(/\*\*/g, '')}
+                    </p>
+                  ) : null}
+                  {view.fast41_card.portal ? (
+                    <a
+                      href={view.fast41_card.portal}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-emerald-300 underline inline-block"
+                    >
+                      Permitting Council portal
+                    </a>
+                  ) : null}
+                  {view.fast41_card.disclaimer ? (
+                    <p className="text-xs text-amber-200/80">{view.fast41_card.disclaimer}</p>
+                  ) : null}
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-cyan-100 border border-cyan-500/40 rounded-lg px-3 py-1.5 hover:bg-cyan-500/10"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(backendUrl('/dc/diligence-export'), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ analysis: view }),
+                      });
+                      if (!res.ok) throw new Error('export failed');
+                      const data = await res.json();
+                      const blob = new Blob([JSON.stringify(data, null, 2)], {
+                        type: 'application/json',
+                      });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'RegGuard_DC_Diligence.json';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch {
+                      /* soft fail */
+                    }
+                  }}
+                >
+                  Export DC diligence JSON
+                </button>
+                <a
+                  href={backendUrl('/dc/moratorium-radar')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-cyan-100 border border-cyan-500/40 rounded-lg px-3 py-1.5 hover:bg-cyan-500/10"
+                >
+                  Open moratorium radar API
+                </a>
+              </div>
             </section>
           )}
 

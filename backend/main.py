@@ -4372,6 +4372,78 @@ async def stats_forwards() -> Dict[str, Any]:
     return {"forwards": forward_count()}
 
 
+@app.get("/dc/moratorium-radar", tags=["DataCenter"])
+async def get_moratorium_radar(state: Optional[str] = None) -> Dict[str, Any]:
+    """Seeded metro moratorium / pause radar (planning aid)."""
+    from dc_diligence import load_moratorium_radar, radar_for_state
+
+    data = load_moratorium_radar()
+    metros = radar_for_state(state or "") if state else list(data.get("metros") or [])
+    return {
+        "updated": data.get("updated"),
+        "disclaimer": data.get("disclaimer"),
+        "state": (state or "").strip().upper()[:2] or None,
+        "metros": metros,
+        "count": len(metros),
+    }
+
+
+class WarRoomCommentRequest(BaseModel):
+    author: Optional[str] = None
+    role: Optional[str] = "other"
+    text: str
+
+
+@app.get("/research/{research_id}/war-room", tags=["Results"])
+async def get_war_room(research_id: str) -> Dict[str, Any]:
+    from war_room_store import list_comments
+
+    comments = list_comments(research_id)
+    return {"research_id": research_id, "comments": comments, "count": len(comments)}
+
+
+@app.post("/research/{research_id}/war-room", tags=["Results"])
+async def post_war_room(research_id: str, body: WarRoomCommentRequest) -> Dict[str, Any]:
+    from war_room_store import add_comment
+
+    try:
+        comment = add_comment(
+            research_id,
+            author=body.author or "",
+            role=body.role or "other",
+            text=body.text or "",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "comment": comment}
+
+
+class DiligenceExportRequest(BaseModel):
+    analysis: Optional[Dict[str, Any]] = None
+    research_id: Optional[str] = None
+
+
+@app.post("/dc/diligence-export", tags=["DataCenter"])
+async def post_dc_diligence_export(body: DiligenceExportRequest) -> Dict[str, Any]:
+    """JSON export for CRM / GIS / Airtable — planning aid schema."""
+    from dc_diligence import diligence_export_payload
+    from research_store import get_research
+
+    analysis: Dict[str, Any] = {}
+    if body.research_id:
+        record = get_research(body.research_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Report not found")
+        analysis = dict(record.get("analysis") or {})
+        analysis.setdefault("research_id", body.research_id)
+        analysis.setdefault("share_url", record.get("share_url"))
+    if body.analysis and isinstance(body.analysis, dict):
+        analysis = {**analysis, **body.analysis}
+    if not analysis:
+        raise HTTPException(status_code=400, detail="analysis or research_id required")
+    return diligence_export_payload(analysis)
+
+
 @app.get("/research/{research_id}/report", tags=["Results"])
 async def get_research_report(research_id: str) -> Dict[str, Any]:
     """Public JSON for shareable report page /r/{id}."""

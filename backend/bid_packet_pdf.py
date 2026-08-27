@@ -383,11 +383,34 @@ def generate_bid_packet_pdf(
 
     if dc.get("headline"):
         pdf.ln(1)
-        _muted(
-            pdf,
-            "Note: AHJ + utility often run on parallel clocks (not an interconnect study).",
-            8,
-        )
+        _section_title(pdf, "Data center — parallel clocks")
+        clocks = (analysis_data.get("parallel_clocks") or {}).get("clocks") or []
+        if clocks:
+            for c in clocks[:3]:
+                if not isinstance(c, dict):
+                    continue
+                _body(
+                    pdf,
+                    f"- {c.get('label')}: {c.get('owner')} — {c.get('status')}",
+                    8,
+                )
+        else:
+            _muted(
+                pdf,
+                "AHJ + utility often run on parallel clocks (not an interconnect study).",
+                8,
+            )
+        radar = analysis_data.get("moratorium_radar") or {}
+        if radar.get("headline"):
+            _muted(pdf, f"Moratorium: {radar.get('headline')}", 8)
+        power = analysis_data.get("power_path_card") or {}
+        if power.get("headline"):
+            _muted(
+                pdf,
+                "Power path: planning only"
+                + (" | FAST-41 candidate" if power.get("fast41_candidate") else ""),
+                8,
+            )
 
     # --- AHJ ---
     if pdf.get_y() > 220:

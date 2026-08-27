@@ -23,6 +23,7 @@ import {
   Gauge,
   Workflow
 } from 'lucide-react';
+import { backendUrl } from '../env';
 
 interface DataCenterCapability {
   icon: React.ReactNode;
@@ -40,45 +41,45 @@ export function DataCenterHub() {
   const dataCenterCapabilities: DataCenterCapability[] = [
     {
       icon: <Zap className="w-6 h-6" />,
-      title: 'Electrical Interconnection Analysis',
-      description: 'AI-powered analysis of utility coordination, voltage drop, and compliance',
+      title: 'Parallel-clock Bid Risk Receipt',
+      description: 'AHJ vs utility vs FAST-41 tracks on one forwardable receipt — not an interconnect study',
       status: 'ready',
       value: '$0'
     },
     {
       icon: <MapPin className="w-6 h-6" />,
-      title: 'Site Permit Orchestration',
-      description: 'Bid Risk Receipt for TX AHJ + utility clocks — confirm fees on the official schedule',
+      title: 'Moratorium / pause radar',
+      description: 'Seeded metro watchlist (VA/OH/GA/OK/NY/TX/AZ/WA/IL) + scout hits — verify with counsel',
       status: 'ready',
-      value: '$0'
+      value: 'API'
     },
     {
       icon: <Clock className="w-6 h-6" />,
-      title: 'Interconnection Timeline Predictor',
-      description: 'ML-powered ETA for FERC 556 & utility studies',
+      title: 'Power path honesty pack',
+      description: 'Study-type checklist + surcharge band labeled planning-only — no fake MW available',
       status: 'ready',
       value: '$0'
     },
     {
       icon: <AlertTriangle className="w-6 h-6" />,
-      title: 'Risk & Compliance Alerts',
-      description: 'Real-time flagging of regulatory roadblocks',
+      title: 'Water, opposition & FAST-41 cards',
+      description: 'Cooling constraints, community friction, federal gate clarity on every DC run',
       status: 'ready',
       value: '$0'
     },
     {
       icon: <FileText className="w-6 h-6" />,
-      title: 'BIM to Compliance Parser',
-      description: 'Auto-extract electrical specs from Revit files',
-      status: 'beta',
-      value: 'Free (Beta)'
+      title: 'War-room share + diligence export',
+      description: 'Multiplayer comments on /r/{id} + JSON export for CRM/GIS (regguard.dc_diligence.v1)',
+      status: 'ready',
+      value: 'API'
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
-      title: 'Capital Readiness Modeling',
-      description: 'Financial modeling for interconnection costs',
-      status: 'coming',
-      value: 'Q3 2026'
+      title: 'ZIP watch (DC fingerprints)',
+      description: 'Pack + moratorium radar changes page saved ZIPs — schedule /cron/zip-watch',
+      status: 'beta',
+      value: 'Cron'
     }
   ];
 
@@ -208,6 +209,16 @@ export function DataCenterHub() {
               Large-load schedules fail when city permits, utility interconnection, and
               federal large-load diligence are treated as one queue. Surface the parallel
               tracks before bid day — with Source or Unverified honesty.
+            </p>
+            <p className="mt-4">
+              <a
+                href={backendUrl('/dc/moratorium-radar')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200"
+              >
+                Open moratorium radar API <ArrowRight className="w-4 h-4" />
+              </a>
             </p>
           </div>
 

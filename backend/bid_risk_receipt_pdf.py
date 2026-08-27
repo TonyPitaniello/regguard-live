@@ -244,15 +244,54 @@ def generate_bid_risk_receipt_pdf(
             pdf.cell(CONTENT_W, 3.2, _ascii(f"  {i}. {step}"), ln=1)
     if dc.get("headline"):
         pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 4, "DATA CENTER — PARALLEL CLOCKS", ln=1)
+        clocks = (data.get("parallel_clocks") or {}).get("clocks") or []
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
-        pdf.multi_cell(
-            CONTENT_W,
-            3.5,
-            _ascii(
-                "Note: AHJ + utility often run on parallel clocks (not an interconnect study)."
-            ),
-        )
+        if clocks:
+            for c in clocks[:3]:
+                pdf.set_x(MARGIN)
+                pdf.multi_cell(
+                    CONTENT_W,
+                    3.2,
+                    _ascii(
+                        f"- {c.get('label')}: {c.get('owner')} — {c.get('status')}"
+                    ),
+                )
+        else:
+            pdf.set_x(MARGIN)
+            pdf.multi_cell(
+                CONTENT_W,
+                3.5,
+                _ascii(
+                    "AHJ + utility often run on parallel clocks (not an interconnect study)."
+                ),
+            )
+        radar = data.get("moratorium_radar") or {}
+        if radar.get("headline"):
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*AMBER if radar.get("high_alert_state") else DIM)
+            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Moratorium: {radar.get('headline')}"))
+        power = data.get("power_path_card") or {}
+        if power.get("headline"):
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*DIM)
+            pdf.multi_cell(
+                CONTENT_W,
+                3.2,
+                _ascii(
+                    f"Power path: planning only"
+                    + (
+                        f" | FAST-41 candidate"
+                        if power.get("fast41_candidate")
+                        else ""
+                    )
+                ),
+            )
     pdf.ln(2)
 
     # BIG contingency

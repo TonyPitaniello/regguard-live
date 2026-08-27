@@ -1,0 +1,86 @@
+{
+  "updated": "2026-08-26",
+  "disclaimer": "Seeded planning radar — verify ordinance/bill status with counsel. Not a live legislative API.",
+  "metros": [
+    {
+      "metro": "Northern Virginia / Loudoun",
+      "state": "VA",
+      "status": "high_watch",
+      "summary": "Monitor HB 1515-class interconnection / queue narratives and county large-load land-use fights.",
+      "citation_url": "https://lis.virginia.gov/",
+      "tags": ["moratorium", "interconnect", "land_use"]
+    },
+    {
+      "metro": "Central Ohio",
+      "state": "OH",
+      "status": "high_watch",
+      "summary": "Track >25 MW ban/moratorium petition narratives and PSC large-load riders.",
+      "citation_url": "https://www.sos.state.oh.us/",
+      "tags": ["ballot", "moratorium"]
+    },
+    {
+      "metro": "Atlanta metro",
+      "state": "GA",
+      "status": "watch",
+      "summary": "Watch large-load certificate / EMC surcharge politics and local pause ordinances.",
+      "citation_url": "https://www.psc.state.ga.us/",
+      "tags": ["large_load", "surcharge"]
+    },
+    {
+      "metro": "Oklahoma City / Tulsa",
+      "state": "OK",
+      "status": "watch",
+      "summary": "Rural co-op large-load and session moratorium language — verify legislature status.",
+      "citation_url": "https://www.oklegislature.gov/",
+      "tags": ["moratorium", "co-op"]
+    },
+    {
+      "metro": "Upstate NY",
+      "state": "NY",
+      "status": "high_watch",
+      "summary": "PSC large-load / moratorium session risk — confirm before LOI.",
+      "citation_url": "https://www.dps.ny.gov/",
+      "tags": ["psc", "moratorium"]
+    },
+    {
+      "metro": "DFW / North Texas",
+      "state": "TX",
+      "status": "active_build",
+      "summary": "No statewide ban — watch suburb planning hearings, water, and ERCOT large-load process language.",
+      "citation_url": "https://www.ercot.com/",
+      "tags": ["ercot", "hearing", "water"]
+    },
+    {
+      "metro": "Austin / Round Rock",
+      "state": "TX",
+      "status": "active_build",
+      "summary": "Public comment heat on water/power/land use — confirm Development Services + utility path.",
+      "citation_url": "https://www.austintexas.gov/department/development-services",
+      "tags": ["water", "hearing"]
+    },
+    {
+      "metro": "Phoenix / Mesa",
+      "state": "AZ",
+      "status": "watch",
+      "summary": "Water scarcity + industrial land-use fights — confirm ADWR / city large-user rules.",
+      "citation_url": "https://www.azwater.gov/",
+      "tags": ["water", "drought"]
+    },
+    {
+      "metro": "Quincy / Central WA",
+      "state": "WA",
+      "status": "watch",
+      "summary": "County land-use and energy-intensive facility politics — verify local comprehensive plan amendments.",
+      "citation_url": "https://www.grantcountywa.gov/",
+      "tags": ["land_use"]
+    },
+    {
+      "metro": "Chicago suburbs / IL",
+      "state": "IL",
+      "status": "watch",
+      "summary": "Township/village pause ordinances appear sporadically — confirm local board minutes.",
+      "citation_url": "https://www.illinois.gov/",
+      "tags": ["township", "pause"]
+    }
+  ]
+}

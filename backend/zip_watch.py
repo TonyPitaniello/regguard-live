@@ -35,7 +35,7 @@ def _save_state(state: Dict[str, Any]) -> None:
 
 
 def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[str, Any]]:
-    """Stable fingerprint of citeable/local intel for a ZIP."""
+    """Stable fingerprint of citeable/local intel for a ZIP (includes DC radar seeds)."""
     from ahj_catalog import lookup_ahj
     from local_pack_store import load_zip_pack
     from metro_portal_seeds import resolve_metro_portal_pack
@@ -51,6 +51,25 @@ def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[st
             pack = None
     if not pack:
         pack = resolve_metro_portal_pack(city, state, z) or {}
+
+    # DC / moratorium radar slice — changes here should page watchers
+    dc_bits: List[str] = []
+    try:
+        from data_center_intel import moratorium_high_alert_for_state, normalize_us_state
+        from dc_diligence import radar_for_state
+
+        st = normalize_us_state(state)
+        high = moratorium_high_alert_for_state(st)
+        metros = radar_for_state(st)
+        dc_bits.append(f"dc_high:{int(bool(high))}")
+        for m in metros[:12]:
+            if not isinstance(m, dict):
+                continue
+            dc_bits.append(
+                f"{m.get('metro')}|{m.get('status')}|{m.get('summary')}|{m.get('citation_url')}"
+            )
+    except Exception:
+        pass
 
     fees = []
     gotchas = []
@@ -72,6 +91,7 @@ def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[st
             "fee_count": len(fees),
             "gotcha_count": len(gotchas),
             "portal": rec.get("portal_url") or "",
+            "dc_metro_count": len(dc_bits) - 1 if dc_bits else 0,
         }
         blob = "|".join(
             [
@@ -81,6 +101,7 @@ def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[st
                 *fees,
                 *gotchas,
                 *[str(s) for s in (rec.get("inspection_sequence") or [])],
+                *dc_bits,
             ]
         )
     else:
@@ -102,6 +123,7 @@ def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[st
             "fee_count": len(fees),
             "gotcha_count": len(gotchas),
             "portal": ahj.get("portal_url") or "",
+            "dc_metro_count": len(dc_bits) - 1 if dc_bits else 0,
         }
         blob = "|".join(
             [
@@ -110,6 +132,7 @@ def pack_fingerprint(city: str, state: str, zip_code: str) -> Tuple[str, Dict[st
                 str(meta["portal"]),
                 *fees,
                 *gotchas,
+                *dc_bits,
             ]
         )
     fp = hashlib.sha256(blob.encode("utf-8")).hexdigest()[:20]

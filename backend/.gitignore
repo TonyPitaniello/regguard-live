@@ -8,3 +8,8 @@ api_usage_log.jsonl
 dist/
 build/
 .DS_Store
+data/war_rooms/
+data/zip_watch_state.json
+data/share_unlocks.json
+data/gotcha_credits.json
+data/account_credits.json

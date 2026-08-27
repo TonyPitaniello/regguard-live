@@ -21,6 +21,14 @@ type ReportPayload = {
   sources?: Array<{ label: string; url: string }>;
 };
 
+type WarRoomComment = {
+  id: string;
+  ts: string;
+  author: string;
+  role: string;
+  text: string;
+};
+
 function siteLines(analysis: AnalysisData): { street: string; place: string } {
   const street = (analysis.project_info?.address || '').trim();
   const place = [analysis.project_info?.city, analysis.project_info?.state, analysis.project_info?.zip]
@@ -41,6 +49,12 @@ export default function SharedReportPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [warComments, setWarComments] = useState<WarRoomComment[]>([]);
+  const [wrAuthor, setWrAuthor] = useState('');
+  const [wrRole, setWrRole] = useState('ic');
+  const [wrText, setWrText] = useState('');
+  const [wrBusy, setWrBusy] = useState(false);
+  const [wrError, setWrError] = useState('');
 
   useEffect(() => {
     if (!id) {
@@ -58,6 +72,11 @@ export default function SharedReportPage() {
         }
         const data = (await res.json()) as ReportPayload;
         if (!cancelled) setReport(data);
+        const wr = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`));
+        if (wr.ok) {
+          const wrData = await wr.json();
+          if (!cancelled) setWarComments(wrData.comments || []);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load report');
       } finally {
@@ -74,6 +93,30 @@ export default function SharedReportPage() {
     await navigator.clipboard.writeText(url);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  const postWarRoom = async () => {
+    if (!id || !wrText.trim()) return;
+    setWrBusy(true);
+    setWrError('');
+    try {
+      const res = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author: wrAuthor, role: wrRole, text: wrText }),
+      });
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error(detail.detail || 'Failed to post');
+      }
+      const data = await res.json();
+      setWarComments((prev) => [...prev, data.comment]);
+      setWrText('');
+    } catch (e) {
+      setWrError(e instanceof Error ? e.message : 'Failed to post');
+    } finally {
+      setWrBusy(false);
+    }
   };
 
   if (loading) {
@@ -118,6 +161,8 @@ export default function SharedReportPage() {
       ? `Local pack: ${localPack.tier}`
       : `Local pack: ${localPack.tier} (confirm AHJ)`
     : null;
+  const clocks = analysis.parallel_clocks?.clocks || [];
+  const radar = analysis.moratorium_radar;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -194,6 +239,39 @@ export default function SharedReportPage() {
           </section>
         )}
 
+        {clocks.length > 0 && (
+          <section className="space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-5">
+            <h2 className="text-xl font-bold">Parallel clocks</h2>
+            <p className="text-sm text-gray-300">
+              {analysis.parallel_clocks?.headline ||
+                'AHJ and utility paths often run separately — plan both before bid.'}
+            </p>
+            <ul className="space-y-2">
+              {clocks.map((c) => (
+                <li key={c.track || c.label} className="text-sm text-gray-200">
+                  <span className="font-semibold text-white">{c.label}</span>
+                  <span className="text-gray-400">
+                    {' '}
+                    · {c.owner} — {c.status}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {radar?.headline && (
+          <section className="space-y-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+            <h2 className="text-xl font-bold">Moratorium radar</h2>
+            <p className="text-sm text-amber-50">{radar.headline}</p>
+            {(radar.metros || []).slice(0, 3).map((m) => (
+              <p key={m.metro} className="text-xs text-gray-300">
+                {m.metro}: {m.summary}
+              </p>
+            ))}
+          </section>
+        )}
+
         <section className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
             <p className="text-xs text-gray-400 mb-1">Risk score</p>
@@ -267,6 +345,64 @@ export default function SharedReportPage() {
               </div>
             ))
           )}
+        </section>
+
+        <section className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/40 p-5">
+          <h2 className="text-xl font-bold">Deal war room</h2>
+          <p className="text-xs text-gray-400">
+            Owner / IC / GC / utility / counsel can leave notes on this shared receipt. Not a chat
+            product — keep comments bid-file useful.
+          </p>
+          <ul className="space-y-2">
+            {warComments.length === 0 ? (
+              <li className="text-sm text-gray-500">No comments yet — add the first note.</li>
+            ) : (
+              warComments.map((c) => (
+                <li key={c.id} className="text-sm border border-slate-700 rounded-lg p-3">
+                  <p className="text-xs text-gray-400 mb-1">
+                    {c.author} · {c.role} · {c.ts}
+                  </p>
+                  <p className="text-gray-200">{c.text}</p>
+                </li>
+              ))
+            )}
+          </ul>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <input
+              value={wrAuthor}
+              onChange={(e) => setWrAuthor(e.target.value)}
+              placeholder="Your name"
+              className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm"
+            />
+            <select
+              value={wrRole}
+              onChange={(e) => setWrRole(e.target.value)}
+              className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm"
+            >
+              <option value="owner">owner</option>
+              <option value="ic">ic</option>
+              <option value="gc">gc</option>
+              <option value="utility">utility</option>
+              <option value="counsel">counsel</option>
+              <option value="other">other</option>
+            </select>
+          </div>
+          <textarea
+            value={wrText}
+            onChange={(e) => setWrText(e.target.value)}
+            placeholder="Note for the deal team…"
+            rows={3}
+            className="w-full rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm"
+          />
+          {wrError ? <p className="text-xs text-amber-300">{wrError}</p> : null}
+          <button
+            type="button"
+            disabled={wrBusy || !wrText.trim()}
+            onClick={() => void postWarRoom()}
+            className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50"
+          >
+            {wrBusy ? 'Posting…' : 'Post war-room note'}
+          </button>
         </section>
 
         <section className="space-y-3">

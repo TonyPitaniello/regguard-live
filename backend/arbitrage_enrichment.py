@@ -661,7 +661,8 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 "on separate clocks. This receipt surfaces that risk before bid — it does "
                 "not run interconnection studies or file AHJ applications."
             ),
-            "buyer": "IC consultants, electrical PMs, GC bid leads (TX beachhead)",
+            "buyer": "IC consultants, electrical PMs, GC bid leads, site selection teams",
+            "parallel_clocks": True,
         }
 
     # Rank punch list + community friction (presentation / completeness)
@@ -697,6 +698,14 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         out["community_friction"] = build_community_friction(out)
     except Exception:
         pass
+
+    if _project_is_data_center(out):
+        try:
+            from dc_diligence import stamp_dc_diligence
+
+            out = stamp_dc_diligence(out)
+        except Exception as e:
+            logger.warning("DC diligence stamp failed: %s", e)
 
     # Snapshot for job recheck diffs
     out["arbitrage_snapshot"] = {
