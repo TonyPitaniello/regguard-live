@@ -173,13 +173,33 @@ export function PlatformDashboard() {
               Saved Jobs
             </button>
             <a
+              href="https://app.regguardagent.com/privacy"
+              className="text-purple-400 hover:text-purple-300 transition inline-flex items-center min-h-[44px]"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="https://app.regguardagent.com/terms"
+              className="text-purple-400 hover:text-purple-300 transition inline-flex items-center min-h-[44px]"
+            >
+              Terms
+            </a>
+            <a
               href="mailto:hello@regguard.com"
               className="text-purple-400 hover:text-purple-300 transition inline-flex items-center min-h-[44px]"
             >
               Contact
             </a>
           </div>
-          <p className="text-xs">RegGuard © 2026 · Permitting research intelligence</p>
+          <p className="text-xs">
+            RegGuard © 2026 · Pitaniello Perkins LLC ·{' '}
+            <a href="https://app.regguardagent.com/privacy" className="text-purple-400 hover:text-purple-300">
+              Privacy Policy
+            </a>
+            {' · '}
+            SMS: message frequency varies; message and data rates may apply. We do not share mobile
+            numbers or messaging consent with third parties or affiliates for marketing.
+          </p>
         </div>
       </footer>
     </div>
