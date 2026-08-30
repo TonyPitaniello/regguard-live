@@ -9,6 +9,7 @@ import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, Ref
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
+import { trackStampEvent } from '../lib/trackStampEvent';
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
@@ -898,6 +899,13 @@ export default function ResultsViewerModal({
         a.remove();
         window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
         grantShareUnlock('bid_receipt_pdf');
+        trackStampEvent('stamp_receipt_download', {
+          researchId: effectiveResearchId,
+          zip: view.project_info?.zip,
+          stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+          stampFingerprint: view.regguard_stamp?.fingerprint,
+          channel: 'receipt_pdf',
+        });
       }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Receipt download failed');
@@ -1078,6 +1086,16 @@ export default function ResultsViewerModal({
       setCopied(kind);
       window.setTimeout(() => setCopied(null), 2000);
       grantShareUnlock();
+      trackStampEvent(
+        kind === 'facebook' ? 'stamp_share_facebook' : 'stamp_share_copy',
+        {
+          researchId: effectiveResearchId,
+          zip: view.project_info?.zip,
+          stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+          stampFingerprint: view.regguard_stamp?.fingerprint,
+          channel: kind,
+        }
+      );
       if (kind === 'instagram') {
         showToast('Caption copied — paste in Instagram DM, Story, or post');
       } else if (kind === 'facebook') {
@@ -1101,6 +1119,13 @@ export default function ResultsViewerModal({
       'noopener,noreferrer'
     );
     grantShareUnlock();
+    trackStampEvent('stamp_share_whatsapp', {
+      researchId: effectiveResearchId,
+      zip: view.project_info?.zip,
+      stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+      stampFingerprint: view.regguard_stamp?.fingerprint,
+      channel: 'whatsapp',
+    });
     showToast('WhatsApp opened with your Bid Risk Receipt');
   };
 

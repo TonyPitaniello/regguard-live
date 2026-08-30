@@ -303,17 +303,67 @@ def build_regguard_stamp(
         "is_stale": False,
         "stale_reason": "",
         "disclaimer": (
-            "Planning aid for pre-bid / pre-LOI screening. Not a bond, insurance quote, "
-            "legal opinion, or interconnection study. Stamp is invalid after valid_until "
-            "or when local pack / AHJ / moratorium fingerprint changes."
+            "Planning aid for pre-bid / pre-LOI screening only. "
+            "NOT a bond, insurance quote, credit rating, Moody's-style opinion, "
+            "legal opinion, AHJ approval, or interconnection study. "
+            "PASS means no Critical killers on the current citeable pack — still confirm "
+            "fees and portal asks with the AHJ before bid. "
+            "Stamp is invalid after valid_until or when local pack / AHJ / moratorium "
+            "fingerprint changes."
         ),
     }
 
 
-def apply_regguard_stamp(analysis: Dict[str, Any], **kwargs: Any) -> Dict[str, Any]:
+def apply_regguard_stamp(
+    analysis: Dict[str, Any],
+    *,
+    force: bool = False,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """
+    Attach / refresh stamp. Grade stays stable when fingerprint is unchanged
+    (prevents heuristic whiplash). Force=True rebuilds grade from drivers.
+    """
     if not isinstance(analysis, dict):
         return analysis
+
+    existing = analysis.get("regguard_stamp") if isinstance(analysis.get("regguard_stamp"), dict) else {}
+    fp_now = compute_ground_truth_fingerprint(analysis)
+    fp_old = str(existing.get("fingerprint") or "")
+    grade_old = str(existing.get("grade") or "").upper()
+
+    if (
+        not force
+        and grade_old in ("PASS", "CAUTION", "FAIL")
+        and fp_old
+        and fp_old == fp_now
+    ):
+        stamp = dict(existing)
+        # Re-certify validity window if prior stamp expired (same ground truth).
+        fresh = evaluate_stamp_freshness(stamp, analysis=analysis)
+        if fresh.get("is_stale") and "Validity window" in (fresh.get("stale_reason") or ""):
+            now = _utcnow()
+            days = int(kwargs.get("valid_days") or stamp.get("valid_days") or DEFAULT_VALID_DAYS)
+            stamp["stamped_at"] = _iso(now)
+            stamp["valid_until"] = _iso(now + timedelta(days=max(1, days)))
+            stamp["is_stale"] = False
+            stamp["stale_reason"] = ""
+            stamp["renewed_without_grade_change"] = True
+            stamp["grade_stable"] = True
+        else:
+            stamp = fresh
+            stamp["grade_stable"] = True
+        analysis["regguard_stamp"] = stamp
+        analysis["stamp_grade"] = stamp.get("grade")
+        analysis["stamp_label"] = stamp.get("label")
+        analysis["stamp_valid_until"] = stamp.get("valid_until")
+        analysis["stamp_fingerprint"] = stamp.get("fingerprint")
+        return analysis
+
     stamp = build_regguard_stamp(analysis, **kwargs)
+    if grade_old and fp_old and fp_old != fp_now and grade_old != stamp["grade"]:
+        stamp["prior_grade"] = grade_old
+        stamp["grade_changed_reason"] = "ground_truth_fingerprint_changed"
     analysis["regguard_stamp"] = stamp
     # Convenience mirrors for share/PDF
     analysis["stamp_grade"] = stamp["grade"]

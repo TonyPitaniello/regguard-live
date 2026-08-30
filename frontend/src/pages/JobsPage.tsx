@@ -24,6 +24,9 @@ export default function JobsPage() {
   const [email, setEmail] = useState(
     () => (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || ''
   );
+  const [phone, setPhone] = useState(
+    () => (typeof window !== 'undefined' && sessionStorage.getItem('userPhone')) || ''
+  );
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +40,7 @@ export default function JobsPage() {
     try {
       const emailNorm = email.trim().toLowerCase();
       sessionStorage.setItem('userEmail', emailNorm);
+      if (phone.trim()) sessionStorage.setItem('userPhone', phone.trim());
       const res = await fetch(
         `${backendUrl('/jobs')}?email=${encodeURIComponent(emailNorm)}`
       );
@@ -70,6 +74,7 @@ export default function JobsPage() {
         <h1 className="text-3xl font-black text-white mb-2">Saved Jobs</h1>
         <p className="text-gray-400 text-sm mb-6">
           Sites auto-save when you run a lookup. Weekly reminder emails use this list.
+          Add a mobile on save (from results) so stamp-outdated SMS can reach you when Twilio is live.
         </p>
 
         <form onSubmit={load} className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -79,6 +84,13 @@ export default function JobsPage() {
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
             placeholder="your@email.com"
+            className="flex-1 rounded-lg bg-slate-800 border border-purple-500/30 px-4 py-3 text-white"
+          />
+          <input
+            type="tel"
+            value={phone}
+            onChange={(ev) => setPhone(ev.target.value)}
+            placeholder="Mobile for stamp SMS (optional)"
             className="flex-1 rounded-lg bg-slate-800 border border-purple-500/30 px-4 py-3 text-white"
           />
           <button

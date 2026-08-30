@@ -76,7 +76,7 @@
   "gotchas": [
     {
       "id": "722_munger_setback",
-      "title": "Deep Ellum / downtown edge \u2014 setback diligence",
+      "title": "Deep Ellum / downtown edge — setback diligence",
       "checklist": [
         "Verify rear/side setbacks against current survey",
         "Confirm ADU / accessory structure path with Dallas Building Inspection",
@@ -86,6 +86,32 @@
         "Assuming Lake Dallas AHJ for 752xx Stemmons addresses"
       ],
       "citation_url": "https://www.dallascityhall.com/resource/7vsc-id2i.json"
+    },
+    {
+      "id": "dallas_trade_min_confirm",
+      "title": "Confirm Dallas minimum trade permit before bid",
+      "checklist": [
+        "Pull current Building Inspection fee schedule — do not rely on memory of $167 min",
+        "Confirm electrical vs plumbing vs mechanical minimums separately",
+        "Budget admin/processing fees called out on the official schedule"
+      ],
+      "anti_patterns": [
+        "Bidding electrical scope with a generic statewide fee assumption"
+      ],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "dallas_ods_intake",
+      "title": "Dallas ODS / online intake timing",
+      "checklist": [
+        "Confirm Online Development Services intake path for the trade",
+        "Allow lead time for plan review queues before hard bid dates"
+      ],
+      "anti_patterns": [
+        "Assuming same-day walk-in for commercial trade permits"
+      ],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx"
     }
   ],
   "inspection_sequence": [
@@ -112,5 +138,5 @@
   "fees_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
   "apply_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
   "inspections_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-  "last_verified": "2026-08-26"
+  "last_verified": "2026-08-30"
 }

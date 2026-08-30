@@ -187,7 +187,35 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
                 }
             )
 
-    # Include seeded DC ZIPs (no email alert unless a job also watches that ZIP)
+    # Merge stamp-watch subscribers registered at save/stamp time (not only Saved Jobs)
+    for z, prev in list(zips_state.items()):
+        subs = list((prev or {}).get("subscribers") or [])
+        if not subs and z not in watch:
+            continue
+        entry = watch.setdefault(
+            z,
+            {
+                "zip": z,
+                "city": ((prev or {}).get("meta") or {}).get("city") or "",
+                "state": ((prev or {}).get("meta") or {}).get("state") or "",
+                "emails": set(),
+                "phones": set(),
+                "jobs": [],
+            },
+        )
+        for s in subs:
+            if not isinstance(s, dict):
+                continue
+            if s.get("email"):
+                entry["emails"].add(str(s["email"]).strip().lower())
+            if s.get("phone"):
+                entry["phones"].add(str(s["phone"]).strip())
+            if s.get("city") and not entry.get("city"):
+                entry["city"] = s.get("city")
+            if s.get("state") and not entry.get("state"):
+                entry["state"] = s.get("state")
+
+    # Include seeded DC ZIPs (no email alert unless a job/subscriber also watches that ZIP)
     for z, prev in zips_state.items():
         if z in watch:
             continue
@@ -238,7 +266,13 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
                 "stamp_notice": stamp_notice,
             }
             changes.append(change)
-        zips_state[z] = {"fingerprint": fp, "meta": meta, "updated_at": _now()}
+        prior_subs = list(prev.get("subscribers") or [])
+        zips_state[z] = {
+            "fingerprint": fp,
+            "meta": {**meta, "city": entry.get("city") or meta.get("city"), "state": entry.get("state") or meta.get("state")},
+            "updated_at": _now(),
+            "subscribers": prior_subs,
+        }
 
     if not dry_run:
         with _LOCK:
@@ -272,6 +306,67 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
             for c in changes
         ],
     }
+
+
+def register_stamp_watch(
+    *,
+    zip_code: str,
+    city: str = "",
+    state: str = "",
+    email: str = "",
+    phone: str = "",
+    research_id: str = "",
+    stamp_fingerprint: str = "",
+    stamp_grade: str = "",
+) -> Dict[str, Any]:
+    """
+    Ensure a ZIP is fingerprint-watched and attach email/phone subscribers
+    when a stamped report is saved (Twilio assumed available for SMS path).
+    """
+    from scraper import normalize_us_zip
+
+    z = normalize_us_zip(zip_code) if zip_code else ""
+    if len(z) < 5:
+        return {"status": "skipped", "reason": "invalid_zip"}
+    try:
+        fp, meta = pack_fingerprint(city or "", state or "", z)
+    except Exception as e:
+        logger.warning("register_stamp_watch fp failed %s: %s", z, e)
+        fp, meta = "", {"city": city, "state": state}
+    meta = dict(meta or {})
+    meta["city"] = city or meta.get("city") or ""
+    meta["state"] = state or meta.get("state") or ""
+    sub = {
+        "email": (email or "").strip().lower()[:120],
+        "phone": (phone or "").strip()[:40],
+        "research_id": (research_id or "").strip()[:80],
+        "stamp_fingerprint": (stamp_fingerprint or "")[:40],
+        "stamp_grade": (stamp_grade or "")[:16],
+        "ts": _now(),
+    }
+    with _LOCK:
+        st = _load_state()
+        zips = dict(st.get("zips") or {})
+        cur = dict(zips.get(z) or {})
+        subs = list(cur.get("subscribers") or [])
+        # Dedupe by email+phone
+        key = (sub["email"], sub["phone"])
+        subs = [
+            s
+            for s in subs
+            if (str(s.get("email") or ""), str(s.get("phone") or "")) != key
+        ]
+        if sub["email"] or sub["phone"]:
+            subs.append(sub)
+        cur["subscribers"] = subs[-40:]
+        if fp:
+            cur["fingerprint"] = fp
+        cur["meta"] = {**(cur.get("meta") or {}), **meta, "stamp_watch": True}
+        cur["updated_at"] = _now()
+        zips[z] = cur
+        st["zips"] = zips
+        _save_state(st)
+    return {"status": "ok", "zip": z, "subscribers": len(cur.get("subscribers") or []), "fingerprint": fp}
 
 
 # Seed DC / large-load watch ZIPs (fingerprint baselines even without saved jobs)

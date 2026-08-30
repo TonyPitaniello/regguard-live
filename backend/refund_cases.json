@@ -12,6 +12,7 @@
       "proof_required": [
         "Official fee schedule URL + archive date",
         "RegGuard receipt showing SOURCE Critical fee",
+        "Stamp grade + fingerprint from receipt / war room",
         "Stripe refund id"
       ]
     },

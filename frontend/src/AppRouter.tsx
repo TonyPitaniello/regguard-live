@@ -28,6 +28,7 @@ import OrdersPage from './pages/OrdersPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
 import AffiliatePage from './pages/AffiliatePage';
+import PartnerMandatePage from './pages/PartnerMandatePage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import RefundCasesPage from './pages/RefundCasesPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
@@ -138,6 +139,8 @@ export function AppRouter() {
           {/* Affiliate */}
           <Route path="/affiliate" element={<AffiliatePage />} />
           <Route path="/partner" element={<AffiliatePage />} />
+          <Route path="/partner/mandate" element={<PartnerMandatePage />} />
+          <Route path="/mandate" element={<PartnerMandatePage />} />
 
           {/* Signup/Stripe Payment Page */}
           <Route path="/signup" element={<SignupPage />} />

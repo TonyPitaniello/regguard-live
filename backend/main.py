@@ -328,6 +328,7 @@ class SaveJobRequest(BaseModel):
     summary_snapshot: Optional[Dict[str, Any]] = None
     notes: Optional[str] = ""
     status: Optional[str] = "active"
+    phone: Optional[str] = ""
 
 
 class AttachResearchRequest(BaseModel):
@@ -4394,6 +4395,104 @@ async def post_bid_sheet_csv(body: BidSheetRequest):
     )
 
 
+
+class ProductEventRequest(BaseModel):
+    event: str
+    research_id: Optional[str] = ""
+    zip_code: Optional[str] = ""
+    stamp_grade: Optional[str] = ""
+    stamp_fingerprint: Optional[str] = ""
+    channel: Optional[str] = ""
+    meta: Optional[Dict[str, Any]] = None
+
+
+@app.post("/events", tags=["Analytics"])
+async def post_product_event(body: ProductEventRequest) -> Dict[str, Any]:
+    """Client product events (stamp share/download, etc.)."""
+    from product_events import track_event
+
+    try:
+        row = track_event(
+            body.event,
+            research_id=body.research_id or "",
+            zip_code=body.zip_code or "",
+            stamp_grade=body.stamp_grade or "",
+            stamp_fingerprint=body.stamp_fingerprint or "",
+            channel=body.channel or "",
+            meta=body.meta or {},
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    return {"status": "ok", "event": row}
+
+
+@app.get("/admin/stamp-funnel", tags=["Admin"])
+async def admin_stamp_funnel(
+    hours: int = 168,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from product_events import recent, stamp_funnel_stats
+
+    return {"stats": stamp_funnel_stats(hours=hours), "recent": recent(40)}
+
+
+@app.get("/partner/mandate", tags=["Partner"])
+async def get_partner_mandate_kit() -> Dict[str, Any]:
+    from partner_mandate import kit
+
+    return kit()
+
+
+class PartnerMandateOutreachRequest(BaseModel):
+    partner_name: str
+    partner_email: Optional[str] = ""
+    partner_phone: Optional[str] = ""
+    metro: Optional[str] = ""
+    note: Optional[str] = ""
+    receipt_research_id: Optional[str] = ""
+    logged_by: Optional[str] = ""
+
+
+@app.post("/partner/mandate/outreach", tags=["Partner"])
+async def post_partner_mandate_outreach(body: PartnerMandateOutreachRequest) -> Dict[str, Any]:
+    from partner_mandate import log_outreach
+    from product_events import track_event
+
+    try:
+        row = log_outreach(
+            partner_name=body.partner_name,
+            partner_email=body.partner_email or "",
+            partner_phone=body.partner_phone or "",
+            metro=body.metro or "",
+            note=body.note or "",
+            receipt_research_id=body.receipt_research_id or "",
+            logged_by=body.logged_by or "",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    try:
+        track_event(
+            "partner_mandate_outreach_logged",
+            research_id=body.receipt_research_id or "",
+            channel=body.metro or "partner",
+            meta={"partner_name": body.partner_name[:80]},
+        )
+    except Exception:
+        pass
+    return {"status": "ok", "outreach": row, "kit_hint": "/partner/mandate"}
+
+
+@app.get("/admin/partner-mandate", tags=["Admin"])
+async def admin_partner_mandate(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
+    from partner_mandate import kit, recent
+
+    return {"kit": kit(), "outreach": recent(50)}
+
+
 @app.get("/stats/forwards", tags=["Results"])
 async def stats_forwards() -> Dict[str, Any]:
     """Public-ish forward/share unlock count for social proof."""
@@ -4515,6 +4614,33 @@ async def get_war_room(research_id: str) -> Dict[str, Any]:
         "count": len(comments),
         **meta,
     }
+
+
+@app.post("/research/{research_id}/war-room/stamp", tags=["Results"])
+async def post_war_room_stamp(research_id: str) -> Dict[str, Any]:
+    """Freeze stamp grade+fingerprint onto the war room for dispute proof."""
+    from research_store import get_research
+    from stamp_snapshot import stamp_snapshot
+    from war_room_store import attach_stamp_snapshot
+
+    record = get_research(research_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    snap = stamp_snapshot(record.get("analysis") or {})
+    out = attach_stamp_snapshot(research_id, snap)
+    try:
+        from product_events import track_event
+
+        track_event(
+            "war_room_stamp_attached",
+            research_id=research_id,
+            stamp_grade=str(snap.get("grade") or ""),
+            stamp_fingerprint=str(snap.get("fingerprint") or ""),
+            zip_code=str((snap.get("site") or {}).get("zip") or ""),
+        )
+    except Exception:
+        pass
+    return {"status": "ok", **out}
 
 
 @app.post("/research/{research_id}/war-room/token", tags=["Results"])
@@ -4712,13 +4838,49 @@ async def get_attach_receipts(research_id: str) -> Dict[str, Any]:
 @app.get("/refund-cases", tags=["Trust"])
 async def get_refund_cases() -> Dict[str, Any]:
     """Public guarantee case templates / published refund narratives."""
-    path = Path(__file__).resolve().parent / "refund_cases.json"
-    if not path.is_file():
-        return {"updated": "", "cases": []}
+    from refund_cases_store import list_cases
+
+    return list_cases()
+
+
+class RefundCaseRecordRequest(BaseModel):
+    title: str
+    research_id: Optional[str] = ""
+    what_happened: Optional[str] = ""
+    resolution: Optional[str] = ""
+    status: Optional[str] = "recorded"
+    stripe_refund_id: Optional[str] = ""
+
+
+@app.post("/admin/refund-cases", tags=["Admin"])
+async def post_refund_case(
+    body: RefundCaseRecordRequest,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Record a refund case with stamp fingerprint frozen from research_id."""
+    _require_admin_secret(x_admin_secret)
+    from refund_cases_store import record_case_with_stamp
+
+    row = record_case_with_stamp(
+        title=body.title,
+        research_id=body.research_id or "",
+        what_happened=body.what_happened or "",
+        resolution=body.resolution or "",
+        status=body.status or "recorded",
+        stripe_refund_id=body.stripe_refund_id or "",
+    )
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        from product_events import track_event
+
+        track_event(
+            "refund_case_stamp_attached",
+            research_id=body.research_id or "",
+            stamp_grade=str(row.get("stamp_grade") or ""),
+            stamp_fingerprint=str(row.get("stamp_fingerprint") or ""),
+        )
     except Exception:
-        return {"updated": "", "cases": []}
+        pass
+    return {"status": "ok", "case": row}
 
 
 @app.get("/research/{research_id}/report", tags=["Results"])
@@ -4747,6 +4909,18 @@ async def get_research_report_short(research_id: str) -> Dict[str, Any]:
     return await get_research_report(research_id)
 
 
+def _require_cron_secret(x_cron_secret: Optional[str] = None) -> None:
+    expected = (os.getenv("CRON_SECRET") or "").strip()
+    if not expected or (x_cron_secret or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid cron secret")
+
+
+def _require_admin_secret(x_admin_secret: Optional[str] = None) -> None:
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    if not expected or (x_admin_secret or "").strip() != expected:
+        raise HTTPException(status_code=401, detail="Invalid admin secret")
+
+
 # ========== Saved Jobs (weekly habit) ==========
 
 @app.post("/jobs", tags=["Jobs"])
@@ -4769,107 +4943,37 @@ async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
             summary_snapshot=body.summary_snapshot,
             notes=body.notes or "",
             status=body.status or "active",
+            phone=body.phone or "",
         )
-        return {"status": "ok", "job": job}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
+        if body.phone:
+            try:
+                from product_events import track_event
 
+                track_event(
+                    "job_saved_with_phone",
+                    zip_code=body.zip or "",
+                    research_id=body.last_research_id or "",
+                    channel="jobs",
+                )
+            except Exception:
+                pass
+        try:
+            from zip_watch import register_stamp_watch
 
-@app.get("/jobs", tags=["Jobs"])
-async def list_saved_jobs(
-    email: str = "",
-    owner_key: str = "",
-    include_archived: bool = False,
-) -> Dict[str, Any]:
-    """List jobs for an email and/or owner_key (device id)."""
-    from jobs_store import list_jobs
-
-    if not email and not owner_key:
-        raise HTTPException(status_code=400, detail="email or owner_key is required")
-    jobs = list_jobs(email=email or None, owner_key=owner_key or None, include_archived=include_archived)
-    return {"jobs": jobs, "count": len(jobs)}
-
-
-@app.get("/jobs/{job_id}", tags=["Jobs"])
-async def get_saved_job(
-    job_id: str,
-    email: str = "",
-    owner_key: str = "",
-) -> Dict[str, Any]:
-    from jobs_store import get_job
-
-    job = get_job(job_id, email=email or None, owner_key=owner_key or None)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job": job}
-
-
-@app.delete("/jobs/{job_id}", tags=["Jobs"])
-async def delete_saved_job(
-    job_id: str,
-    email: str = "",
-    owner_key: str = "",
-) -> Dict[str, Any]:
-    from jobs_store import delete_job
-
-    ok = delete_job(job_id, email=email or None, owner_key=owner_key or None)
-    if not ok:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"status": "deleted", "job_id": job_id}
-
-
-@app.post("/jobs/{job_id}/attach-research", tags=["Jobs"])
-async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Dict[str, Any]:
-    from jobs_store import attach_research
-
-    job = attach_research(
-        job_id,
-        research_id=body.research_id,
-        share_url=body.share_url,
-        summary_snapshot=body.summary_snapshot,
-        email=body.owner_email,
-        owner_key=body.owner_key,
-    )
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"status": "ok", "job": job}
-
-
-def _require_cron_secret(x_cron_secret: Optional[str] = None) -> None:
-    expected = (os.getenv("CRON_SECRET") or "").strip()
-    if not expected or (x_cron_secret or "").strip() != expected:
-        raise HTTPException(status_code=401, detail="Invalid cron secret")
-
-
-def _require_admin_secret(x_admin_secret: Optional[str] = None) -> None:
-    expected = (os.getenv("ADMIN_SECRET") or "").strip()
-    if not expected or (x_admin_secret or "").strip() != expected:
-        raise HTTPException(status_code=401, detail="Invalid admin secret")
-
-
-@app.post("/jobs", tags=["Jobs"])
-async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
-    """Create or upsert a saved job (deduped by email + address)."""
-    from jobs_store import upsert_job
-
-    try:
-        job = upsert_job(
-            owner_email=body.owner_email,
-            address=body.address,
-            city=body.city or "",
-            state=body.state or "",
-            zip_code=body.zip or "",
-            project_type=body.project_type or "general",
-            owner_key=body.owner_key,
-            job_id=body.job_id,
-            last_research_id=body.last_research_id,
-            share_url=body.share_url,
-            summary_snapshot=body.summary_snapshot,
-            notes=body.notes or "",
-            status=body.status or "active",
-        )
+            snap = body.summary_snapshot or {}
+            rg = snap.get("regguard_stamp") if isinstance(snap, dict) else {}
+            register_stamp_watch(
+                zip_code=body.zip or "",
+                city=body.city or "",
+                state=body.state or "",
+                email=body.owner_email or "",
+                phone=body.phone or "",
+                research_id=body.last_research_id or "",
+                stamp_fingerprint=str((rg or {}).get("fingerprint") or ""),
+                stamp_grade=str((rg or {}).get("grade") or ""),
+            )
+        except Exception:
+            pass
         return {"status": "ok", "job": job}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -5260,6 +5364,17 @@ async def cron_zip_watch(
                     ok = await svc.send_zip_watch_alert(email, change)
                     if ok:
                         emailed += 1
+                        try:
+                            from product_events import track_event
+
+                            track_event(
+                                "zip_watch_alert_sent",
+                                zip_code=str(change.get("zip") or ""),
+                                channel="email",
+                                meta={"email_domain": str(email).split("@")[-1][:40]},
+                            )
+                        except Exception:
+                            pass
             except Exception as e:
                 logger.warning("zip watch email failed %s: %s", email, e)
         for phone in change.get("phones") or []:
@@ -5271,9 +5386,12 @@ async def cron_zip_watch(
                     continue
                 z = change.get("zip") or ""
                 app = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
-                msg = (
+                notice = change.get("stamp_notice") or (
                     f"RegGuard: local diligence changed for ZIP {z}. "
                     f"Your stamp is outdated — re-run for PASS/CAUTION/FAIL: {app}/jobs"
+                )
+                msg = notice if len(str(notice)) < 320 else (
+                    f"RegGuard: stamp outdated for ZIP {z}. Re-run: {app}/jobs"
                 )
                 normalized = sms._validate_phone_number(str(phone))  # noqa: SLF001
                 message = await asyncio.to_thread(
@@ -5290,6 +5408,16 @@ async def cron_zip_watch(
                             to_phone=normalized,
                             research_id=f"zip-watch-{z}",
                             status=getattr(message, "status", None) or "queued",
+                        )
+                    except Exception:
+                        pass
+                    try:
+                        from product_events import track_event
+
+                        track_event(
+                            "zip_watch_sms_sent",
+                            zip_code=str(z),
+                            channel="sms",
                         )
                     except Exception:
                         pass

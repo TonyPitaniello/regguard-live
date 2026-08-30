@@ -63,7 +63,7 @@
   "gotchas": [
     {
       "id": "ord_250_50",
-      "title": "Plano Ordinance 250.50 \u2014 grounding",
+      "title": "Plano Ordinance 250.50 — grounding",
       "checklist": [
         "Two 8-foot grounding rods",
         "Rods 20 feet apart",
@@ -72,7 +72,34 @@
       "anti_patterns": [
         "6-foot NEC generic rod spacing narrative"
       ],
-      "citation_url": "https://library.municode.com/tx/plano"
+      "citation_url": "https://library.municode.com/tx/plano",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "plano_electrical_fee_2026",
+      "title": "Plano electrical permit fee — 2026 sync",
+      "checklist": [
+        "Confirm $75 total ($65 base + $10 laborer) on current Building Inspections schedule",
+        "Do not bid using prior-year fee sheets without re-check"
+      ],
+      "anti_patterns": [
+        "Using a sister-city (Frisco/Allen) fee as Plano"
+      ],
+      "citation_url": "https://www.plano.gov/292/Building-Inspections",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "plano_inspection_sequence",
+      "title": "Plano rough → service → final sequence",
+      "checklist": [
+        "Schedule rough electrical before cover",
+        "Confirm service/meter equipment inspection when applicable",
+        "Hold final until AHJ checklist items are closed"
+      ],
+      "anti_patterns": [
+        "Skipping rough and hoping final covers it"
+      ],
+      "citation_url": "https://www.plano.gov/292/Building-Inspections"
     }
   ],
   "inspection_sequence": [
@@ -93,5 +120,5 @@
   "fees_url": "https://www.plano.gov/1648/Development-Services",
   "apply_url": "https://www.plano.gov/350/Building-Inspections-Permits",
   "inspections_url": "https://www.plano.gov/292/Building-Inspections",
-  "last_verified": "2026-08-26"
+  "last_verified": "2026-08-30"
 }

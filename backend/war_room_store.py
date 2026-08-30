@@ -80,6 +80,7 @@ def _supabase_upsert(payload: Dict[str, Any]) -> bool:
                 "research_id": payload["research_id"],
                 "comments": payload.get("comments") or [],
                 "write_token": payload.get("write_token") or "",
+                "stamp_snapshot": payload.get("stamp_snapshot") or {},
                 "updated_at": payload.get("updated_at") or _now(),
             }
         ).execute()
@@ -114,6 +115,7 @@ def _supabase_get(research_id: str) -> Optional[Dict[str, Any]]:
             "research_id": row.get("research_id") or research_id,
             "comments": list(row.get("comments") or []),
             "write_token": row.get("write_token") or "",
+            "stamp_snapshot": row.get("stamp_snapshot") or {},
             "updated_at": row.get("updated_at"),
         }
     except Exception as e:
@@ -214,6 +216,7 @@ def list_comments(research_id: str) -> List[Dict[str, Any]]:
 def room_meta(research_id: str) -> Dict[str, Any]:
     data = _load(research_id)
     backend = durable_backend()
+    snap = data.get("stamp_snapshot") if isinstance(data.get("stamp_snapshot"), dict) else {}
     return {
         "research_id": research_id,
         "comment_count": len(data.get("comments") or []),
@@ -222,6 +225,31 @@ def room_meta(research_id: str) -> Dict[str, Any]:
         "writes_enabled": writes_enabled(),
         "token_required": True,
         "has_token": bool(str(data.get("write_token") or "").strip()),
+        "stamp_snapshot": snap or None,
+        "stamp_grade": (snap or {}).get("grade"),
+        "stamp_fingerprint": (snap or {}).get("fingerprint"),
+    }
+
+
+def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[str, Any]:
+    """Persist stamp fingerprint/grade at war-room open for refund/dispute proof."""
+    rid = (research_id or "").strip()
+    if not rid:
+        raise ValueError("research_id required")
+    if not isinstance(snapshot, dict) or not snapshot:
+        raise ValueError("stamp snapshot required")
+    data = _load(rid)
+    data["research_id"] = rid
+    data["stamp_snapshot"] = snapshot
+    data["stamp_attached_at"] = _now()
+    data.setdefault("comments", [])
+    data["updated_at"] = _now()
+    _save(data)
+    return {
+        "research_id": rid,
+        "stamp_grade": snapshot.get("grade"),
+        "stamp_fingerprint": snapshot.get("fingerprint"),
+        "stamp_attached_at": data["stamp_attached_at"],
     }
 
 

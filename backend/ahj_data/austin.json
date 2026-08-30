@@ -57,7 +57,7 @@
   "gotchas": [
     {
       "id": "design_criteria_gas_clearance",
-      "title": "City of Austin Design Criteria \u2014 gas relief clearance",
+      "title": "City of Austin Design Criteria — gas relief clearance",
       "checklist": [
         "36-inch minimum clearance from gas relief valves",
         "Verify against current Austin Design Criteria / Electrical Service Requirements"
@@ -65,11 +65,12 @@
       "anti_patterns": [
         "Generic NEC clearance without Austin Design Criteria check"
       ],
-      "citation_url": "https://www.austintexas.gov/department/development-services"
+      "citation_url": "https://www.austintexas.gov/department/development-services",
+      "severity": "CRITICAL"
     },
     {
       "id": "design_criteria_225a_bus",
-      "title": "Austin service upgrade \u2014 225A bus / 200A main",
+      "title": "Austin service upgrade — 225A bus / 200A main",
       "checklist": [
         "225A interior panel bus with 200A main where Design Criteria apply",
         "Solar-Ready pattern check for 787xx central Austin ZIPs (incl. 78704)"
@@ -77,7 +78,21 @@
       "anti_patterns": [
         "Assuming 200A bus is always sufficient without Austin criteria"
       ],
-      "citation_url": "https://www.austintexas.gov/department/development-services"
+      "citation_url": "https://www.austintexas.gov/department/development-services",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "austin_ds_fees_live",
+      "title": "Austin Development Services fees — verify live schedule",
+      "checklist": [
+        "Open austintexas.gov Development Services fee schedule before locking contingency",
+        "Include safety surcharges when called out on the official schedule",
+        "Do not invent dollar amounts in the bid from memory"
+      ],
+      "anti_patterns": [
+        "Copying Dallas/Plano fee lines into an Austin bid"
+      ],
+      "citation_url": "https://www.austintexas.gov/development-services/fees"
     }
   ],
   "design_criteria_url": "https://www.austintexas.gov/department/development-services",
@@ -99,5 +114,5 @@
   "fees_url": "https://www.austintexas.gov/development-services/fees",
   "apply_url": "https://www.austintexas.gov/department/development-services",
   "inspections_url": "https://www.austintexas.gov/department/development-services",
-  "last_verified": "2026-08-26"
+  "last_verified": "2026-08-30"
 }

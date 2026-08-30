@@ -747,7 +747,51 @@ RegGuard © 2026
             return False
 
     async def send_zip_watch_alert(self, to_email: str, change: dict) -> bool:
-        return False
+        if not self.sg or not self.Mail:
+            return False
+        app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
+        z = (change or {}).get("zip") or ""
+        city = (change or {}).get("city") or ""
+        state = (change or {}).get("state") or ""
+        after = (change or {}).get("after") or {}
+        notice = (change or {}).get("stamp_notice") or (
+            f"Any RegGuard stamp for ZIP {z} is outdated — re-run for a fresh "
+            "PASS/CAUTION/FAIL before bid or LOI."
+        )
+        html = f"""
+        <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+          <h1 style="font-size:20px;margin:0 0 12px">Local diligence changed — {z}</h1>
+          <p style="color:#444;font-size:14px;line-height:1.5">
+            Reg Guard detected an update for <strong>{city} {state} {z}</strong>.
+          </p>
+          <p style="background:#fef3c7;border:1px solid #f59e0b;padding:10px 12px;border-radius:8px;font-size:13px;color:#92400e">
+            {notice}
+          </p>
+          <p style="color:#333;font-size:13px">
+            Source: {after.get('source') or 'pack'} · Fees: {after.get('fee_count', 0)} ·
+            Gotchas: {after.get('gotcha_count', 0)}
+          </p>
+          <p style="margin:20px 0">
+            <a href="{app_url}/jobs"
+               style="background:#059669;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">
+              Re-run for a fresh stamp
+            </a>
+          </p>
+          <p style="color:#888;font-size:12px">Planning aid — not a bond or legal opinion.</p>
+        </div>
+        """
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject=f"Reg Guard — stamp outdated for ZIP {z}",
+                html_content=html,
+            )
+            response = self.sg.send(message)
+            return 200 <= response.status_code < 300
+        except Exception as e:
+            logger.error("SendGrid zip watch failed: %s", e)
+            return False
 
     async def send_plan_win_email(
         self, to_email: str, tier: str, *, day7: bool = False

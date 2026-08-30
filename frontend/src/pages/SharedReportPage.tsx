@@ -60,6 +60,8 @@ export default function SharedReportPage() {
   const [wrMeta, setWrMeta] = useState<{
     writes_enabled?: boolean;
     durable_backend?: string;
+    stamp_grade?: string;
+    stamp_fingerprint?: string;
   }>({});
 
   useEffect(() => {
@@ -78,6 +80,13 @@ export default function SharedReportPage() {
         }
         const data = (await res.json()) as ReportPayload;
         if (!cancelled) setReport(data);
+        try {
+          await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room/stamp`), {
+            method: 'POST',
+          });
+        } catch {
+          /* best-effort stamp freeze */
+        }
         const wr = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`));
         if (wr.ok) {
           const wrData = await wr.json();
@@ -86,6 +95,8 @@ export default function SharedReportPage() {
             setWrMeta({
               writes_enabled: wrData.writes_enabled,
               durable_backend: wrData.durable_backend,
+              stamp_grade: wrData.stamp_grade,
+              stamp_fingerprint: wrData.stamp_fingerprint,
             });
           }
         }
@@ -436,6 +447,11 @@ export default function SharedReportPage() {
             product — keep comments bid-file useful.
             {wrMeta.durable_backend
               ? ` Storage: ${wrMeta.durable_backend}.`
+              : ''}
+            {wrMeta.stamp_grade
+              ? ` Stamp frozen: ${wrMeta.stamp_grade}${
+                  wrMeta.stamp_fingerprint ? ` · fp ${wrMeta.stamp_fingerprint}` : ''
+                }.`
               : ''}
           </p>
           {wrMeta.writes_enabled === false ? (

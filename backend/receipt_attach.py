@@ -39,6 +39,7 @@ def attach_receipt(
     share_url: str = "",
     note: str = "",
     requester_email: str = "",
+    stamp_snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     rid = (research_id or "").strip()
     system = (external_system or "").strip().lower()[:40] or "generic"
@@ -47,6 +48,17 @@ def attach_receipt(
         raise ValueError("research_id required")
     if not proj:
         raise ValueError("external_project_id required")
+    snap = stamp_snapshot if isinstance(stamp_snapshot, dict) else {}
+    if not snap:
+        try:
+            from research_store import get_research
+            from stamp_snapshot import stamp_snapshot as build_snap
+
+            rec = get_research(rid)
+            if rec:
+                snap = build_snap(rec.get("analysis") or {})
+        except Exception:
+            snap = {}
     row = {
         "id": f"att-{uuid.uuid4().hex[:10]}",
         "ts": _now(),
@@ -57,9 +69,12 @@ def attach_receipt(
         "note": (note or "")[:400],
         "requester_email": (requester_email or "").strip().lower()[:120],
         "status": "recorded",
+        "stamp_snapshot": snap,
+        "stamp_grade": snap.get("grade"),
+        "stamp_fingerprint": snap.get("fingerprint"),
         "hint": (
-            "RegGuard records the attach intent. Push into Procore/Autodesk via "
-            "your integration using share_url + diligence-export JSON."
+            "RegGuard records the attach intent with stamp fingerprint for dispute proof. "
+            "Push into Procore/Autodesk via your integration using share_url + diligence-export JSON."
         ),
     }
     with _LOCK:

@@ -306,15 +306,52 @@ def save_research(
         if not (analysis.get("regguard_stamp") or {}).get("grade"):
             analysis = apply_regguard_stamp(analysis)
         else:
-            # Refresh freshness flags against current fingerprint
-            from regguard_stamp import evaluate_stamp_freshness
-
-            analysis["regguard_stamp"] = evaluate_stamp_freshness(
-                analysis.get("regguard_stamp"),
-                analysis=analysis,
-            )
+            # Stable refresh: same fingerprint keeps grade; else rebuild
+            analysis = apply_regguard_stamp(analysis)
     except Exception as e:
         logger.warning("RegGuard stamp on save failed: %s", e)
+
+    # Auto zip-watch so stamp invalidation can page email/SMS (Twilio assumed live)
+    try:
+        from zip_watch import register_stamp_watch
+
+        pi = analysis.get("project_info") or {}
+        rg = analysis.get("regguard_stamp") or {}
+        email = (
+            str(analysis.get("owner_email") or analysis.get("generated_for") or "")
+            .strip()
+            .lower()
+        )
+        phone = str(analysis.get("owner_phone") or analysis.get("phone") or "").strip()
+        register_stamp_watch(
+            zip_code=str(pi.get("zip") or ""),
+            city=str(pi.get("city") or ""),
+            state=str(pi.get("state") or ""),
+            email=email,
+            phone=phone,
+            research_id=rid,
+            stamp_fingerprint=str(rg.get("fingerprint") or ""),
+            stamp_grade=str(rg.get("grade") or ""),
+        )
+    except Exception as e:
+        logger.warning("stamp zip-watch register failed: %s", e)
+
+    # Funnel: same-ZIP re-run signal when research_id rotates for same ZIP
+    try:
+        from product_events import track_event
+
+        pi = analysis.get("project_info") or {}
+        rg = analysis.get("regguard_stamp") or {}
+        track_event(
+            "research_rerun_same_zip",
+            research_id=rid,
+            zip_code=str(pi.get("zip") or ""),
+            stamp_grade=str(rg.get("grade") or ""),
+            stamp_fingerprint=str(rg.get("fingerprint") or ""),
+            meta={"source": "save_research"},
+        )
+    except Exception:
+        pass
 
     clean = public_analysis(analysis)
     clean["research_id"] = rid
