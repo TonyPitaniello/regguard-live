@@ -213,6 +213,17 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
         prev = zips_state.get(z) or {}
         prev_fp = prev.get("fingerprint")
         if prev_fp and prev_fp != fp:
+            try:
+                from regguard_stamp import zip_watch_stamp_notice
+
+                stamp_notice = zip_watch_stamp_notice(
+                    {"zip": z, "after": meta, "before": prev.get("meta") or {}}
+                )
+            except Exception:
+                stamp_notice = (
+                    f"RegGuard stamp for ZIP {z} is outdated — re-run for a fresh "
+                    "PASS/CAUTION/FAIL before bid."
+                )
             change = {
                 "zip": z,
                 "city": entry["city"],
@@ -223,6 +234,8 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
                 "before": prev.get("meta") or {},
                 "after": meta,
                 "ts": _now(),
+                "stamp_invalidated": True,
+                "stamp_notice": stamp_notice,
             }
             changes.append(change)
         zips_state[z] = {"fingerprint": fp, "meta": meta, "updated_at": _now()}

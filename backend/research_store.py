@@ -300,6 +300,22 @@ def save_research(
     ttl = ttl_days if ttl_days is not None else _DEFAULT_TTL_DAYS
     expires = now + timedelta(days=max(1, ttl))
 
+    try:
+        from regguard_stamp import apply_regguard_stamp
+
+        if not (analysis.get("regguard_stamp") or {}).get("grade"):
+            analysis = apply_regguard_stamp(analysis)
+        else:
+            # Refresh freshness flags against current fingerprint
+            from regguard_stamp import evaluate_stamp_freshness
+
+            analysis["regguard_stamp"] = evaluate_stamp_freshness(
+                analysis.get("regguard_stamp"),
+                analysis=analysis,
+            )
+    except Exception as e:
+        logger.warning("RegGuard stamp on save failed: %s", e)
+
     clean = public_analysis(analysis)
     clean["research_id"] = rid
 

@@ -4402,6 +4402,56 @@ async def stats_forwards() -> Dict[str, Any]:
     return {"forwards": forward_count()}
 
 
+class StampRequest(BaseModel):
+    analysis: Optional[Dict[str, Any]] = None
+    research_id: Optional[str] = None
+    flagged_by: Optional[str] = "RegGuard"
+
+
+@app.post("/stamp", tags=["Stamp"])
+async def post_regguard_stamp(body: StampRequest) -> Dict[str, Any]:
+    """Compute / refresh RegGuard PASS·CAUTION·FAIL stamp on an analysis."""
+    from regguard_stamp import apply_regguard_stamp, evaluate_stamp_freshness
+    from research_store import get_research
+
+    analysis: Dict[str, Any] = {}
+    if body.research_id:
+        record = get_research(body.research_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="Report not found")
+        analysis = dict(record.get("analysis") or {})
+    if body.analysis and isinstance(body.analysis, dict):
+        analysis = {**analysis, **body.analysis}
+    if not analysis:
+        raise HTTPException(status_code=400, detail="analysis or research_id required")
+    stamped = apply_regguard_stamp(analysis, flagged_by=body.flagged_by or "RegGuard")
+    fresh = evaluate_stamp_freshness(stamped.get("regguard_stamp"), analysis=stamped)
+    stamped["regguard_stamp"] = fresh
+    return {
+        "status": "ok",
+        "stamp": fresh,
+        "analysis": stamped,
+    }
+
+
+@app.get("/research/{research_id}/stamp", tags=["Stamp"])
+async def get_research_stamp(research_id: str) -> Dict[str, Any]:
+    """Return stamp for a saved report with freshness vs current fingerprint."""
+    from regguard_stamp import evaluate_stamp_freshness
+    from research_store import get_research
+
+    record = get_research(research_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    analysis = record.get("analysis") or {}
+    stamp = evaluate_stamp_freshness(analysis.get("regguard_stamp"), analysis=analysis)
+    return {
+        "research_id": research_id,
+        "stamp": stamp,
+        "share_url": record.get("share_url"),
+    }
+
+
 @app.get("/dc/moratorium-radar", tags=["DataCenter"])
 async def get_moratorium_radar(state: Optional[str] = None) -> Dict[str, Any]:
     """Seeded metro moratorium / pause radar (planning aid)."""
@@ -5223,7 +5273,7 @@ async def cron_zip_watch(
                 app = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
                 msg = (
                     f"RegGuard: local diligence changed for ZIP {z}. "
-                    f"Re-check Saved Jobs before bid: {app}/jobs"
+                    f"Your stamp is outdated — re-run for PASS/CAUTION/FAIL: {app}/jobs"
                 )
                 normalized = sms._validate_phone_number(str(phone))  # noqa: SLF001
                 message = await asyncio.to_thread(

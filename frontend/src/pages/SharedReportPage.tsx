@@ -278,6 +278,41 @@ export default function SharedReportPage() {
           </section>
         )}
 
+        {(analysis.regguard_stamp?.grade || analysis.stamp_grade) && (
+          <section
+            className={`rounded-xl border p-5 space-y-2 ${
+              (analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'FAIL'
+                ? 'border-red-500/40 bg-red-500/10'
+                : (analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'CAUTION'
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-emerald-500/40 bg-emerald-500/10'
+            }`}
+          >
+            <p className="text-xs font-bold uppercase tracking-wide text-gray-300">RegGuard stamp</p>
+            <p className="text-3xl font-black tracking-tight">
+              {analysis.regguard_stamp?.label || `REGGUARD STAMP: ${analysis.stamp_grade}`}
+            </p>
+            {analysis.regguard_stamp?.headline ? (
+              <p className="text-sm text-gray-200">{analysis.regguard_stamp.headline}</p>
+            ) : null}
+            {analysis.regguard_stamp?.is_stale && analysis.regguard_stamp?.stale_reason ? (
+              <p className="text-xs text-amber-100 border border-amber-400/40 rounded-lg p-2">
+                STALE — {analysis.regguard_stamp.stale_reason}
+              </p>
+            ) : null}
+            <ul className="space-y-1">
+              {(analysis.regguard_stamp?.drivers || []).slice(0, 3).map((d) => (
+                <li key={d.label} className="text-sm text-gray-300">
+                  <span className="font-semibold text-white">[{d.severity}]</span> {d.label}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-gray-500">
+              Valid until {analysis.regguard_stamp?.valid_until || analysis.stamp_valid_until || '—'}
+            </p>
+          </section>
+        )}
+
         {clocks.length > 0 && (
           <section className="space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-5">
             <h2 className="text-xl font-bold">Parallel clocks</h2>

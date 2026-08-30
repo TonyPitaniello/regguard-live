@@ -172,6 +172,14 @@ def generate_bid_packet_pdf(
     analysis_data = _ensure_arbitrage(analysis_data)
 
     try:
+        from regguard_stamp import apply_regguard_stamp
+
+        if not (analysis_data.get("regguard_stamp") or {}).get("grade"):
+            analysis_data = apply_regguard_stamp(analysis_data)
+    except Exception:
+        pass
+
+    try:
         from punch_rank import strip_md_bold
     except Exception:
         def strip_md_bold(t: str) -> str:  # type: ignore
@@ -247,6 +255,24 @@ def generate_bid_packet_pdf(
             f"{'citeable' if lp.get('citeable') else 'planning aid — confirm with AHJ'}",
             8,
         )
+    rg = analysis_data.get("regguard_stamp") or {}
+    grade = str(rg.get("grade") or analysis_data.get("stamp_grade") or "").upper()
+    if grade in ("PASS", "CAUTION", "FAIL"):
+        pdf.ln(1)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 14)
+        if grade == "PASS":
+            pdf.set_text_color(*EMERALD_SOFT)
+        elif grade == "CAUTION":
+            pdf.set_text_color(251, 191, 36)
+        else:
+            pdf.set_text_color(239, 68, 68)
+        stale = " (STALE)" if rg.get("is_stale") else ""
+        pdf.cell(CONTENT_W, 7, _ascii(f"REGGUARD STAMP: {grade}{stale}"), ln=1)
+        if rg.get("headline"):
+            _muted(pdf, str(rg.get("headline"))[:160], 8)
+        if rg.get("valid_until"):
+            _muted(pdf, f"Valid until {rg.get('valid_until')}  |  fp {rg.get('fingerprint') or ''}", 7)
     pdf.ln(1)
 
     # --- Site line ---

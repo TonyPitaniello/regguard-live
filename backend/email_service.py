@@ -992,6 +992,10 @@ class ResendEmailService(EmailService):
             Reg Guard detected an update to fees / gotchas / portal intel for
             <strong>{city} {state} {z}</strong> on a site in your Saved Jobs.
           </p>
+          <p style="background:#fef3c7;border:1px solid #f59e0b;padding:10px 12px;border-radius:8px;font-size:13px;color:#92400e">
+            {(change or {}).get("stamp_notice")
+              or f"Any RegGuard stamp for ZIP {z} is outdated — re-run for a fresh PASS/CAUTION/FAIL before bid or LOI."}
+          </p>
           <p style="color:#333;font-size:13px">
             Source: {after.get('source') or 'pack'} ·
             Fees tracked: {after.get('fee_count', 0)} ·
@@ -1002,7 +1006,7 @@ class ResendEmailService(EmailService):
           <p style="margin:20px 0">
             <a href="{app_url}/jobs"
                style="background:#059669;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700">
-              Re-check Saved Jobs
+              Re-run for a fresh stamp
             </a>
           </p>
           <p style="color:#888;font-size:12px">Planning aid — confirm on the official AHJ schedule before bid.</p>
@@ -1012,7 +1016,7 @@ class ResendEmailService(EmailService):
             response = self.resend.Emails.send({
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
-                "subject": f"Reg Guard — local change on ZIP {z}",
+                "subject": f"Reg Guard — stamp outdated for ZIP {z}",
                 "html": html,
             })
             return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))

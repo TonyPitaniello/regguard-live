@@ -380,6 +380,26 @@ export interface AnalysisData {
     change_count?: number;
     changes?: string[];
   };
+  regguard_stamp?: {
+    grade?: string;
+    label?: string;
+    headline?: string;
+    drivers?: Array<{
+      severity?: string;
+      label?: string;
+      detail?: string;
+      source_url?: string;
+    }>;
+    fingerprint?: string;
+    stamped_at?: string;
+    valid_until?: string;
+    is_stale?: boolean;
+    stale_reason?: string;
+    disclaimer?: string;
+  };
+  stamp_grade?: string;
+  stamp_label?: string;
+  stamp_valid_until?: string;
 }
 
 function criticalPathTask(item: CriticalPathItem): string {
@@ -551,9 +571,20 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   );
   const cov = resolveCoverage(analysis);
   const link = reportShareUrl(analysis, researchId);
+  const stamp = analysis.regguard_stamp;
+  const stampGrade = (stamp?.grade || analysis.stamp_grade || '').toUpperCase();
+  const stampLine =
+    stampGrade && ['PASS', 'CAUTION', 'FAIL'].includes(stampGrade)
+      ? stamp?.is_stale
+        ? `RegGuard stamp: ${stampGrade} (STALE — re-run before bid)`
+        : `RegGuard stamp: ${stampGrade}${
+            stamp?.valid_until ? ` · valid until ${stamp.valid_until.slice(0, 10)}` : ''
+          }`
+      : '';
 
   return [
     `FLAGGED BEFORE BID — ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    stampLine,
     `Coverage: ${cov.badge}`,
     `AHJ: ${ahj}`,
     bandLine,
@@ -1184,6 +1215,46 @@ export default function ResultsViewerModal({
               <Share2 className="w-3.5 h-3.5" />
               Share Bid Risk Receipt
             </p>
+            {(view.regguard_stamp?.grade || view.stamp_grade) && (
+              <div
+                className={`mb-3 rounded-lg border p-3 ${
+                  (view.regguard_stamp?.grade || view.stamp_grade) === 'FAIL'
+                    ? 'border-red-500/50 bg-red-500/10'
+                    : (view.regguard_stamp?.grade || view.stamp_grade) === 'CAUTION'
+                      ? 'border-amber-500/50 bg-amber-500/10'
+                      : 'border-emerald-500/50 bg-emerald-500/10'
+                }`}
+              >
+                <p className="text-lg font-black text-white tracking-tight">
+                  {view.regguard_stamp?.label || `REGGUARD STAMP: ${view.stamp_grade}`}
+                </p>
+                {view.regguard_stamp?.headline ? (
+                  <p className="text-sm text-gray-200 mt-1">{view.regguard_stamp.headline}</p>
+                ) : null}
+                {view.regguard_stamp?.is_stale && view.regguard_stamp?.stale_reason ? (
+                  <p className="text-xs text-amber-100 mt-2 border border-amber-400/40 rounded p-2">
+                    STALE — {view.regguard_stamp.stale_reason}
+                  </p>
+                ) : null}
+                <ul className="mt-2 space-y-1">
+                  {(view.regguard_stamp?.drivers || []).slice(0, 3).map((d) => (
+                    <li key={d.label} className="text-xs text-gray-300">
+                      <span className="font-semibold text-white">[{d.severity}]</span> {d.label}
+                      {d.detail ? ` — ${d.detail}` : ''}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[11px] text-gray-500 mt-2">
+                  Valid until {view.regguard_stamp?.valid_until || view.stamp_valid_until || '—'}
+                  {view.regguard_stamp?.fingerprint
+                    ? ` · fp ${view.regguard_stamp.fingerprint}`
+                    : ''}
+                </p>
+                {view.regguard_stamp?.disclaimer ? (
+                  <p className="text-[11px] text-gray-500 mt-1">{view.regguard_stamp.disclaimer}</p>
+                ) : null}
+              </div>
+            )}
             <p className="text-xs text-gray-400 mb-2">
               WhatsApp opens with the receipt text. Facebook/Instagram copy the caption — paste into your post.
               Link: <span className="text-emerald-300 break-all">{shareLink}</span>

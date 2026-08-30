@@ -414,7 +414,55 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 5, "STAMP", ln=1)
+    pdf.cell(CONTENT_W, 5, "REGGUARD STAMP", ln=1)
+
+    rg = data.get("regguard_stamp") or {}
+    grade = str(rg.get("grade") or data.get("stamp_grade") or "").upper()
+    if grade in ("PASS", "CAUTION", "FAIL"):
+        if grade == "PASS":
+            pdf.set_text_color(*EMERALD_SOFT)
+        elif grade == "CAUTION":
+            pdf.set_text_color(*AMBER_SOFT)
+        else:
+            pdf.set_text_color(239, 68, 68)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 22)
+        pdf.cell(CONTENT_W, 10, _ascii(f"{grade}"), ln=1)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*DIM)
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(str(rg.get("headline") or "")[:200]))
+        for d in (rg.get("drivers") or [])[:3]:
+            if not isinstance(d, dict):
+                continue
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 7)
+            pdf.set_text_color(*WHITE)
+            pdf.multi_cell(
+                CONTENT_W,
+                3.2,
+                _ascii(f"- [{d.get('severity')}] {d.get('label')}"),
+            )
+            if d.get("detail"):
+                pdf.set_x(MARGIN)
+                pdf.set_font("Helvetica", "", 7)
+                pdf.set_text_color(*DIM)
+                pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"  {d.get('detail')}")[:180])
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.2,
+            _ascii(
+                f"Valid until: {rg.get('valid_until') or ''}  |  fp {rg.get('fingerprint') or ''}"
+            ),
+        )
+        if rg.get("is_stale") and rg.get("stale_reason"):
+            pdf.set_x(MARGIN)
+            pdf.set_text_color(*AMBER)
+            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"STALE: {rg.get('stale_reason')}"))
+
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*WHITE)
@@ -432,6 +480,8 @@ def generate_bid_risk_receipt_pdf(
     radar = data.get("moratorium_radar") or {}
     if radar.get("is_stale") and radar.get("stale_banner"):
         stamp_lines.append(str(radar.get("stale_banner"))[:180])
+    if rg.get("disclaimer"):
+        stamp_lines.append(str(rg.get("disclaimer"))[:220])
     pdf.multi_cell(
         CONTENT_W,
         4,

@@ -735,6 +735,16 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         out = apply_coverage_honesty(out, pack=pack)
     except Exception as e:
         logger.warning("coverage honesty apply failed: %s", e)
+    try:
+        from regguard_stamp import apply_regguard_stamp
+
+        out = apply_regguard_stamp(out)
+        snap = out.get("arbitrage_snapshot")
+        if isinstance(snap, dict):
+            snap["stamp_grade"] = (out.get("regguard_stamp") or {}).get("grade")
+            snap["stamp_fingerprint"] = (out.get("regguard_stamp") or {}).get("fingerprint")
+    except Exception as e:
+        logger.warning("RegGuard stamp v2 failed: %s", e)
     return out
 
 
