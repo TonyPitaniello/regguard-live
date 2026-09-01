@@ -27,6 +27,7 @@ import PremiumCheckoutPage from './pages/PremiumCheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import TermsOfServicePage from './pages/TermsOfServicePage';
+import SmsOptInPage from './pages/SmsOptInPage';
 import AffiliatePage from './pages/AffiliatePage';
 import PartnerMandatePage from './pages/PartnerMandatePage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
@@ -116,6 +117,8 @@ export function AppRouter() {
           <Route path="/how-it-works" element={<MethodologyPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/sms-opt-in" element={<SmsOptInPage />} />
+          <Route path="/sms" element={<SmsOptInPage />} />
 
           {/* Free Trial */}
           <Route path="/free-trial" element={<FreeTrialPage />} />

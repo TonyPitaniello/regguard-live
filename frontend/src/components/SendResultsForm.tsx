@@ -127,6 +127,7 @@ export default function SendResultsForm({
   const [emailSuccess, setEmailSuccess] = useState('');
   const [error, setError] = useState('');
   const [showSmsNativeFallback, setShowSmsNativeFallback] = useState(false);
+  const [smsConsent, setSmsConsent] = useState(false); // unchecked by default (A2P 30925)
 
   // Keep defaults in sync when voice fill lands after mount
   useEffect(() => {
@@ -182,6 +183,10 @@ export default function SendResultsForm({
     setShowSmsNativeFallback(false);
     if (!phone || !validatePhone(phone)) {
       setError('Enter a valid US mobile number (10 digits, or 1 + 10 digits).');
+      return;
+    }
+    if (!smsConsent) {
+      setError('Check the SMS consent box before tapping Text me.');
       return;
     }
     setLoadingSms(true);
@@ -361,25 +366,56 @@ export default function SendResultsForm({
           <button
             type="button"
             onClick={handleSendSms}
-            disabled={loadingSms}
+            disabled={loadingSms || !smsConsent}
             className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap text-base"
           >
             {loadingSms ? <Loader className="w-5 h-5 animate-spin" /> : <Phone className="w-5 h-5" />}
             Text me
           </button>
         </div>
-        <p className="text-xs text-gray-400 leading-relaxed">
-          By tapping Text me, you agree to receive transactional SMS from RegGuard / Pitaniello Perkins
-          LLC about this research request. Message frequency varies. Message and data rates may apply.
-          Reply STOP to opt out; HELP for help. Consent is not a condition of purchase. We do not share
-          mobile numbers or messaging consent with third parties or affiliates for marketing.{' '}
+        <label className="flex items-start gap-3 text-xs text-gray-300 cursor-pointer leading-relaxed">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 shrink-0"
+            checked={smsConsent}
+            onChange={(e) => setSmsConsent(e.target.checked)}
+          />
+          <span>
+            I agree to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about this
+            research request, Bid Risk Receipt or share links, and related order/PDF notices (and
+            ZIP-watch alerts if I enable them). Message frequency varies. Message and data rates may
+            apply. Reply STOP to opt out; HELP for help. Consent is not a condition of purchase. We do
+            not share mobile numbers or messaging consent with third parties or affiliates for
+            marketing.{' '}
+            <a
+              href="https://app.regguardagent.com/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-300 underline"
+            >
+              Privacy Policy
+            </a>
+            {' · '}
+            <a
+              href="https://app.regguardagent.com/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-300 underline"
+            >
+              Terms of Service
+            </a>
+            .
+          </span>
+        </label>
+        <p className="text-xs text-gray-500 leading-relaxed">
+          Public opt-in evidence for carriers:{' '}
           <a
-            href="https://app.regguardagent.com/privacy"
+            href="https://app.regguardagent.com/sms-opt-in"
             target="_blank"
             rel="noopener noreferrer"
             className="text-emerald-300 underline"
           >
-            Privacy Policy
+            app.regguardagent.com/sms-opt-in
           </a>
           .
         </p>
