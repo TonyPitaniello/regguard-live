@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sign up without SMS — RegGuard / Pitaniello Perkins LLC</title>
+  <meta name="description" content="RegGuard account and free lookup use email only. SMS is optional and never required to sign up or use the service." />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #111; }
+    .ok { border: 2px solid #059669; background: #ecfdf5; padding: 1rem; border-radius: 12px; }
+    .sms { border: 2px dashed #94a3b8; background: #f8fafc; padding: 1rem; border-radius: 12px; margin-top: 1.25rem; }
+    input, button { display: block; width: 100%; margin: 0.4rem 0 0.75rem; padding: 0.65rem; box-sizing: border-box; }
+    label.row { display: flex; gap: 0.5rem; align-items: flex-start; width: auto; }
+    label.row input { width: auto; margin: 0.2rem 0 0; }
+    a { color: #1d4ed8; }
+  </style>
+</head>
+<body>
+  <h1>RegGuard signup / free lookup — NO SMS required</h1>
+  <p>
+    Brand: <strong>RegGuard / Pitaniello Perkins LLC</strong> ·
+    <a href="https://app.regguardagent.com/">app.regguardagent.com</a> ·
+    Support: <a href="mailto:support@regguardagent.com">support@regguardagent.com</a>
+  </p>
+
+  <div class="ok">
+    <h2>Form A — Use the service (email only)</h2>
+    <p>This is how users sign up or start a free lookup. <strong>There is no SMS checkbox and no phone field.</strong></p>
+    <label>Email *</label>
+    <input type="email" placeholder="you@company.com" />
+    <label>Company (paid signup only)</label>
+    <input type="text" placeholder="Your company" />
+    <button type="button">Continue / Run lookup</button>
+    <p style="font-size:13px;color:#334155;margin:0">
+      By continuing you agree to the
+      <a href="https://app.regguardagent.com/terms">Terms</a> and
+      <a href="https://app.regguardagent.com/privacy">Privacy Policy</a>.
+      SMS is not part of this agreement.
+    </p>
+  </div>
+
+  <div class="sms">
+    <h2>Form B — Optional SMS (separate, later)</h2>
+    <p>Only after Results. Users may skip this entirely and still get email + the web report.</p>
+    <label>Mobile (optional)</label>
+    <input type="tel" placeholder="(555) 123-4567" />
+    <label class="row">
+      <input type="checkbox" />
+      <span>
+        Optional separate consent: I agree to transactional SMS from RegGuard. Message frequency varies.
+        Message and data rates may apply. STOP / HELP. Not required to use RegGuard.
+        <a href="https://app.regguardagent.com/privacy">Privacy</a> ·
+        <a href="https://app.regguardagent.com/terms">Terms</a>.
+      </span>
+    </label>
+    <button type="button">Text me (optional)</button>
+  </div>
+
+  <p>
+    Full packet: <a href="https://app.regguardagent.com/a2p-evidence">/a2p-evidence</a> ·
+    Optional SMS UI: <a href="https://app.regguardagent.com/sms-opt-in">/sms-opt-in</a>
+  </p>
+</body>
+</html>

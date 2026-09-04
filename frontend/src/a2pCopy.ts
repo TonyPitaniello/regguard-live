@@ -12,18 +12,20 @@ export const A2P_EVIDENCE = 'https://app.regguardagent.com/a2p-evidence';
 export const A2P_CAMPAIGN_DESCRIPTION =
   'Optional transactional SMS from RegGuard / Pitaniello Perkins LLC: Bid Risk Receipt links, diligence summaries, order/PDF notices, and ZIP-watch alerts. Users can run lookups and get email results without ever opting into SMS. Not marketing.';
 
-export const A2P_MESSAGE_FLOW = `SMS is OPTIONAL. End users can sign up, run a free or paid site lookup, and receive results by email without providing a mobile number or agreeing to SMS. Consent to SMS is never a condition of creating an account or using RegGuard.
+export const A2P_MESSAGE_FLOW = `SMS is OPTIONAL and is NEVER required to sign up or use RegGuard.
 
-Optional SMS opt-in happens only after a lookup, on a separate Text results panel (not on the signup form):
+PROOF — email-only signup / free lookup (no phone, no SMS checkbox): https://app.regguardagent.com/signup-without-sms and the live home form at https://app.regguardagent.com/ (email only). Paid signup at /signup is email + password + company only.
 
-(1) User visits https://app.regguardagent.com/ and completes a site lookup (email-only is fine; phone on the home form is labeled optional and does not enroll them in SMS).
-(2) On Results they may optionally open Text results (SMS). They enter a US mobile number, check a separate unchecked-by-default consent box, and tap Text me. Leaving that box unchecked or skipping Text me still lets them use email delivery and the full web report.
-(3) The same optional consent UI is public with no login at https://app.regguardagent.com/sms-opt-in and https://app.regguardagent.com/a2p-evidence.
+Optional SMS is a SEPARATE step after Results:
+(1) User finishes a lookup without SMS.
+(2) On Results they may open Text results OR skip it and use Email me / the web report.
+(3) If they want texts, they enter a mobile number, check a SEPARATE unchecked-by-default SMS consent checkbox, and tap Text me. Leaving the box unchecked does not block the service.
+(4) Same optional UI: https://app.regguardagent.com/sms-opt-in · full packet: https://app.regguardagent.com/a2p-evidence
 
-If they opt in, they receive transactional SMS from RegGuard / Pitaniello Perkins LLC (research results, Bid Risk Receipt / share links, order/PDF notices, and ZIP-watch alerts only if enabled). Message frequency varies. Message and data rates may apply. Reply STOP to cancel; HELP for help. We do not share, sell, or provide mobile numbers or messaging consent to third parties or affiliates for marketing.
+Opted-in users get transactional SMS from RegGuard / Pitaniello Perkins LLC (receipts, order/PDF notices, ZIP-watch if enabled). Message frequency varies. Message and data rates may apply. STOP / HELP. We do not share mobile numbers or messaging consent for marketing.
 
-Privacy Policy: https://app.regguardagent.com/privacy
-Terms of Service: https://app.regguardagent.com/terms`;
+Privacy: https://app.regguardagent.com/privacy
+Terms: https://app.regguardagent.com/terms`;
 
 export const A2P_SAMPLE_1 =
   'RegGuard: Your Bid Risk Receipt for Midlothian, TX 76065 is ready. Open: https://app.regguardagent.com/r/example Reply STOP to cancel, HELP for help.';

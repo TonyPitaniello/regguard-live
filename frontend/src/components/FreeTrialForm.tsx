@@ -636,58 +636,35 @@ export default function FreeTrialForm({
             )}
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="home-email" className="block text-white font-bold mb-2">
-                Email *
-              </label>
-              <input
-                id="home-email"
-                type="email"
-                name="rg_site_email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, email: e.target.value }))
-                }
-                onFocus={unlockFields}
-                placeholder="Email"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                readOnly={!fieldsUnlocked}
-                data-lpignore="true"
-                data-1p-ignore="true"
-                data-form-type="other"
-                className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
-                disabled={loading}
-              />
-            </div>
-            <div>
-              <label htmlFor="home-phone" className="block text-white font-bold mb-2">
-                Phone <span className="text-gray-400 font-normal">(optional — not SMS signup)</span>
-              </label>
-              <input
-                id="home-phone"
-                type="tel"
-                name="rg_site_phone"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, phone: e.target.value }))
-                }
-                onFocus={unlockFields}
-                placeholder="Phone"
-                autoComplete="off"
-                autoCorrect="off"
-                spellCheck={false}
-                readOnly={!fieldsUnlocked}
-                data-lpignore="true"
-                data-1p-ignore="true"
-                data-form-type="other"
-                className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
-                disabled={loading}
-              />
-            </div>
+          <div>
+            <label htmlFor="home-email" className="block text-white font-bold mb-2">
+              Email *
+            </label>
+            <input
+              id="home-email"
+              type="email"
+              name="rg_site_email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, email: e.target.value }))
+              }
+              onFocus={unlockFields}
+              placeholder="Email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              readOnly={!fieldsUnlocked}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
+              className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-400 mt-2">
+              Email only to run a lookup. SMS is never required — optional texting is a separate step on
+              Results after you finish.
+            </p>
           </div>
 
           {voiceHint && (

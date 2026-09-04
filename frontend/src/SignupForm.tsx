@@ -181,8 +181,8 @@ export function SignupForm({ onSuccess }: SignupFormProps) {
           </button>
 
           <p className="rg-signup-terms">
-            By continuing, you agree to our Terms of Service and Privacy Policy.
-            Your first 14 days are free.
+            By continuing, you agree to our Terms of Service and Privacy Policy. SMS is not required —
+            texting is an optional separate step later. Your first 14 days are free.
           </p>
         </form>
       </div>

@@ -18,7 +18,7 @@ export default function SmsOptInPage() {
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!consented) {
-      setNote('Check the consent box to continue (required).');
+      setNote('SMS consent is only needed to send a text. Leave it unchecked to skip SMS — RegGuard still works via email.');
       return;
     }
     const digits = phone.replace(/\D/g, '');

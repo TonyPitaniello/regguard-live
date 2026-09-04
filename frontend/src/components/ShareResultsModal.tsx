@@ -34,6 +34,7 @@ export const ShareResultsModal: React.FC<ShareResultsModalProps> = ({
 }) => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [smsConsent, setSmsConsent] = useState(false); // unchecked by default — SMS never required to use RegGuard
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<ValidationError>({});
   const [success, setSuccess] = useState(false);
@@ -69,11 +70,17 @@ export const ShareResultsModal: React.FC<ShareResultsModalProps> = ({
 
   const handleSendSMS = async () => {
     if (!phone) {
-      setErrors({ phone: 'Phone number is required' });
+      setErrors({ phone: 'Phone number is required only if you choose SMS — or switch to Email' });
       return;
     }
     if (!validatePhone(phone)) {
       setErrors({ phone: 'Please enter a valid US phone number (10 digits)' });
+      return;
+    }
+    if (!smsConsent) {
+      setErrors({
+        phone: 'Check the optional SMS consent box, or switch to Email (SMS is never required).',
+      });
       return;
     }
 
@@ -240,22 +247,29 @@ export const ShareResultsModal: React.FC<ShareResultsModalProps> = ({
                   {errors.phone}
                 </p>
               )}
-              <p className="mt-3 text-xs text-gray-600 leading-relaxed">
-                By entering your number and tapping Send, you agree to receive transactional SMS from
-                RegGuard / Pitaniello Perkins LLC about this research request. Message frequency varies.
-                Message and data rates may apply. Reply STOP to opt out; HELP for help. Consent is not a
-                condition of purchase. We do not share mobile numbers or messaging consent with third
-                parties or affiliates for marketing.{' '}
-                <a
-                  href="https://app.regguardagent.com/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-indigo-600 underline"
-                >
-                  Privacy Policy
-                </a>
-                .
-              </p>
+              <label className="mt-3 flex items-start gap-2 text-xs text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  checked={smsConsent}
+                  onChange={(e) => setSmsConsent(e.target.checked)}
+                />
+                <span>
+                  Optional: I agree to receive transactional SMS from RegGuard / Pitaniello Perkins LLC
+                  about this research request. Message frequency varies. Message and data rates may apply.
+                  Reply STOP to opt out; HELP for help. Consent is not required to use RegGuard — switch to
+                  Email above to continue without texts. We do not share mobile numbers for marketing.{' '}
+                  <a
+                    href="https://app.regguardagent.com/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 underline"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
             </div>
           )}
 
