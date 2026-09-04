@@ -114,7 +114,7 @@ export default function PrivacyPolicyPage() {
                 <strong className="text-white">HELP</strong> for help.
               </li>
               <li>Carriers are not liable for delayed or undelivered messages.</li>
-              <li>Consent to receive SMS is not a condition of purchasing RegGuard services.</li>
+              <li>Consent to receive SMS is not a condition of purchasing RegGuard services or of using the free lookup — email and the web report always work without SMS.</li>
             </ul>
             <p className="font-semibold text-white">
               We do not share, sell, or provide your mobile phone number or messaging consent data to

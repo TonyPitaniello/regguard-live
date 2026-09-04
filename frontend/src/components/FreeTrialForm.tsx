@@ -665,7 +665,7 @@ export default function FreeTrialForm({
             </div>
             <div>
               <label htmlFor="home-phone" className="block text-white font-bold mb-2">
-                Phone <span className="text-gray-400 font-normal">(optional)</span>
+                Phone <span className="text-gray-400 font-normal">(optional — not SMS signup)</span>
               </label>
               <input
                 id="home-phone"

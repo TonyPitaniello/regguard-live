@@ -50,13 +50,10 @@ export default function SmsOptInPage() {
             transactional account notifications (research results, Bid Risk Receipt / share links,
             order or PDF-ready notices, and optional ZIP-watch / Saved Job alerts the user enables).
           </p>
-          <p className="text-gray-400 text-sm mt-2">
-            This page mirrors the consent experience on Results after a lookup. No account or login is
-            required to review it. Full A2P packet for carriers:{' '}
-            <a className="text-emerald-300 underline" href="https://app.regguardagent.com/a2p-evidence">
-              app.regguardagent.com/a2p-evidence
-            </a>
-            .
+          <p className="text-amber-100/90 text-sm mt-2 border border-amber-500/30 rounded-lg p-3">
+            SMS is optional. You can use RegGuard and receive results by email without providing a
+            mobile number or checking this box. Consent to texts is never required to sign up or run
+            a lookup.
           </p>
         </div>
 

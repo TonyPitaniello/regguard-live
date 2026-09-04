@@ -317,9 +317,10 @@ export default function SendResultsForm({
         <h3 className="text-lg font-black text-white">Text or email these results</h3>
       </div>
       <p className="text-sm text-gray-300">
-        Email includes the full punch list + sources + a shareable link. Texts send a short
-        plain-text summary with the same link. &ldquo;Sent&rdquo; means Twilio accepted the
-        message — not that your phone already got it.
+        Email works without SMS. Texting is optional — leave the phone blank and skip the SMS box if
+        you only want email or the web report. Email includes the full punch list + sources + a
+        shareable link. Texts send a short plain-text summary with the same link. &ldquo;Sent&rdquo;
+        means Twilio accepted the message — not that your phone already got it.
       </p>
 
       {error && (
