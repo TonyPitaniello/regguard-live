@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A2P Messaging Evidence — RegGuard / Pitaniello Perkins LLC</title>
+  <meta name="description" content="Public Twilio / TCR evidence: business identity, SMS use case, opt-in flow, Privacy and Terms for RegGuard transactional SMS." />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #111; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.15rem; margin-top: 1.5rem; }
+    .box { border: 2px solid #059669; border-radius: 12px; padding: 1rem; margin: 1rem 0; background: #f0fdf4; }
+    label { display: flex; gap: 0.6rem; align-items: flex-start; margin: 0.75rem 0; }
+    input[type="tel"] { width: 100%; padding: 0.65rem; margin: 0.35rem 0 0.75rem; }
+    a { color: #1d4ed8; }
+    .meta { color: #555; font-size: 0.9rem; }
+    code { background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>RegGuard A2P / SMS evidence (public)</h1>
+  <p class="meta">
+    Legal entity: <strong>Pitaniello Perkins LLC</strong> · Brand: <strong>RegGuard</strong> ·
+    Product site: <a href="https://app.regguardagent.com/">https://app.regguardagent.com/</a> ·
+    Support: <a href="mailto:support@regguardagent.com">support@regguardagent.com</a>
+  </p>
+
+  <h2>1. Business &amp; messaging use case</h2>
+  <p>
+    RegGuard is a contractor pre-bid diligence product. Users look up a job site and receive Bid Risk Receipts,
+    research summaries, order/PDF-ready notices, and optional Saved Job / ZIP-watch alerts.
+    SMS is <strong>transactional / account notification only</strong> — not marketing, coupons, or promotional blasts.
+  </p>
+
+  <h2>2. How end users consent (Call to Action)</h2>
+  <ol>
+    <li>User visits <a href="https://app.regguardagent.com/">https://app.regguardagent.com/</a> and runs a site lookup.</li>
+    <li>On Results, they open <strong>Text results (SMS)</strong>.</li>
+    <li>They enter a US mobile number.</li>
+    <li>They check an <strong>unchecked-by-default</strong> consent box (active opt-in).</li>
+    <li>They tap <strong>Text me</strong>.</li>
+  </ol>
+  <p>
+    The same consent UI is shown below and at
+    <a href="https://app.regguardagent.com/sms-opt-in">https://app.regguardagent.com/sms-opt-in</a>
+    with <strong>no login required</strong>.
+  </p>
+
+  <div class="box">
+    <p><strong>Consent form (unchecked by default)</strong></p>
+    <label for="phone">Mobile number</label>
+    <input id="phone" type="tel" placeholder="(555) 123-4567" autocomplete="tel" />
+    <label>
+      <input type="checkbox" id="consent" />
+      <span>
+        I agree to receive transactional text messages from RegGuard / Pitaniello Perkins LLC about my
+        research request, Bid Risk Receipt or shareable report links, related order or PDF-ready notices,
+        and (if I enable them) Saved Job / ZIP-watch alerts. Message frequency varies. Message and data
+        rates may apply. Reply STOP to opt out; HELP for help. Consent is not a condition of purchase.
+        We do not share, sell, or provide mobile numbers or messaging consent to third parties or
+        affiliates for marketing.
+        <a href="https://app.regguardagent.com/privacy">Privacy Policy</a> ·
+        <a href="https://app.regguardagent.com/terms">Terms of Service</a>.
+      </span>
+    </label>
+    <button type="button">Text me</button>
+    <p class="meta">This evidence page does not send SMS. Live sends happen only from Results after consent.</p>
+  </div>
+
+  <h2>3. Required disclosures</h2>
+  <ul>
+    <li>Message frequency varies.</li>
+    <li>Message and data rates may apply.</li>
+    <li>Reply STOP to cancel; HELP for help.</li>
+    <li>Mobile numbers / messaging consent are not shared with third parties or affiliates for marketing.</li>
+  </ul>
+
+  <h2>4. Legal URLs (use these in Twilio — not the apex domain)</h2>
+  <ul>
+    <li>Website: <a href="https://app.regguardagent.com/">https://app.regguardagent.com/</a></li>
+    <li>Privacy: <a href="https://app.regguardagent.com/privacy">https://app.regguardagent.com/privacy</a></li>
+    <li>Terms: <a href="https://app.regguardagent.com/terms">https://app.regguardagent.com/terms</a></li>
+    <li>SMS opt-in: <a href="https://app.regguardagent.com/sms-opt-in">https://app.regguardagent.com/sms-opt-in</a></li>
+    <li>This evidence page: <a href="https://app.regguardagent.com/a2p-evidence">https://app.regguardagent.com/a2p-evidence</a></li>
+  </ul>
+  <p class="meta">
+    Do not use <code>https://regguardagent.com</code> (Squarespace coming-soon page) in the Twilio form.
+  </p>
+
+  <h2>5. Example transactional messages</h2>
+  <p><code>RegGuard: Your Bid Risk Receipt for Midlothian, TX 76065 is ready. Open: https://app.regguardagent.com/r/example Reply STOP to cancel, HELP for help.</code></p>
+  <p><code>RegGuard: Local diligence changed for ZIP 75074. Re-run: https://app.regguardagent.com/jobs Msg &amp; data rates may apply. Reply STOP to cancel.</code></p>
+</body>
+</html>

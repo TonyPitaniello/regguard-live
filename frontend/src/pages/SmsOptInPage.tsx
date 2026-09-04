@@ -52,7 +52,11 @@ export default function SmsOptInPage() {
           </p>
           <p className="text-gray-400 text-sm mt-2">
             This page mirrors the consent experience on Results after a lookup. No account or login is
-            required to review it.
+            required to review it. Full A2P packet for carriers:{' '}
+            <a className="text-emerald-300 underline" href="https://app.regguardagent.com/a2p-evidence">
+              app.regguardagent.com/a2p-evidence
+            </a>
+            .
           </p>
         </div>
 

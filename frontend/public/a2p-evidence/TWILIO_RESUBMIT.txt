@@ -1,0 +1,46 @@
+TWILIO A2P RESUBMIT — RegGuard / Pitaniello Perkins LLC
+=======================================================
+Edit the FAILED campaign (do not delete). Use ONLY app.regguardagent.com URLs.
+Never use https://regguardagent.com (Squarespace coming soon).
+
+Brand website:
+https://app.regguardagent.com/
+
+Privacy policy URL:
+https://app.regguardagent.com/privacy
+
+Terms and conditions URL:
+https://app.regguardagent.com/terms
+
+Public CTA evidence (for reviewers):
+https://app.regguardagent.com/sms-opt-in
+https://app.regguardagent.com/a2p-evidence
+
+--- Campaign description ---
+Transactional SMS from RegGuard / Pitaniello Perkins LLC: Bid Risk Receipt links, site diligence summaries, order/PDF-ready notices, and optional ZIP-watch alerts for contractors who opt in on our website. Not marketing.
+
+--- Call to Action / message_flow (paste ALL of this) ---
+End users opt in on the RegGuard website operated by Pitaniello Perkins LLC at https://app.regguardagent.com/.
+
+How consent is collected: (1) User completes a site lookup, then on Results opens Text results (SMS), enters a US mobile number, checks an unchecked-by-default consent box agreeing to receive transactional SMS from RegGuard / Pitaniello Perkins LLC (research results, Bid Risk Receipt / shareable report links, related order or PDF-ready notices, and Saved Job / ZIP-watch alerts only if the user enables them), then taps Text me. (2) The identical consent UI is publicly viewable with no login at https://app.regguardagent.com/sms-opt-in and summarized for reviewers at https://app.regguardagent.com/a2p-evidence.
+
+Message frequency varies. Message and data rates may apply. Reply STOP to cancel; HELP for help. Consent to SMS is not a condition of purchasing RegGuard services. We do not share, sell, or provide mobile numbers or messaging consent to third parties or affiliates for marketing.
+
+Privacy Policy: https://app.regguardagent.com/privacy
+Terms of Service: https://app.regguardagent.com/terms
+
+--- Sample message #1 ---
+RegGuard: Your Bid Risk Receipt for Midlothian, TX 76065 is ready. Open: https://app.regguardagent.com/r/example Reply STOP to cancel, HELP for help.
+
+--- Sample message #2 ---
+RegGuard: Local diligence changed for ZIP 75074. Re-run for a fresh stamp: https://app.regguardagent.com/jobs Msg & data rates may apply. Reply STOP to cancel.
+
+--- Do NOT enable ---
+Keyword / text-to-JOIN opt-in (leave empty unless you actually offer it).
+
+--- Before Resubmit ---
+1. Wait for Vercel deploy of this commit.
+2. Incognito-check: /a2p-evidence, /sms-opt-in, /privacy, /terms (no login).
+3. Confirm SMS checkbox starts unchecked.
+4. Paste message_flow into CTA field (not only campaign description).
+5. Resubmit the same campaign CM0b929a33bdd266546b212ef9112440a8.

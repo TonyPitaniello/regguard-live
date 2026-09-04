@@ -3,7 +3,7 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/((?!assets/|icons/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-).*)",
+      "source": "/((?!assets/|icons/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|a2p-evidence(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-).*)",
       "destination": "/index.html"
     }
   ],
@@ -30,6 +30,18 @@
     },
     {
       "source": "/terms(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/sms-opt-in(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/a2p-evidence(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]

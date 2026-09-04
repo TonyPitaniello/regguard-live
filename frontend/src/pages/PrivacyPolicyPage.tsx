@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
-  const updated = 'August 27, 2026';
+  const updated = 'September 4, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -90,8 +90,13 @@ export default function PrivacyPolicyPage() {
           <section id="sms" className="space-y-3">
             <h2 className="text-2xl font-bold text-white">SMS / text messaging program</h2>
             <p>
-              If you provide a mobile number in the RegGuard web app and request SMS (for example, by
-              entering your number and clicking &quot;Text me&quot; after a site lookup), you consent to
+              If you provide a mobile number in the RegGuard web app, check the unchecked-by-default consent
+              box, and request SMS (for example, by entering your number and clicking &quot;Text me&quot;
+              after a site lookup — or via the public evidence page at{' '}
+              <a className="text-purple-300 underline" href="https://app.regguardagent.com/sms-opt-in">
+                app.regguardagent.com/sms-opt-in
+              </a>
+              ), you consent to
               receive transactional text messages from RegGuard / Pitaniello Perkins LLC about that
               research request, Bid Risk Receipt or shareable report links, related order or PDF-ready
               notices, and (if you enable them) Saved Job / ZIP-watch alerts.

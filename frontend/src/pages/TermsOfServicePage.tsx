@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function TermsOfServicePage() {
-  const updated = 'August 8, 2026';
+  const updated = 'September 4, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -57,10 +57,12 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-2xl font-bold text-white">SMS consent</h2>
             <p>
-              By submitting your mobile phone number and requesting text delivery in the RegGuard app, you
-              consent to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about your research
-              request, Bid Risk Receipt or share links, and related order/PDF status updates. Message
-              frequency varies. Message and data rates may apply. Reply{' '}
+              By submitting your mobile phone number, checking the unchecked-by-default SMS consent box,
+              and requesting text delivery in the RegGuard app (or the public opt-in evidence page), you
+              consent to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about your
+              research request, Bid Risk Receipt or share links, related order/PDF status updates, and
+              (if you enable them) Saved Job / ZIP-watch alerts. Message frequency varies. Message and
+              data rates may apply. Reply{' '}
               <strong className="text-white">STOP</strong> to opt out and{' '}
               <strong className="text-white">HELP</strong> for help. Consent to SMS is not a condition of
               purchasing RegGuard services where alternatives (such as email) are available. We do not share,
@@ -69,6 +71,10 @@ export default function TermsOfServicePage() {
               <Link className="text-purple-300 underline" to="/privacy">
                 Privacy Policy
               </Link>
+              . Public opt-in evidence:{' '}
+              <a className="text-purple-300 underline" href="https://app.regguardagent.com/sms-opt-in">
+                app.regguardagent.com/sms-opt-in
+              </a>
               .
             </p>
           </section>
