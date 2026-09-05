@@ -248,7 +248,12 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
         const el = new PlaceAutocompleteElement({
           includedRegionCodes: ["us"],
           requestedRegion: "us",
-        });
+          // Bias toward DFW beachhead — reduces Tyler/random US matches for TX streets
+          locationBias: {
+            center: { lat: 33.0198, lng: -96.6989 }, // Plano
+            radius: 120_000,
+          },
+        } as google.maps.places.PlaceAutocompleteElementOptions);
         el.placeholder = "Search street address (Google Places)…";
         el.classList.add("rg-address-autocomplete-widget");
         el.id = hostId;
