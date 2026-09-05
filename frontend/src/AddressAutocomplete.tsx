@@ -81,16 +81,44 @@ function extractStateFromPlaceComponents(
   return text.length >= 2 ? text.slice(0, 2).toUpperCase() : null;
 }
 
+function isWeakStreetLine(s: string): boolean {
+  const t = (s || "").trim();
+  if (!t) return true;
+  if (/^#?\d{1,6}[A-Za-z]?$/.test(t)) return true; // "#130" / "130"
+  if (/^(apt|apartment|unit|suite|ste|fl|floor|bldg|building)\b/i.test(t)) return true;
+  if (t.length < 5) return true;
+  return false;
+}
+
 function extractStreetFromPlaceComponents(
   components: google.maps.places.AddressComponent[],
   formatted: string,
 ): string {
   const num = components.find((c) => c.types.includes("street_number"))?.longText?.trim() || "";
   const route = components.find((c) => c.types.includes("route"))?.longText?.trim() || "";
-  const street = [num, route].filter(Boolean).join(" ").trim();
-  if (street) return street;
-  // Fallback: first comma segment of formatted address
-  return (formatted.split(",")[0] || formatted).trim();
+  const sub =
+    components.find((c) => c.types.includes("subpremise"))?.longText?.trim() || "";
+  const base = [num, route].filter(Boolean).join(" ").trim();
+  if (base) {
+    if (sub) {
+      const unit = sub.startsWith("#") ? sub : `#${sub}`;
+      return `${base} ${unit}`;
+    }
+    return base;
+  }
+  // Never use "#130" alone — walk formatted segments for a real street line
+  const parts = (formatted || "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const p of parts) {
+    if (isWeakStreetLine(p)) continue;
+    if (/^[A-Z]{2}$/i.test(p)) continue;
+    if (/^\d{5}(-\d{4})?$/.test(p)) continue;
+    if (/^(TX|Texas|USA|United States)$/i.test(p)) continue;
+    return p;
+  }
+  return (parts.find((p) => !isWeakStreetLine(p)) || parts[0] || formatted).trim();
 }
 
 function readPlaceLatLng(place: google.maps.places.Place): { lat?: number; lng?: number } {

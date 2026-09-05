@@ -16,7 +16,7 @@ import {
   VOICE_SUBMIT_EVENT,
   type VoiceFillDetail,
 } from '../voiceFillParse';
-import { preferUserLocality, zip5Of } from '../addressPrefer';
+import { preferUserLocality, zip5Of, cityForTxZip } from '../addressPrefer';
 import {
   clearIcRunId,
   clearLastResearchForm,
@@ -223,16 +223,44 @@ export default function FreeTrialForm({
     const data = formDataRef.current;
     setError('');
     setQuotaExceeded(false);
-    setLoading(true);
     setProgressStep('geocode');
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
       setError('Enter street, city, state, ZIP, and email.');
-      setLoading(false);
       return;
     }
 
-    const emailNorm = data.email.trim().toLowerCase();
+    const weakStreet =
+      /^#?\d{1,6}[A-Za-z]?$/.test(data.address.trim()) ||
+      data.address.trim().length < 5 ||
+      /^(apt|unit|suite|ste)\b/i.test(data.address.trim());
+    if (weakStreet) {
+      setError(
+        'Street looks incomplete (e.g. "#130"). Enter the full street — e.g. 1201 14th St — with Plano and ZIP 75074.'
+      );
+      return;
+    }
+
+    const z = zip5Of(data.zip);
+    const mapped = cityForTxZip(z);
+    if (mapped && data.city.trim().toLowerCase() !== mapped.toLowerCase()) {
+      const fix = window.confirm(
+        `ZIP ${z} is usually ${mapped}, but the form says ${data.city}.\n\n` +
+          `Use ${mapped}, TX ${z}?\n\nOK = fix to ${mapped}  ·  Cancel = stop and edit`
+      );
+      if (!fix) {
+        setError(`Fix city to ${mapped} (or correct the ZIP) before running.`);
+        return;
+      }
+      setFormData((prev) => ({ ...prev, city: mapped, state: 'TX', zip: z }));
+      formDataRef.current = { ...formDataRef.current, city: mapped, state: 'TX', zip: z };
+    }
+
+    setLoading(true);
+
+    // Re-read after any ZIP/city correction above
+    const fixed = formDataRef.current;
+    const emailNorm = fixed.email.trim().toLowerCase();
     sessionStorage.setItem('userEmail', emailNorm);
 
     // Paid users get deeper research — allow longer wait
@@ -273,40 +301,20 @@ export default function FreeTrialForm({
     const forceIc = Boolean(forceOnce && hasValidPendingIcReport() && paid && icReportPending);
     // Normalize so IC confirm never shows Dallas when ZIP is Plano 75074
     const siteNorm = preferUserLocality({
-      userStreet: data.address,
-      userCity: data.city,
-      userState: data.state,
-      userZip: data.zip,
+      userStreet: fixed.address,
+      userCity: fixed.city,
+      userState: fixed.state,
+      userZip: fixed.zip,
     });
-    if (
-      siteNorm.city !== data.city ||
-      siteNorm.zip !== zip5Of(data.zip) ||
-      siteNorm.state !== (data.state || '').toUpperCase().slice(0, 2)
-    ) {
-      setFormData((prev) => ({
-        ...prev,
-        address: siteNorm.street || prev.address,
-        city: siteNorm.city || prev.city,
-        state: siteNorm.state || prev.state,
-        zip: siteNorm.zip || prev.zip,
-      }));
-      formDataRef.current = {
-        ...formDataRef.current,
-        address: siteNorm.street || data.address,
-        city: siteNorm.city || data.city,
-        state: siteNorm.state || data.state,
-        zip: siteNorm.zip || data.zip,
-      };
-    }
-    const siteChip = `${siteNorm.street || data.address}, ${siteNorm.city || data.city}, ${
-      siteNorm.state || data.state
-    } ${siteNorm.zip || data.zip}`;
+    const siteChip = `${siteNorm.street || fixed.address}, ${siteNorm.city || fixed.city}, ${
+      siteNorm.state || fixed.state
+    } ${siteNorm.zip || fixed.zip}`;
     const dataForApi = {
-      ...data,
-      address: siteNorm.street || data.address,
-      city: siteNorm.city || data.city,
-      state: siteNorm.state || data.state,
-      zip: siteNorm.zip || data.zip,
+      ...fixed,
+      address: siteNorm.street || fixed.address,
+      city: siteNorm.city || fixed.city,
+      state: siteNorm.state || fixed.state,
+      zip: siteNorm.zip || fixed.zip,
     };
     if (paid && icReportPending) {
       if (forceIc) {

@@ -11,7 +11,32 @@ import {
   mapsAutocompleteEnabled,
   type AddressSelection,
 } from '../AddressAutocomplete';
-import { preferUserLocality, zip5Of } from '../addressPrefer';
+import { preferUserLocality, zip5Of, cityForTxZip } from '../addressPrefer';
+
+function isWeakStreetLine(s: string): boolean {
+  const t = (s || '').trim();
+  if (!t) return true;
+  if (/^#?\d{1,6}[A-Za-z]?$/.test(t)) return true;
+  if (/^(apt|apartment|unit|suite|ste|fl|floor|bldg|building)\b/i.test(t)) return true;
+  if (t.length < 5) return true;
+  return false;
+}
+
+/** Pull a usable street from a Places formatted line (skip unit-only first segment). */
+function streetFromFormatted(formatted: string): string {
+  const parts = (formatted || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  for (const p of parts) {
+    if (isWeakStreetLine(p)) continue;
+    if (/^[A-Z]{2}$/i.test(p)) continue;
+    if (/^\d{5}(-\d{4})?$/.test(p)) continue;
+    if (/^(TX|Texas|USA|United States)$/i.test(p)) continue;
+    return p;
+  }
+  return '';
+}
 
 interface LocationPickerProps {
   onLocationSelect: (
@@ -654,14 +679,46 @@ export function LocationPicker({
       setLocationConfirmed(false);
       return;
     }
-    const street = (sel.street || sel.formattedAddress.split(',')[0] || '').trim();
+    const formatted = (sel.formattedAddress || '').trim();
+    let street = (sel.street || '').trim();
+    if (isWeakStreetLine(street)) {
+      street = streetFromFormatted(formatted) || street;
+    }
     const nextCity = (sel.city || '').trim();
     const nextState = (sel.state || '').trim();
     const nextZip = (sel.zip || '').replace(/\D/g, '').slice(0, 5);
-    setAddress(street);
-    if (nextCity) setCity(nextCity);
-    if (nextState) setState(nextState);
-    if (nextZip) setZip(nextZip);
+
+    // Prefer already-typed locality (Plano / 75074) over a bad Places hit (Dallas / 75251)
+    const merged = preferUserLocality({
+      userStreet: address.trim().length >= 5 && !isWeakStreetLine(address) ? address : street,
+      userCity: city,
+      userState: state,
+      userZip: zip,
+      geoStreet: street,
+      geoCity: nextCity,
+      geoState: nextState,
+      geoZip: nextZip,
+    });
+
+    // ZIP table wins when Places city conflicts with known beachhead ZIP the user typed
+    const typedZip = zip5Of(zip);
+    if (typedZip.length === 5) {
+      const mapped = cityForTxZip(typedZip);
+      if (mapped) {
+        merged.city = mapped;
+        merged.zip = typedZip;
+        merged.state = (state.trim() || 'TX').toUpperCase().slice(0, 2);
+      }
+    }
+
+    if (isWeakStreetLine(merged.street) && streetFromFormatted(formatted)) {
+      merged.street = streetFromFormatted(formatted);
+    }
+
+    setAddress(merged.street);
+    setCity(merged.city);
+    setState(merged.state);
+    setZip(merged.zip);
 
     const latitude = sel.lat;
     const longitude = sel.lng;
@@ -672,20 +729,6 @@ export function LocationPicker({
       Number.isFinite(longitude) &&
       !(Math.abs(latitude) < 1e-6 && Math.abs(longitude) < 1e-6)
     ) {
-      const merged = preferUserLocality({
-        userStreet: address || street,
-        userCity: city || nextCity,
-        userState: state || nextState,
-        userZip: zip || nextZip,
-        geoStreet: street,
-        geoCity: nextCity,
-        geoState: nextState,
-        geoZip: nextZip,
-      });
-      setAddress(merged.street);
-      setCity(merged.city);
-      setState(merged.state);
-      setZip(merged.zip);
       commitPin(
         latitude,
         longitude,
@@ -695,10 +738,15 @@ export function LocationPicker({
         merged.zip,
         Boolean(merged.street && merged.city && merged.state && merged.zip.length === 5)
       );
-      if (!(merged.street && merged.city && merged.state && merged.zip.length === 5)) {
-        setError('Address found — complete city / state / ZIP, then tap Find on map if needed.');
+      if (isWeakStreetLine(merged.street)) {
+        setError(
+          'Places returned a unit-only line (e.g. #130). Type the full street (e.g. 1201 14th St) plus Plano / 75074.'
+        );
+        setLocationConfirmed(false);
       } else if (merged.corrected) {
         setError(`Kept ZIP/city as ${merged.city}, ${merged.zip} — verify before running.`);
+      } else if (!(merged.street && merged.city && merged.state && merged.zip.length === 5)) {
+        setError('Address found — complete city / state / ZIP, then tap Find on map if needed.');
       }
       return;
     }
