@@ -93,6 +93,32 @@
         "Copying Dallas/Plano fee lines into an Austin bid"
       ],
       "citation_url": "https://www.austintexas.gov/development-services/fees"
+    },
+    {
+      "id": "austin_fee_schedule_recheck",
+      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "checklist": [
+        "Confirm Austin Development Services fee schedule before locking contingency",
+        "Do not invent dollar amounts for fees not on the official schedule"
+      ],
+      "anti_patterns": [
+        "Copying Dallas/Plano fee lines into an Austin bid"
+      ],
+      "citation_url": "https://www.austintexas.gov/development-services/fees",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "austin_permit_fee_path",
+      "title": "Permit type + Design Criteria override",
+      "checklist": [
+        "Design Criteria can override generic NEC narratives — confirm before bid",
+        "Fee and design path are separate from AHJ status"
+      ],
+      "anti_patterns": [
+        "Assuming same Design Criteria across all Austin ZIPs"
+      ],
+      "citation_url": "https://www.austintexas.gov/development-services",
+      "severity": "HIGH"
     }
   ],
   "design_criteria_url": "https://www.austintexas.gov/department/development-services",

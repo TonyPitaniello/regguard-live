@@ -242,6 +242,8 @@ def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[st
     data["research_id"] = rid
     data["stamp_snapshot"] = snapshot
     data["stamp_attached_at"] = _now()
+    data["stamp_frozen"] = True
+    data["stamp_frozen_at"] = data["stamp_attached_at"]
     data.setdefault("comments", [])
     data["updated_at"] = _now()
     _save(data)
@@ -250,7 +252,56 @@ def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[st
         "stamp_grade": snapshot.get("grade"),
         "stamp_fingerprint": snapshot.get("fingerprint"),
         "stamp_attached_at": data["stamp_attached_at"],
+        "stamp_frozen": True,
     }
+
+
+def freeze_stamp(
+    research_id: str,
+    *,
+    snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Admin freeze: lock stamp for dispute proof; block new war-room comments."""
+    rid = (research_id or "").strip()
+    if not rid:
+        raise ValueError("research_id required")
+    data = _load(rid)
+    data["research_id"] = rid
+    if isinstance(snapshot, dict) and snapshot:
+        data["stamp_snapshot"] = snapshot
+    snap = data.get("stamp_snapshot") if isinstance(data.get("stamp_snapshot"), dict) else {}
+    if not snap:
+        raise ValueError("No stamp snapshot on war room — attach first")
+    data["stamp_frozen"] = True
+    data["stamp_frozen_at"] = _now()
+    data["stamp_attached_at"] = data.get("stamp_attached_at") or data["stamp_frozen_at"]
+    data["updated_at"] = _now()
+    _save(data)
+    return {
+        "research_id": rid,
+        "stamp_grade": snap.get("grade"),
+        "stamp_fingerprint": snap.get("fingerprint"),
+        "stamp_frozen": True,
+        "stamp_frozen_at": data["stamp_frozen_at"],
+    }
+
+
+def freeze_or_attach(
+    research_id: str,
+    *,
+    snapshot: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Attach + freeze in one step (admin or share)."""
+    rid = (research_id or "").strip()
+    if not rid:
+        raise ValueError("research_id required")
+    if isinstance(snapshot, dict) and snapshot:
+        return attach_stamp_snapshot(rid, snapshot)
+    data = _load(rid)
+    snap = data.get("stamp_snapshot") if isinstance(data.get("stamp_snapshot"), dict) else {}
+    if snap:
+        return freeze_stamp(rid, snapshot=snap)
+    raise ValueError("No stamp snapshot — attach first")
 
 
 def add_comment(
@@ -278,6 +329,12 @@ def add_comment(
         raise ValueError("text too long")
     if not verify_write_token(rid, write_token):
         raise ValueError("Invalid or missing war-room write token")
+    data = _load(rid)
+    if data.get("stamp_frozen"):
+        raise ValueError(
+            "War room stamp is frozen — comments locked for dispute proof. "
+            "Unfreeze only if you re-open a new research_id."
+        )
     ok, msg = check_rate_limit(research_id=rid, client_key=client_key)
     if not ok:
         raise ValueError(msg)
@@ -291,7 +348,6 @@ def add_comment(
         "role": role_l,
         "text": body,
     }
-    data = _load(rid)
     comments = list(data.get("comments") or [])
     comments.append(comment)
     data["research_id"] = rid

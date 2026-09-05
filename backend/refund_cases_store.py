@@ -77,6 +77,7 @@ def record_case_with_stamp(
         "stamp_fingerprint": snap.get("fingerprint"),
         "stripe_refund_id": (stripe_refund_id or "").strip()[:80],
         "recorded_at": _now(),
+        "stamp_frozen": True,
     }
     with _LOCK:
         data = _load()

@@ -1,0 +1,64 @@
+{
+  "ahj_id": "fort_worth_tx",
+  "city": "Fort Worth",
+  "state": "TX",
+  "zips": ["76102", "76104", "76107", "76109", "76110", "76112", "76116", "76119", "76120", "76123", "76132", "76133", "76134", "76135", "76137", "76140", "76148", "76177", "76179", "76180"],
+  "aliases": ["fort worth", "fortworth", "city of fort worth", "ft worth", "ft. worth"],
+  "fees": [
+    {
+      "id": "ds_trade_permit_schedule",
+      "trade": "electrical",
+      "label": "Development Services / trade permit — confirm Fort Worth schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "citation_note": "Amount requires live Fort Worth fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "fw_fee_schedule_recheck",
+      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "checklist": [
+        "Pull current Fort Worth Development Services fee schedule",
+        "Do not invent dollar amounts from memory"
+      ],
+      "anti_patterns": ["Copying Dallas min trade fee into a Fort Worth bid"],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "fw_dc_ercot",
+      "title": "ERCOT / TDSP large-load timing",
+      "checklist": [
+        "Treat ERCOT/TDSP interconnection as parallel to City of Fort Worth permits",
+        "Schedule contingency early for industrial / data-center load"
+      ],
+      "anti_patterns": ["Assuming city permit alone clears large-load path"],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "fw_trade_type",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Verify electrical vs general building path with Development Services"
+      ],
+      "anti_patterns": ["Wrong application type that stalls review"],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "severity": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / intake",
+    "Rough MEP inspections",
+    "Final building / electrical inspection"
+  ],
+  "portal_url": "https://www.fortworthtexas.gov/departments/development-services",
+  "fees_url": "https://www.fortworthtexas.gov/departments/development-services",
+  "apply_url": "https://www.fortworthtexas.gov/departments/development-services",
+  "inspections_url": "https://www.fortworthtexas.gov/departments/development-services",
+  "last_verified": "2026-09-05"
+}

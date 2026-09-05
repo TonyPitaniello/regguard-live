@@ -664,6 +664,12 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             "buyer": "IC consultants, electrical PMs, GC bid leads, site selection teams",
             "parallel_clocks": True,
         }
+        try:
+            from vertical_playbooks import apply_vertical_playbook
+
+            out = apply_vertical_playbook(out)
+        except Exception as e:
+            logger.warning("vertical playbook apply failed: %s", e)
 
     # Rank punch list + community friction (presentation / completeness)
     try:
@@ -690,6 +696,14 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             ),
             "data_center_mode": is_dc,
         }
+        # Re-stamp playbook after punch rank so Completeness stays attached
+        if is_dc:
+            try:
+                from vertical_playbooks import apply_vertical_playbook
+
+                out = apply_vertical_playbook(out)
+            except Exception:
+                pass
     except Exception:
         pass
     try:

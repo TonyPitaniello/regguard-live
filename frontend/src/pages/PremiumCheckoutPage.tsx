@@ -14,7 +14,7 @@ import {
   readLastResearchForm,
   setPendingIcReport,
 } from '../icSiteBind';
-
+import { trackStampEvent } from '../lib/trackStampEvent';
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder'
 );
@@ -379,6 +379,10 @@ function PaymentForm({
     boundSite.address && boundSite.city && boundSite.state && boundSite.zip
   );
 
+  useEffect(() => {
+    trackStampEvent('checkout_view', { channel: tier, meta: { tier } });
+  }, [tier]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -394,6 +398,8 @@ function PaymentForm({
       const trialId = sessionStorage.getItem('trialId') || 'unknown';
       const userId = sessionStorage.getItem('userId') || email || 'anonymous';
       const emailNorm = email.trim().toLowerCase();
+
+      trackStampEvent('checkout_start', { channel: tier, meta: { tier } });
 
       // Persist email so /checkout/success can load orders after Stripe redirect
       sessionStorage.setItem('userEmail', emailNorm);

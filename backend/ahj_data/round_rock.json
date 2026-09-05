@@ -1,0 +1,64 @@
+{
+  "ahj_id": "round_rock_tx",
+  "city": "Round Rock",
+  "state": "TX",
+  "zips": ["78664", "78665", "78681"],
+  "aliases": ["round rock", "roundrock", "city of round rock"],
+  "fees": [
+    {
+      "id": "pds_fees_schedule",
+      "trade": "electrical",
+      "label": "Planning & Development Services fees — confirm live schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+      "citation_note": "Amount requires live Round Rock fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "rr_fee_schedule_recheck",
+      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "checklist": [
+        "Pull current Round Rock Planning & Development Services fee schedule",
+        "Do not copy Austin fee lines into a Round Rock bid"
+      ],
+      "anti_patterns": ["Using Austin Design Criteria as Round Rock"],
+      "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "rr_dc_parallel",
+      "title": "Data center: AHJ + utility parallel tracks",
+      "checklist": [
+        "Treat utility interconnection as parallel to Round Rock permits",
+        "Build contingency for both clocks"
+      ],
+      "anti_patterns": ["Assuming AHJ permit alone clears large-load path"],
+      "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "rr_not_austin",
+      "title": "Do not assume Austin Design Criteria",
+      "checklist": [
+        "Verify Round Rock local amendments separately from Austin"
+      ],
+      "anti_patterns": ["Bidding Austin Design Criteria as Round Rock"],
+      "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+      "severity": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / intake",
+    "Rough electrical inspection",
+    "Final electrical inspection"
+  ],
+  "portal_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+  "fees_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+  "apply_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+  "inspections_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
+  "last_verified": "2026-09-05"
+}

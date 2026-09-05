@@ -1,0 +1,65 @@
+{
+  "ahj_id": "frisco_tx",
+  "city": "Frisco",
+  "state": "TX",
+  "zips": ["75033", "75034", "75035", "75036"],
+  "aliases": ["frisco", "city of frisco"],
+  "fees": [
+    {
+      "id": "trade_permit_schedule",
+      "trade": "electrical",
+      "label": "Trade / electrical permit — confirm Frisco Building Inspections schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "citation_note": "Amount requires live Frisco fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "frisco_fee_schedule_recheck",
+      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "checklist": [
+        "Pull current Frisco Building Inspections fee schedule",
+        "Do not copy Plano fee lines into a Frisco bid"
+      ],
+      "anti_patterns": ["Using Plano $75 electrical fee as Frisco"],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "frisco_dc_parallel",
+      "title": "Data center: AHJ + utility parallel tracks",
+      "checklist": [
+        "Treat utility interconnection as parallel to Frisco permits",
+        "Build contingency for both clocks"
+      ],
+      "anti_patterns": ["Assuming AHJ permit alone clears large-load path"],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "frisco_trade_type",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Electrical vs general building path — confirm with Building Inspections"
+      ],
+      "anti_patterns": ["Assuming one permit path covers all trades"],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "severity": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough electrical inspection",
+    "Service / meter equipment inspection (if applicable)",
+    "Final electrical inspection"
+  ],
+  "portal_url": "https://www.friscotexas.gov/292/Building-Inspections",
+  "fees_url": "https://www.friscotexas.gov/292/Building-Inspections",
+  "apply_url": "https://www.friscotexas.gov/292/Building-Inspections",
+  "inspections_url": "https://www.friscotexas.gov/292/Building-Inspections",
+  "last_verified": "2026-09-05"
+}

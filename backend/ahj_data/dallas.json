@@ -112,6 +112,32 @@
         "Assuming same-day walk-in for commercial trade permits"
       ],
       "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx"
+    },
+    {
+      "id": "dallas_fee_schedule_recheck",
+      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "checklist": [
+        "Pull current Building Inspection fee schedule — do not invent dollars",
+        "Confirm $167 min is still current before locking contingency"
+      ],
+      "anti_patterns": [
+        "Copying prior-year fee sheets without re-check"
+      ],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "dallas_permit_fee_path",
+      "title": "Trade application + city inspection timing",
+      "checklist": [
+        "Confirm inspection wait into bid contingency",
+        "Do not assume plan-review windows from a generic NEC narrative"
+      ],
+      "anti_patterns": [
+        "Treating a city fee page as a lock-in for bid date"
+      ],
+      "citation_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+      "severity": "HIGH"
     }
   ],
   "inspection_sequence": [

@@ -191,6 +191,34 @@ export default function SendResultsForm({
     }
     setLoadingSms(true);
     try {
+      try {
+        await fetch(backendUrl('/events'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'zip_watch_sms_sent',
+            research_id: researchId || '',
+            channel: 'sms_consent',
+            meta: { phone_digits: String(phone).replace(/\D/g, '').slice(-4) },
+          }),
+        });
+      } catch {
+        /* ignore */
+      }
+      try {
+        await fetch(backendUrl('/sms/preference'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone_number: phone,
+            consent: true,
+            research_id: researchId || '',
+            source: 'results_sms',
+          }),
+        });
+      } catch {
+        /* ignore */
+      }
       const path = '/research/send-sms';
       const response = await fetch(backendUrl(path), {
         method: 'POST',

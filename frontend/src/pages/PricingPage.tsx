@@ -4,8 +4,10 @@
  */
 
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Check, ArrowLeft, Download } from 'lucide-react';
 import { backendUrl } from '../env';
+import { trackStampEvent } from '../lib/trackStampEvent';
 
 const TIERS = [
   {
@@ -115,6 +117,10 @@ const TIERS = [
 export default function PricingPage() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    trackStampEvent('pricing_view', { channel: 'pricing' });
+  }, []);
+
   const handleCta = (tierKey: string) => {
     if (tierKey === 'free') {
       navigate('/');
@@ -126,6 +132,7 @@ export default function PricingPage() {
       }, 100);
       return;
     }
+    trackStampEvent('checkout_view', { channel: tierKey, meta: { tier: tierKey } });
     navigate(`/checkout/${tierKey}`);
   };
 

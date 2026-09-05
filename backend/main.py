@@ -4341,11 +4341,12 @@ async def persist_research_report(body: PersistResearchRequest) -> Dict[str, Any
 class ShareUnlockRequest(BaseModel):
     email: Optional[str] = None
     channel: Optional[str] = "share"
+    referral_code: Optional[str] = None
 
 
 @app.post("/research/{research_id}/share-unlock", tags=["Results"])
 async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUnlockRequest()) -> Dict[str, Any]:
-    """Persist share unlock so phone→desktop soft-lock clears."""
+    """Persist share unlock + forward receipt credits (forwarder + partner affiliate)."""
     from share_unlock_store import grant_unlock
 
     try:
@@ -4356,7 +4357,49 @@ async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUn
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return {"status": "ok", "unlocked": True, "research_id": research_id, "emails": data.get("emails") or []}
+
+    rewards: Dict[str, Any] = {}
+    try:
+        from forward_rewards import reward_forward
+
+        ref = (body.referral_code or "").strip()
+        if not ref:
+            # Fall back to nothing — client may send session affiliate code
+            ref = ""
+        rewards = reward_forward(
+            research_id=research_id,
+            email=body.email or "",
+            referral_code=ref,
+            channel=(body.channel or "share")[:40],
+        )
+        try:
+            from product_events import track_event
+
+            if rewards.get("forwarder_credit"):
+                track_event(
+                    "forward_receipt_credit",
+                    research_id=research_id,
+                    channel=(body.channel or "share")[:40],
+                    meta={"email_domain": (body.email or "").split("@")[-1][:40]},
+                )
+            if rewards.get("partner_credit"):
+                track_event(
+                    "partner_forward_credit",
+                    research_id=research_id,
+                    channel=ref[:40] or "affiliate",
+                )
+        except Exception:
+            pass
+    except Exception as e:
+        logger.warning("forward rewards failed: %s", e)
+
+    return {
+        "status": "ok",
+        "unlocked": True,
+        "research_id": research_id,
+        "emails": data.get("emails") or [],
+        "rewards": rewards,
+    }
 
 
 @app.get("/research/{research_id}/share-unlock", tags=["Results"])
@@ -4442,6 +4485,30 @@ async def get_partner_mandate_kit() -> Dict[str, Any]:
     from partner_mandate import kit
 
     return kit()
+
+
+class SmsPreferenceRequest(BaseModel):
+    phone_number: Optional[str] = ""
+    consent: bool = False
+    research_id: Optional[str] = ""
+    source: Optional[str] = "results_sms"
+
+
+@app.post("/sms/preference", tags=["Analytics"])
+async def post_sms_preference(body: SmsPreferenceRequest) -> Dict[str, Any]:
+    """Optional SMS consent preference (never required for service use)."""
+    from sms_preference_store import record_preference
+
+    try:
+        row = record_preference(
+            research_id=body.research_id or "",
+            phone_number=body.phone_number or "",
+            consent=bool(body.consent),
+            source=body.source or "results_sms",
+        )
+        return {"status": "ok", "preference": row}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 class PartnerMandateOutreachRequest(BaseModel):
@@ -4637,6 +4704,46 @@ async def post_war_room_stamp(research_id: str) -> Dict[str, Any]:
             stamp_grade=str(snap.get("grade") or ""),
             stamp_fingerprint=str(snap.get("fingerprint") or ""),
             zip_code=str((snap.get("site") or {}).get("zip") or ""),
+        )
+    except Exception:
+        pass
+    return {"status": "ok", **out}
+
+
+@app.post("/research/{research_id}/war-room/freeze", tags=["Results"])
+async def post_war_room_freeze(
+    research_id: str,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Freeze stamp for dispute proof; block war-room comments.
+    Available with admin secret OR when the research report exists (owner share path).
+    """
+    from research_store import get_research
+    from stamp_snapshot import stamp_snapshot
+    from war_room_store import attach_stamp_snapshot, freeze_stamp
+
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    admin_ok = bool(expected and (x_admin_secret or "").strip() == expected)
+    record = get_research(research_id)
+    if not admin_ok and not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    if not record:
+        raise HTTPException(status_code=404, detail="Report not found")
+    snap = stamp_snapshot(record.get("analysis") or {})
+    # Ensure freeze is idempotent even if already frozen
+    try:
+        out = freeze_stamp(research_id, snapshot=snap)
+    except ValueError:
+        out = attach_stamp_snapshot(research_id, snap)
+        out = freeze_stamp(research_id, snapshot=snap)
+    try:
+        from product_events import track_event
+
+        track_event(
+            "war_room_stamp_frozen",
+            research_id=research_id,
+            stamp_grade=str(out.get("stamp_grade") or ""),
+            stamp_fingerprint=str(out.get("stamp_fingerprint") or ""),
         )
     except Exception:
         pass
@@ -5120,6 +5227,18 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
     research_id = str(
         analysis.get("research_id") or analysis.get("timestamp") or f"recheck-{job_id}"
     )
+    try:
+        from product_events import track_event
+
+        track_event(
+            "research_rerun_same_zip",
+            research_id=research_id,
+            zip_code=str(job.get("zip") or ""),
+            channel="job_recheck",
+            meta={"source": "jobs_recheck", "job_id": job_id},
+        )
+    except Exception:
+        pass
 
     updated = upsert_job(
         owner_email=body.owner_email,
@@ -5642,7 +5761,9 @@ async def affiliate_click(code: str = "") -> Dict[str, Any]:
 
 @app.get("/affiliates/me", tags=["Affiliates"])
 async def affiliate_me(email: str = "") -> Dict[str, Any]:
+    from account_credits import get_balance_usd
     from affiliate_store import frontend_referral_url, list_affiliates, list_commissions
+    from forward_rewards import rewards_for_email
 
     email_n = (email or "").strip().lower()
     if not email_n:
@@ -5652,11 +5773,59 @@ async def affiliate_me(email: str = "") -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="No affiliate for this email")
     commissions = [c for c in list_commissions() if c.get("affiliate_email") == email_n]
     unpaid = sum(int(c.get("commission_cents") or 0) for c in commissions if not c.get("paid"))
+    fwd = rewards_for_email(email_n)
     return {
         "affiliate": aff,
         "referral_url": frontend_referral_url(aff["code"]),
         "commissions": commissions,
         "unpaid_cents": unpaid,
+        "account_credit_usd": get_balance_usd(email_n),
+        "forward_rewards": fwd,
+    }
+
+
+@app.get("/partner/portal", tags=["Partner"])
+async def partner_portal(email: str = "") -> Dict[str, Any]:
+    """
+    Partner portal payload: mandate kit + affiliate stats + credits + forward rewards.
+    Email lookup (no auth) — same pattern as /affiliates/me and Saved Jobs.
+    """
+    from account_credits import get_balance_usd
+    from affiliate_store import frontend_referral_url, list_affiliates, list_commissions
+    from forward_rewards import rewards_for_email
+    from partner_mandate import kit
+
+    email_n = (email or "").strip().lower()
+    if not email_n:
+        raise HTTPException(status_code=400, detail="email is required")
+    aff = next((a for a in list_affiliates() if a.get("email") == email_n), None)
+    commissions = []
+    unpaid = 0
+    referral_url = ""
+    if aff:
+        commissions = [c for c in list_commissions() if c.get("affiliate_email") == email_n]
+        unpaid = sum(int(c.get("commission_cents") or 0) for c in commissions if not c.get("paid"))
+        referral_url = frontend_referral_url(aff["code"])
+    return {
+        "email": email_n,
+        "kit": kit(),
+        "affiliate": aff,
+        "referral_url": referral_url,
+        "commissions": commissions[:40],
+        "unpaid_cents": unpaid,
+        "account_credit_usd": get_balance_usd(email_n),
+        "forward_rewards": rewards_for_email(email_n),
+        "funnel_hint": {
+            "ic_project_price_usd": 1500,
+            "contractor_pro_price_usd": 149,
+            "partner_price_usd": 79,
+            "forward_credit_usd": 5,
+            "partner_forward_credit_usd": 10,
+            "pitch": (
+                "Forward Bid Risk Receipts with your ?ref= link. "
+                "You earn $10 account credit per unique receipt forward + 20% of first paid checkout."
+            ),
+        },
     }
 
 

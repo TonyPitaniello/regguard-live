@@ -286,6 +286,31 @@ export interface AnalysisData {
     buyer?: string;
     parallel_clocks?: boolean;
   };
+  vertical_playbook?: {
+    id?: string;
+    label?: string;
+    depth?: string;
+    disclaimer?: string;
+    beachhead_hint?: string;
+    stats?: {
+      total?: number;
+      cited?: number;
+      confirm?: number;
+      completeness?: number;
+      completeness_pct?: number;
+    };
+    items?: Array<{
+      id?: string;
+      track?: string;
+      priority?: string;
+      task?: string;
+      status?: string;
+      detail?: string;
+      source_url?: string | null;
+      source_label?: string | null;
+      verified?: boolean;
+    }>;
+  };
   parallel_clocks?: {
     title?: string;
     headline?: string;
@@ -998,6 +1023,28 @@ export default function ResultsViewerModal({
     }
   };
 
+  const freezeWarRoomStamp = async () => {
+    if (!rid) {
+      setToast('Report not found — cannot freeze stamp.');
+      window.setTimeout(() => setToast(''), 3500);
+      return;
+    }
+    try {
+      const res = await fetch(
+        backendUrl(`/research/${encodeURIComponent(rid)}/war-room/freeze`),
+        { method: 'POST' }
+      );
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}));
+        throw new Error((detail as { detail?: string }).detail || `Freeze failed (${res.status})`);
+      }
+      setToast('Stamp frozen for war-room dispute proof.');
+      window.setTimeout(() => setToast(''), 3500);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : 'Freeze failed');
+    }
+  };
+
   const goCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project') => {
     // Persist site so return after payment can deepen the same lookup
     try {
@@ -1035,14 +1082,34 @@ export default function ResultsViewerModal({
     window.setTimeout(() => setToast(''), 4000);
     const rid = effectiveResearchId;
     if (rid) {
+      const referralCode =
+        (typeof window !== 'undefined' &&
+          (sessionStorage.getItem('referralCode') ||
+            localStorage.getItem('referralCode') ||
+            sessionStorage.getItem('affiliateCode'))) ||
+        '';
       void fetch(backendUrl(`/research/${encodeURIComponent(rid)}/share-unlock`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: (defaultEmail || '').trim(),
           channel,
+          referral_code: referralCode || undefined,
         }),
-      }).catch(() => undefined);
+      })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          const fwd = data?.rewards?.forwarder_credit;
+          const part = data?.rewards?.partner_credit;
+          if (fwd || part) {
+            const bits = [];
+            if (fwd) bits.push(`$${fwd.delta_usd ?? 5} forward credit`);
+            if (part) bits.push(`$${part.delta_usd ?? 10} partner credit`);
+            setToast(`Receipt forwarded — ${bits.join(' · ')} applied.`);
+            window.setTimeout(() => setToast(''), 4500);
+          }
+        })
+        .catch(() => undefined);
     }
   };
 
@@ -1280,6 +1347,24 @@ export default function ResultsViewerModal({
                 ) : null}
               </div>
             )}
+            {view.regguard_stamp?.is_stale || stamp?.is_stale ? (
+              <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                <p className="font-bold mb-1">Stamp is outdated — re-run before bid</p>
+                <p className="text-xs text-amber-200/90 mb-2">
+                  Local pack / AHJ fingerprint changed. Re-check before attaching or sharing the
+                  Bid Risk Receipt. Day-7 re-run is preferred for LOI.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void runRecheck()}
+                  disabled={recheckLoading}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold disabled:opacity-50"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  {recheckLoading ? 'Re-checking…' : 'Re-check site now'}
+                </button>
+              </div>
+            ) : null}
             <p className="text-xs text-gray-400 mb-2">
               WhatsApp opens with the receipt text. Facebook/Instagram copy the caption — paste into your post.
               Link: <span className="text-emerald-300 break-all">{shareLink}</span>
@@ -1293,6 +1378,15 @@ export default function ResultsViewerModal({
               >
                 <Download className="w-4 h-4" />
                 {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void freezeWarRoomStamp()}
+                disabled={!rid}
+                className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-white/10 border border-white/20 text-gray-200 text-sm font-semibold disabled:opacity-50"
+                title="Freeze stamp for dispute proof"
+              >
+                Freeze stamp
               </button>
               <button
                 type="button"
@@ -2174,7 +2268,8 @@ export default function ResultsViewerModal({
             view.power_path_card ||
             view.water_cooling_card ||
             view.opposition_card ||
-            view.fast41_card) && (
+            view.fast41_card ||
+            view.vertical_playbook) && (
             <section className="rounded-xl border border-cyan-500/35 bg-cyan-950/30 p-4 sm:p-5 space-y-5">
               <div>
                 <h3 className="text-lg font-bold text-white">
@@ -2184,6 +2279,74 @@ export default function ResultsViewerModal({
                   <p className="text-sm text-gray-300 mt-1">{view.dc_positioning.pitch}</p>
                 ) : null}
               </div>
+
+              {view.vertical_playbook && (view.vertical_playbook.items || []).length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                      {view.vertical_playbook.label || 'Vertical playbook'} — cite or Confirm
+                    </h4>
+                    <p className="text-xs text-cyan-100/90">
+                      Checklist completeness:{' '}
+                      <span className="font-bold text-white">
+                        {view.vertical_playbook.stats?.completeness_pct ?? 0}%
+                      </span>
+                      <span className="text-gray-400">
+                        {' '}
+                        ({view.vertical_playbook.stats?.cited ?? 0} cited ·{' '}
+                        {view.vertical_playbook.stats?.confirm ?? 0} confirm)
+                      </span>
+                    </p>
+                  </div>
+                  <p className="text-xs text-amber-200/90">
+                    Completeness is checklist coverage with sources — not a guarantee. Confirm
+                    fees and utility paths before bid.
+                  </p>
+                  {view.vertical_playbook.beachhead_hint ? (
+                    <p className="text-xs text-gray-400">{view.vertical_playbook.beachhead_hint}</p>
+                  ) : null}
+                  <ul className="space-y-2">
+                    {(view.vertical_playbook.items || []).map((it) => (
+                      <li
+                        key={it.id || it.task}
+                        className="text-sm border border-slate-700/70 rounded-lg p-3 bg-slate-900/40"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                              it.status === 'cited'
+                                ? 'bg-emerald-500/20 text-emerald-200'
+                                : 'bg-amber-500/20 text-amber-100'
+                            }`}
+                          >
+                            {it.status === 'cited' ? 'Cited' : 'Confirm'}
+                          </span>
+                          <span className="text-[10px] font-semibold text-gray-400">
+                            [{it.priority}]
+                          </span>
+                          <span className="font-semibold text-white">{it.task}</span>
+                        </div>
+                        {it.detail ? (
+                          <p className="text-xs text-gray-400 mt-1">{it.detail}</p>
+                        ) : null}
+                        {it.source_url ? (
+                          <a
+                            href={it.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-emerald-300 underline mt-1 inline-block"
+                          >
+                            {it.source_label || 'Open source'}
+                          </a>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {view.vertical_playbook.disclaimer ? (
+                    <p className="text-xs text-gray-500">{view.vertical_playbook.disclaimer}</p>
+                  ) : null}
+                </div>
+              ) : null}
 
               {view.parallel_clocks && (
                 <div className="space-y-2">

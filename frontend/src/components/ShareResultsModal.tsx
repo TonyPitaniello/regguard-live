@@ -35,6 +35,7 @@ export const ShareResultsModal: React.FC<ShareResultsModalProps> = ({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [smsConsent, setSmsConsent] = useState(false); // unchecked by default — SMS never required to use RegGuard
+  // Note: preference is logged via optional SMS consent (A2P)
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<ValidationError>({});
   const [success, setSuccess] = useState(false);

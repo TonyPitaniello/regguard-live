@@ -1,5 +1,5 @@
 /**
- * Partner mandate kit — copy script + log outreach for “no stamp, no bid attach”.
+ * Partner mandate page — full kit (script, templates, day0/day7, outreach log).
  */
 
 import { useEffect, useState } from 'react';
@@ -10,6 +10,9 @@ import { backendUrl } from '../env';
 type Kit = {
   one_liner?: string;
   script?: string;
+  templates?: Record<string, string>;
+  day0?: string;
+  day7?: string;
   talking_points?: string[];
   success_signal?: string;
   disclaimer?: string;
@@ -121,6 +124,35 @@ export default function PartnerMandatePage() {
             {kit.script}
           </pre>
         ) : null}
+        {kit?.day0 || kit?.day7 ? (
+          <div className="space-y-3">
+            {kit.day0 ? (
+              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
+                <p className="text-xs uppercase text-emerald-400/80 mb-1">Day-0</p>
+                <p className="whitespace-pre-wrap">{kit.day0}</p>
+              </div>
+            ) : null}
+            {kit.day7 ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+                <p className="text-xs uppercase text-amber-300/80 mb-1">Day-7</p>
+                <p className="whitespace-pre-wrap">{kit.day7}</p>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {kit?.templates ? (
+          <div className="space-y-3">
+            <p className="text-xs uppercase text-gray-400">Templates</p>
+            {Object.entries(kit.templates).map(([k, v]) => (
+              <div key={k} className="space-y-1">
+                <p className="text-sm font-semibold text-emerald-300">{k}</p>
+                <pre className="whitespace-pre-wrap text-xs text-gray-300 bg-black/40 border border-white/10 rounded-lg p-3 overflow-auto max-h-48">
+                  {v}
+                </pre>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {kit?.talking_points?.length ? (
           <ul className="space-y-2 text-sm text-gray-300 list-disc pl-5">
             {kit.talking_points.map((t) => (
@@ -131,7 +163,9 @@ export default function PartnerMandatePage() {
         {kit?.disclaimer ? <p className="text-xs text-gray-500">{kit.disclaimer}</p> : null}
 
         <form onSubmit={logOutreach} className="space-y-3 border border-white/10 rounded-xl p-4">
-          <p className="text-sm font-bold uppercase tracking-wide text-gray-400">Log outreach (5–10 partners)</p>
+          <p className="text-sm font-bold uppercase tracking-wide text-gray-400">
+            Log outreach (5–10 partners)
+          </p>
           <input
             className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm"
             placeholder="Partner name"

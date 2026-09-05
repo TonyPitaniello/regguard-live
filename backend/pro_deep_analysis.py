@@ -418,6 +418,12 @@ async def run_pro_deep_analysis(
                 "Pro light scout complete (AHJ / permits / codes). IC adds full federal/vertical passes + PDFs.",
             )
             merged["next_steps"] = next_steps[:8]
+        try:
+            from vertical_playbooks import apply_vertical_playbook
+
+            merged = apply_vertical_playbook(merged)
+        except Exception:
+            pass
         logger.info(
             "Pro deep research merged: sources=%s punch=%s scout_mode=%s local=%s",
             len(merged.get("pro_source_urls") or []),

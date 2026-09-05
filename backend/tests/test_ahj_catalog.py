@@ -19,10 +19,11 @@ from ahj_catalog import (  # noqa: E402
 from research_memo import build_research_digest  # noqa: E402
 
 
-def test_catalog_loads_three_ahjs():
+def test_catalog_loads_beachhead_ahjs():
+    load_ahj_catalog.cache_clear()
     cats = load_ahj_catalog()
     ids = {c["ahj_id"] for c in cats}
-    assert ids == {"plano_tx", "dallas_tx", "austin_tx"}
+    assert {"plano_tx", "dallas_tx", "austin_tx", "frisco_tx", "fort_worth_tx", "round_rock_tx"} <= ids
 
 
 def test_plano_zip_lookup_75():

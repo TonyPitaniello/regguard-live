@@ -9,6 +9,7 @@ export function trackStampEvent(
     stampGrade?: string;
     stampFingerprint?: string;
     channel?: string;
+    meta?: Record<string, unknown>;
   } = {}
 ): void {
   try {
@@ -22,6 +23,7 @@ export function trackStampEvent(
         stamp_grade: opts.stampGrade || '',
         stamp_fingerprint: opts.stampFingerprint || '',
         channel: opts.channel || '',
+        meta: opts.meta || {},
       }),
       keepalive: true,
     });

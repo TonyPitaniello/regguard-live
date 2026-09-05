@@ -17,6 +17,8 @@ type Job = {
   updated_at?: string;
   last_run_at?: string;
   status?: string;
+  stamp_stale?: boolean;
+  last_stamp_grade?: string;
 };
 
 export default function JobsPage() {
@@ -75,6 +77,7 @@ export default function JobsPage() {
         <p className="text-gray-400 text-sm mb-6">
           Sites auto-save when you run a lookup. Weekly reminder emails use this list.
           Add a mobile on save (from results) so stamp-outdated SMS can reach you when Twilio is live.
+          If a job shows STALE, re-check before bid (Day-7 preferred for LOI).
         </p>
 
         <form onSubmit={load} className="flex flex-col sm:flex-row gap-3 mb-8">
@@ -118,6 +121,11 @@ export default function JobsPage() {
               </p>
               {j.last_run_at && (
                 <p className="text-gray-500 text-xs mt-1">Last run: {j.last_run_at}</p>
+              )}
+              {(j.stamp_stale || j.status === 'stale') && (
+                <p className="text-xs text-amber-300 mt-1 border border-amber-500/40 rounded px-2 py-1">
+                  STALE — re-run before bid (zip-watch / pack fingerprint changed).
+                </p>
               )}
               <div className="flex flex-wrap gap-3 mt-2">
                 {j.share_url && (

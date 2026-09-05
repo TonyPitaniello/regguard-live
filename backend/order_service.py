@@ -598,6 +598,21 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         except Exception as aff_err:
             logger.warning("Affiliate attribution failed: %s", aff_err)
 
+    try:
+        from product_events import track_event
+
+        track_event(
+            "checkout_complete",
+            channel=str(order.get("tier") or "")[:40],
+            meta={
+                "tier": str(order.get("tier") or ""),
+                "order_id": str(order.get("order_id") or "")[:40],
+                "amount_cents": int(order.get("amount") or 0),
+            },
+        )
+    except Exception:
+        pass
+
     # IC: email next-step so buyers don't stall on "preparing"
     if email and normalize_tier(order["tier"]) in ("ic_project", "ic_annual", "ic_consultant"):
         try:

@@ -8,6 +8,10 @@ import { SalesLeadsDashboard } from './SalesLeadsDashboard';
 import { AdminLocalPacksDashboard } from './AdminLocalPacksDashboard';
 import { AdminSmsDeliveryDashboard } from './AdminSmsDeliveryDashboard';
 import { AdminGotchaCreditsDashboard } from './AdminGotchaCreditsDashboard';
+import { AdminStampFunnelDashboard } from './AdminStampFunnelDashboard';
+import { AdminPartnerMandateDashboard } from './AdminPartnerMandateDashboard';
+import { AdminRefundFreezeDashboard } from './AdminRefundFreezeDashboard';
+import { AdminZipWatchDashboard } from './AdminZipWatchDashboard';
 import { QueueLanding } from './Queue/QueueLanding';
 import { QueueUploadForm } from './Queue/QueueUploadForm';
 import QueueMonitorDashboard from './Queue/QueueMonitorDashboard';
@@ -30,6 +34,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import SmsOptInPage from './pages/SmsOptInPage';
 import AffiliatePage from './pages/AffiliatePage';
 import PartnerMandatePage from './pages/PartnerMandatePage';
+import PartnerPortalPage from './pages/PartnerPortalPage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import RefundCasesPage from './pages/RefundCasesPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
@@ -144,6 +149,8 @@ export function AppRouter() {
           <Route path="/partner" element={<AffiliatePage />} />
           <Route path="/partner/mandate" element={<PartnerMandatePage />} />
           <Route path="/mandate" element={<PartnerMandatePage />} />
+          <Route path="/partner/portal" element={<PartnerPortalPage />} />
+          <Route path="/portal" element={<PartnerPortalPage />} />
 
           {/* Signup/Stripe Payment Page */}
           <Route path="/signup" element={<SignupPage />} />
@@ -176,6 +183,10 @@ export function AppRouter() {
           <Route path="/admin/packs" element={<AdminPacksPage />} />
           <Route path="/admin/sms" element={<AdminSmsPage />} />
           <Route path="/admin/gotcha-credits" element={<AdminGotchaCreditsPage />} />
+          <Route path="/admin/stamp-funnel" element={<AdminStampFunnelPage />} />
+          <Route path="/admin/partner-mandate" element={<AdminPartnerMandatePage />} />
+          <Route path="/admin/refund-freeze" element={<AdminRefundFreezePage />} />
+          <Route path="/admin/zip-watch" element={<AdminZipWatchPage />} />
 
           {/* Existing Compliance Routes */}
           <Route path="/agent" element={<App />} />
@@ -346,6 +357,62 @@ function AdminGotchaCreditsPage() {
         </div>
       </div>
       <AdminGotchaCreditsDashboard />
+    </div>
+  );
+}
+
+function AdminStampFunnelPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Stamp funnel</h1>
+          <p>Zip-watch alerts → re-run within 72h</p>
+        </div>
+      </div>
+      <AdminStampFunnelDashboard />
+    </div>
+  );
+}
+
+function AdminPartnerMandatePage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Partner mandate</h1>
+          <p>Kit + outreach log</p>
+        </div>
+      </div>
+      <AdminPartnerMandateDashboard />
+    </div>
+  );
+}
+
+function AdminRefundFreezePage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Refund & freeze</h1>
+          <p>Refund cases · war-room stamp freeze</p>
+        </div>
+      </div>
+      <AdminRefundFreezeDashboard />
+    </div>
+  );
+}
+
+function AdminZipWatchPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Zip-watch</h1>
+          <p>Stale packs + pack fingerprint health</p>
+        </div>
+      </div>
+      <AdminZipWatchDashboard />
     </div>
   );
 }

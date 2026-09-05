@@ -70,8 +70,13 @@ export default function AffiliatePage() {
         <h1 className="text-4xl font-black text-white mb-3">Affiliate referrals</h1>
         <p className="text-gray-300 mb-8">
           Share Reg Guard. Earn 20% of each referred customer&apos;s <strong>first</strong> paid
-          checkout (Partner, Pro, or IC) — not recurring renewals. Payouts are marked paid manually —
-          email support@regguardagent.com when ready.
+          checkout (Partner, Pro, or IC) — not recurring renewals. Forward Bid Risk Receipts with your
+          link for <strong>$10 account credit</strong> per unique receipt. Payouts are marked paid
+          manually — email support@regguardagent.com when ready. After signup, open your{' '}
+          <a href="/partner/portal" className="text-emerald-400 underline">
+            Partner portal
+          </a>
+          .
         </p>
 
         {!referralUrl ? (

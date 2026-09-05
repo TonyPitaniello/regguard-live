@@ -100,6 +100,33 @@
         "Skipping rough and hoping final covers it"
       ],
       "citation_url": "https://www.plano.gov/292/Building-Inspections"
+    },
+    {
+      "id": "plano_permit_fee_path",
+      "title": "Fees + permit path must be reconfirmed before bid",
+      "checklist": [
+        "Verify with Plano Building Inspections / Development Services before locking contingency",
+        "Online permits: trakit.plano.gov",
+        "Do not invent dollar amounts for fees not on the official schedule"
+      ],
+      "anti_patterns": [
+        "Using sister-city (Frisco/Allen) fee as Plano"
+      ],
+      "citation_url": "https://www.plano.gov/1648/Development-Services",
+      "severity": "CRITICAL"
+    },
+    {
+      "id": "plano_trade_application",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Electrical vs general building path — confirm with Building Inspections",
+        "Wrong application type stalls review"
+      ],
+      "anti_patterns": [
+        "Assuming one permit path covers all trades"
+      ],
+      "citation_url": "https://www.plano.gov/350/Building-Inspections-Permits",
+      "severity": "HIGH"
     }
   ],
   "inspection_sequence": [

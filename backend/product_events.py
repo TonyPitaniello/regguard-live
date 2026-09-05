@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -29,7 +31,14 @@ ALLOWED_EVENTS = frozenset(
         "partner_mandate_outreach_logged",
         "job_saved_with_phone",
         "war_room_stamp_attached",
+        "war_room_stamp_frozen",
         "refund_case_stamp_attached",
+        "forward_receipt_credit",
+        "partner_forward_credit",
+        "checkout_view",
+        "checkout_start",
+        "checkout_complete",
+        "pricing_view",
     }
 )
 
@@ -73,7 +82,40 @@ def track_event(
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception as e:
         logger.warning("product_events append failed: %s", e)
+    try:
+        _supabase_append(row)
+    except Exception as e:
+        logger.warning("product_events supabase append failed: %s", e)
     return row
+
+
+def _supabase_append(row: Dict[str, Any]) -> bool:
+    if not (os.getenv("SUPABASE_URL") or "").strip() or not (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or ""
+    ).strip():
+        return False
+    try:
+        from supabase import create_client
+
+        url = os.environ["SUPABASE_URL"].strip()
+        key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or "").strip()
+        sb = create_client(url, key)
+        sb.table("product_events").insert(
+            {
+                "ts": row.get("ts"),
+                "event": row.get("event"),
+                "research_id": row.get("research_id") or "",
+                "zip": row.get("zip") or "",
+                "stamp_grade": row.get("stamp_grade") or "",
+                "stamp_fingerprint": row.get("stamp_fingerprint") or "",
+                "channel": row.get("channel") or "",
+                "meta": row.get("meta") or {},
+            }
+        ).execute()
+        return True
+    except Exception as e:
+        logger.debug("product_events supabase skip: %s", e)
+        return False
 
 
 def _read_rows(limit: int = 5000) -> List[Dict[str, Any]]:
@@ -140,6 +182,32 @@ def stamp_funnel_stats(*, hours: int = 168) -> Dict[str, Any]:
                 break
 
     alert_n = len(alerts)
+    # IC / Pro funnel close rates
+    views = counts.get("checkout_view", 0) + counts.get("pricing_view", 0)
+    starts = counts.get("checkout_start", 0)
+    completes = counts.get("checkout_complete", 0)
+    ic_views = 0
+    ic_starts = 0
+    ic_completes = 0
+    pro_completes = 0
+    for r in rows:
+        ts = _parse_ts(r.get("ts") or "")
+        if not ts or ts < cutoff:
+            continue
+        ev = r.get("event") or ""
+        meta = r.get("meta") if isinstance(r.get("meta"), dict) else {}
+        tier = str(meta.get("tier") or r.get("channel") or "").lower()
+        if ev == "checkout_view" and "ic_project" in tier:
+            ic_views += 1
+        if ev == "checkout_start" and "ic_project" in tier:
+            ic_starts += 1
+        if ev == "checkout_complete":
+            if "ic_project" in tier or tier == "ic_consultant":
+                ic_completes += 1
+            if "contractor_pro" in tier or tier == "pro":
+                pro_completes += 1
+
+    ic_base = ic_starts if ic_starts else ic_views
     return {
         "window_hours": hours,
         "counts": counts,
@@ -147,5 +215,19 @@ def stamp_funnel_stats(*, hours: int = 168) -> Dict[str, Any]:
         "reruns_same_zip": len(reruns),
         "rerun_within_72h": converted,
         "rerun_within_72h_rate": round(converted / alert_n, 3) if alert_n else None,
+        "funnel": {
+            "pricing_or_checkout_views": views,
+            "checkout_starts": starts,
+            "checkout_completes": completes,
+            "close_rate": round(completes / starts, 3) if starts else None,
+            "ic_project": {
+                "views": ic_views,
+                "starts": ic_starts,
+                "completes": ic_completes,
+                "close_rate": round(ic_completes / ic_base, 3) if ic_base else None,
+                "price_usd": 1500,
+            },
+            "contractor_pro_completes": pro_completes,
+        },
         "disclaimer": "Planning metrics only — not billing or legal evidence.",
     }
