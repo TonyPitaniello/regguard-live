@@ -245,15 +245,24 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
           return;
         }
         const PlaceAutocompleteElement = google.maps.places.PlaceAutocompleteElement;
-        const el = new PlaceAutocompleteElement({
-          includedRegionCodes: ["us"],
-          requestedRegion: "us",
-          // Bias toward DFW beachhead — reduces Tyler/random US matches for TX streets
-          locationBias: {
-            center: { lat: 33.0198, lng: -96.6989 }, // Plano
-            radius: 120_000,
-          },
-        } as google.maps.places.PlaceAutocompleteElementOptions);
+        let el: google.maps.places.PlaceAutocompleteElement;
+        try {
+          el = new PlaceAutocompleteElement({
+            includedRegionCodes: ["us"],
+            requestedRegion: "us",
+            // Bias toward DFW beachhead — reduces Tyler/random US matches for TX streets
+            locationBias: {
+              center: { lat: 33.0198, lng: -96.6989 }, // Plano
+              radius: 50_000,
+            },
+          } as google.maps.places.PlaceAutocompleteElementOptions);
+        } catch (biasErr) {
+          console.warn("[RegGuard] Places locationBias rejected; falling back", biasErr);
+          el = new PlaceAutocompleteElement({
+            includedRegionCodes: ["us"],
+            requestedRegion: "us",
+          } as google.maps.places.PlaceAutocompleteElementOptions);
+        }
         el.placeholder = "Search street address (Google Places)…";
         el.classList.add("rg-address-autocomplete-widget");
         el.id = hostId;

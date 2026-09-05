@@ -98,7 +98,7 @@ export interface AnalysisData {
   pro_summary_markdown?: string;
   pro_source_urls?: string[];
   job_id?: string;
-  project_info: {
+  project_info?: {
     address: string;
     city: string;
     state: string;
@@ -106,7 +106,7 @@ export interface AnalysisData {
     type: string;
     coordinates?: { latitude: number; longitude: number };
   };
-  environmental_screening: {
+  environmental_screening?: {
     risk_level: string;
     findings: Array<{
       category: string;
@@ -595,7 +595,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const isDc = Boolean(
     analysis.dc_positioning ||
       analysis.planning_exposure_summary?.data_center_mode ||
-      /data.?center|colo/i.test(analysis.project_info?.type || '')
+      /data.?center|colo/i.test(p?.type || '')
   );
   const cov = resolveCoverage(analysis);
   const link = reportShareUrl(analysis, researchId);
@@ -610,8 +610,10 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
           }`
       : '';
 
+  const siteLine = [p?.address, p?.city, p?.state, p?.zip].filter(Boolean).join(', ') || 'Site TBD';
+
   return [
-    `FLAGGED BEFORE BID — ${p.address}, ${p.city}, ${p.state} ${p.zip}`,
+    `FLAGGED BEFORE BID — ${siteLine}`,
     stampLine,
     `Coverage: ${cov.badge}`,
     `AHJ: ${ahj}`,
@@ -1235,14 +1237,15 @@ export default function ResultsViewerModal({
             </h2>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
-                const street = (view.project_info.address || '').trim();
-                const place = `${view.project_info.city}, ${view.project_info.state} ${view.project_info.zip}`.trim();
+                const pi = view.project_info || ({} as AnalysisData['project_info']);
+                const street = (pi.address || '').trim();
+                const place = `${pi.city || ''}, ${pi.state || ''} ${pi.zip || ''}`.trim();
                 const sn = street.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const cn = (view.project_info.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (cn && sn.includes(cn) && street.includes(String(view.project_info.zip || ''))) {
-                  return street;
+                const cn = (pi.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (cn && sn.includes(cn) && street.includes(String(pi.zip || ''))) {
+                  return street || place || 'Site address';
                 }
-                return `${street} · ${place}`;
+                return [street, place].filter(Boolean).join(' · ') || 'Site address';
               })()}
             </p>
             {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
@@ -1500,7 +1503,7 @@ export default function ResultsViewerModal({
                 </div>
               </div>
               <p className="text-xs text-gray-400 mb-2">
-                {view.project_info.address} · {view.ahj_card?.name || 'Local AHJ'}
+                {view.project_info?.address || 'Site'} · {view.ahj_card?.name || 'Local AHJ'}
               </p>
               {view.contingency_band && (
                 <p className="text-4xl font-black text-emerald-400 mb-1 tracking-tight">
@@ -1717,7 +1720,7 @@ export default function ResultsViewerModal({
               </div>
               {(view.pro_source_urls || []).length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {view.pro_source_urls.slice(0, 8).map((url) => (
+                  {(view.pro_source_urls || []).slice(0, 8).map((url) => (
                     <a
                       key={url}
                       href={url}
@@ -1876,7 +1879,7 @@ export default function ResultsViewerModal({
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
               <h3 className="text-sm font-bold text-gray-400 mb-2">Timeline</h3>
               <p className="text-2xl font-black text-blue-400">
-                {view.summary.estimated_timeline}
+                {view.summary?.estimated_timeline || 'Confirm with AHJ'}
               </p>
               <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
             </div>
@@ -1899,12 +1902,12 @@ export default function ResultsViewerModal({
               ) : (
                 <>
                   <p className="text-2xl font-black text-green-400">
-                    ${(view.summary.estimated_total_cost || 0).toLocaleString()}
+                    ${(view.summary?.estimated_total_cost || 0).toLocaleString()}
                   </p>
                   <CitationBadge
                     verified={Boolean(view.punch_list?.estimates_verified)}
                     cost_verified={Boolean(view.punch_list?.estimates_verified)}
-                    estimated_cost={view.summary.estimated_total_cost}
+                    estimated_cost={view.summary?.estimated_total_cost}
                     source_label="Rollup of line items"
                   />
                 </>
@@ -2058,7 +2061,7 @@ export default function ResultsViewerModal({
                     )}
                   </h4>
                   <p className="text-white text-sm mb-2">
-                    Timeline: {view.fee_card.timeline || view.summary.estimated_timeline}
+                    Timeline: {view.fee_card.timeline || view.summary?.estimated_timeline}
                   </p>
                   {!coverage.feesAllowed ? (
                     <p className="text-amber-200/90 text-sm">
@@ -2633,7 +2636,7 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
-                {(view.environmental_screening.findings || []).slice(0, findingsVisible).map((finding, idx) => {
+                {(view.environmental_screening?.findings || []).slice(0, findingsVisible).map((finding, idx) => {
                   const risk = String(finding.risk_level || '').toUpperCase();
                   const verified = Boolean(finding.verified);
                   const pinMissing = !hasUsableCoords(view);

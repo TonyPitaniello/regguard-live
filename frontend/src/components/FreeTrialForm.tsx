@@ -11,6 +11,7 @@ import { LocationPicker } from './LocationPicker';
 import { backendUrl } from '../env';
 import ResultsViewerModal, { AnalysisData } from './ResultsViewerModal';
 import { buildClientInstantAnalysis } from './buildClientInstantAnalysis';
+import { ErrorBoundary } from './ErrorBoundary';
 import {
   VOICE_FILL_EVENT,
   VOICE_SUBMIT_EVENT,
@@ -711,7 +712,8 @@ export default function FreeTrialForm({
         </div>
       )}
 
-      {!resultsOpen && (
+      {/* Keep form visible until results successfully mount — avoids navy blank if modal crashes */}
+      {!(resultsOpen && analysis) && (
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10">
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
           <div className="flex justify-end">
@@ -905,32 +907,38 @@ export default function FreeTrialForm({
       )}
 
       {analysis && (
-        <ResultsViewerModal
-          isOpen={resultsOpen}
-          onClose={() => {
+        <ErrorBoundary
+          onReset={() => {
             setResultsOpen(false);
-            window.requestAnimationFrame(() => {
-              document.getElementById('free-trial-form')?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
+          }}
+        >
+          <ResultsViewerModal
+            isOpen={resultsOpen}
+            onClose={() => {
+              setResultsOpen(false);
+              window.requestAnimationFrame(() => {
+                document.getElementById('free-trial-form')?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                });
               });
-            });
-          }}
-          analysis={analysis}
-          researchId={researchId}
-          defaultEmail={formData.email}
-          defaultPhone={formData.phone}
-          canUnlockDeeper={
-            paidEntitled &&
-            analysis.research_depth !== 'pro' &&
-            analysis.research_depth !== 'pro_partial'
-          }
-          onUnlockDeeper={() => {
-            setResultsOpen(false);
-            void runResearch();
-          }}
-          unlockLoading={loading}
-        />
+            }}
+            analysis={analysis}
+            researchId={researchId}
+            defaultEmail={formData.email}
+            defaultPhone={formData.phone}
+            canUnlockDeeper={
+              paidEntitled &&
+              analysis.research_depth !== 'pro' &&
+              analysis.research_depth !== 'pro_partial'
+            }
+            onUnlockDeeper={() => {
+              setResultsOpen(false);
+              void runResearch();
+            }}
+            unlockLoading={loading}
+          />
+        </ErrorBoundary>
       )}
     </div>
   );

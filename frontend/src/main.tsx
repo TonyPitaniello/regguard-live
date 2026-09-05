@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 
 import { AppRouter } from './AppRouter';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { loadGoogleMapsApi } from './loadGoogleMaps';
 import { ensurePwaInstallListener } from './pwaInstall';
 
@@ -14,7 +15,11 @@ import './mobile-optimizations.css'; // Mobile performance optimization
 ensurePwaInstallListener();
 
 // Render app immediately (don't block on Google Maps)
-createRoot(document.getElementById('root')!).render(<AppRouter />);
+createRoot(document.getElementById('root')!).render(
+  <ErrorBoundary>
+    <AppRouter />
+  </ErrorBoundary>
+);
 
 // Load Google Maps API in background (non-blocking)
 loadGoogleMapsApi().catch(err => console.warn('Google Maps failed (non-blocking):', err));
