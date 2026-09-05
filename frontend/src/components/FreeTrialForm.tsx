@@ -329,18 +329,16 @@ export default function FreeTrialForm({
       }
       if (payload.ic_pdfs_ready) {
         sessionStorage.setItem('icPdfsReady', '1');
-        // Soft nudge: buyer can open My Orders for the three PDF downloads
-        window.setTimeout(() => {
-          if (window.confirm('Your IC Project Report PDFs are ready. Open My Orders to download?')) {
-            window.location.href = '/orders';
-          }
-        }, 600);
+        // Keep results open in-app — PDF banner lives on the results panel (no hard redirect).
       }
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
         const analysis = payload.analysis_data as AnalysisData;
         if (payload.research_depth && !analysis.research_depth) {
           analysis.research_depth = String(payload.research_depth);
+        }
+        if (payload.ic_pdfs_ready) {
+          (analysis as AnalysisData & { ic_pdfs_ready?: boolean }).ic_pdfs_ready = true;
         }
         if (payload.job_id) {
           analysis.job_id = String(payload.job_id);

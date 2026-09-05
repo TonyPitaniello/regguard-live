@@ -188,6 +188,8 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
         "site_label": order.get("site_label")
         or order.get("address")
         or "",
+        "research_id": order.get("research_id") or "",
+        "share_url": order.get("share_url") or "",
     }
 
 

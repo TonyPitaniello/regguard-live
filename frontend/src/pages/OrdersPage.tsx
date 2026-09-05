@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-react';
 import { backendUrl } from '../env';
 import {
   hasValidPendingIcReport,
@@ -45,6 +45,8 @@ interface Order {
   site_zip?: string;
   site_project_type?: string;
   site_label?: string;
+  research_id?: string;
+  share_url?: string;
 }
 
 function tierLabel(tier: string): string {
@@ -339,8 +341,13 @@ export default function OrdersPage() {
     try {
       const raw = (pdf.url || '').trim();
       const pathStart = raw.search(/\/orders\//);
-      const fetchUrl =
+      let fetchUrl =
         pathStart >= 0 ? backendUrl(raw.slice(pathStart)) : raw.startsWith('http') ? raw : backendUrl(raw);
+      // Force regenerate with latest PDF format after deploy
+      const sep = fetchUrl.includes('?') ? '&' : '?';
+      if (!/[?&]refresh=/.test(fetchUrl)) {
+        fetchUrl = `${fetchUrl}${sep}refresh=1`;
+      }
       const res = await fetch(fetchUrl, { credentials: 'omit' });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
@@ -707,6 +714,51 @@ function OrderCard({
             </ul>
           </div>
         </div>
+
+        {/* In-app results — primary for IC buyers (PDFs are exports) */}
+        {isIcTier(order.tier) && !orderPdfsPreparing(order) ? (
+          <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <p className="text-emerald-200 font-bold text-sm sm:text-base flex items-center gap-2">
+              <FileText className="w-4 h-4 shrink-0" />
+              View full results in the app
+            </p>
+            <p className="text-gray-300 text-sm mt-1">
+              {order.site_label || order.address
+                ? `Interactive Bid Risk Receipt for ${order.site_label || order.address} — stamp, fees, gotchas, and punch list.`
+                : 'Open the interactive Bid Risk Receipt (same diligence as the PDFs).'}
+            </p>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
+              {order.research_id || (order.share_url || '').includes('/r/') ? (
+                <a
+                  href={
+                    order.share_url && order.share_url.includes('/r/')
+                      ? order.share_url.startsWith('http')
+                        ? order.share_url
+                        : order.share_url
+                      : `/r/${order.research_id}`
+                  }
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open site results
+                </a>
+              ) : (
+                <a
+                  href="/"
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  Run / open site lookup
+                </a>
+              )}
+              <a
+                href="/jobs"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
+              >
+                My Jobs
+              </a>
+            </div>
+          </div>
+        ) : null}
 
         {/* Download Buttons */}
         {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (

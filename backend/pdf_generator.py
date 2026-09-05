@@ -1,485 +1,479 @@
 """
-PDF Generator: Professional branded PDFs for RegGuard reports
-Generates:
-1. Research Memo PDF (environmental findings)
-2. Punch List PDF (formatted action items)
-3. Permit Package PDFs (state-specific pre-filled)
+PDF Generator: RegGuard-branded IC / delivery PDFs.
+
+Visual language matches the app: slate dark background, emerald accents, purple rules.
 """
 
-from fpdf import FPDF
-from typing import Dict, Any, List, Optional
-from datetime import datetime
-import os
+from __future__ import annotations
+
 import logging
+import os
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from fpdf import FPDF
+
+from pdf_text import ascii_safe, cite_host, markdown_to_bullets, markdown_to_plain
 
 logger = logging.getLogger(__name__)
 
+# App palette: slate-900 / purple-500 / emerald-500 / amber
+_BG = (15, 23, 42)  # slate-900
+_CARD = (30, 41, 59)  # slate-800
+_TEXT = (248, 250, 252)  # slate-50
+_MUTED = (148, 163, 184)  # slate-400
+_EMERALD = (16, 185, 129)
+_PURPLE = (168, 85, 247)
+_AMBER = (245, 158, 11)
+_RED = (248, 113, 113)
+_RULE = (71, 85, 105)  # slate-600
+
 
 class RegGuardPDF(FPDF):
-    """Base PDF class with RegGuard branding"""
-    
+    """Base PDF — dark slate brand matching the contractor app."""
+
     def __init__(self):
         super().__init__()
-        self.set_auto_page_break(auto=True, margin=15)
-        self.title = ""
+        self.set_auto_page_break(auto=True, margin=18)
+        self.set_margins(14, 14, 14)
         self.company_name = "RegGuard"
         self.company_tagline = "Site Diligence Intelligence"
-        
-        # Branding colors
-        self.color_primary = (99, 102, 241)  # Indigo
-        self.color_secondary = (139, 92, 246)  # Purple
-        self.color_accent = (34, 197, 94)  # Green
-        self.color_dark = (30, 30, 30)  # Dark gray
-        self.color_light = (249, 250, 251)  # Light gray
-    
-    def add_header(self, title: str, subtitle: Optional[str] = None):
-        """Add professional header with branding"""
-        # Header background
-        self.set_fill_color(*self.color_primary)
-        self.rect(0, 0, 210, 40, 'F')
-        
-        # Company name
-        self.set_font("Helvetica", "B", 24)
+        self._doc_title = ""
+        # Back-compat aliases used by older helpers
+        self.color_primary = _PURPLE
+        self.color_secondary = _EMERALD
+        self.color_accent = _EMERALD
+        self.color_dark = _TEXT
+        self.color_light = _CARD
+
+    def header(self) -> None:  # type: ignore[override]
+        self.set_fill_color(*_BG)
+        self.rect(0, 0, self.w, self.h, "F")
+
+    def footer(self) -> None:  # type: ignore[override]
+        self.set_y(-14)
+        self.set_draw_color(*_RULE)
+        self.line(14, self.get_y(), self.w - 14, self.get_y())
+        self.set_y(-12)
+        self.set_font("Helvetica", "", 7.5)
+        self.set_text_color(*_MUTED)
+        self.cell(60, 8, f"Page {self.page_no()}", align="L")
+        self.cell(70, 8, datetime.now().strftime("%b %d, %Y"), align="C")
+        self.cell(0, 8, "(c) RegGuard - planning aid", align="R")
+
+    def add_brand_banner(self, title: str, subtitle: Optional[str] = None) -> None:
+        """Top brand strip + title (call after add_page)."""
+        self.set_fill_color(88, 28, 135)  # purple-900-ish
+        self.rect(0, 0, self.w, 28, "F")
+        self.set_fill_color(*_EMERALD)
+        self.rect(0, 28, self.w, 1.2, "F")
+
+        self.set_xy(14, 6)
+        self.set_font("Helvetica", "B", 16)
         self.set_text_color(255, 255, 255)
-        self.set_xy(15, 8)
-        self.cell(0, 8, self.company_name, ln=True)
-        
-        # Tagline
-        self.set_font("Helvetica", "I", 10)
-        self.set_text_color(200, 200, 200)
-        self.set_xy(15, 18)
-        self.cell(0, 5, self.company_tagline)
-        
-        # Title
-        if title:
-            self.set_font("Helvetica", "B", 16)
-            self.set_text_color(*self.color_dark)
-            self.set_xy(15, 48)
-            self.cell(0, 10, title, ln=True)
-        
-        # Subtitle
+        self.cell(0, 7, self.company_name, ln=True)
+        self.set_x(14)
+        self.set_font("Helvetica", "", 8)
+        self.set_text_color(221, 214, 254)
+        self.cell(0, 5, self.company_tagline, ln=True)
+
+        self.set_xy(14, 34)
+        self.set_font("Helvetica", "B", 13)
+        self.set_text_color(*_TEXT)
+        self.multi_cell(self.epw, 6, ascii_safe(title, 120))
         if subtitle:
-            self.set_font("Helvetica", "", 11)
-            self.set_text_color(100, 100, 100)
-            self.set_xy(15, 60)
-            self.multi_cell(180, 5, subtitle)
-        
-        # Line separator
-        self.set_draw_color(*self.color_secondary)
-        self.line(15, self.get_y() + 5, 195, self.get_y() + 5)
-        self.ln(10)
-    
-    def add_footer(self):
-        """Add professional footer"""
-        self.set_font("Helvetica", "I", 9)
-        self.set_text_color(150, 150, 150)
-        self.set_y(-20)
-        
-        # Page number
-        self.set_x(15)
-        page_text = f"Page {self.page_no()}"
-        self.cell(0, 10, page_text, align="L")
-        
-        # Generated date
-        date_text = f"Generated: {datetime.now().strftime('%B %d, %Y')}"
-        self.set_x(95)
-        self.cell(0, 10, date_text, align="C")
-        
-        # RegGuard footer
-        self.set_x(140)
-        self.cell(50, 10, "(c) 2026 RegGuard", align="R")
-    
-    def add_section_title(self, title: str):
-        """Add section title with styling"""
-        self.set_font("Helvetica", "B", 14)
-        self.set_text_color(*self.color_primary)
-        self.set_xy(15, self.get_y())
-        self.cell(0, 10, title, ln=True)
-        
-        # Underline
-        self.set_draw_color(*self.color_primary)
-        self.line(15, self.get_y(), 195, self.get_y())
-        self.ln(5)
-    
-    def add_info_box(self, label: str, value: str):
-        """Add info box with label and value"""
+            self.set_font("Helvetica", "", 9)
+            self.set_text_color(*_MUTED)
+            self.set_x(14)
+            self.multi_cell(self.epw, 4.5, ascii_safe(subtitle, 200))
+        self.ln(3)
+        self._doc_title = title
+
+    def add_section_title(self, title: str) -> None:
+        self.ln(2)
         self.set_font("Helvetica", "B", 10)
-        self.set_text_color(100, 100, 100)
-        self.cell(50, 7, label + ":", ln=False)
-        
-        self.set_font("Helvetica", "", 10)
-        self.set_text_color(*self.color_dark)
-        self.cell(0, 7, value, ln=True)
+        self.set_text_color(*_EMERALD)
+        self.set_x(14)
+        self.cell(0, 7, ascii_safe(title.upper(), 80), ln=True)
+        y = self.get_y()
+        self.set_draw_color(*_PURPLE)
+        self.set_line_width(0.4)
+        self.line(14, y, 14 + min(70, self.epw), y)
+        self.ln(3)
+        self.set_text_color(*_TEXT)
+
+    def add_info_box(self, label: str, value: str) -> None:
+        self.set_x(14)
+        self.set_font("Helvetica", "B", 9)
+        self.set_text_color(*_MUTED)
+        self.cell(42, 6, ascii_safe(label, 40) + ":", ln=False)
+        self.set_font("Helvetica", "", 9)
+        self.set_text_color(*_TEXT)
+        self.multi_cell(self.epw - 42, 6, ascii_safe(value, 200))
+
+    def add_muted_note(self, text: str) -> None:
+        self.set_font("Helvetica", "I", 8)
+        self.set_text_color(*_MUTED)
+        self.set_x(14)
+        self.multi_cell(self.epw, 4, ascii_safe(text, 500))
+        self.set_text_color(*_TEXT)
+
+    def add_bullet(self, text: str, *, bullet: str = "-") -> None:
+        self.set_x(14)
+        self.set_font("Helvetica", "", 9)
+        self.set_text_color(*_TEXT)
+        self.multi_cell(self.epw, 4.5, f"{bullet} {ascii_safe(text, 400)}")
+
+    # Legacy name used by older call sites
+    def add_header(self, title: str, subtitle: Optional[str] = None) -> None:
+        self.add_brand_banner(title, subtitle)
+
+    def add_footer(self) -> None:
+        """No-op — real footer is drawn via footer()."""
+        return
 
 
 class ResearchMemoPDF(RegGuardPDF):
-    """Research Memo PDF: Environmental findings summary"""
-    
+    """Research Memo — site summary + action plan (no raw markdown)."""
+
     def generate(self, analysis_data: Dict[str, Any], output_path: Optional[str] = None) -> str:
-        """Generate research memo PDF"""
-        logger.info("🔵 Generating research memo PDF...")
-        
+        logger.info("Generating research memo PDF...")
         try:
             self.add_page()
-            # Do NOT call add_footer() before content — that paints at y=-20 on an
-            # empty page and commonly yields a blank first page in viewers.
-
-            # Header
-            project_info = analysis_data.get("project_info", {})
+            project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
-            self.add_header(
+            self.add_brand_banner(
                 "Site Diligence Research Memo",
-                f"Location: {address}"
+                f"{address}  |  IC Project Report",
             )
-            
-            # Project info section
-            self.add_section_title("PROJECT INFORMATION")
+
+            self.add_section_title("Project information")
             city = project_info.get("city", "")
             state = project_info.get("state", "")
             zip_code = project_info.get("zip", "")
-            
-            self.add_info_box("Location", f"{city}, {state} {zip_code}")
-            self.add_info_box("Project Type", project_info.get("type", "Data Center"))
-            self.add_info_box("Analysis Date", datetime.now().strftime("%B %d, %Y"))
-            self.ln(5)
-            
-            # Environmental summary
-            self.add_section_title("ENVIRONMENTAL ASSESSMENT")
-            env = analysis_data.get("environmental_screening", {})
-            risk_level = env.get("risk_level", "UNKNOWN")
-            
-            self.set_font("Helvetica", "B", 11)
-            color_map = {
-                "LOW": (34, 197, 94),
-                "MEDIUM": (234, 179, 8),
-                "HIGH": (239, 68, 68),
-                "CRITICAL": (220, 38, 38),
-            }
-            self.set_text_color(*color_map.get(risk_level, (100, 100, 100)))
-            self.cell(0, 8, f"Overall Risk Level: {risk_level}", ln=True)
-            self.ln(3)
-            
-            # Findings
-            findings = env.get("findings", [])
-            for finding in findings[:8]:  # Top findings (includes contractor action plan)
-                self.set_font("Helvetica", "B", 10)
-                self.set_text_color(*self.color_primary)
-                category = finding.get("category", "").replace("_", " ").title()
-                self.cell(0, 6, f"- {category}", ln=True)
-                
-                self.set_font("Helvetica", "", 9)
-                self.set_text_color(50, 50, 50)
-                desc = finding.get("description", "")
-                self.multi_cell(170, 4, desc)
-                
-                self.ln(2)
+            self.add_info_box("Location", f"{city}, {state} {zip_code}".strip())
+            self.add_info_box("Project type", str(project_info.get("type", "commercial")))
+            self.add_info_box("Analysis date", datetime.now().strftime("%B %d, %Y"))
 
-            # Contingency band (parity with app Bid-time arbitrage)
-            band = analysis_data.get("contingency_band") or {}
+            pack = analysis_data.get("pdf_pack") if isinstance(analysis_data.get("pdf_pack"), dict) else {}
+            if pack.get("ahj_name"):
+                self.add_section_title("Authority having jurisdiction")
+                self.add_info_box("AHJ", str(pack.get("ahj_name") or ""))
+                if pack.get("portal_url"):
+                    self.add_info_box("Portal", str(pack.get("portal_url")))
+                if pack.get("fees_url"):
+                    self.add_info_box("Fees URL", str(pack.get("fees_url")))
+                if pack.get("stamp_grade"):
+                    self.add_info_box("RegGuard stamp", str(pack.get("stamp_grade")))
+                if pack.get("beachhead"):
+                    self.add_muted_note(
+                        f"Beachhead pack: {pack.get('pack_key') or 'curated'} - citeable local fees/gotchas included below."
+                    )
+
+            env = analysis_data.get("environmental_screening", {}) or {}
+            risk_level = str(env.get("risk_level", "UNKNOWN")).upper()
+            self.add_section_title("Risk snapshot")
+            risk_color = {
+                "LOW": _EMERALD,
+                "MEDIUM": _AMBER,
+                "HIGH": _RED,
+                "CRITICAL": _RED,
+            }.get(risk_level, _MUTED)
+            self.set_font("Helvetica", "B", 12)
+            self.set_text_color(*risk_color)
+            self.set_x(14)
+            self.cell(0, 8, f"Overall risk: {risk_level}", ln=True)
+            self.set_text_color(*_TEXT)
+
+            fee_lines = list(pack.get("fee_lines") or [])
+            if fee_lines:
+                self.add_section_title("Citeable fee planning lines")
+                for line in fee_lines:
+                    self.add_bullet(line)
+
+            gotcha_lines = list(pack.get("gotcha_lines") or [])
+            if gotcha_lines:
+                self.add_section_title("Local gotchas (CRITICAL first)")
+                for line in gotcha_lines:
+                    self.add_bullet(line)
+
+            clock_lines = list(pack.get("clock_lines") or [])
+            if clock_lines:
+                self.add_section_title("Parallel clocks - AHJ vs utility vs federal")
+                for line in clock_lines:
+                    self.add_bullet(line)
+
+            if pack.get("radar_headline") or pack.get("power_headline"):
+                self.add_section_title("Data-center / large-load overlay")
+                if pack.get("radar_headline"):
+                    self.add_bullet(str(pack["radar_headline"]))
+                if pack.get("power_headline"):
+                    self.add_bullet(str(pack["power_headline"]))
+                for line in (pack.get("vertical_lines") or [])[:10]:
+                    self.add_bullet(line)
+
+            seq = list(pack.get("inspection_sequence") or [])
+            if seq:
+                self.add_section_title("Inspection / intake sequence")
+                for i, step in enumerate(seq, 1):
+                    self.add_bullet(str(step), bullet=f"{i}.")
+
+            # Findings — expand markdown action plans into bullets
+            findings = [f for f in (env.get("findings") or []) if isinstance(f, dict)]
+            if findings:
+                self.add_section_title("Key findings & contractor action plan")
+                for finding in findings[:6]:
+                    category = str(finding.get("category") or "Finding").replace("_", " ").title()
+                    self.set_font("Helvetica", "B", 9)
+                    self.set_text_color(*_PURPLE)
+                    self.set_x(14)
+                    self.cell(0, 6, ascii_safe(category, 80), ln=True)
+                    desc = finding.get("description") or ""
+                    bullets = markdown_to_bullets(desc, limit=18)
+                    if bullets:
+                        for b in bullets:
+                            self.add_bullet(b)
+                    else:
+                        plain = markdown_to_plain(desc, limit=900)
+                        if plain:
+                            self.set_font("Helvetica", "", 9)
+                            self.set_text_color(*_TEXT)
+                            self.set_x(14)
+                            self.multi_cell(self.epw, 4.5, plain)
+                    self.ln(1)
+
+            band = analysis_data.get("contingency_band") or pack.get("contingency") or {}
             if band.get("pct_low") is not None and band.get("pct_high") is not None:
-                self.add_section_title("BID CONTINGENCY BAND (PLANNING AID)")
-                self.set_font("Helvetica", "B", 12)
-                self.set_text_color(*self.color_accent)
+                self.add_section_title("Bid contingency band (planning aid)")
+                self.set_font("Helvetica", "B", 11)
+                self.set_text_color(*_EMERALD)
+                self.set_x(14)
                 self.multi_cell(
-                    180,
+                    self.epw,
                     6,
-                    f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
-                    f"(mid {band.get('pct_mid', 'n/a')}%) - not a quote",
+                    ascii_safe(
+                        f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
+                        f"(mid {band.get('pct_mid', 'n/a')}%) - not a quote",
+                        160,
+                    ),
                 )
-                self.ln(2)
+                self.set_text_color(*_TEXT)
 
             killers = [
                 k for k in (analysis_data.get("margin_killers") or []) if isinstance(k, dict)
-            ][:5]
+            ][:6]
             if killers:
-                self.add_section_title("TOP MARGIN RISK FLAGS")
+                self.add_section_title("Top margin risk flags")
                 for i, k in enumerate(killers, 1):
-                    self.set_font("Helvetica", "B", 9)
-                    self.set_text_color(*self.color_dark)
                     pri = str(k.get("priority") or "").upper()
-                    title = str(k.get("title") or "")[:100]
-                    self.multi_cell(180, 5, f"{i}. [{pri}] {title}")
-                    detail = str(k.get("detail") or "").strip()
+                    title = ascii_safe(k.get("title"), 120)
+                    self.set_font("Helvetica", "B", 9)
+                    self.set_text_color(*(_RED if pri in ("CRITICAL", "HIGH") else _AMBER))
+                    self.set_x(14)
+                    self.multi_cell(self.epw, 5, f"{i}. [{pri}] {title}")
+                    detail = markdown_to_plain(k.get("detail") or "", limit=280)
                     if detail:
                         self.set_font("Helvetica", "", 8)
-                        self.set_text_color(80, 80, 80)
-                        self.multi_cell(180, 4, detail[:220])
+                        self.set_text_color(*_MUTED)
+                        self.set_x(14)
+                        self.multi_cell(self.epw, 4, detail)
                     self.ln(1)
-            
-            # Action items summary
-            self.add_section_title("RECOMMENDED NEXT STEPS")
-            self.set_font("Helvetica", "", 10)
-            self.set_text_color(50, 50, 50)
-            
-            action_plan = env.get("action_plan", [])[:5]  # Top 5 actions
-            for i, action in enumerate(action_plan, 1):
-                self.multi_cell(180, 5, f"{i}. {action}")
-                self.ln(2)
-            
-            # Upgrade CTA (skip for paid IC Project packages)
-            if not analysis_data.get("skip_upgrade_cta"):
-                self.ln(10)
-                self.set_fill_color(*self.color_accent)
-                self.set_text_color(255, 255, 255)
-                self.set_font("Helvetica", "B", 11)
-                self.multi_cell(
-                    180,
-                    8,
-                    "NEXT: Contractor Pro ($149/mo) or IC Project Report ($1,500) - confirm fees with the AHJ before bidding.",
-                    align="C",
-                    border=1,
-                    fill=True
-                )
-            else:
-                self.ln(8)
-                self.set_font("Helvetica", "I", 9)
-                self.set_text_color(100, 100, 100)
-                self.multi_cell(
-                    180,
-                    5,
-                    "IC Project Report - planning diligence package. Confirm all fees, codes, and filings with the local AHJ before bid or permit submittal.",
-                )
-            
-            # Generate file
+
+            sources = list(pack.get("source_lines") or [])
+            if sources:
+                self.add_section_title("Scout / citeable sources")
+                for s in sources[:10]:
+                    self.add_bullet(s)
+
+            self.add_section_title("Recommended next steps")
+            action_plan = env.get("action_plan") or []
+            for i, action in enumerate(action_plan[:8], 1):
+                self.add_bullet(markdown_to_plain(action, limit=300), bullet=f"{i}.")
+
+            self.ln(4)
+            self.add_muted_note(
+                "IC Project Report - planning diligence package. Confirm all fees, codes, "
+                "and filings with the local AHJ before bid or permit submittal."
+            )
+
             if output_path is None:
                 output_path = f"/tmp/research_memo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
             self.output(output_path)
-            logger.info(f"✅ Research memo PDF generated: {output_path}")
+            logger.info("Research memo PDF generated: %s", output_path)
             return output_path
-            
         except Exception as e:
-            logger.error(f"❌ Failed to generate research memo PDF: {e}")
+            logger.error("Failed to generate research memo PDF: %s", e)
             raise
 
 
 class PunchListPDF(RegGuardPDF):
-    """Punch List PDF: Formatted action items table"""
-    
+    """Punch list as ranked cards - Critical -> Low."""
+
     def generate(self, analysis_data: Dict[str, Any], output_path: Optional[str] = None) -> str:
-        """Generate punch list PDF"""
-        logger.info("🔵 Generating punch list PDF...")
-        
+        logger.info("Generating punch list PDF...")
         try:
             self.add_page()
-            # Header first — avoid blank page from footer-before-content
-            project_info = analysis_data.get("project_info", {})
+            project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
-            self.add_header(
-                "CONTRACTOR PUNCH LIST (Critical -> Low)",
-                f"Ranked action items for: {address}"
+            self.add_brand_banner(
+                "Contractor Punch List",
+                f"Ranked Critical -> Low  |  {address}",
             )
-            
-            # Summary stats
-            self.add_section_title("PROJECT TIMELINE & COST")
-            punch_data = analysis_data.get("punch_list", {})
-            
-            self.set_font("Helvetica", "", 10)
-            self.set_text_color(50, 50, 50)
-            
+
+            punch_data = analysis_data.get("punch_list", {}) or {}
+            punch_list: List[Dict[str, Any]] = [
+                i for i in (punch_data.get("punch_list") or []) if isinstance(i, dict)
+            ]
+
+            self.add_section_title("Project timeline & cost")
             timeline = punch_data.get("timeline_summary", "8-12 weeks")
-            cost = punch_data.get("estimated_total_cost", 50000)
-            item_count = len(punch_data.get("punch_list", []))
-            
-            self.cell(50, 7, f"Timeline: {timeline}")
+            cost = punch_data.get("estimated_total_cost", 0)
             try:
                 cost_f = float(cost or 0)
             except (TypeError, ValueError):
                 cost_f = 0.0
-            self.cell(0, 7, f"Est. Cost: ${cost_f:,.0f}", ln=True)
-            self.cell(50, 7, f"Action Items: {item_count}")
-            self.cell(0, 7, "Sorted Critical -> High -> Medium -> Low", ln=True)
-            self.ln(5)
-            
-            # Punch list table
-            self.add_section_title("DETAILED ACTION ITEMS")
-            
-            # Table header
-            self.set_font("Helvetica", "B", 9)
-            self.set_fill_color(*self.color_primary)
-            self.set_text_color(255, 255, 255)
-            self.cell(10, 8, "#")
-            self.cell(95, 8, "Action Item")
-            self.cell(28, 8, "Priority")
-            self.cell(28, 8, "Citation")
-            self.ln()
-            
-            # Table rows
-            punch_list = punch_data.get("punch_list", [])
-            for i, item in enumerate(punch_list[:40], 1):
+            self.add_info_box("Timeline", str(timeline))
+            self.add_info_box("Est. cost (planning)", f"${cost_f:,.0f}")
+            self.add_info_box("Action items", str(len(punch_list)))
+
+            self.add_section_title("Detailed action items")
+            priority_color = {
+                "CRITICAL": _RED,
+                "HIGH": (251, 146, 60),
+                "MEDIUM": _AMBER,
+                "LOW": _EMERALD,
+            }
+
+            for i, item in enumerate(punch_list[:45], 1):
                 if self.get_y() > 250:
                     self.add_page()
-                    self.add_footer()
-                
-                priority = str(item.get("priority", "MEDIUM")).upper()
-                priority_color = {
-                    "CRITICAL": (220, 38, 38),
-                    "HIGH": (239, 68, 68),
-                    "MEDIUM": (234, 179, 8),
-                    "LOW": (34, 197, 94),
-                }
-                
-                self.set_font("Helvetica", "", 8)
-                self.set_text_color(*priority_color.get(priority, (100, 100, 100)))
-                
+                    self.set_xy(14, 16)
+
+                priority = str(item.get("priority") or "MEDIUM").upper()
+                task = markdown_to_plain(
+                    item.get("task") or item.get("action") or "",
+                    limit=280,
+                )
+                url = str(item.get("source_url") or item.get("citation_url") or "")
+                cite = cite_host(
+                    url,
+                    label=str(
+                        item.get("citation_label")
+                        or item.get("source_label")
+                        or ""
+                    ),
+                )
+
+                # Card background
                 y0 = self.get_y()
-                self.cell(10, 7, str(i))
-                
-                self.set_text_color(50, 50, 50)
-                task = str(item.get("task", "") or "")[:120]
-                # Use multi_cell for task; then place priority/citation on same row start
-                x_task = self.get_x()
-                self.multi_cell(95, 4.5, task)
-                y1 = self.get_y()
-                self.set_xy(15 + 10 + 95, y0)
-                self.set_text_color(*priority_color.get(priority, (100, 100, 100)))
-                self.cell(28, 7, priority)
-                cite = str(item.get("citation_label") or item.get("source_label") or "")
-                if not cite:
-                    cite = "SOURCE" if item.get("verified") else "UNVERIFIED"
-                self.set_text_color(80, 80, 80)
-                self.cell(28, 7, cite[:12])
-                self.set_y(max(y1, y0 + 7) + 1)
-            
-            # Generate file
+                self.set_fill_color(*_CARD)
+                # Estimate height after we know task wraps — paint after measuring
+                self.set_font("Helvetica", "B", 8)
+                self.set_text_color(*priority_color.get(priority, _MUTED))
+                self.set_x(14)
+                self.cell(22, 5, priority, ln=False)
+                self.set_text_color(*_MUTED)
+                self.set_font("Helvetica", "", 8)
+                self.cell(12, 5, f"#{i}", ln=False)
+                self.set_text_color(*_EMERALD)
+                self.cell(0, 5, cite, ln=True)
+
+                self.set_font("Helvetica", "", 9)
+                self.set_text_color(*_TEXT)
+                self.set_x(14)
+                self.multi_cell(self.epw, 4.5, task)
+                if url.startswith("http"):
+                    self.set_font("Helvetica", "", 7)
+                    self.set_text_color(*_MUTED)
+                    self.set_x(14)
+                    self.multi_cell(self.epw, 3.5, ascii_safe(url, 120))
+                self.ln(2)
+                # Subtle rule under card
+                self.set_draw_color(*_RULE)
+                self.line(14, self.get_y(), self.w - 14, self.get_y())
+                self.ln(2)
+                _ = y0  # keep layout stable
+
+            self.ln(2)
+            self.add_muted_note(
+                "Citations are planning aids. Confirm every fee and filing on the official AHJ portal."
+            )
+
             if output_path is None:
                 output_path = f"/tmp/punch_list_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
             self.output(output_path)
-            logger.info(f"✅ Punch list PDF generated: {output_path}")
+            logger.info("Punch list PDF generated: %s", output_path)
             return output_path
-            
         except Exception as e:
-            logger.error(f"❌ Failed to generate punch list PDF: {e}")
+            logger.error("Failed to generate punch list PDF: %s", e)
             raise
 
 
 class PermitPackagePDF(RegGuardPDF):
-    """Permit Package PDF: State-specific permit forms"""
-    
-    def generate(self, analysis_data: Dict[str, Any], state: str, output_path: Optional[str] = None) -> str:
-        """Generate permit package PDF"""
-        logger.info(f"🔵 Generating permit package PDF for {state}...")
-        
+    """Fallback permit worksheet when build_permit_package_pdf is unavailable."""
+
+    def generate(
+        self, analysis_data: Dict[str, Any], state: str, output_path: Optional[str] = None
+    ) -> str:
+        logger.info("Generating permit package PDF for %s...", state)
         try:
             self.add_page()
-            project_info = analysis_data.get("project_info", {})
+            project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
-            self.add_header(
-                f"PERMIT PACKAGE: {state.upper()}",
-                f"Ready-to-file permit applications for: {address}"
+            self.add_brand_banner(
+                f"Permit Package Worksheet - {str(state or '').upper()}",
+                f"Planning intake for: {address}",
             )
-            
-            # Project info
-            self.add_section_title("PROJECT INFORMATION (Pre-Filled)")
-            
-            self.set_font("Helvetica", "", 10)
-            self.set_text_color(50, 50, 50)
-            
-            self.add_info_box("Address", address)
-            city = project_info.get("city", "")
-            self.add_info_box("City", city)
-            self.add_info_box("State", state)
-            self.add_info_box("ZIP", project_info.get("zip", ""))
-            self.add_info_box("Project Type", project_info.get("type", "Data Center"))
-            self.ln(5)
-            
-            # Permit requirements by state (placeholder - customize per state)
-            self.add_section_title(f"{state} PERMIT REQUIREMENTS")
-            
-            state_permits = {
-                "TX": [
-                    "Electrical Permit (Local AHJ)",
-                    "Environmental Permit (if applicable)",
-                    "Utility Interconnection Agreement",
-                    "Grounding Certificate",
-                ],
-                "CA": [
-                    "California Building Code Compliance",
-                    "Energy Commission Approval",
-                    "Air Quality Permit",
-                ],
-                "NY": [
-                    "New York State Building Permit",
-                    "PSC Interconnection Agreement",
-                    "Environmental Review",
-                ],
-            }
-            
-            permits = state_permits.get(state.upper(), ["Local permit application"])
-            
-            self.set_font("Helvetica", "", 10)
-            self.set_text_color(50, 50, 50)
-            
-            for permit in permits:
-                self.cell(10, 7, "[x]")
-                self.cell(170, 7, permit, ln=True)
-            
-            self.ln(5)
-            
-            # Instructions
-            self.add_section_title("SUBMISSION INSTRUCTIONS")
-            
-            self.set_font("Helvetica", "", 9)
-            self.set_text_color(50, 50, 50)
-            
-            instructions = [
+
+            self.add_section_title("Project information (pre-filled)")
+            self.add_info_box("Address", str(address))
+            self.add_info_box("City", str(project_info.get("city") or ""))
+            self.add_info_box("State", str(state))
+            self.add_info_box("ZIP", str(project_info.get("zip") or ""))
+            self.add_info_box("Project type", str(project_info.get("type") or "commercial"))
+
+            self.add_section_title("AHJ checklist")
+            for line in (
+                "Confirm application type on the official building portal",
+                "Pull live fee schedule before payment",
+                "Upload single-line diagrams / load calcs if required",
+                "Treat utility interconnection as a parallel clock (if large-load)",
+            ):
+                self.add_bullet(line)
+
+            self.add_section_title("Submission instructions")
+            for instruction in (
                 "1. Review all pre-filled information for accuracy",
-                "2. Sign and date permit applications (see signature section)",
-                "3. Attach required supporting documents (electrical drawings, site plans, etc.)",
-                "4. Submit to your local Authority Having Jurisdiction (AHJ)",
-                "5. Track permit status using reference numbers provided",
-                "6. Contact RegGuard support for questions about requirements",
-            ]
-            
-            for instruction in instructions:
-                self.multi_cell(180, 5, instruction)
-            
-            # Generate file
+                "2. Confirm fees and trade license requirements with the AHJ",
+                "3. Attach drawings and cut sheets the jurisdiction requests",
+                "4. File on the official AHJ portal - RegGuard does not e-file",
+            ):
+                self.add_bullet(instruction, bullet="")
+
+            self.add_muted_note(
+                "This is a planning worksheet, not an official permit application."
+            )
+
             if output_path is None:
-                output_path = f"/tmp/permit_package_{state}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            
+                output_path = (
+                    f"/tmp/permit_package_{state}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                )
             self.output(output_path)
-            logger.info(f"✅ Permit package PDF generated: {output_path}")
+            logger.info("Permit package PDF generated: %s", output_path)
             return output_path
-            
         except Exception as e:
-            logger.error(f"❌ Failed to generate permit package PDF: {e}")
+            logger.error("Failed to generate permit package PDF: %s", e)
             raise
 
 
 async def generate_all_pdfs(analysis_data: Dict[str, Any]) -> Dict[str, str]:
-    """
-    Generate all three PDFs for a complete report
-    
-    Returns:
-    {
-        "research_memo": "/path/to/memo.pdf",
-        "punch_list": "/path/to/punch_list.pdf",
-        "permit_package": "/path/to/permits.pdf",
-    }
-    """
-    logger.info("📄 Generating complete PDF package...")
-    
-    try:
-        pdfs = {}
-        
-        # 1. Research memo
-        memo = ResearchMemoPDF()
-        pdfs["research_memo"] = memo.generate(analysis_data)
-        
-        # 2. Punch list
-        punch = PunchListPDF()
-        pdfs["punch_list"] = punch.generate(analysis_data)
-        
-        # 3. Permit package (default to TX, can be state-specific)
-        state = analysis_data.get("project_info", {}).get("state", "TX")
-        permits = PermitPackagePDF()
-        pdfs["permit_package"] = permits.generate(analysis_data, state)
-        
-        logger.info(f"✅ Complete PDF package generated: {pdfs}")
-        return pdfs
-        
-    except Exception as e:
-        logger.error(f"❌ Failed to generate PDF package: {e}")
-        raise
+    """Generate all three PDFs; return paths."""
+    paths: Dict[str, str] = {}
+    memo = ResearchMemoPDF()
+    paths["research_memo"] = memo.generate(analysis_data)
+    punch = PunchListPDF()
+    paths["punch_list"] = punch.generate(analysis_data)
+    state = str((analysis_data.get("project_info") or {}).get("state") or "TX")
+    permit = PermitPackagePDF()
+    paths["permits"] = permit.generate(analysis_data, state=state)
+    return paths

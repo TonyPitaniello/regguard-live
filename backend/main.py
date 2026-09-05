@@ -1450,6 +1450,7 @@ async def download_order_pdf(
     pdf_type: str,
     email: str = "",
     token: str = "",
+    refresh: str = "",
 ) -> Response:
     """Stream an IC Project PDF; regenerates from stored analysis if cache was wiped."""
     from ic_project_fulfillment import PDF_TYPES, ensure_pdf_bytes
@@ -1466,6 +1467,7 @@ async def download_order_pdf(
         ptype,
         email=(email or "").strip().lower(),
         token=(token or "").strip(),
+        force_refresh=refresh in ("1", "true", "yes"),
     )
     if err == "Order not found":
         raise HTTPException(status_code=404, detail=err)
@@ -2107,6 +2109,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     )
                     ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
                     if ic_pdfs_ready:
+                        analysis["ic_pdfs_ready"] = True
                         message = (
                             "IC Project Report PDFs ready — download Research Memo, "
                             "Punch List, and Permit Package from My Orders."

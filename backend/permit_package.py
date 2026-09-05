@@ -95,12 +95,13 @@ def is_722_munger_ave(site_address: str) -> bool:
     return bool(re.search(r"\b722\b", s))
 
 
-# Dark brand theme — page fill and crisp white typography.
-_THEME_BG = (11, 19, 43)
-_THEME_TEXT = (255, 255, 255)
-_THEME_MUTED = (180, 190, 210)
-_THEME_RULE = (56, 130, 220)
+# Match app + Research Memo / Punch List PDFs (slate-900 / emerald / purple).
+_THEME_BG = (15, 23, 42)  # slate-900
+_THEME_TEXT = (248, 250, 252)
+_THEME_MUTED = (148, 163, 184)
+_THEME_RULE = (168, 85, 247)  # purple accent
 _THEME_AMBER = (245, 158, 11)
+_THEME_EMERALD = (16, 185, 129)
 
 
 class _DallasPermitPdf(FPDF):
@@ -183,6 +184,10 @@ def build_permit_package_pdf(
         city=city, county=county, ahj_label=ahj_label, site_address=site_address
     )
 
+    from pdf_text import markdown_to_plain
+
+    jd = markdown_to_plain(jd, limit=6000)
+
     pdf = _DallasPermitPdf()
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=_MARGIN_B)
@@ -190,13 +195,29 @@ def build_permit_package_pdf(
     pdf.add_page()
     col_w = pdf.epw
 
-    pdf.set_font("Helvetica", "B", 15)
+    # Brand strip (matches Research Memo / Punch List)
+    pdf.set_fill_color(88, 28, 135)
+    pdf.rect(0, 0, pdf.w, 22, style="F")
+    pdf.set_fill_color(*_THEME_EMERALD)
+    pdf.rect(0, 22, pdf.w, 1.2, style="F")
+    pdf.set_xy(pdf.l_margin, 6)
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 6, "RegGuard", ln=True)
+    pdf.set_x(pdf.l_margin)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(221, 214, 254)
+    pdf.cell(0, 5, "Site Diligence Intelligence  |  IC Permit Worksheet", ln=True)
+    pdf.set_xy(pdf.l_margin, 28)
+
+    pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(*_THEME_TEXT)
     pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(col_w, 8, _ascii_pdf_text(title_primary), align="L")
-    pdf.set_font("Helvetica", "B", 12)
+    pdf.multi_cell(col_w, 7, _ascii_pdf_text(title_primary), align="L")
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*_THEME_EMERALD)
     pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(col_w, 7, _ascii_pdf_text(title_sub), align="L")
+    pdf.multi_cell(col_w, 6, _ascii_pdf_text(title_sub), align="L")
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(*_THEME_MUTED)
     pdf.set_x(pdf.l_margin)
@@ -204,8 +225,8 @@ def build_permit_package_pdf(
         col_w,
         4.5,
         _ascii_pdf_text(
-            "Reg Guard intake format aligned with common municipal permit application data fields. "
-            "Official filing, e-plan uploads, contractor registration, and payment remain on the AHJ portal."
+            "Reg Guard intake aligned with common municipal permit fields. "
+            "Official filing, e-plan uploads, contractor registration, and payment stay on the AHJ portal."
         ),
         align="L",
     )
@@ -231,7 +252,7 @@ def build_permit_package_pdf(
     _section_header(pdf, "PERMIT TYPE / PRIMARY TRADE")
     _body_block(pdf, (trade or "_________________________________________").strip())
 
-    _section_header(pdf, "PERMIT FEES (planning figures — confirm with AHJ)")
+    _section_header(pdf, "PERMIT FEES (planning figures - confirm with AHJ)")
     if dallas_site:
         fee_line = (
             f"City of Dallas minimum trade permit (Reg Guard 2026 planning sync): USD ${DALLAS_MIN_TRADE_PERMIT_USD:.2f}. "

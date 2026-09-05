@@ -156,16 +156,20 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         isinstance(f, dict) and f.get("category") == "contractor_action_plan"
         for f in (env.get("findings") or [])
     ):
+        from pdf_text import markdown_to_plain as _md_plain
+
         findings = list(env.get("findings") or [])
         findings.insert(
             0,
             {
                 "category": "contractor_action_plan",
-                "description": _ascii_safe(data["pro_summary_markdown"], 2500),
+                "description": _md_plain(data["pro_summary_markdown"], limit=3500),
             },
         )
         env["findings"] = findings[:8]
-    # Sanitize findings for Helvetica PDF fonts
+    # Sanitize findings for Helvetica PDF fonts (strip markdown artifacts)
+    from pdf_text import markdown_to_plain as _md_plain2
+
     cleaned_findings = []
     for finding in env.get("findings") or []:
         if not isinstance(finding, dict):
@@ -174,7 +178,7 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
             {
                 **finding,
                 "category": _ascii_safe(finding.get("category"), 80),
-                "description": _ascii_safe(finding.get("description"), 1200),
+                "description": _md_plain2(finding.get("description"), limit=2500),
             }
         )
     env["findings"] = cleaned_findings
@@ -194,26 +198,27 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(items, list):
         items = []
     try:
-        from punch_rank import strip_md_bold
         from delivery_parity import citation_label_for_item
     except Exception:
-        def strip_md_bold(t: str) -> str:  # type: ignore
-            return t or ""
-
         def citation_label_for_item(item: dict) -> str:  # type: ignore
             return "SOURCE" if item.get("verified") else "UNVERIFIED"
+
+    from pdf_text import cite_host, markdown_to_plain as _md_task
 
     safe_items = []
     for item in items:
         if not isinstance(item, dict):
             continue
+        url = str(item.get("source_url") or item.get("citation_url") or "")
+        label = citation_label_for_item(item)
         safe_items.append(
             {
                 **item,
-                "task": _ascii_safe(strip_md_bold(item.get("task")), 220),
+                "task": _md_task(item.get("task") or item.get("action"), limit=280),
                 "timeline": _ascii_safe(item.get("timeline"), 40),
                 "notes": _ascii_safe(item.get("notes"), 300),
-                "citation_label": citation_label_for_item(item),
+                "citation_label": cite_host(url, label=label),
+                "source_url": url,
             }
         )
     punch["punch_list"] = safe_items
@@ -224,7 +229,14 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     if data.get("pro_summary_markdown"):
         data["pro_summary_markdown"] = _ascii_safe(data["pro_summary_markdown"], 8000)
     data["skip_upgrade_cta"] = True
-    return _deep_ascii_strings(data)
+    data = _deep_ascii_strings(data)
+    try:
+        from ic_pdf_enrichment import enrich_analysis_for_ic_pdfs
+
+        data = enrich_analysis_for_ic_pdfs(data)
+    except Exception as e:
+        logger.warning("IC PDF enrichment skipped: %s", e)
+    return data
 
 
 def _deep_ascii_strings(obj: Any, *, _depth: int = 0) -> Any:
@@ -261,7 +273,9 @@ def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
         out["research_memo"] = _read_file_bytes(memo_path)
         out["punch_list"] = _read_file_bytes(punch_path)
 
-    # Prefer real AHJ worksheet for permits
+    # Prefer real AHJ worksheet for permits — plain text only (no raw markdown)
+    from pdf_text import markdown_to_bullets, markdown_to_plain
+
     site = pi.get("address") or "Project site"
     city = pi.get("city") or ""
     state = pi.get("state") or ""
@@ -273,12 +287,22 @@ def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
     ]
     summary_md = shaped.get("pro_summary_markdown") or ""
     if summary_md:
-        scope_bits.append(str(summary_md)[:2000])
+        bullets = markdown_to_bullets(summary_md, limit=16)
+        if bullets:
+            scope_bits.append("Contractor action plan (confirm with AHJ):")
+            scope_bits.extend(f"- {b}" for b in bullets)
+        else:
+            plain = markdown_to_plain(summary_md, limit=1800)
+            if plain:
+                scope_bits.append(plain)
+    pack = shaped.get("pdf_pack") if isinstance(shaped.get("pdf_pack"), dict) else {}
+    fee_bits = "\n".join(pack.get("fee_lines") or [])[:1500]
+    fee_summary = fee_bits or "Confirm current AHJ fee schedule before payment."
     try:
         out["permits"] = build_permit_package_pdf(
             site_address=site,
-            scope="\n\n".join(scope_bits),
-            fee_summary="Confirm current AHJ fee schedule before payment.",
+            scope="\n".join(scope_bits),
+            fee_summary=fee_summary,
             trade="General contractor / electrical (confirm with AHJ)",
             zip_code=zip_code,
             city=city,
@@ -490,6 +514,7 @@ def ensure_pdf_bytes(
     *,
     email: str = "",
     token: str = "",
+    force_refresh: bool = False,
 ) -> Tuple[Optional[bytes], Optional[str]]:
     """
     Return PDF bytes for download, regenerating from stored analysis if needed.
@@ -500,6 +525,11 @@ def ensure_pdf_bytes(
         return None, "Invalid PDF type"
 
     from order_service import get_raw_order_by_id
+
+    try:
+        from ic_pdf_enrichment import PDF_FORMAT_VERSION
+    except Exception:
+        PDF_FORMAT_VERSION = 3
 
     order = get_raw_order_by_id(order_id)
     if not order:
@@ -517,11 +547,23 @@ def ensure_pdf_bytes(
     elif email_l and order_email and email_l != order_email:
         return None, "Email does not match order"
 
+    analysis = order.get("analysis_json")
+    stored_ver = 0
+    if isinstance(analysis, dict):
+        try:
+            stored_ver = int(analysis.get("pdf_format_version") or 0)
+        except (TypeError, ValueError):
+            stored_ver = 0
+
+    # Always regenerate when format bumped, or caller requests refresh
+    need_regen = force_refresh or stored_ver < PDF_FORMAT_VERSION
+    if need_regen and order_id in _PDF_BYTES:
+        _PDF_BYTES.pop(order_id, None)
+
     cached = get_cached_pdf_bytes(order_id, pdf_type)
-    if cached:
+    if cached and not need_regen:
         return cached, None
 
-    analysis = order.get("analysis_json")
     if not isinstance(analysis, dict) or not analysis:
         return None, "PDFs not ready — run a site lookup after purchase to generate your report"
 
@@ -530,6 +572,9 @@ def ensure_pdf_bytes(
         _PDF_BYTES[order_id] = byte_map
         from order_service import update_order_artifacts
 
+        # Stamp format version so next download can skip unless bumped again
+        analysis = dict(analysis)
+        analysis["pdf_format_version"] = PDF_FORMAT_VERSION
         update_order_artifacts(
             order_id,
             pdfs=build_pdf_meta(
@@ -538,6 +583,7 @@ def ensure_pdf_bytes(
                 byte_map,
                 download_token=order_token,
             ),
+            analysis_json=analysis,
         )
         return byte_map.get(pdf_type), None
     except Exception as e:

@@ -52,6 +52,8 @@ export interface AnalysisData {
   research_incomplete?: boolean;
   scout_mode?: string;
   ic_package?: boolean | Record<string, unknown>;
+  /** Set when IC Project PDFs were just generated for this lookup */
+  ic_pdfs_ready?: boolean;
   local_pack?: {
     tier?: string;
     citeable?: boolean;
@@ -778,6 +780,9 @@ export default function ResultsViewerModal({
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
+  const icPdfsReady =
+    Boolean(view.ic_pdfs_ready) ||
+    (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1' && depthTier === 'ic_full');
 
   const depthBadgeLabel = (() => {
     if (incompleteRun) {
@@ -1294,6 +1299,23 @@ export default function ResultsViewerModal({
 
         {/* Text / Email + social share — scrolls with results (page scroll) */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
+          {icPdfsReady ? (
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
+              <p className="text-emerald-200 font-bold text-sm sm:text-base">
+                IC Project Report PDFs are ready
+              </p>
+              <p className="text-gray-300 text-sm mt-1">
+                Research Memo, Punch List, and Permit Package match this site. Download them from My
+                Orders — results stay on this page.
+              </p>
+              <a
+                href="/orders"
+                className="inline-flex mt-3 px-4 py-2.5 min-h-[44px] items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+              >
+                Open My Orders → download PDFs
+              </a>
+            </div>
+          ) : null}
           <SendResultsForm
             researchId={effectiveResearchId}
             summary={summary}
