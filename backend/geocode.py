@@ -197,39 +197,71 @@ def google_reverse_geocode_us_latlng(lat: float, lon: float) -> Tuple[str, str, 
 
 def google_geocode_us_address(
     address: str,
+    *,
+    postal_code: str = "",
+    locality: str = "",
+    administrative_area: str = "",
 ) -> Tuple[List[dict[str, Any]], str, Optional[float], Optional[float]]:
     """
     Forward geocode a U.S. postal address string (e.g. Places formatted_address).
 
-    Returns ``(address_components, formatted_address, latitude, longitude)``.
+    Optional ``postal_code`` / ``locality`` / ``administrative_area`` bias Google
+    so "14th St" + ZIP 75074 stays in Plano instead of matching Dallas/Tyler.
     """
     raw = (address or "").strip()
     if not raw:
         raise ValueError("Address is required.")
     key = require_google_maps_key()
+    components = ["country:US"]
+    z = "".join(ch for ch in (postal_code or "") if ch.isdigit())[:5]
+    if len(z) == 5:
+        components.append(f"postal_code:{z}")
+    city = (locality or "").strip()
+    if city:
+        components.append(f"locality:{city}")
+    st = (administrative_area or "").strip().upper()[:2]
+    if len(st) == 2:
+        components.append(f"administrative_area:{st}")
     payload = _google_geocode_get(
-        {"address": raw, "components": "country:US", "key": key},
+        {
+            "address": raw,
+            "components": "|".join(components),
+            "region": "us",
+            "key": key,
+        },
     )
     status = (payload.get("status") or "").strip()
     if status != "OK":
-        msg = str(payload.get("error_message") or status or "UNKNOWN").strip()
-        denied = _denied_hint(msg + " " + status)
-        raise ValueError(
-            f"Google Geocoding error: {msg}.{denied}" if denied else f"Google Geocoding error: {msg}",
-        )
+        # Retry without locality bias if ZIP-constrained query failed
+        if len(z) == 5 and (locality or administrative_area):
+            payload = _google_geocode_get(
+                {
+                    "address": raw,
+                    "components": f"country:US|postal_code:{z}",
+                    "region": "us",
+                    "key": key,
+                },
+            )
+            status = (payload.get("status") or "").strip()
+        if status != "OK":
+            msg = str(payload.get("error_message") or status or "UNKNOWN").strip()
+            denied = _denied_hint(msg + " " + status)
+            raise ValueError(
+                f"Google Geocoding error: {msg}.{denied}" if denied else f"Google Geocoding error: {msg}",
+            )
 
     results = payload.get("results") or []
     if not results:
         raise ValueError("Could not resolve that address. Try another selection.")
 
     top = results[0]
-    components = top.get("address_components")
-    if not isinstance(components, list):
+    components_out = top.get("address_components")
+    if not isinstance(components_out, list):
         raise ValueError("Invalid Geocoding response (no address_components).")
 
     is_us = any(
         "country" in set(c.get("types") or []) and (c.get("short_name") or "").upper() == "US"
-        for c in components
+        for c in components_out
     )
     if not is_us:
         raise ValueError("Only U.S. addresses are supported.")
@@ -240,7 +272,7 @@ def google_geocode_us_address(
     lng = loc.get("lng")
     lat_f = float(lat) if isinstance(lat, (int, float)) else None
     lng_f = float(lng) if isinstance(lng, (int, float)) else None
-    return components, formatted, lat_f, lng_f
+    return components_out, formatted, lat_f, lng_f
 
 
 def google_geocode_us_zip(

@@ -187,9 +187,20 @@ def fetch_place_profile(place_id: str) -> JurisdictionProfile:
     return build_profile_from_components(components, formatted)
 
 
-def geocode_profile_from_address(address: str) -> JurisdictionProfile:
+def geocode_profile_from_address(
+    address: str,
+    *,
+    postal_code: str = "",
+    locality: str = "",
+    administrative_area: str = "",
+) -> JurisdictionProfile:
     """Resolve city / county / ZIP / lat/lng via ``geocode.google_geocode_us_address``."""
-    components, formatted, lat, lng = google_geocode_us_address(address)
+    components, formatted, lat, lng = google_geocode_us_address(
+        address,
+        postal_code=postal_code,
+        locality=locality,
+        administrative_area=administrative_area,
+    )
     return build_profile_from_components(components, formatted, lat, lng)
 
 

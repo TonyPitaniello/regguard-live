@@ -2844,7 +2844,12 @@ def geocode_address_forward(
             detail="Enter a street address with city/state or ZIP to place the pin.",
         )
     try:
-        profile = geocode_profile_from_address(line)
+        profile = geocode_profile_from_address(
+            line,
+            postal_code=zip_s,
+            locality=city_s,
+            administrative_area=state_s,
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:  # noqa: BLE001
@@ -2858,12 +2863,22 @@ def geocode_address_forward(
     if lat is None or lng is None:
         raise HTTPException(status_code=400, detail="Could not resolve coordinates for that address.")
 
+    # Prefer user-typed locality — never silently swap Plano (75074) for Dallas/Tyler.
+    out_city = city_s or profile.city or ""
+    out_state = state_s or profile.state_short or ""
+    out_zip = zip_s or profile.zip5 or ""
+    out_street = street_s or profile.street_line or (profile.formatted_address or "").split(",")[0]
+    if zip_s and profile.zip5 and zip_s != profile.zip5:
+        out_zip = zip_s
+        out_city = city_s or out_city
+        out_state = state_s or out_state
+
     return {
         "formatted_address": profile.formatted_address or line,
-        "zip": profile.zip5 or zip_s,
-        "city": profile.city or city_s,
-        "state": profile.state_short or state_s,
-        "street": profile.street_line or street_s or (profile.formatted_address or "").split(",")[0],
+        "zip": out_zip,
+        "city": out_city,
+        "state": out_state,
+        "street": out_street,
         "latitude": str(lat),
         "longitude": str(lng),
     }

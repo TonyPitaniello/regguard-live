@@ -16,6 +16,7 @@ import {
   VOICE_SUBMIT_EVENT,
   type VoiceFillDetail,
 } from '../voiceFillParse';
+import { preferUserLocality, zip5Of } from '../addressPrefer';
 import {
   clearIcRunId,
   clearLastResearchForm,
@@ -270,7 +271,43 @@ export default function FreeTrialForm({
       forceOnce = false;
     }
     const forceIc = Boolean(forceOnce && hasValidPendingIcReport() && paid && icReportPending);
-    const siteChip = `${data.address}, ${data.city}, ${data.state} ${data.zip}`;
+    // Normalize so IC confirm never shows Dallas when ZIP is Plano 75074
+    const siteNorm = preferUserLocality({
+      userStreet: data.address,
+      userCity: data.city,
+      userState: data.state,
+      userZip: data.zip,
+    });
+    if (
+      siteNorm.city !== data.city ||
+      siteNorm.zip !== zip5Of(data.zip) ||
+      siteNorm.state !== (data.state || '').toUpperCase().slice(0, 2)
+    ) {
+      setFormData((prev) => ({
+        ...prev,
+        address: siteNorm.street || prev.address,
+        city: siteNorm.city || prev.city,
+        state: siteNorm.state || prev.state,
+        zip: siteNorm.zip || prev.zip,
+      }));
+      formDataRef.current = {
+        ...formDataRef.current,
+        address: siteNorm.street || data.address,
+        city: siteNorm.city || data.city,
+        state: siteNorm.state || data.state,
+        zip: siteNorm.zip || data.zip,
+      };
+    }
+    const siteChip = `${siteNorm.street || data.address}, ${siteNorm.city || data.city}, ${
+      siteNorm.state || data.state
+    } ${siteNorm.zip || data.zip}`;
+    const dataForApi = {
+      ...data,
+      address: siteNorm.street || data.address,
+      city: siteNorm.city || data.city,
+      state: siteNorm.state || data.state,
+      zip: siteNorm.zip || data.zip,
+    };
     if (paid && icReportPending) {
       if (forceIc) {
         // Soft confirm chip — Cancel aborts IC slot consume
@@ -323,17 +360,17 @@ export default function FreeTrialForm({
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
         body: JSON.stringify({
-          address: data.address,
-          zip: data.zip,
-          city: data.city,
-          state: data.state,
-          project_type: data.projectType,
+          address: dataForApi.address,
+          zip: dataForApi.zip,
+          city: dataForApi.city,
+          state: dataForApi.state,
+          project_type: dataForApi.projectType,
           email: emailNorm,
-          phone: data.phone || undefined,
+          phone: dataForApi.phone || undefined,
           generate_ic_report: generateIcReport,
           ic_idempotency_key: icKey,
-          ...(data.lat != null && data.lng != null
-            ? { latitude: data.lat, longitude: data.lng }
+          ...(dataForApi.lat != null && dataForApi.lng != null
+            ? { latitude: dataForApi.lat, longitude: dataForApi.lng }
             : {}),
         }),
       });

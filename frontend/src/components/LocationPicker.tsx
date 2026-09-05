@@ -11,6 +11,7 @@ import {
   mapsAutocompleteEnabled,
   type AddressSelection,
 } from '../AddressAutocomplete';
+import { preferUserLocality, zip5Of } from '../addressPrefer';
 
 interface LocationPickerProps {
   onLocationSelect: (
@@ -257,26 +258,51 @@ export function LocationPicker({
       };
       const formatted = (data.formatted_address || '').trim();
       const parsed = parseStateZip(formatted);
-      const nextStreet = (data.street || formatted.split(',')[0] || '').trim();
-      const nextCity = (data.city || '').trim();
-      const nextState = (data.state || parsed.state || '').trim();
-      const nextZip = ((data.zip || parsed.zip || '').match(/\d{5}/) || [''])[0];
+      const geoStreet = (data.street || formatted.split(',')[0] || '').trim();
+      const geoCity = (data.city || '').trim();
+      const geoState = (data.state || parsed.state || '').trim();
+      const geoZip = ((data.zip || parsed.zip || '').match(/\d{5}/) || [''])[0];
 
-      setAddress(nextStreet || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      setCity(nextCity);
-      setState(nextState);
-      setZip(nextZip);
+      // Keep user-typed Plano / 75074 — reverse geocode must not swap to Dallas/Tyler
+      const merged = preferUserLocality({
+        userStreet: address,
+        userCity: city,
+        userState: state,
+        userZip: zip,
+        geoStreet,
+        geoCity,
+        geoState,
+        geoZip,
+      });
+
+      if (!address.trim() || address.trim().length < 5) {
+        setAddress(merged.street || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      }
+      if (!city.trim()) setCity(merged.city);
+      if (!state.trim()) setState(merged.state);
+      if (zip5Of(zip).length < 5) setZip(merged.zip);
+
+      const useStreet = address.trim().length >= 5 ? address.trim() : merged.street;
+      const useCity = city.trim() || merged.city;
+      const useStateVal = state.trim() || merged.state;
+      const useZip = zip5Of(zip).length === 5 ? zip5Of(zip) : merged.zip;
+
+      if (merged.corrected) {
+        setError(
+          `Kept your city/ZIP (${useCity || 'site'}, ${useZip}) — map pin updated. Geocoder had suggested a different city.`
+        );
+      }
 
       commitPin(
         latitude,
         longitude,
-        nextStreet || formatted,
-        nextCity,
-        nextState,
-        nextZip,
-        Boolean(nextStreet && nextCity && nextState && nextZip.length === 5)
+        useStreet,
+        useCity,
+        useStateVal,
+        useZip,
+        Boolean(useStreet && useCity && useStateVal && useZip.length === 5)
       );
-      if (!(nextStreet && nextCity && nextState && nextZip.length === 5)) {
+      if (!(useStreet && useCity && useStateVal && useZip.length === 5)) {
         setError(
           'Pin set — complete any missing city / state / ZIP below, then tap Find on map if needed.'
         );
@@ -301,7 +327,8 @@ export function LocationPicker({
   };
 
   const forwardGeocodeViaMapsJs = async (
-    query: string
+    query: string,
+    bias?: { zip?: string; city?: string; state?: string }
   ): Promise<{
     street: string;
     city: string;
@@ -314,11 +341,20 @@ export function LocationPicker({
     if (!g?.Geocoder) return null;
     try {
       const geocoder = new g.Geocoder();
+      const componentRestrictions: Record<string, string> = { country: 'US' };
+      const z = zip5Of(bias?.zip || '');
+      if (z.length === 5) componentRestrictions.postalCode = z;
+      if ((bias?.state || '').trim().length === 2) {
+        componentRestrictions.administrativeArea = bias!.state!.trim().toUpperCase();
+      }
       const response = await new Promise<any>((resolve, reject) => {
-        geocoder.geocode({ address: query, componentRestrictions: { country: 'US' } }, (results: any, status: string) => {
-          if (status === 'OK' && results?.[0]) resolve(results[0]);
-          else reject(new Error(status || 'ZERO_RESULTS'));
-        });
+        geocoder.geocode(
+          { address: query, componentRestrictions },
+          (results: any, status: string) => {
+            if (status === 'OK' && results?.[0]) resolve(results[0]);
+            else reject(new Error(status || 'ZERO_RESULTS'));
+          }
+        );
       });
       const loc = response.geometry?.location;
       const lat = typeof loc?.lat === 'function' ? loc.lat() : Number(loc?.lat);
@@ -390,9 +426,12 @@ export function LocationPicker({
         if (e?.name === 'AbortError') return;
       }
 
-      // Fallback: browser Google Geocoder when API is behind / missing the route
       if (!data) {
-        const viaMaps = await forwardGeocodeViaMapsJs(query);
+        const viaMaps = await forwardGeocodeViaMapsJs(query, {
+          zip: nextZip,
+          city: nextCity,
+          state: nextState,
+        });
         if (viaMaps) {
           data = {
             street: viaMaps.street,
@@ -417,29 +456,38 @@ export function LocationPicker({
         setError('Could not resolve coordinates for that address.');
         return;
       }
-      const resolvedStreet = (data.street || street || data.formatted_address?.split(',')[0] || '').trim();
-      const resolvedCity = (data.city || nextCity || '').trim();
-      const resolvedState = (data.state || nextState || '').trim();
-      const resolvedZip = ((data.zip || nextZip || '').match(/\d{5}/) || [''])[0];
 
-      if (!city.trim() && resolvedCity) setCity(resolvedCity);
-      if (!state.trim() && resolvedState) setState(resolvedState);
-      if (zip.replace(/\D/g, '').length < 5 && resolvedZip) setZip(resolvedZip);
-      if (resolvedStreet && street.trim().length < 5) setAddress(resolvedStreet);
+      const merged = preferUserLocality({
+        userStreet: street,
+        userCity: nextCity,
+        userState: nextState,
+        userZip: nextZip,
+        geoStreet: data.street || data.formatted_address?.split(',')[0] || '',
+        geoCity: data.city || '',
+        geoState: data.state || '',
+        geoZip: data.zip || '',
+      });
+
+      // Only fill blanks in the form — never overwrite Plano with Dallas
+      if (!city.trim() && merged.city) setCity(merged.city);
+      if (!state.trim() && merged.state) setState(merged.state);
+      if (zip5Of(zip).length < 5 && merged.zip) setZip(merged.zip);
+      if (street.trim().length < 5 && merged.street) setAddress(merged.street);
+
+      if (merged.corrected) {
+        setError(
+          `Using ${merged.city}, ${merged.state} ${merged.zip} (your ZIP/city). Map pin placed — verify before running.`
+        );
+      }
 
       commitPin(
         latitude,
         longitude,
-        resolvedStreet || street.trim(),
-        resolvedCity || nextCity.trim(),
-        resolvedState || nextState.trim(),
-        resolvedZip || nextZip.replace(/\D/g, '').slice(0, 5),
-        Boolean(
-          (resolvedStreet || street.trim()) &&
-            (resolvedCity || nextCity.trim()) &&
-            (resolvedState || nextState.trim()) &&
-            (resolvedZip || nextZip).replace(/\D/g, '').length === 5
-        )
+        merged.street,
+        merged.city,
+        merged.state,
+        merged.zip,
+        Boolean(merged.street && merged.city && merged.state && merged.zip.length === 5)
       );
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
@@ -624,9 +672,33 @@ export function LocationPicker({
       Number.isFinite(longitude) &&
       !(Math.abs(latitude) < 1e-6 && Math.abs(longitude) < 1e-6)
     ) {
-      commitPin(latitude, longitude, street, nextCity, nextState, nextZip, Boolean(street && nextCity && nextState && nextZip.length === 5));
-      if (!(street && nextCity && nextState && nextZip.length === 5)) {
+      const merged = preferUserLocality({
+        userStreet: address || street,
+        userCity: city || nextCity,
+        userState: state || nextState,
+        userZip: zip || nextZip,
+        geoStreet: street,
+        geoCity: nextCity,
+        geoState: nextState,
+        geoZip: nextZip,
+      });
+      setAddress(merged.street);
+      setCity(merged.city);
+      setState(merged.state);
+      setZip(merged.zip);
+      commitPin(
+        latitude,
+        longitude,
+        merged.street,
+        merged.city,
+        merged.state,
+        merged.zip,
+        Boolean(merged.street && merged.city && merged.state && merged.zip.length === 5)
+      );
+      if (!(merged.street && merged.city && merged.state && merged.zip.length === 5)) {
         setError('Address found — complete city / state / ZIP, then tap Find on map if needed.');
+      } else if (merged.corrected) {
+        setError(`Kept ZIP/city as ${merged.city}, ${merged.zip} — verify before running.`);
       }
       return;
     }
