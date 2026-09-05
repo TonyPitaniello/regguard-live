@@ -202,7 +202,7 @@ export function LocationPicker({
     nextCity: string,
     nextState: string,
     nextZip: string,
-    autoConfirm: boolean
+    syncParent: boolean
   ) => {
     latLngRef.current = { lat: latitude, lng: longitude };
     setLat(latitude);
@@ -210,12 +210,11 @@ export function LocationPicker({
     setMapVisible(true);
     placeMarker(latitude, longitude);
     settledQueryRef.current = composeQuery(street, nextCity, nextState, nextZip);
-    if (autoConfirm && street && nextCity && nextState && nextZip.length === 5) {
+    // Never auto-lock — locking is opt-in via "Lock pin"
+    setLocationConfirmed(false);
+    if (syncParent && street && nextCity && nextState && nextZip.length === 5) {
       onLocationSelect(street, nextCity, nextState, nextZip, latitude, longitude);
-      setLocationConfirmed(true);
       setError('');
-    } else {
-      setLocationConfirmed(false);
     }
   };
 
@@ -279,7 +278,8 @@ export function LocationPicker({
       );
       if (!(nextStreet && nextCity && nextState && nextZip.length === 5)) {
         setError(
-          'Pin set — complete any missing city / state / ZIP below, then tap Confirm This Location.'
+        setError(
+          'Pin set — complete any missing city / state / ZIP below, then tap Find on map if needed.'
         );
       }
     } catch {
@@ -572,7 +572,7 @@ export function LocationPicker({
   const handleConfirmLocation = () => {
     const zip5 = (zip || '').replace(/\D/g, '').slice(0, 5);
     if (!address.trim() || !city.trim() || !state.trim() || zip5.length !== 5) {
-      setError('Fill street, city, state, and 5-digit ZIP, then confirm.');
+      setError('Fill street, city, state, and 5-digit ZIP, then place the pin.');
       return;
     }
     if (lat === null || lng === null) {
@@ -582,6 +582,22 @@ export function LocationPicker({
     }
     onLocationSelect(address.trim(), city.trim(), state.trim(), zip5, lat, lng);
     settledQueryRef.current = composeQuery(address, city, state, zip5);
+    // Do not lock — fields stay editable; optional Lock pin below
+    setLocationConfirmed(false);
+    setError('');
+  };
+
+  const lockPin = () => {
+    const zip5 = (zip || '').replace(/\D/g, '').slice(0, 5);
+    if (!address.trim() || !city.trim() || !state.trim() || zip5.length !== 5) {
+      setError('Fill street, city, state, and ZIP before locking.');
+      return;
+    }
+    if (lat === null || lng === null) {
+      setError('Place the pin on the map first, then lock if you want.');
+      return;
+    }
+    onLocationSelect(address.trim(), city.trim(), state.trim(), zip5, lat, lng);
     setLocationConfirmed(true);
     setError('');
   };
@@ -611,7 +627,7 @@ export function LocationPicker({
     ) {
       commitPin(latitude, longitude, street, nextCity, nextState, nextZip, Boolean(street && nextCity && nextState && nextZip.length === 5));
       if (!(street && nextCity && nextState && nextZip.length === 5)) {
-        setError('Address found — confirm city / state / ZIP, then tap Confirm This Location.');
+        setError('Address found — complete city / state / ZIP, then tap Find on map if needed.');
       }
       return;
     }
@@ -695,33 +711,44 @@ export function LocationPicker({
             <MapPin className="w-4 h-4 text-emerald-400" />
             Site address
           </p>
-          {locationConfirmed && pinReady && (
+          {locationConfirmed && pinReady ? (
             <p className="flex items-center gap-1.5 text-xs text-emerald-300 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-              Pin locked
+              Pin locked (optional)
             </p>
-          )}
+          ) : pinReady ? (
+            <p className="text-xs text-gray-400 font-medium">Pin placed — editable</p>
+          ) : null}
         </div>
-        {locationConfirmed ? (
-          <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          {locationConfirmed ? (
             <button
               type="button"
               onClick={unlockPin}
               disabled={disabled}
               className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold disabled:opacity-50"
             >
-              Unlock pin / change address
+              Unlock pin
             </button>
+          ) : pinReady ? (
             <button
               type="button"
-              onClick={clearSite}
+              onClick={lockPin}
               disabled={disabled}
               className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
             >
-              Clear site
+              Lock pin (optional)
             </button>
-          </div>
-        ) : null}
+          ) : null}
+          <button
+            type="button"
+            onClick={clearSite}
+            disabled={disabled}
+            className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
+          >
+            Clear site
+          </button>
+        </div>
         {pinReady && (
           <p className="text-xs text-gray-400">
             Coordinates: {lat!.toFixed(5)}, {lng!.toFixed(5)}
@@ -733,8 +760,8 @@ export function LocationPicker({
             type="text"
             value={address}
             onChange={onFieldChange(setAddress)}
-            disabled={disabled}
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+            disabled={disabled || locationConfirmed}
+            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
             placeholder="100 W Avenue F"
             autoComplete="off"
           />
@@ -746,8 +773,8 @@ export function LocationPicker({
               type="text"
               value={city}
               onChange={onFieldChange(setCity)}
-              disabled={disabled}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+              disabled={disabled || locationConfirmed}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
               placeholder="Midlothian"
               autoComplete="off"
             />
@@ -758,8 +785,8 @@ export function LocationPicker({
               type="text"
               value={state}
               onChange={onFieldChange(setState)}
-              disabled={disabled}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+              disabled={disabled || locationConfirmed}
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
               placeholder="TX"
               autoComplete="off"
             />
@@ -770,32 +797,37 @@ export function LocationPicker({
               type="text"
               value={zip}
               onChange={onFieldChange(setZip)}
-              disabled={disabled}
+              disabled={disabled || locationConfirmed}
               inputMode="numeric"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm"
+              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
               placeholder="76065"
               autoComplete="off"
             />
           </div>
         </div>
 
-        {!locationConfirmed ? (
-          <button
-            type="button"
-            onClick={handleConfirmLocation}
-            disabled={disabled || loading}
-            className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Placing pin…' : pinReady ? 'Confirm This Location' : 'Find on map & confirm'}
-          </button>
-        ) : (
-          <div className="text-center text-green-400 font-bold text-sm space-y-1">
-            <p>✓ Location confirmed</p>
-            <p className="text-xs text-gray-400 font-normal">
-              Tap Unlock pin above to edit this site.
-            </p>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={handleConfirmLocation}
+          disabled={disabled || loading || locationConfirmed}
+          className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading
+            ? 'Placing pin…'
+            : pinReady
+              ? 'Update pin from address'
+              : 'Find on map'}
+        </button>
+        {pinReady && !locationConfirmed ? (
+          <p className="text-center text-gray-400 text-xs">
+            Pin is ready and editable. Lock only if you want to freeze these fields.
+          </p>
+        ) : null}
+        {locationConfirmed ? (
+          <p className="text-center text-green-400 font-bold text-sm">
+            ✓ Pin locked — Unlock above to edit
+          </p>
+        ) : null}
       </div>
 
       <button

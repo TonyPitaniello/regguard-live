@@ -182,7 +182,7 @@ export default function FreeTrialForm({
       lng: null,
     });
     setError('');
-    setVoiceHint('New site — enter a fresh address and confirm the pin.');
+    setVoiceHint('New site — enter a fresh address (pin stays editable unless you Lock).');
     try {
       const url = new URL(window.location.href);
       url.searchParams.delete('run_ic');
@@ -226,9 +226,7 @@ export default function FreeTrialForm({
     setProgressStep('geocode');
 
     if (!data.address || !data.city || !data.state || !data.zip || !data.email) {
-      setError(
-        'Enter street, city, state, and ZIP (map pin locks automatically), plus email.'
-      );
+      setError('Enter street, city, state, ZIP, and email.');
       setLoading(false);
       return;
     }
@@ -430,18 +428,43 @@ export default function FreeTrialForm({
     await runResearch();
   };
 
-  // After checkout return (?unlock=1): restore site and auto-run (IC skips re-entry).
+  // Clean home / hard refresh: wipe sticky site. Only ?unlock=1 or ?run_ic=1 restore.
+  // (Hard refresh does NOT clear sessionStorage — we clear sticky keys intentionally.)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
     const runIc = params.get('run_ic') === '1';
-    const pending = sessionStorage.getItem('pendingDeepUnlock') === '1';
-    const pendingIc = hasValidPendingIcReport();
+    const explicitRestore = unlockFromCheckout || runIc;
 
-    if (!unlockFromCheckout && !pending && !runIc && !pendingIc) return;
+    if (!explicitRestore) {
+      clearLastResearchForm();
+      clearPendingIcReport();
+      try {
+        sessionStorage.removeItem('pendingDeepUnlock');
+        sessionStorage.removeItem('icForceOnce');
+        sessionStorage.removeItem('icPdfsReady');
+      } catch {
+        /* ignore */
+      }
+      setUnlockBanner(false);
+      setExternalLocation(null);
+      setLocationResetKey((k) => k + 1);
+      const savedEmail = (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
+      setFormData((prev) => ({
+        ...prev,
+        address: '',
+        city: '',
+        state: '',
+        zip: '',
+        phone: '',
+        lat: null,
+        lng: null,
+        email: savedEmail || prev.email,
+      }));
+      return;
+    }
 
     setUnlockBanner(true);
-    if (!unlockFromCheckout && !runIc && !pendingIc) return;
 
     const last = readLastResearchForm();
     // Premortem F7: checkout success email wins over stale form email
@@ -485,14 +508,10 @@ export default function FreeTrialForm({
       } catch {
         /* ignore */
       }
-    } else if (pendingIc && !runIc) {
-      // Premortem F9: leftover pending without run_ic must not silent-auto
-      /* banner only — user taps Generate */
     }
 
     void (async () => {
       if (!email) return;
-      // Premortem F3: retry entitlement before auto-submit
       const entData = await fetchEntitlementWithRetry(email, 3);
       if (!entData) return;
       const paid = Boolean(entData.paid || entData.deep_research);
@@ -513,11 +532,10 @@ export default function FreeTrialForm({
         (last.state || formDataRef.current.state) &&
         (last.zip || formDataRef.current.zip);
 
-      // Auto-run only for explicit IC return (?run_ic=1) or Pro unlock deepen
       const shouldAuto =
         Boolean(readySite) &&
         !autoUnlockTried.current &&
-        (runIc || (unlockFromCheckout && !pendingIc));
+        (runIc || (unlockFromCheckout && !hasValidPendingIcReport()));
 
       if (shouldAuto) {
         autoUnlockTried.current = true;
