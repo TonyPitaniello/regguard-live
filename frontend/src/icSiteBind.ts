@@ -53,6 +53,14 @@ export function readLastResearchForm(): Partial<BoundSite> & {
   }
 }
 
+export function clearLastResearchForm(): void {
+  try {
+    sessionStorage.removeItem('lastResearchForm');
+  } catch {
+    /* ignore */
+  }
+}
+
 export function persistLastResearchForm(data: {
   address: string;
   city: string;

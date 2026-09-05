@@ -18,6 +18,7 @@ import {
 } from '../voiceFillParse';
 import {
   clearIcRunId,
+  clearLastResearchForm,
   clearPendingIcReport,
   getOrCreateIcRunId,
   hasValidPendingIcReport,
@@ -104,6 +105,7 @@ export default function FreeTrialForm({
     state?: string;
     zip?: string;
   } | null>(null);
+  const [locationResetKey, setLocationResetKey] = useState(0);
   /** Chrome ignores autocomplete=off; unlock on focus so fields stay blank on load. */
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
   const unlockFields = () => setFieldsUnlocked(true);
@@ -152,6 +154,43 @@ export default function FreeTrialForm({
     }));
     setError('');
     setQuotaExceeded(false);
+  };
+
+  const startNewSite = () => {
+    const keepEmail = formData.email;
+    clearLastResearchForm();
+    clearPendingIcReport();
+    try {
+      sessionStorage.removeItem('pendingDeepUnlock');
+      sessionStorage.removeItem('icForceOnce');
+      sessionStorage.removeItem('icPdfsReady');
+    } catch {
+      /* ignore */
+    }
+    setUnlockBanner(false);
+    setExternalLocation(null);
+    setLocationResetKey((k) => k + 1);
+    setFormData({
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      projectType: preferredType || 'data-center',
+      email: keepEmail,
+      phone: '',
+      lat: null,
+      lng: null,
+    });
+    setError('');
+    setVoiceHint('New site — enter a fresh address and confirm the pin.');
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('run_ic');
+      url.searchParams.delete('unlock');
+      window.history.replaceState({}, '', url.pathname + (url.search || ''));
+    } catch {
+      /* ignore */
+    }
   };
 
   const showResults = useCallback((analysisPayload: AnalysisData, id: string, email?: string) => {
@@ -569,43 +608,65 @@ export default function FreeTrialForm({
                 }. Confirm the address when prompted.`
               : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
           </p>
-          <button
-            type="button"
-            onClick={() => {
-              try {
-                if (
-                  sessionStorage.getItem('regguardTier')?.toLowerCase().includes('ic') ||
-                  hasValidPendingIcReport() ||
-                  new URLSearchParams(window.location.search).get('run_ic') === '1'
-                ) {
-                  setPendingIcReport(true);
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  if (
+                    sessionStorage.getItem('regguardTier')?.toLowerCase().includes('ic') ||
+                    hasValidPendingIcReport() ||
+                    new URLSearchParams(window.location.search).get('run_ic') === '1'
+                  ) {
+                    setPendingIcReport(true);
+                    sessionStorage.setItem('icForceOnce', '1');
+                  }
+                } catch {
+                  /* ignore */
                 }
-              } catch {
-                /* ignore */
-              }
-              void runResearch();
-            }}
-            disabled={loading}
-            className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold whitespace-nowrap disabled:opacity-60"
-          >
-            {loading
-              ? 'Generating IC report…'
-              : hasValidPendingIcReport() ||
-                  new URLSearchParams(window.location.search).get('run_ic') === '1'
-                ? 'Generate IC Report now'
-                : 'Unlock deeper results'}
-          </button>
+                void runResearch();
+              }}
+              disabled={loading}
+              className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold whitespace-nowrap disabled:opacity-60"
+            >
+              {loading
+                ? 'Generating IC report…'
+                : hasValidPendingIcReport() ||
+                    new URLSearchParams(window.location.search).get('run_ic') === '1'
+                  ? 'Generate IC Report now'
+                  : 'Unlock deeper results'}
+            </button>
+            <button
+              type="button"
+              onClick={startNewSite}
+              disabled={loading}
+              className="px-4 py-2.5 rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold whitespace-nowrap disabled:opacity-60"
+            >
+              Different site
+            </button>
+          </div>
         </div>
       )}
 
       {!resultsOpen && (
       <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10">
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={startNewSite}
+              disabled={loading}
+              className="text-sm text-emerald-300 hover:text-emerald-200 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              Start a new site
+            </button>
+          </div>
           <LocationPicker
             onLocationSelect={handleLocationSelect}
             disabled={loading}
             collapseMap={false}
             externalValues={externalLocation}
+            resetKey={locationResetKey}
           />
 
           <div>
@@ -660,8 +721,33 @@ export default function FreeTrialForm({
               disabled={loading}
             />
             <p className="text-xs text-gray-400 mt-2">
-              Email only to run a lookup. SMS is never required — optional texting is a separate step on
-              Results after you finish.
+              Email is required to run a lookup. Optional SMS is below — never required.
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="home-phone" className="block text-white font-bold mb-2">
+              Phone <span className="text-gray-400 font-normal">(optional — SMS)</span>
+            </label>
+            <input
+              id="home-phone"
+              type="tel"
+              name="rg_site_phone"
+              inputMode="tel"
+              autoComplete="off"
+              value={formData.phone}
+              onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+              onFocus={unlockFields}
+              placeholder="(555) 123-4567"
+              readOnly={!fieldsUnlocked}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-400 mt-2">
+              Optional. After results load, use Text me on the results panel (consent checkbox required).
+              Leaving this blank is fine — email + web receipt still work.
             </p>
           </div>
 

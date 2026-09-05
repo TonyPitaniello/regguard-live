@@ -31,6 +31,8 @@ interface LocationPickerProps {
     state?: string;
     zip?: string;
   } | null;
+  /** Bump to force clear of local pin/fields (New site) */
+  resetKey?: number;
 }
 
 const MAP_SHELL_STYLE: CSSProperties = {
@@ -70,6 +72,7 @@ export function LocationPicker({
   disabled = false,
   collapseMap = false,
   externalValues = null,
+  resetKey = 0,
 }: LocationPickerProps) {
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -124,6 +127,45 @@ export function LocationPicker({
     externalValues?.state,
     externalValues?.zip,
   ]);
+
+  // Parent "New site" — wipe local pin state
+  useEffect(() => {
+    if (!resetKey) return;
+    settledQueryRef.current = '';
+    setAddress('');
+    setCity('');
+    setState('');
+    setZip('');
+    setLat(null);
+    setLng(null);
+    latLngRef.current = null;
+    setLocationConfirmed(false);
+    setError('');
+    setMapVisible(true);
+    destroyMap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
+
+  const unlockPin = () => {
+    settledQueryRef.current = '';
+    setLocationConfirmed(false);
+    setError('Pin unlocked — edit the address or move the map, then confirm again.');
+  };
+
+  const clearSite = () => {
+    settledQueryRef.current = '';
+    setAddress('');
+    setCity('');
+    setState('');
+    setZip('');
+    setLat(null);
+    setLng(null);
+    latLngRef.current = null;
+    setLocationConfirmed(false);
+    setError('');
+    destroyMap();
+    setMapVisible(true);
+  };
 
   useEffect(() => {
     if (collapseMap) destroyMap();
@@ -660,6 +702,26 @@ export function LocationPicker({
             </p>
           )}
         </div>
+        {locationConfirmed ? (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button
+              type="button"
+              onClick={unlockPin}
+              disabled={disabled}
+              className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold disabled:opacity-50"
+            >
+              Unlock pin / change address
+            </button>
+            <button
+              type="button"
+              onClick={clearSite}
+              disabled={disabled}
+              className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
+            >
+              Clear site
+            </button>
+          </div>
+        ) : null}
         {pinReady && (
           <p className="text-xs text-gray-400">
             Coordinates: {lat!.toFixed(5)}, {lng!.toFixed(5)}
@@ -727,7 +789,12 @@ export function LocationPicker({
             {loading ? 'Placing pin…' : pinReady ? 'Confirm This Location' : 'Find on map & confirm'}
           </button>
         ) : (
-          <div className="text-center text-green-400 font-bold text-sm">✓ Location confirmed</div>
+          <div className="text-center text-green-400 font-bold text-sm space-y-1">
+            <p>✓ Location confirmed</p>
+            <p className="text-xs text-gray-400 font-normal">
+              Tap Unlock pin above to edit this site.
+            </p>
+          </div>
         )}
       </div>
 
