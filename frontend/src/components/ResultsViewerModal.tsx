@@ -123,7 +123,7 @@ export interface AnalysisData {
     action_plan: string[];
     risk_honesty_note?: string;
   };
-  punch_list: {
+  punch_list?: {
     punch_list: PunchListItemData[];
     timeline_summary: string;
     estimated_total_cost: number;
@@ -132,14 +132,14 @@ export interface AnalysisData {
     who_to_call: Record<string, string>;
     estimates_verified?: boolean;
   };
-  summary: {
+  summary?: {
     total_environmental_risks: number;
     high_risk_count: number;
     total_punch_list_items: number;
     estimated_timeline: string;
     estimated_total_cost: number;
   };
-  next_steps: string[];
+  next_steps?: string[];
   fee_card?: {
     title?: string;
     timeline?: string;
