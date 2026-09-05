@@ -278,7 +278,6 @@ export function LocationPicker({
       );
       if (!(nextStreet && nextCity && nextState && nextZip.length === 5)) {
         setError(
-        setError(
           'Pin set — complete any missing city / state / ZIP below, then tap Find on map if needed.'
         );
       }
