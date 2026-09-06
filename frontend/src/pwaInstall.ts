@@ -137,9 +137,13 @@ export async function repairPwaInstall(reload = true): Promise<void> {
     /* ignore */
   }
   if (reload && typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem('rg_pwa_epoch_3');
+    } catch {
+      /* ignore */
+    }
     const url = new URL(window.location.href);
-    url.searchParams.set('source', 'pwa');
     url.searchParams.set('repaired', '1');
-    window.location.replace(url.toString());
+    window.location.replace(url.pathname + url.search);
   }
 }

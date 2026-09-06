@@ -50,7 +50,8 @@ export default defineConfig({
         display: 'standalone',
         display_override: ['standalone', 'minimal-ui'],
         orientation: 'any',
-        start_url: '/?source=pwa',
+        // Plain start URL — query params have caused flaky home-screen boots on iOS.
+        start_url: '/',
         scope: '/',
         id: '/',
         lang: 'en-US',
@@ -78,9 +79,20 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallback: '/index.html',
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Do NOT precache hashed JS/CSS — stale shells blank the home-screen app after deploys.
+        // Keep a SW with fetch handlers (installability) but always prefer network.
+        globPatterns: ['icons/*.{png,ico}', 'manifest.webmanifest'],
+        cleanupOutdatedCaches: true,
+        navigateFallback: undefined,
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkOnly',
+          },
+          {
+            urlPattern: /\/assets\/.+\.(?:js|css)$/i,
+            handler: 'NetworkOnly',
+          },
           {
             urlPattern: ({ url }) =>
               url.hostname === 'regguard-api.onrender.com' ||

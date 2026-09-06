@@ -146,6 +146,11 @@ export function PlatformLayout({
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
         <span className="mobile-menu-brand">Reg Guard</span>
+        {launchMode !== 'standalone' && (
+          <Link to="/install" className="mobile-get-app" onClick={() => setMobileMenuOpen(false)}>
+            Get app
+          </Link>
+        )}
       </div>
 
       {showSidebar && (
