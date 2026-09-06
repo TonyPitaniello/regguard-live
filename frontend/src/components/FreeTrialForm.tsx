@@ -745,6 +745,7 @@ export default function FreeTrialForm({
               onChange={handleInputChange}
               className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500 text-base"
               disabled={loading || lockProjectType}
+              autoComplete="off"
             >
               <option value="data-center">Data Center</option>
               <option value="renewable">Solar / Wind / Battery</option>
@@ -760,6 +761,13 @@ export default function FreeTrialForm({
             )}
           </div>
 
+          {/*
+            Contact fields live OUTSIDE the site-address form association so Chrome/Safari
+            contact autofill (email/phone → home address) cannot rewrite the jobsite or pin.
+          */}
+        </form>
+
+        <div className="mt-5 space-y-5" data-rg-contact-fields>
           <div>
             <label htmlFor="home-email" className="block text-white font-bold mb-2">
               Email *
@@ -767,14 +775,20 @@ export default function FreeTrialForm({
             <input
               id="home-email"
               type="email"
-              name="rg_site_email"
+              name="rg_contact_email"
               value={formData.email}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, email: e.target.value }))
               }
               onFocus={unlockFields}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void runResearch();
+                }
+              }}
               placeholder="Email"
-              autoComplete="off"
+              autoComplete="section-contact email"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -787,6 +801,7 @@ export default function FreeTrialForm({
             />
             <p className="text-xs text-gray-400 mt-2">
               Email is required to run a lookup. Optional SMS is below — never required.
+              Autofill here will not change the site address above.
             </p>
           </div>
 
@@ -797,16 +812,23 @@ export default function FreeTrialForm({
             <input
               id="home-phone"
               type="tel"
-              name="rg_site_phone"
+              name="rg_contact_phone"
               inputMode="tel"
-              autoComplete="off"
+              autoComplete="section-contact tel"
               value={formData.phone}
               onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
               onFocus={unlockFields}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void runResearch();
+                }
+              }}
               placeholder="(555) 123-4567"
               readOnly={!fieldsUnlocked}
               data-lpignore="true"
               data-1p-ignore="true"
+              data-form-type="other"
               className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
               disabled={loading}
             />
@@ -815,7 +837,14 @@ export default function FreeTrialForm({
               Leaving this blank is fine — email + web receipt still work.
             </p>
           </div>
+        </div>
 
+        <form
+          onSubmit={handleSubmit}
+          className="mt-5 space-y-5"
+          noValidate
+          autoComplete="off"
+        >
           {voiceHint && (
             <div className="flex gap-2 p-3 bg-emerald-500/15 border border-emerald-500/30 rounded-lg">
               <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />

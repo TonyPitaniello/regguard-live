@@ -755,7 +755,35 @@ export function LocationPicker({
     setError('Address found — complete fields so we can place the pin.');
   };
 
+  /**
+   * Chrome/Safari contact autofill often writes home street/city/ZIP when the user
+   * fills phone/email. Ignore site-field onChange unless a site input actually has focus
+   * (Places / map / reverse-geocode still update via setState, not this handler).
+   */
+  const siteFieldFocusedRef = useRef(false);
+
+  const markSiteFieldFocused = () => {
+    siteFieldFocusedRef.current = true;
+  };
+
+  const onSiteFieldBlur = () => {
+    window.setTimeout(() => {
+      const ae = document.activeElement;
+      if (!(ae instanceof HTMLElement) || !ae.closest('[data-rg-site-fields]')) {
+        siteFieldFocusedRef.current = false;
+      }
+    }, 0);
+  };
+
   const onFieldChange = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) => {
+    const ae = document.activeElement;
+    const focusOnThis = ae === e.currentTarget;
+    const focusInSite =
+      ae instanceof HTMLElement && Boolean(ae.closest('[data-rg-site-fields]'));
+    if (!focusOnThis && !focusInSite && !siteFieldFocusedRef.current) {
+      // Contact autofill tried to overwrite the jobsite — keep React-controlled values.
+      return;
+    }
     settledQueryRef.current = ''; // user edited — allow re-geocode
     setter(e.target.value);
     setLocationConfirmed(false);
@@ -873,55 +901,95 @@ export function LocationPicker({
             Coordinates: {lat!.toFixed(5)}, {lng!.toFixed(5)}
           </p>
         )}
-        <div>
-          <label className="block text-gray-300 text-xs font-semibold mb-1">Street *</label>
-          <input
-            type="text"
-            value={address}
-            onChange={onFieldChange(setAddress)}
-            disabled={disabled || locationConfirmed}
-            className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-            placeholder="100 W Avenue F"
-            autoComplete="off"
-          />
-        </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div data-rg-site-fields>
           <div>
-            <label className="block text-gray-300 text-xs font-semibold mb-1">City *</label>
+            <label className="block text-gray-300 text-xs font-semibold mb-1" htmlFor="rg-jobsite-street">
+              Street *
+            </label>
             <input
+              id="rg-jobsite-street"
               type="text"
-              value={city}
-              onChange={onFieldChange(setCity)}
+              name="rg_jobsite_street"
+              value={address}
+              onChange={onFieldChange(setAddress)}
+              onFocus={markSiteFieldFocused}
+              onBlur={onSiteFieldBlur}
               disabled={disabled || locationConfirmed}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-              placeholder="Midlothian"
-              autoComplete="off"
+              placeholder="100 W Avenue F"
+              autoComplete="section-jobsite address-line1"
+              autoCorrect="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
             />
           </div>
-          <div>
-            <label className="block text-gray-300 text-xs font-semibold mb-1">State *</label>
-            <input
-              type="text"
-              value={state}
-              onChange={onFieldChange(setState)}
-              disabled={disabled || locationConfirmed}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-              placeholder="TX"
-              autoComplete="off"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-300 text-xs font-semibold mb-1">ZIP *</label>
-            <input
-              type="text"
-              value={zip}
-              onChange={onFieldChange(setZip)}
-              disabled={disabled || locationConfirmed}
-              inputMode="numeric"
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-              placeholder="76065"
-              autoComplete="off"
-            />
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <div>
+              <label className="block text-gray-300 text-xs font-semibold mb-1" htmlFor="rg-jobsite-city">
+                City *
+              </label>
+              <input
+                id="rg-jobsite-city"
+                type="text"
+                name="rg_jobsite_city"
+                value={city}
+                onChange={onFieldChange(setCity)}
+                onFocus={markSiteFieldFocused}
+                onBlur={onSiteFieldBlur}
+                disabled={disabled || locationConfirmed}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                placeholder="Midlothian"
+                autoComplete="section-jobsite address-level2"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-300 text-xs font-semibold mb-1" htmlFor="rg-jobsite-state">
+                State *
+              </label>
+              <input
+                id="rg-jobsite-state"
+                type="text"
+                name="rg_jobsite_state"
+                value={state}
+                onChange={onFieldChange(setState)}
+                onFocus={markSiteFieldFocused}
+                onBlur={onSiteFieldBlur}
+                disabled={disabled || locationConfirmed}
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                placeholder="TX"
+                autoComplete="section-jobsite address-level1"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-300 text-xs font-semibold mb-1" htmlFor="rg-jobsite-zip">
+                ZIP *
+              </label>
+              <input
+                id="rg-jobsite-zip"
+                type="text"
+                name="rg_jobsite_zip"
+                value={zip}
+                onChange={onFieldChange(setZip)}
+                onFocus={markSiteFieldFocused}
+                onBlur={onSiteFieldBlur}
+                disabled={disabled || locationConfirmed}
+                inputMode="numeric"
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                placeholder="76065"
+                autoComplete="section-jobsite postal-code"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+              />
+            </div>
           </div>
         </div>
 
