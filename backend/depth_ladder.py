@@ -93,13 +93,18 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         bullets.append(f"Marked {verified_punch} punch-list line(s) with citeable Source links.")
 
     scout_mode = str(analysis.get("scout_mode") or "").lower()
+    depth = str(analysis.get("depth_tier") or "").lower()
+    is_ic = depth == "ic_full" or scout_mode == "full" or bool(analysis.get("ic_package"))
     if scout_mode == "light":
         bullets.append(
             "Pro light scout: AHJ / building permits / adopted codes (3 passes). "
             "Not full federal/vertical depth — that is IC."
         )
-    elif scout_mode == "full":
+    elif scout_mode == "full" or is_ic:
         bullets.append("Full Universal Scout passes ran for this site (IC-depth research).")
+        ultra = analysis.get("ultralocal_scout") if isinstance(analysis.get("ultralocal_scout"), dict) else {}
+        if ultra.get("enabled") or str(analysis.get("scout_locality_depth") or "") == "local_ultralocal":
+            bullets.append("IC local + ultralocal scout (HOA / MUD / township / neighborhood) merged into killers.")
 
     if not bullets:
         bullets.append(
@@ -108,7 +113,7 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     analysis["pro_delta"] = {
-        "title": "What Pro added vs Free",
+        "title": "What IC added vs Free" if is_ic else "What Pro added vs Free",
         "bullets": bullets[:6],
         "pages_scraped": pages,
         "fee_rows": fee_n,
@@ -268,21 +273,22 @@ def stamp_upgrade_offer(
 
     # --- IC full ---
     elif tier == DEPTH_IC_FULL:
-        analysis["upgrade_offer"] = {
+            analysis["upgrade_offer"] = {
             "message": "Need the same package for another site?",
             "detail": (
                 "This is the fullest Reg Guard run for one bound address (full scout + PDFs). "
-                "Buy another IC Project Report for a new site, or IC Annual after your first project."
+                "Buy another IC Project Report for a new site. "
+                "IC Annual ($15,000/yr) is only for shops that need unlimited IC packages."
             ),
             "cta_label": "IC Project for another site — $1,500",
             "cta_tier": "ic_project",
-            "secondary_cta_label": "IC Annual — $15,000/yr",
+            "secondary_cta_label": "IC Annual — unlimited sites",
             "secondary_cta_tier": "ic_annual",
             "current_label": "IC full depth",
             "next_label": None,
             "primary_once": True,
             "honesty_note": (
-                "Planning diligence package — not an official AHJ or RTO filing."
+                "You already have IC full depth on this site — planning diligence, not an AHJ filing."
             ),
         }
     else:

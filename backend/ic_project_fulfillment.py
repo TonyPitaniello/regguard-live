@@ -363,14 +363,6 @@ async def fulfill_ic_project_artifacts(
         prior = _IC_IDEMPOTENCY.get(idem)
         if prior == order_id and pdfs_are_ready(order.get("pdfs")) and order_id in _PDF_BYTES:
             logger.info("IC fulfill idempotent hit key=%s order=%s", idem, order_id)
-            await _notify_ic_emails_ready(
-                email_l,
-                order_id,
-                order.get("pdfs") or [],
-                share_url=str(order.get("share_url") or ""),
-                site_label=str(order.get("address") or ""),
-                analysis=analysis,
-            )
             return order
         if idem in _IC_IN_FLIGHT:
             logger.info("IC fulfill skipped — in flight for key=%s", idem)
@@ -388,14 +380,6 @@ async def fulfill_ic_project_artifacts(
         logger.info("IC fulfill skipped — PDFs already ready for order %s", order_id)
         if idem:
             _IC_IDEMPOTENCY[idem] = order_id
-        await _notify_ic_emails_ready(
-            email_l,
-            order_id,
-            order.get("pdfs") or [],
-            share_url=str(order.get("share_url") or ""),
-            site_label=str(order.get("address") or new_address or ""),
-            analysis=analysis,
-        )
         return order
 
     # Allow regenerate when caller forces, or buyer researched a different site
@@ -521,6 +505,8 @@ async def _notify_ic_emails_ready(
             {"name": "Permit Package", "url": f"{app}/orders?email={email_l}"},
         ]
 
+    # One IC delivery email only (PDF-ready + share). Do NOT also send Bid Risk Receipt
+    # here — that caused triple "Bid Risk Receipt" mail when the client also auto-sent.
     try:
         if hasattr(svc, "send_order_pdfs_ready"):
             ok = await svc.send_order_pdfs_ready(
@@ -538,22 +524,6 @@ async def _notify_ic_emails_ready(
             logger.error("send_order_pdfs_ready missing on email service")
     except Exception as e:
         logger.exception("IC PDF-ready email failed: %s", e)
-
-    # Also send the interactive results email (punch/share) — what buyers expect after a run
-    try:
-        if analysis and isinstance(analysis, dict) and hasattr(svc, "send_research_result"):
-            payload = dict(analysis)
-            if share_url:
-                payload["share_url"] = share_url
-            result = await svc.send_research_result(email_l, payload)
-            logger.info(
-                "IC research-result email status=%s id=%s to=%s",
-                (result or {}).get("status"),
-                (result or {}).get("email_id"),
-                email_l,
-            )
-    except Exception as e:
-        logger.exception("IC research-result email failed: %s", e)
 
 
 def get_cached_pdf_bytes(order_id: str, pdf_type: str) -> Optional[bytes]:

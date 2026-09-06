@@ -633,13 +633,16 @@ class SendGridEmailService(EmailService):
                         <td style="padding: 0 30px 30px 30px; text-align: center;">
                             <div style="background: linear-gradient(135deg, #f0f7ff 0%, #f3e8ff 100%); padding: 25px; border-radius: 6px; margin: 20px 0;">
                                 <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1f2937;">
-                                    Ready for the Complete Report?
+                                    Want deeper scout or IC PDFs?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    The premium report includes actionable punch list, complete permit package, and full environmental assessment.
+                                    Contractor Pro ($149/mo) deepens AHJ confirm. IC Project Report ($1,500) adds full scout plus Research Memo, Punch List, and Permit Package PDFs.
                                 </p>
-                                <a href="https://app.regguardagent.com/order?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
-                                    Upgrade Now ($15,000)
+                                <a href="https://app.regguardagent.com/checkout/contractor_pro?trial={trial_id}" style="display: inline-block; background: #059669; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
+                                    Contractor Pro — $149/mo
+                                </a>
+                                <a href="https://app.regguardagent.com/checkout/ic_project?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
+                                    IC Project — $1,500
                                 </a>
                             </div>
                         </td>
@@ -945,13 +948,16 @@ class ResendEmailService(EmailService):
                         <td style="padding: 0 30px 30px 30px; text-align: center;">
                             <div style="background: linear-gradient(135deg, #f0f7ff 0%, #f3e8ff 100%); padding: 25px; border-radius: 6px; margin: 20px 0;">
                                 <p style="margin: 0 0 15px 0; font-size: 14px; font-weight: 600; color: #1f2937;">
-                                    Ready for the Complete Report?
+                                    Want deeper scout or IC PDFs?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    The premium report includes actionable punch list, complete permit package, and full environmental assessment.
+                                    Contractor Pro ($149/mo) deepens AHJ confirm. IC Project Report ($1,500) adds full scout plus Research Memo, Punch List, and Permit Package PDFs.
                                 </p>
-                                <a href="https://app.regguardagent.com/order?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px;">
-                                    Upgrade Now ($15,000)
+                                <a href="https://app.regguardagent.com/checkout/contractor_pro?trial={trial_id}" style="display: inline-block; background: #059669; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
+                                    Contractor Pro — $149/mo
+                                </a>
+                                <a href="https://app.regguardagent.com/checkout/ic_project?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
+                                    IC Project — $1,500
                                 </a>
                             </div>
                         </td>

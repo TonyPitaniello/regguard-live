@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pdf_text import ascii_safe, markdown_to_plain
+from pdf_text import ascii_safe, markdown_to_bullets, markdown_to_plain
 
 # Bump when PDF layout/content contract changes — forces regen on download.
-PDF_FORMAT_VERSION = 5
+PDF_FORMAT_VERSION = 6
 
 
 def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,6 +120,40 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         prefix = f"[{pri}] " if pri else ""
         gotcha_lines.append(f"{prefix}{title}: {detail}  |  {cite}")
 
+    # Also pull live gotcha_watchlist (often richer than city-pack gotchas)
+    watch = data.get("gotcha_watchlist") if isinstance(data.get("gotcha_watchlist"), dict) else {}
+    existing = {x.split(":")[0].lower() for x in gotcha_lines}
+    for g in (watch.get("items") or [])[:12]:
+        if not isinstance(g, dict):
+            continue
+        title = ascii_safe(g.get("title") or "Gotcha", 100)
+        key = f"[{str(g.get('priority') or '').upper()}] {title}".lower()
+        if key in existing or title.lower() in existing:
+            continue
+        detail = markdown_to_plain(g.get("detail") or "", limit=220)
+        cite = ascii_safe(g.get("source_url") or portal, 90)
+        pri = str(g.get("priority") or "").upper()
+        gotcha_lines.append(f"[{pri}] {title}: {detail}  |  {cite}" if pri else f"{title}: {detail}  |  {cite}")
+        existing.add(key)
+
+    # Punch lines for Research Memo (app shows these; PDF was missing them)
+    punch_lines: List[str] = []
+    for item in ((data.get("punch_list") or {}).get("punch_list") or [])[:20]:
+        if not isinstance(item, dict):
+            continue
+        task = markdown_to_plain(item.get("task") or item.get("title") or "", limit=160)
+        if not task:
+            continue
+        pri = str(item.get("priority") or "").upper()
+        url = ascii_safe(item.get("source_url") or "", 90)
+        punch_lines.append(f"[{pri}] {task}" + (f"  |  {url}" if url else ""))
+
+    # Deep plan bullets (pro_summary_markdown) — truncated for PDF
+    plan_lines: List[str] = []
+    summary_md = data.get("pro_summary_markdown") or ""
+    if summary_md:
+        plan_lines = markdown_to_bullets(summary_md, limit=24)
+
     clock_lines: List[str] = []
     for c in (parallel.get("clocks") or [])[:5]:
         if not isinstance(c, dict):
@@ -153,6 +187,9 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "stamp_grade": stamp.get("grade") or "",
         "fee_lines": fee_lines,
         "gotcha_lines": gotcha_lines,
+        "punch_lines": punch_lines,
+        "plan_lines": plan_lines,
+        "depth_badge": ascii_safe(data.get("depth_badge") or "", 120),
         "clock_lines": clock_lines or [
             "AHJ / building permits: confirm portal + hearings before bid",
             "Utility interconnection / large-load: parallel clock (not run by RegGuard)",

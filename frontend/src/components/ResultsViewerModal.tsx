@@ -931,12 +931,46 @@ export default function ResultsViewerModal({
     );
   };
 
+  const renderLocalGotchas = () => {
+    if (!view.gotcha_watchlist || !(view.gotcha_watchlist.items || []).length) return null;
+    return (
+      <section className="bg-slate-800/40 border border-amber-500/35 rounded-xl p-4 sm:p-5 space-y-3">
+        <h3 className="text-amber-200 font-bold text-base">
+          {view.gotcha_watchlist.title || 'Local gotcha watchlist'}
+        </h3>
+        <ul className="space-y-3">
+          {(view.gotcha_watchlist.items || []).map((g) => (
+            <li key={g.id || g.title} className="text-sm text-gray-300">
+              <span className="text-amber-200 font-semibold">{g.priority}</span>{' '}
+              <span className="text-white font-medium">{g.title}</span>
+              <p className="text-gray-400 text-xs mt-0.5">{g.detail}</p>
+              {(g.anti_patterns || []).length > 0 && (
+                <p className="text-red-300/90 text-xs mt-1">
+                  Don&apos;t: {(g.anti_patterns || []).join('; ')}
+                </p>
+              )}
+              <CitationBadge
+                verified={Boolean(g.source_url)}
+                source_url={g.source_url}
+                source_label={g.source_label || 'Unverified'}
+              />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  };
+
   const renderProDelta = () => {
     if (!isDeep || !proDelta?.bullets?.length) return null;
+    const icTitle =
+      depthTier === 'ic_full' || view.ic_package
+        ? 'What IC added vs Free'
+        : 'What Pro added vs Free';
     return (
       <section className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-4 sm:p-5">
         <h3 className="text-emerald-200 font-bold text-sm sm:text-base">
-          {proDelta.title || 'What Pro added vs Free'}
+          {proDelta.title || icTitle}
         </h3>
         <ul className="mt-2 space-y-1.5">
           {proDelta.bullets.map((b) => (
@@ -1827,7 +1861,10 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* F2: prove Pro uniqueness once when deep */}
+          {/* Local gotchas — directly under Flagged before bid day */}
+          {renderLocalGotchas()}
+
+          {/* F2: prove Pro/IC uniqueness once when deep */}
           {renderProDelta()}
 
           {/* F1: exactly one primary paid CTA for this results view */}
@@ -2264,33 +2301,6 @@ export default function ResultsViewerModal({
                         'Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid.'}
                     </p>
                   )}
-                </div>
-              )}
-
-              {view.gotcha_watchlist && (view.gotcha_watchlist.items || []).length > 0 && (
-                <div className="bg-slate-800/40 border border-amber-500/30 rounded-lg p-4">
-                  <h4 className="text-sm font-bold text-amber-300 mb-2">
-                    {view.gotcha_watchlist.title || 'Local gotcha watchlist'}
-                  </h4>
-                  <ul className="space-y-3">
-                    {(view.gotcha_watchlist.items || []).map((g) => (
-                      <li key={g.id || g.title} className="text-sm text-gray-300">
-                        <span className="text-amber-200 font-semibold">{g.priority}</span>{' '}
-                        <span className="text-white font-medium">{g.title}</span>
-                        <p className="text-gray-400 text-xs mt-0.5">{g.detail}</p>
-                        {(g.anti_patterns || []).length > 0 && (
-                          <p className="text-red-300/90 text-xs mt-1">
-                            Don&apos;t: {(g.anti_patterns || []).join('; ')}
-                          </p>
-                        )}
-                        <CitationBadge
-                          verified={Boolean(g.source_url)}
-                          source_url={g.source_url}
-                          source_label={g.source_label || 'Unverified'}
-                        />
-                      </li>
-                    ))}
-                  </ul>
                 </div>
               )}
 

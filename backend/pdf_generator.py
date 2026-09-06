@@ -168,9 +168,10 @@ class ResearchMemoPDF(RegGuardPDF):
             self.add_page()
             project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
+            pack = analysis_data.get("pdf_pack") if isinstance(analysis_data.get("pdf_pack"), dict) else {}
             self.add_brand_banner(
                 "IC Research Memo",
-                f"{address}  |  Deep scout narrative + citeable fee/gotcha lines",
+                f"{address}  |  {pack.get('depth_badge') or 'Deep scout narrative + citeable fee/gotcha lines'}",
             )
 
             self.add_section_title("Project information")
@@ -180,8 +181,11 @@ class ResearchMemoPDF(RegGuardPDF):
             self.add_info_box("Location", f"{city}, {state} {zip_code}".strip())
             self.add_info_box("Project type", str(project_info.get("type", "commercial")))
             self.add_info_box("Analysis date", datetime.now().strftime("%B %d, %Y"))
+            if pack.get("depth_badge"):
+                self.add_info_box("Depth", str(pack.get("depth_badge")))
+            if pack.get("ultralocal"):
+                self.add_info_box("Locality", "Local + ultralocal scout enabled")
 
-            pack = analysis_data.get("pdf_pack") if isinstance(analysis_data.get("pdf_pack"), dict) else {}
             if pack.get("ahj_name"):
                 self.add_section_title("Authority having jurisdiction")
                 self.add_info_box("AHJ", str(pack.get("ahj_name") or ""))
@@ -221,6 +225,18 @@ class ResearchMemoPDF(RegGuardPDF):
             if gotcha_lines:
                 self.add_section_title("Local gotchas (CRITICAL first)")
                 for line in gotcha_lines:
+                    self.add_bullet(line)
+
+            punch_lines = list(pack.get("punch_lines") or [])
+            if punch_lines:
+                self.add_section_title("Punch list highlights (see Punch List PDF for full)")
+                for line in punch_lines[:16]:
+                    self.add_bullet(line)
+
+            plan_lines = list(pack.get("plan_lines") or [])
+            if plan_lines:
+                self.add_section_title("Deep research action plan (excerpt)")
+                for line in plan_lines[:20]:
                     self.add_bullet(line)
 
             clock_lines = list(pack.get("clock_lines") or [])

@@ -69,15 +69,31 @@ async def handle_free_trial(request_data: FreeTrialRequest) -> FreeTrialResponse
 
         logger.info(f"Created free trial: {trial.id} for {request_data.email}")
 
-        # Step 2: Run research asynchronously in background
-        asyncio.create_task(
-            _run_research_and_email(
-                trial_id=trial.id,
-                email=request_data.email,
-                address=request_data.address,
-                project_type=request_data.project_type,
+        # Skip free "preview" memo when this is a paid / IC run — IC fulfill sends the real email.
+        skip_free_email = bool(getattr(request_data, "generate_ic_report", False))
+        if not skip_free_email:
+            try:
+                from entitlement import has_paid_access
+
+                skip_free_email = bool(has_paid_access(request_data.email))
+            except Exception:
+                skip_free_email = False
+
+        if skip_free_email:
+            logger.info(
+                "Skipping free-trial preview email for %s (paid/IC — IC PDF email handles delivery)",
+                request_data.email,
             )
-        )
+        else:
+            # Step 2: Run research asynchronously in background
+            asyncio.create_task(
+                _run_research_and_email(
+                    trial_id=trial.id,
+                    email=request_data.email,
+                    address=request_data.address,
+                    project_type=request_data.project_type,
+                )
+            )
 
         return FreeTrialResponse(
             trial_id=trial.id,
@@ -340,22 +356,22 @@ A full environmental assessment (premium feature) includes:
 • Noise zone review
 • State-specific requirements
 
+HONESTY NOTICE
+• Dollar and day figures are planning aids — not AHJ quotes.
+• Confirm every fee and requirement on the official portal before bid.
+• Forward only lines that show a Source link (or mark Unverified).
+
 """
     
     # Call to action
-    memo += """NEXT STEP: UPGRADE TO FULL REPORT ($15,000)
+    memo += """NEXT STEP: Contractor Pro ($149/mo) or IC Project Report ($1,500)
 ────────────────────────────────────────────────────────────
 
-The premium report includes:
-✓ Complete permit package (ready to file)
-✓ Actionable punch list (what to do now)
-✓ Full environmental assessment
-✓ Same-day delivery via PDF
+Contractor Pro deepens AHJ confirm for bid week.
+IC Project Report ($1,500) adds full scout plus Research Memo, Punch List,
+and Permit Package PDFs (planning diligence — not an official filing).
 
-This memo gives you research direction. The full report saves you
-weeks of work and helps avoid costly mistakes.
-
-Ready? Upgrade now to get your complete analysis.
+Open: https://app.regguardagent.com/checkout/contractor_pro
 """
     
     return memo.strip()
