@@ -66,9 +66,11 @@ const MAP_SHELL_STYLE: CSSProperties = {
   zIndex: 0,
   overflow: 'hidden',
   isolation: 'isolate',
-  contain: 'layout paint',
+  // Do NOT use contain:layout/paint — Leaflet tiles go blank after Auto-Detect / remount.
   transform: 'none',
   WebkitTransform: 'none',
+  minHeight: '20rem',
+  background: '#334155',
 };
 
 function parseStateZip(formatted: string): { state: string; zip: string } {
@@ -109,6 +111,8 @@ export function LocationPicker({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [mapVisible, setMapVisible] = useState(true);
+  /** Bump to force Leaflet re-init when the shell remounts (fixes gray blank map). */
+  const [mapEpoch, setMapEpoch] = useState(0);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -120,6 +124,12 @@ export function LocationPicker({
 
   const destroyMap = () => {
     if (mapRef.current) {
+      try {
+        const ro = (mapRef.current as { __rgRo?: ResizeObserver }).__rgRo;
+        ro?.disconnect();
+      } catch {
+        /* ignore */
+      }
       try {
         mapRef.current.off();
         mapRef.current.remove();
@@ -202,10 +212,49 @@ export function LocationPicker({
     forwardAbortRef.current?.abort();
   }, []);
 
+  const refreshMapView = (latitude?: number, longitude?: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const kick = () => {
+      try {
+        map.invalidateSize({ animate: false });
+        if (
+          latitude != null &&
+          longitude != null &&
+          Number.isFinite(latitude) &&
+          Number.isFinite(longitude)
+        ) {
+          map.setView([latitude, longitude], Math.max(map.getZoom() || 13, 13), {
+            animate: false,
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    kick();
+    window.requestAnimationFrame(kick);
+    window.setTimeout(kick, 50);
+    window.setTimeout(kick, 250);
+    window.setTimeout(kick, 600);
+  };
+
   const placeMarker = (latitude: number, longitude: number) => {
     const L = (window as any).L;
     const map = mapRef.current;
     if (!L || !map) return;
+    // If React remounted the shell, Leaflet still points at a detached node → gray box
+    try {
+      if (mapContainer.current && map.getContainer() !== mapContainer.current) {
+        destroyMap();
+        setMapEpoch((n) => n + 1);
+        return;
+      }
+    } catch {
+      destroyMap();
+      setMapEpoch((n) => n + 1);
+      return;
+    }
     if (markerRef.current) {
       try {
         map.removeLayer(markerRef.current);
@@ -214,11 +263,7 @@ export function LocationPicker({
       }
     }
     markerRef.current = L.marker([latitude, longitude], { title: 'Selected Location' }).addTo(map);
-    try {
-      map.setView([latitude, longitude], Math.max(map.getZoom(), 13));
-    } catch {
-      /* ignore */
-    }
+    refreshMapView(latitude, longitude);
   };
 
   const commitPin = (
@@ -347,8 +392,21 @@ export function LocationPicker({
     setLat(latitude);
     setLng(longitude);
     setMapVisible(true);
-    placeMarker(latitude, longitude);
+    // Defer marker until after paint so Auto-Detect does not hit a 0-size shell
+    window.requestAnimationFrame(() => {
+      if (!mapRef.current) {
+        setMapEpoch((n) => n + 1);
+      }
+      placeMarker(latitude, longitude);
+      refreshMapView(latitude, longitude);
+    });
     await reverseGeocode(latitude, longitude);
+    window.requestAnimationFrame(() => {
+      if (!mapRef.current) {
+        setMapEpoch((n) => n + 1);
+      }
+      refreshMapView(latitude, longitude);
+    });
   };
 
   const forwardGeocodeViaMapsJs = async (
@@ -553,6 +611,7 @@ export function LocationPicker({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        setMapVisible(true);
         void applyPin(position.coords.latitude, position.coords.longitude);
       },
       () => {
@@ -564,9 +623,26 @@ export function LocationPicker({
     );
   };
 
-  // Initialize map once when visible
+  // Initialize map once when visible (re-init if React remounted the shell)
   useEffect(() => {
-    if (collapseMap || !mapVisible || !mapContainer.current || mapRef.current) return;
+    if (collapseMap || !mapVisible || !mapContainer.current) return;
+    try {
+      if (
+        mapRef.current &&
+        mapContainer.current &&
+        mapRef.current.getContainer() !== mapContainer.current
+      ) {
+        destroyMap();
+      }
+    } catch {
+      destroyMap();
+    }
+    if (mapRef.current) {
+      // Already bound to this shell — still kick size (Auto-Detect / layout shifts)
+      const seed = latLngRef.current;
+      refreshMapView(seed?.lat ?? lat ?? undefined, seed?.lng ?? lng ?? undefined);
+      return;
+    }
 
     const initializeMap = () => {
       if (!mapContainer.current || mapRef.current) return;
@@ -596,13 +672,14 @@ export function LocationPicker({
         void applyPin(clickLat, clickLng);
       });
 
-      setTimeout(() => {
-        try {
-          map.invalidateSize();
-        } catch {
-          /* ignore */
-        }
-      }, 100);
+      refreshMapView(initialLat, initialLng);
+
+      const el = mapContainer.current;
+      if (el && typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => refreshMapView(initialLat, initialLng));
+        ro.observe(el);
+        (map as { __rgRo?: ResizeObserver }).__rgRo = ro;
+      }
     };
 
     const L = (window as any).L;
@@ -632,13 +709,18 @@ export function LocationPicker({
     script.onload = () => initializeMap();
     document.body.appendChild(script);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapVisible, collapseMap]);
+  }, [mapVisible, collapseMap, mapEpoch]);
 
   // Keep marker in sync after map exists
   useEffect(() => {
-    if (lat != null && lng != null && mapRef.current) {
-      placeMarker(lat, lng);
+    if (lat == null || lng == null) return;
+    if (!mapRef.current) {
+      // Map may still be loading Leaflet — kick visibility so init effect can run
+      setMapVisible(true);
+      return;
     }
+    placeMarker(lat, lng);
+    refreshMapView(lat, lng);
   }, [lat, lng]);
 
   const handleConfirmLocation = () => {
