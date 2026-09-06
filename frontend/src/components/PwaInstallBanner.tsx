@@ -70,6 +70,8 @@ export default function PwaInstallBanner() {
 
   if (hidden) return null;
   if (isStandaloneApp()) return null;
+  // iPhone uses IosInstantInstall (Share sheet) — avoid duplicate banners.
+  if (isIosDevice()) return null;
 
   // Keep visible on phones even if mode detection flickers away from 'ios'.
   const showMobileHint = isPhone || mode === 'ios' || mode === 'manual';

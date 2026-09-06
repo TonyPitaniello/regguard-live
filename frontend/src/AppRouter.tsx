@@ -42,6 +42,7 @@ import InstallAppPage from './pages/InstallAppPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import PwaInstallBanner from './components/PwaInstallBanner';
+import IosInstantInstall from './components/IosInstantInstall';
 import { backendUrl, isIcDemoEnabled } from './env';
 import './router-layout.css';
 
@@ -105,6 +106,7 @@ export function AppRouter() {
         <ReferralCapture />
         <OnboardingSystem />
         <VoiceCommandSystem />
+        <IosInstantInstall />
         <PwaInstallBanner />
         
         <Routes>
