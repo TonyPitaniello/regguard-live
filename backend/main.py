@@ -2110,6 +2110,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
                     if ic_pdfs_ready:
                         analysis["ic_pdfs_ready"] = True
+                        # IC fulfill mints a fresh shareable /r/{id} — merge onto live analysis
+                        # so email/SMS from the results panel never say "share link unavailable".
+                        if isinstance(fulfilled, dict):
+                            ic_share = (fulfilled.get("share_url") or "").strip()
+                            ic_rid = (fulfilled.get("research_id") or "").strip()
+                            if ic_share:
+                                analysis["share_url"] = ic_share
+                            if ic_rid:
+                                analysis["research_id"] = ic_rid
+                                research_id = ic_rid
                         message = (
                             "IC Project Report PDFs ready — download Research Memo, "
                             "Punch List, and Permit Package from My Orders."
@@ -4071,24 +4081,37 @@ def _resolve_research_data(
     """Prefer full analysis (persist it), then stored report, then lightweight summary."""
     from research_store import save_research, share_url_for
 
+    def _usable_rid(rid: Optional[str]) -> Optional[str]:
+        r = (rid or "").strip()
+        if not r:
+            return None
+        if r.startswith("ephemeral-"):
+            return None
+        if r.lower() in ("preview", "unknown"):
+            return None
+        return r
+
     if analysis and isinstance(analysis, dict):
-        meta = save_research(analysis, research_id=research_id or analysis.get("research_id"))
+        rid = _usable_rid(research_id) or _usable_rid(str(analysis.get("research_id") or ""))
+        meta = save_research(analysis, research_id=rid)
         data = dict(analysis)
         data["research_id"] = meta["research_id"]
         data["share_url"] = meta["share_url"]
         return data
 
-    if research_id:
-        stored = _get_research_data(research_id)
+    rid = _usable_rid(research_id)
+    if rid:
+        stored = _get_research_data(rid)
         if stored:
-            stored.setdefault("share_url", share_url_for(research_id))
+            stored.setdefault("share_url", share_url_for(rid))
             return stored
 
     if summary is not None:
         data = _research_data_from_summary(summary)
-        if research_id:
-            data["research_id"] = research_id
-            data["share_url"] = share_url_for(research_id)
+        # Always persist so email gets a real /r/{id} (never ephemeral)
+        meta = save_research(data, research_id=rid)
+        data["research_id"] = meta["research_id"]
+        data["share_url"] = meta["share_url"]
         return data
 
     raise HTTPException(

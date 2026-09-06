@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pdf_text import ascii_safe, markdown_to_plain
 
 # Bump when PDF layout/content contract changes — forces regen on download.
-PDF_FORMAT_VERSION = 3
+PDF_FORMAT_VERSION = 4
 
 
 def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -52,6 +52,19 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(src, list) and src:
             gotchas = [g for g in src if isinstance(g, dict)]
             break
+    # Append IC ultralocal killers that aren't already present
+    ultra = data.get("ultralocal_scout") if isinstance(data.get("ultralocal_scout"), dict) else {}
+    if ultra.get("enabled"):
+        existing_titles = {str(g.get("title") or "").lower() for g in gotchas}
+        for k in data.get("margin_killers") or []:
+            if not isinstance(k, dict):
+                continue
+            if not k.get("ultralocal_bucket"):
+                continue
+            t = str(k.get("title") or "").lower()
+            if t and t not in existing_titles:
+                gotchas.append(k)
+                existing_titles.add(t)
 
     ahj = pack.get("ahj") if isinstance(pack.get("ahj"), dict) else {}
     local_ahj = local.get("ahj") if isinstance(local.get("ahj"), dict) else {}
@@ -135,6 +148,7 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "portal_url": ascii_safe(portal, 120),
         "fees_url": ascii_safe(fees_url, 120),
         "beachhead": bool(pack),
+        "ultralocal": bool(ultra.get("enabled")) if isinstance(ultra, dict) else bool((data.get("scout_locality_depth") or "") == "local_ultralocal"),
         "pack_key": pack.get("pack_key") or "",
         "stamp_grade": stamp.get("grade") or "",
         "fee_lines": fee_lines,

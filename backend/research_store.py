@@ -158,7 +158,13 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
     coords_ok = has_usable_coords(analysis)
 
     if tier == "ic_full" and not instant:
-        label = "IC Project — full federal / state / local scout"
+        if str(analysis.get("scout_locality_depth") or "") == "local_ultralocal" or (
+            isinstance(analysis.get("ultralocal_scout"), dict)
+            and analysis.get("ultralocal_scout", {}).get("enabled")
+        ):
+            label = "IC Project — full federal / state / local + ultralocal scout"
+        else:
+            label = "IC Project — full federal / state / local scout"
     elif instant or (depth in ("pro", "pro_partial") and not coords_ok):
         label = "Instant preview — deep research incomplete (not full Pro)"
         # Keep entitlement unlock semantics, but surface honesty

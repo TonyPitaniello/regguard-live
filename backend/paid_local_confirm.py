@@ -7,6 +7,7 @@ Bounded AHJ local confirm for Contractor Pro / paid free-trial deepen:
 Caps (env):
   PAID_LOCAL_CONFIRM=1
   PAID_LOCAL_CONFIRM_MAX_PAGES=8
+  IC_PAID_LOCAL_CONFIRM_MAX_PAGES=12  (when skip_quota / IC)
   PAID_LOCAL_CONFIRM_MAX_PER_DAY=25   (per email; 0 = unlimited)
   PAID_LOCAL_CONFIRM_CACHE_TTL_SEC=86400
   PAID_UNIVERSAL_SCOUT=0              (default off — set 1 for full scout on all paid)
@@ -62,7 +63,10 @@ def paid_universal_scout_enabled() -> bool:
     return _env_on("PAID_UNIVERSAL_SCOUT", "0")
 
 
-def max_pages() -> int:
+def max_pages(*, ic_deepen: bool = False) -> int:
+    if ic_deepen:
+        # IC buyers get a deeper local scrape budget (HOA/AHJ pages).
+        return max(1, min(16, _env_int("IC_PAID_LOCAL_CONFIRM_MAX_PAGES", 12)))
     return max(1, min(12, _env_int("PAID_LOCAL_CONFIRM_MAX_PAGES", 8)))
 
 
@@ -588,7 +592,7 @@ def run_paid_local_confirm(
         _apply_paid_coverage(analysis, resolved, pack, fee_rows)
         return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
-    pages_cap = max_pages()
+    pages_cap = max_pages(ic_deepen=bool(skip_quota))
     pages_scraped = 0
     fee_rows: List[Dict[str, Any]] = []
     scraped_url = portal

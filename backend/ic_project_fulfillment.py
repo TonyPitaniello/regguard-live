@@ -501,7 +501,13 @@ async def fulfill_ic_project_artifacts(
     except Exception as e:
         logger.warning("IC PDF ready email failed: %s", e)
 
-    return updated
+    # Always surface share fields for free-trial response merge (frontend email/SMS).
+    out = dict(updated or order or {})
+    if share_meta.get("share_url"):
+        out["share_url"] = share_meta["share_url"]
+    if share_meta.get("research_id"):
+        out["research_id"] = share_meta["research_id"]
+    return out
 
 
 def get_cached_pdf_bytes(order_id: str, pdf_type: str) -> Optional[bytes]:

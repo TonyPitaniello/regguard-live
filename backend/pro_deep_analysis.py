@@ -297,6 +297,7 @@ async def run_pro_deep_analysis(
     )
 
     # Paid local confirm FinOps first (bounded, cached, day-capped) — return-ready (F8)
+    # IC (force_scout): never skip local deepen due to Pro daily cap — buyer paid $1.5k.
     try:
         loop = asyncio.get_event_loop()
         base = await loop.run_in_executor(
@@ -307,6 +308,7 @@ async def run_pro_deep_analysis(
                 state=state,
                 zip_code=zip_code,
                 email=email,
+                skip_quota=bool(force_scout),
             ),
         )
     except Exception as sc_err:
@@ -351,7 +353,7 @@ async def run_pro_deep_analysis(
 
     try:
         loop = asyncio.get_event_loop()
-        timeout = 100.0 if scout_mode == "full" else 70.0
+        timeout = 150.0 if (scout_mode == "full" and force_scout) else (110.0 if scout_mode == "full" else 70.0)
         research_payload = await asyncio.wait_for(
             loop.run_in_executor(
                 None,
@@ -396,6 +398,19 @@ async def run_pro_deep_analysis(
         if scout_mode == "full" and force_scout:
             stamp_upgrade_offer(merged, depth_tier=DEPTH_IC_FULL)
             merged["preview"] = False
+            # IC local + ultralocal deepen (HOA/MUD/township + AHJ/fees SERP)
+            try:
+                from ic_ultralocal_scout import run_ic_local_ultralocal_scout
+
+                merged = run_ic_local_ultralocal_scout(
+                    merged,
+                    address=address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                )
+            except Exception as ultra_err:
+                logger.warning("IC ultralocal scout failed (non-blocking): %s", ultra_err)
             next_steps = [
                 s
                 for s in list(merged.get("next_steps") or [])
@@ -404,7 +419,7 @@ async def run_pro_deep_analysis(
             ]
             next_steps.insert(
                 0,
-                "IC full scout complete — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
+                "IC full local + ultralocal scout complete — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
             )
             merged["next_steps"] = next_steps[:8]
         else:

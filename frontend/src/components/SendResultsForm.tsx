@@ -111,6 +111,54 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
   return lines.join('\n');
 }
 
+
+async function ensureShareableReport(
+  analysis: AnalysisData | null | undefined,
+  researchId?: string | null,
+): Promise<{ researchId: string; shareUrl: string; analysis: AnalysisData | null }> {
+  const existingShare = (analysis?.share_url || '').trim();
+  const rid = (analysis?.research_id || researchId || '').trim();
+  if (
+    existingShare.includes('/r/') &&
+    !existingShare.endsWith('/r/') &&
+    rid &&
+    !rid.startsWith('ephemeral-')
+  ) {
+    return { researchId: rid, shareUrl: existingShare, analysis: analysis || null };
+  }
+  if (!analysis) {
+    return { researchId: rid, shareUrl: '', analysis: null };
+  }
+  try {
+    const res = await fetch(backendUrl('/research/persist'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analysis,
+        research_id: rid && !rid.startsWith('ephemeral-') ? rid : undefined,
+      }),
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { research_id?: string; share_url?: string };
+      const nextId = String(data.research_id || rid || '').trim();
+      const nextShare = String(data.share_url || '').trim();
+      const nextAnalysis = {
+        ...analysis,
+        research_id: nextId || analysis.research_id,
+        ...(nextShare ? { share_url: nextShare } : {}),
+      };
+      return { researchId: nextId, shareUrl: nextShare, analysis: nextAnalysis };
+    }
+  } catch {
+    /* fall through */
+  }
+  const fallback =
+    rid && !rid.startsWith('ephemeral-')
+      ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
+      : '';
+  return { researchId: rid, shareUrl: fallback, analysis };
+}
+
 export default function SendResultsForm({
   researchId,
   summary,
@@ -288,11 +336,16 @@ export default function SendResultsForm({
     }
     setLoadingEmail(true);
     try {
+      const ensured = await ensureShareableReport(analysis, researchId);
       const path = '/research/send-email';
       const response = await fetch(backendUrl(path), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildBody({ email, email_address: email })),
+        body: JSON.stringify({
+          ...buildBody({ email, email_address: email }),
+          ...(ensured.analysis ? { analysis: ensured.analysis } : {}),
+          ...(ensured.researchId ? { research_id: ensured.researchId } : {}),
+        }),
       });
       if (response.status === 429) {
         let detail = 'Too many emails — try again in a few minutes.';

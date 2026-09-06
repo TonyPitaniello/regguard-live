@@ -196,7 +196,19 @@ export default function FreeTrialForm({
   };
 
   const showResults = useCallback((analysisPayload: AnalysisData, id: string, email?: string) => {
-    const analysisWithId: AnalysisData = { ...analysisPayload, research_id: id };
+    const rid = (id || analysisPayload.research_id || '').trim();
+    const shareFromPayload = (analysisPayload.share_url || '').trim();
+    const share =
+      shareFromPayload.includes('/r/') && !shareFromPayload.endsWith('/r/')
+        ? shareFromPayload
+        : rid && !rid.startsWith('ephemeral-')
+          ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
+          : shareFromPayload || undefined;
+    const analysisWithId: AnalysisData = {
+      ...analysisPayload,
+      research_id: rid || analysisPayload.research_id,
+      ...(share ? { share_url: share } : {}),
+    };
     sessionStorage.setItem('analysisResults', JSON.stringify(analysisWithId));
     sessionStorage.setItem('researchId', id);
     const mail = (email || formDataRef.current.email || '').trim().toLowerCase();
@@ -422,6 +434,14 @@ export default function FreeTrialForm({
         }
         if (payload.ic_pdfs_ready) {
           (analysis as AnalysisData & { ic_pdfs_ready?: boolean }).ic_pdfs_ready = true;
+        }
+        // Prefer server share URL so email/SMS never say "unavailable"
+        const payloadShare = String(payload.share_url || '').trim();
+        if (payloadShare.includes('/r/')) {
+          analysis.share_url = payloadShare;
+        }
+        if (payload.research_id && !analysis.research_id) {
+          analysis.research_id = String(payload.research_id);
         }
         if (payload.job_id) {
           analysis.job_id = String(payload.job_id);
