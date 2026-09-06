@@ -38,6 +38,7 @@ import PartnerPortalPage from './pages/PartnerPortalPage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import RefundCasesPage from './pages/RefundCasesPage';
 import MoratoriumRadarPage from './pages/MoratoriumRadarPage';
+import InstallAppPage from './pages/InstallAppPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import PwaInstallBanner from './components/PwaInstallBanner';
@@ -121,6 +122,8 @@ export function AppRouter() {
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />
           <Route path="/how-it-works" element={<MethodologyPage />} />
+          <Route path="/install" element={<InstallAppPage />} />
+          <Route path="/launch" element={<InstallAppPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="/sms-opt-in" element={<SmsOptInPage />} />

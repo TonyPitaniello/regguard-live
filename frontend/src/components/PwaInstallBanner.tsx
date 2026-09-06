@@ -52,7 +52,12 @@ export default function PwaInstallBanner() {
 
   const install = async () => {
     const outcome = await promptPwaInstall();
-    if (outcome === 'accepted') dismiss();
+    if (outcome === 'accepted') {
+      dismiss();
+      return;
+    }
+    // Fallback: dedicated page always works (no hanging SW wait).
+    window.location.assign('/install');
   };
 
   if (hidden) return null;
@@ -85,6 +90,14 @@ export default function PwaInstallBanner() {
               >
                 Launch app
               </button>
+            )}
+            {!canPrompt && mode === 'ios' && (
+              <a
+                href="/install"
+                className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 min-h-[44px] inline-flex items-center"
+              >
+                Show install steps
+              </a>
             )}
             <button
               type="button"

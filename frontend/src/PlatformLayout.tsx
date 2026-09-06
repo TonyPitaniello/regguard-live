@@ -18,8 +18,6 @@ import {
   ensurePwaInstallListener,
   getDeferredInstallPrompt,
   getLaunchAppMode,
-  promptPwaInstall,
-  repairPwaInstall,
   subscribePwaInstall,
 } from './pwaInstall';
 
@@ -83,9 +81,7 @@ export function PlatformLayout({
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [launchHintOpen, setLaunchHintOpen] = useState(false);
   const [launchMode, setLaunchMode] = useState(() => getLaunchAppMode());
-  const [canPrompt, setCanPrompt] = useState(false);
 
   // Hide desktop sidebar on public marketing home for unauthenticated users —
   // but always allow the mobile three-bar drawer (Launch app lives there).
@@ -97,8 +93,8 @@ export function PlatformLayout({
   useEffect(() => {
     ensurePwaInstallListener();
     const sync = () => {
-      setCanPrompt(Boolean(getDeferredInstallPrompt()));
       setLaunchMode(getLaunchAppMode());
+      void getDeferredInstallPrompt();
     };
     sync();
     return subscribePwaInstall(sync);
@@ -111,6 +107,9 @@ export function PlatformLayout({
 
   const isActive = (path: string) => {
     if (path === '/' && location.pathname === '/') return true;
+    if (path === '/install' && (location.pathname === '/install' || location.pathname === '/launch')) {
+      return true;
+    }
     if (path !== '/' && location.pathname.startsWith(path)) return true;
     return false;
   };
@@ -120,41 +119,6 @@ export function PlatformLayout({
       onLogout();
     }
     navigate('/');
-  };
-
-  const handleLaunchApp = async () => {
-    const mode = getLaunchAppMode();
-    if (mode === 'standalone') {
-      setMobileMenuOpen(false);
-      return;
-    }
-    // Always close the drawer first so the install sheet is not trapped under it.
-    setMobileMenuOpen(false);
-
-    // First visit: wait for SW so Chrome can fire beforeinstallprompt.
-    if (
-      (mode === 'manual' || mode === 'prompt' || canPrompt) &&
-      typeof navigator !== 'undefined' &&
-      'serviceWorker' in navigator
-    ) {
-      try {
-        await navigator.serviceWorker.ready;
-        await new Promise((r) => window.setTimeout(r, 250));
-      } catch {
-        /* ignore */
-      }
-    }
-
-    if (getDeferredInstallPrompt() || canPrompt) {
-      const outcome = await promptPwaInstall();
-      if (outcome === 'accepted') return;
-      setLaunchMode(getLaunchAppMode());
-      setLaunchHintOpen(true);
-      return;
-    }
-
-    setLaunchMode(getLaunchAppMode());
-    setLaunchHintOpen(true);
   };
 
   const routesByCategory = PLATFORM_ROUTES.reduce(
@@ -242,11 +206,11 @@ export function PlatformLayout({
 
             <div className="nav-section">
               <div className="nav-section-title">App</div>
-              <button
-                type="button"
-                className="nav-item nav-item-button"
-                onClick={() => void handleLaunchApp()}
+              <Link
+                to="/install"
+                className={`nav-item ${isActive('/install') ? 'active' : ''}`}
                 title="Install or open Reg Guard as a phone app"
+                onClick={() => setMobileMenuOpen(false)}
               >
                 {launchMode === 'standalone' ? (
                   <Smartphone size={18} />
@@ -258,7 +222,7 @@ export function PlatformLayout({
                     {launchMode === 'standalone' ? 'Running as app' : 'Launch app'}
                   </span>
                 )}
-              </button>
+              </Link>
             </div>
           </nav>
 
@@ -298,77 +262,6 @@ export function PlatformLayout({
           onClick={() => setMobileMenuOpen(false)}
           aria-hidden
         />
-      )}
-
-      {launchHintOpen && (
-        <div
-          className="pwa-launch-sheet-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="How to launch Reg Guard"
-          onClick={() => setLaunchHintOpen(false)}
-        >
-          <div
-            className="pwa-launch-sheet"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="pwa-launch-sheet-header">
-              <h2>Launch Reg Guard on your phone</h2>
-              <button
-                type="button"
-                className="hamburger-btn"
-                aria-label="Close"
-                onClick={() => setLaunchHintOpen(false)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-            {launchMode === 'ios' ? (
-              <ol className="pwa-launch-steps">
-                <li>
-                  iPhone cannot install with one tap — use the browser{' '}
-                  <strong>Share</strong> menu (Safari works best).
-                </li>
-                <li>Tap <strong>Share</strong> (square with arrow).</li>
-                <li>Scroll and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
-                <li>Open <strong>Reg Guard</strong> from your home screen (not from Safari tabs).</li>
-                <li>
-                  If that icon opens blank, tap <strong>Repair app</strong> below, then add to
-                  Home Screen again.
-                </li>
-              </ol>
-            ) : (
-              <ol className="pwa-launch-steps">
-                <li>In Chrome or Edge, open the browser menu (⋮ or ⋯).</li>
-                <li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
-                <li>Open <strong>Reg Guard</strong> from your home screen for one-tap launch.</li>
-                <li>
-                  If the home-screen icon opens a blank page, tap <strong>Repair app</strong>{' '}
-                  below, then try again.
-                </li>
-              </ol>
-            )}
-            <button
-              type="button"
-              className="pwa-launch-done"
-              onClick={() => {
-                setLaunchHintOpen(false);
-                setMobileMenuOpen(false);
-              }}
-            >
-              Got it
-            </button>
-            <button
-              type="button"
-              className="pwa-launch-repair"
-              onClick={() => {
-                void repairPwaInstall(true);
-              }}
-            >
-              Repair app (clear cache &amp; reload)
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );
