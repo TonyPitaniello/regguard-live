@@ -481,16 +481,16 @@ export default function OrdersPage() {
         )}
 
         {orders.some(orderPdfsPreparing) && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-blue-500/15 border border-blue-500/30 rounded-lg mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-amber-500/15 border border-amber-500/35 rounded-lg mb-8">
             <div className="flex gap-3">
-              <Clock className="w-5 h-5 text-blue-300 flex-shrink-0 mt-0.5" />
-              <div className="text-blue-100 text-sm">
-                <p>
-                  IC Project PDFs are preparing
-                  {savedSite ? ` for ${savedSite.label}` : ''}.
-                </p>
-                <p className="mt-1 text-blue-200/80">
-                  Use the button to generate them from your last site — no re-typing the address.
+              <Clock className="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" />
+              <div className="text-amber-50 text-sm">
+                <p className="font-bold">IC PDFs not ready yet</p>
+                <p className="mt-1 text-amber-100/90">
+                  {savedSite
+                    ? `Click Generate to rebuild the Research Memo, Punch List, and Permit Package for ${savedSite.label}.`
+                    : 'Run a site lookup with this purchase email to generate your three PDFs.'}{' '}
+                  Payment stays completed — this only rebuilds the downloadable package.
                 </p>
               </div>
             </div>
@@ -498,7 +498,7 @@ export default function OrdersPage() {
               type="button"
               onClick={() => startIcReportForSavedSite(userEmail)}
               disabled={!savedSite && !userEmail}
-              className="px-4 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
+              className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
             >
               {savedSite ? 'Generate IC Report now' : 'Open lookup to generate'}
             </button>
@@ -785,55 +785,70 @@ function OrderCard({
         ) : null}
 
         {/* Download Buttons */}
-        {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
-          <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
-              Download Files
-            </h3>
-            {orderPdfsPreparing(order) ? (
-              <div className="p-4 bg-slate-700/40 border border-slate-600/40 rounded-lg mb-4">
-                <p className="text-gray-300 text-sm">
-                  PDFs generate after you run a site lookup with the same email used at checkout.
-                  Planning diligence package — confirm fees and filings with the AHJ before bid.
-                </p>
-                <a
-                  href="/"
-                  className="inline-block mt-3 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-lg"
-                  onClick={(e) => {
-                    const email =
-                      (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || '';
-                    if (email) {
-                      e.preventDefault();
-                      window.location.href = `/?email=${encodeURIComponent(email)}`;
-                    }
-                  }}
-                >
-                  Run site lookup →
-                </a>
+            {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
+              <div>
+                <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
+                  Download Files
+                </h3>
+                {orderPdfsPreparing(order) ? (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-4">
+                    <p className="text-amber-50 text-sm font-semibold">
+                      Downloads unlock after you generate the IC report for this site.
+                    </p>
+                    <p className="text-amber-100/80 text-sm mt-1">
+                      Use the same email as checkout. Your $1,500 order stays completed.
+                    </p>
+                    <button
+                      type="button"
+                      className="inline-block mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg"
+                      onClick={() => {
+                        const email =
+                          (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) ||
+                          '';
+                        startIcReportForSavedSite(email);
+                      }}
+                    >
+                      Generate IC Report now →
+                    </button>
+                  </div>
+                ) : null}
+                <div className="grid sm:grid-cols-3 gap-3">
+                  {order.pdfs.map((pdf) => {
+                    const preparing = pdfIsPreparing(pdf);
+                    const shortName =
+                      pdf.type === 'research_memo'
+                        ? 'Research Memo'
+                        : pdf.type === 'punch_list'
+                          ? 'Punch List'
+                          : pdf.type === 'permits'
+                            ? 'Permit Package'
+                            : pdf.name.replace(/\s*\(preparing\)\s*/i, '').trim() || pdf.name;
+                    return (
+                      <button
+                        key={pdf.type}
+                        onClick={() => !preparing && onDownload(pdf)}
+                        disabled={preparing}
+                        className={`flex flex-col items-center justify-center gap-1 px-3 py-3 border rounded-lg transition font-semibold min-h-[72px] ${
+                          preparing
+                            ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
+                            : 'bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/40 hover:border-emerald-500/60 text-emerald-100'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Download className="w-4 h-4 shrink-0" />
+                          <span className="text-sm">{shortName}</span>
+                        </span>
+                        {preparing ? (
+                          <span className="text-[11px] font-normal text-gray-500">Not ready</span>
+                        ) : (
+                          <span className="text-[11px] font-normal text-emerald-200/80">PDF</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ) : null}
-            <div className="grid sm:grid-cols-3 gap-3">
-              {order.pdfs.map((pdf) => {
-                const preparing = pdfIsPreparing(pdf);
-                return (
-                  <button
-                    key={pdf.type}
-                    onClick={() => !preparing && onDownload(pdf)}
-                    disabled={preparing}
-                    className={`flex items-center justify-center gap-2 px-4 py-3 border rounded-lg transition font-semibold ${
-                      preparing
-                        ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
-                        : 'bg-purple-600/20 hover:bg-purple-600/30 border-purple-500/30 hover:border-purple-500/50 text-purple-300 hover:text-purple-200'
-                    }`}
-                  >
-                    <Download className="w-4 h-4" />
-                    <span className="truncate">{pdf.name}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
+            ) : (
           <div className="p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg text-center">
             <p className="text-gray-400 text-sm">
               Run a site lookup with your purchase email to generate downloadable PDFs.

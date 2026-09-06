@@ -12,6 +12,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -362,17 +363,41 @@ def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def _load_disk_analysis(order_id: str) -> Optional[Dict[str, Any]]:
+    oid = (order_id or "").strip()
+    if not oid:
+        return None
+    try:
+        data_dir = os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data"
+        path = Path(data_dir) / "order_analysis" / f"{oid}.json"
+        if not path.is_file():
+            return None
+        import json
+
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
 def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
     oid = (order_id or "").strip()
     if not oid:
         return None
     for order in _ORDERS_BY_SESSION.values():
         if str(order.get("order_id") or "") == oid or str(order.get("id") or "") == oid:
+            if not order.get("analysis_json"):
+                disk = _load_disk_analysis(oid)
+                if disk:
+                    order["analysis_json"] = disk
             return order
     # Best-effort hydrate from Supabase after process restart
     rows = _supabase_rest(f"orders?id=eq.{oid}&limit=1", method="GET")
     if isinstance(rows, list) and rows:
         row = rows[0]
+        analysis = row.get("analysis_json")
+        if not isinstance(analysis, dict):
+            analysis = _load_disk_analysis(oid)
         hydrated = {
             "order_id": row.get("id") or oid,
             "tier": row.get("tier"),
@@ -383,9 +408,27 @@ def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
             "email": (row.get("email") or "").strip().lower(),
             "pdfs": row.get("pdfs"),
             "address": row.get("address"),
-            "analysis_json": row.get("analysis_json"),
+            "analysis_json": analysis,
             "download_token": row.get("download_token"),
             "pdf_status": row.get("pdf_status"),
+            "share_url": row.get("share_url") or "",
+            "research_id": row.get("research_id") or "",
+        }
+        remember_order(hydrated)
+        return hydrated
+    # Last resort: disk-only analysis after hard wipe
+    disk = _load_disk_analysis(oid)
+    if disk:
+        hydrated = {
+            "order_id": oid,
+            "tier": "ic_project",
+            "status": "completed",
+            "stripe_session_id": f"disk_{oid}",
+            "email": "",
+            "pdfs": None,
+            "analysis_json": disk,
+            "pdf_status": "ready",
+            "address": (disk.get("project_info") or {}).get("address") or "",
         }
         remember_order(hydrated)
         return hydrated
@@ -448,43 +491,118 @@ def update_order_artifacts(
     return order_to_frontend(order)
 
 
-def _persist_order_artifacts_supabase(order: Dict[str, Any]) -> None:
+def _persist_order_artifacts_supabase(order: Dict[str, Any]) -> bool:
+    """
+    Persist PDF metadata + analysis to Supabase.
+    Only patches columns that exist on orders (unknown columns abort the whole PATCH).
+    Returns True on best-effort success.
+    """
     sid = (order.get("stripe_session_id") or "").strip()
     oid = (order.get("order_id") or "").strip()
-    patch: Dict[str, Any] = {}
+
+    # Core columns from migration 014 — always safe
+    core: Dict[str, Any] = {}
     if order.get("pdfs") is not None:
-        patch["pdfs"] = order["pdfs"]
+        core["pdfs"] = order["pdfs"]
     if order.get("analysis_json") is not None:
-        # Keep payload bounded for REST
-        patch["analysis_json"] = order["analysis_json"]
+        # Bound size: drop huge markdown blobs that can break REST payloads
+        aj = order["analysis_json"]
+        if isinstance(aj, dict):
+            slim = dict(aj)
+            for heavy in (
+                "pro_summary_markdown",
+                "research_memo",
+                "raw_scout",
+                "page_texts",
+                "firecrawl_pages",
+            ):
+                if heavy in slim and isinstance(slim[heavy], str) and len(slim[heavy]) > 8000:
+                    slim[heavy] = slim[heavy][:8000] + "…"
+            core["analysis_json"] = slim
+        else:
+            core["analysis_json"] = aj
     if order.get("address"):
-        patch["address"] = order["address"]
+        core["address"] = order["address"]
     if order.get("email"):
-        patch["email"] = order["email"]
+        core["email"] = order["email"]
     if order.get("download_token"):
-        patch["download_token"] = order["download_token"]
+        core["download_token"] = order["download_token"]
     if order.get("pdf_status"):
-        patch["pdf_status"] = order["pdf_status"]
+        core["pdf_status"] = order["pdf_status"]
+
+    # Optional columns from migration 015 — patch separately so missing cols don't kill core
+    optional: Dict[str, Any] = {}
     if order.get("share_url"):
-        patch["share_url"] = order["share_url"]
+        optional["share_url"] = order["share_url"]
     if order.get("research_id"):
-        patch["research_id"] = order["research_id"]
-    if not patch:
-        return
-    if sid:
-        _supabase_rest(
-            f"orders?stripe_session_id=eq.{sid}",
-            method="PATCH",
-            json_body=patch,
-            prefer="return=minimal",
-        )
-    elif oid:
-        _supabase_rest(
-            f"orders?id=eq.{oid}",
-            method="PATCH",
-            json_body=patch,
-            prefer="return=minimal",
-        )
+        optional["research_id"] = order["research_id"]
+
+    if not core and not optional:
+        return False
+
+    def _patch(body: Dict[str, Any]) -> bool:
+        if not body:
+            return False
+        if sid and not sid.startswith("db_"):
+            result = _supabase_rest(
+                f"orders?stripe_session_id=eq.{sid}",
+                method="PATCH",
+                json_body=body,
+                prefer="return=minimal",
+            )
+            # _supabase_rest returns None on failure; [] or {} can mean ok with return=minimal
+            return result is not None
+        if oid:
+            result = _supabase_rest(
+                f"orders?id=eq.{oid}",
+                method="PATCH",
+                json_body=body,
+                prefer="return=minimal",
+            )
+            return result is not None
+        return False
+
+    ok_core = True
+    if core:
+        ok_core = _patch(core)
+        if not ok_core:
+            logger.error(
+                "Supabase order artifact PATCH failed order=%s sid=%s keys=%s",
+                oid,
+                sid[:20] if sid else "",
+                list(core.keys()),
+            )
+        else:
+            logger.info(
+                "Supabase order artifacts saved order=%s pdf_status=%s pdfs=%s",
+                oid,
+                core.get("pdf_status"),
+                len(core.get("pdfs") or []) if isinstance(core.get("pdfs"), list) else 0,
+            )
+
+    if optional:
+        ok_opt = _patch(optional)
+        if not ok_opt:
+            logger.warning(
+                "Supabase optional share/research PATCH failed order=%s "
+                "(run migration 015_orders_share_research.sql if columns missing)",
+                oid,
+            )
+
+    # Also mirror analysis to disk so PDFs can regenerate after restart even if Supabase lags
+    if isinstance(order.get("analysis_json"), dict) and oid:
+        try:
+            data_dir = os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data"
+            path = Path(data_dir) / "order_analysis" / f"{oid}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                __import__("json").dumps(order["analysis_json"], default=str)[:2_000_000],
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.warning("Disk analysis mirror failed order=%s: %s", oid, e)
+
+    return ok_core
 
 
 async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
