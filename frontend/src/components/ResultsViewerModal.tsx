@@ -1031,6 +1031,7 @@ export default function ResultsViewerModal({
   };
 
   const freezeWarRoomStamp = async () => {
+    const rid = (effectiveResearchId || '').trim();
     if (!rid) {
       setToast('Report not found — cannot freeze stamp.');
       window.setTimeout(() => setToast(''), 3500);
@@ -1407,7 +1408,7 @@ export default function ResultsViewerModal({
               <button
                 type="button"
                 onClick={() => void freezeWarRoomStamp()}
-                disabled={!rid}
+                disabled={!effectiveResearchId}
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-white/10 border border-white/20 text-gray-200 text-sm font-semibold disabled:opacity-50"
                 title="Freeze stamp for dispute proof"
               >
