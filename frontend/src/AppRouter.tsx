@@ -37,6 +37,7 @@ import PartnerMandatePage from './pages/PartnerMandatePage';
 import PartnerPortalPage from './pages/PartnerPortalPage';
 import GeoPermitLandingPage from './pages/GeoPermitLandingPage';
 import RefundCasesPage from './pages/RefundCasesPage';
+import MoratoriumRadarPage from './pages/MoratoriumRadarPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
 import PwaInstallBanner from './components/PwaInstallBanner';
@@ -131,6 +132,8 @@ export function AppRouter() {
           <Route path="/r/:id" element={<SharedReportPage />} />
           <Route path="/jobs" element={<JobsPage />} />
           <Route path="/my-jobs" element={<JobsPage />} />
+          <Route path="/moratorium-radar" element={<MoratoriumRadarPage />} />
+          <Route path="/dc/moratorium-radar" element={<MoratoriumRadarPage />} />
           
           {/* Orders and Payment */}
           <Route path="/order" element={<PremiumCheckoutPage />} />

@@ -77,15 +77,15 @@ class RegGuardPDF(FPDF):
         self.set_text_color(221, 214, 254)
         self.cell(0, 5, self.company_tagline, ln=True)
 
-        self.set_xy(14, 34)
+        self.set_xy(self.l_margin, 34)
         self.set_font("Helvetica", "B", 13)
         self.set_text_color(*_TEXT)
-        self.multi_cell(self.epw, 6, ascii_safe(title, 120))
+        self.multi_cell(self._content_width(), 6, ascii_safe(title, 120))
         if subtitle:
             self.set_font("Helvetica", "", 9)
             self.set_text_color(*_MUTED)
-            self.set_x(14)
-            self.multi_cell(self.epw, 4.5, ascii_safe(subtitle, 200))
+            self.set_x(self.l_margin)
+            self.multi_cell(self._content_width(), 4.5, ascii_safe(subtitle, 200))
         self.ln(3)
         self._doc_title = title
 
@@ -102,27 +102,53 @@ class RegGuardPDF(FPDF):
         self.ln(3)
         self.set_text_color(*_TEXT)
 
+    def _content_width(self) -> float:
+        return max(40.0, float(self.w - self.l_margin - self.r_margin))
+
+    def write_wrapped(self, text: str, *, size: float = 9, bold: bool = False, color=_TEXT, h: float = 4.5) -> None:
+        """Word-wrap inside page margins — never spill past the right edge."""
+        self.set_x(self.l_margin)
+        self.set_font("Helvetica", "B" if bold else "", size)
+        self.set_text_color(*color)
+        # Prefer full wrap over mid-word truncation (was causing "off the page" cutoffs)
+        self.multi_cell(self._content_width(), h, ascii_safe(text, 4000))
+
     def add_info_box(self, label: str, value: str) -> None:
-        self.set_x(14)
+        label_w = 40.0
+        gap = 2.0
+        y0 = self.get_y()
+        self.set_xy(self.l_margin, y0)
         self.set_font("Helvetica", "B", 9)
         self.set_text_color(*_MUTED)
-        self.cell(42, 6, ascii_safe(label, 40) + ":", ln=False)
+        self.cell(label_w, 5.5, ascii_safe(label, 36) + ":", ln=0)
+        self.set_xy(self.l_margin + label_w + gap, y0)
         self.set_font("Helvetica", "", 9)
         self.set_text_color(*_TEXT)
-        self.multi_cell(self.epw - 42, 6, ascii_safe(value, 200))
+        val_w = max(30.0, self._content_width() - label_w - gap)
+        self.multi_cell(val_w, 5.5, ascii_safe(value, 2000))
 
     def add_muted_note(self, text: str) -> None:
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(*_MUTED)
-        self.set_x(14)
-        self.multi_cell(self.epw, 4, ascii_safe(text, 500))
-        self.set_text_color(*_TEXT)
+        self.write_wrapped(text, size=8, color=_MUTED, h=4)
 
     def add_bullet(self, text: str, *, bullet: str = "-") -> None:
-        self.set_x(14)
-        self.set_font("Helvetica", "", 9)
+        self.write_wrapped(f"{bullet} {text}", size=9, h=4.5)
+
+    def add_link_line(self, label: str, url: str) -> None:
+        """Clickable URL line (Helvetica cannot color-link easily — show URL + PDF link annot)."""
+        u = (url or "").strip()
+        if not u:
+            return
+        self.set_x(self.l_margin)
+        self.set_font("Helvetica", "", 8)
+        self.set_text_color(*_EMERALD)
+        display = ascii_safe(f"{label}: {u}", 180)
+        # Use remaining width from left margin
+        x = self.get_x()
+        y = self.get_y()
+        w = self._content_width()
+        self.cell(w, 4.5, display, link=u)
+        self.ln(5)
         self.set_text_color(*_TEXT)
-        self.multi_cell(self.epw, 4.5, f"{bullet} {ascii_safe(text, 400)}")
 
     # Legacy name used by older call sites
     def add_header(self, title: str, subtitle: Optional[str] = None) -> None:
@@ -143,8 +169,8 @@ class ResearchMemoPDF(RegGuardPDF):
             project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
             self.add_brand_banner(
-                "Site Diligence Research Memo",
-                f"{address}  |  IC Project Report",
+                "IC Research Memo",
+                f"{address}  |  Deep scout narrative + citeable fee/gotcha lines",
             )
 
             self.add_section_title("Project information")
@@ -236,26 +262,19 @@ class ResearchMemoPDF(RegGuardPDF):
                     else:
                         plain = markdown_to_plain(desc, limit=900)
                         if plain:
-                            self.set_font("Helvetica", "", 9)
-                            self.set_text_color(*_TEXT)
-                            self.set_x(14)
-                            self.multi_cell(self.epw, 4.5, plain)
+                            self.write_wrapped(plain, size=9, h=4.5)
                     self.ln(1)
 
             band = analysis_data.get("contingency_band") or pack.get("contingency") or {}
             if band.get("pct_low") is not None and band.get("pct_high") is not None:
                 self.add_section_title("Bid contingency band (planning aid)")
-                self.set_font("Helvetica", "B", 11)
-                self.set_text_color(*_EMERALD)
-                self.set_x(14)
-                self.multi_cell(
-                    self.epw,
-                    6,
-                    ascii_safe(
-                        f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
-                        f"(mid {band.get('pct_mid', 'n/a')}%) - not a quote",
-                        160,
-                    ),
+                self.write_wrapped(
+                    f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
+                    f"(mid {band.get('pct_mid', 'n/a')}%) - not a quote",
+                    size=11,
+                    bold=True,
+                    color=_EMERALD,
+                    h=6,
                 )
                 self.set_text_color(*_TEXT)
 
@@ -266,17 +285,20 @@ class ResearchMemoPDF(RegGuardPDF):
                 self.add_section_title("Top margin risk flags")
                 for i, k in enumerate(killers, 1):
                     pri = str(k.get("priority") or "").upper()
-                    title = ascii_safe(k.get("title"), 120)
-                    self.set_font("Helvetica", "B", 9)
-                    self.set_text_color(*(_RED if pri in ("CRITICAL", "HIGH") else _AMBER))
-                    self.set_x(14)
-                    self.multi_cell(self.epw, 5, f"{i}. [{pri}] {title}")
-                    detail = markdown_to_plain(k.get("detail") or "", limit=280)
+                    title = str(k.get("title") or "")
+                    self.write_wrapped(
+                        f"{i}. [{pri}] {title}",
+                        size=9,
+                        bold=True,
+                        color=(_RED if pri in ("CRITICAL", "HIGH") else _AMBER),
+                        h=5,
+                    )
+                    detail = markdown_to_plain(k.get("detail") or "", limit=800)
                     if detail:
-                        self.set_font("Helvetica", "", 8)
-                        self.set_text_color(*_MUTED)
-                        self.set_x(14)
-                        self.multi_cell(self.epw, 4, detail)
+                        self.write_wrapped(detail, size=8, color=_MUTED, h=4)
+                    url = (k.get("source_url") or "").strip()
+                    if url:
+                        self.add_link_line("Source", url)
                     self.ln(1)
 
             sources = list(pack.get("source_lines") or [])
@@ -410,7 +432,7 @@ class PunchListPDF(RegGuardPDF):
 
 
 class PermitPackagePDF(RegGuardPDF):
-    """Fallback permit worksheet when build_permit_package_pdf is unavailable."""
+    """IC Permit Package — filing worksheet (distinct from Research Memo narrative)."""
 
     def generate(
         self, analysis_data: Dict[str, Any], state: str, output_path: Optional[str] = None
@@ -420,43 +442,87 @@ class PermitPackagePDF(RegGuardPDF):
             self.add_page()
             project_info = analysis_data.get("project_info", {}) or {}
             address = project_info.get("address", "Unknown")
+            st = str(state or project_info.get("state") or "TX").upper()
+            pack = analysis_data.get("pdf_pack") if isinstance(analysis_data.get("pdf_pack"), dict) else {}
+            ahj = analysis_data.get("ahj_card") if isinstance(analysis_data.get("ahj_card"), dict) else {}
             self.add_brand_banner(
-                f"Permit Package Worksheet - {str(state or '').upper()}",
-                f"Planning intake for: {address}",
+                f"IC Permit Package — {st} AHJ worksheet",
+                f"Filing checklist for: {address} (not the Research Memo)",
             )
 
-            self.add_section_title("Project information (pre-filled)")
+            self.add_section_title("Job site (pre-filled for AHJ intake)")
             self.add_info_box("Address", str(address))
             self.add_info_box("City", str(project_info.get("city") or ""))
-            self.add_info_box("State", str(state))
+            self.add_info_box("State", st)
             self.add_info_box("ZIP", str(project_info.get("zip") or ""))
             self.add_info_box("Project type", str(project_info.get("type") or "commercial"))
+            self.add_info_box("Primary trade", "Confirm with AHJ (GC / electrical / mechanical)")
 
-            self.add_section_title("AHJ checklist")
+            self.add_section_title("Authority having jurisdiction")
+            ahj_name = pack.get("ahj_name") or ahj.get("name") or f"{project_info.get('city') or ''}, {st}".strip(", ")
+            self.add_info_box("AHJ", str(ahj_name))
+            portal = (pack.get("portal_url") or ahj.get("portal_url") or "").strip()
+            fees_u = (pack.get("fees_url") or ahj.get("fees_url") or "").strip()
+            if portal:
+                self.add_link_line("Building portal", portal)
+            if fees_u:
+                self.add_link_line("Fee schedule", fees_u)
+            if not portal and not fees_u:
+                self.add_bullet("Look up the city/county building portal for this ZIP before filing.")
+
+            fee_lines = list(pack.get("fee_lines") or [])
+            self.add_section_title("Permit fee planning lines (confirm on schedule)")
+            if fee_lines:
+                for line in fee_lines[:12]:
+                    self.add_bullet(str(line))
+            else:
+                self.add_bullet("No citeable fee lines yet — pull the live AHJ fee schedule before payment.")
+
+            fee_card = analysis_data.get("fee_card") if isinstance(analysis_data.get("fee_card"), dict) else {}
+            fees = [f for f in (fee_card.get("fees") or []) if isinstance(f, dict)]
+            if fees:
+                self.add_section_title("Fee card (planning USD)")
+                for f in fees[:10]:
+                    label = f.get("label") or "Fee"
+                    amt = f.get("amount_usd")
+                    amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
+                    self.add_bullet(f"{label}: {amt_s}")
+                    if (f.get("source_url") or "").strip():
+                        self.add_link_line("Source", str(f.get("source_url")))
+
+            self.add_section_title("AHJ filing checklist")
             for line in (
                 "Confirm application type on the official building portal",
-                "Pull live fee schedule before payment",
-                "Upload single-line diagrams / load calcs if required",
-                "Treat utility interconnection as a parallel clock (if large-load)",
+                "Pull live fee schedule before payment — Reg Guard figures are planning only",
+                "Upload single-line diagrams / load calcs if required by trade",
+                "Confirm contractor registration / license before e-plan upload",
+                "Treat utility interconnection as a parallel clock (large-load / DC)",
             ):
                 self.add_bullet(line)
 
-            self.add_section_title("Submission instructions")
+            seq = list(pack.get("inspection_sequence") or [])
+            if seq:
+                self.add_section_title("Inspection / intake sequence")
+                for i, step in enumerate(seq[:10], 1):
+                    self.add_bullet(str(step), bullet=f"{i}.")
+
+            self.add_section_title("How to file (Reg Guard does not e-file)")
             for instruction in (
-                "1. Review all pre-filled information for accuracy",
-                "2. Confirm fees and trade license requirements with the AHJ",
-                "3. Attach drawings and cut sheets the jurisdiction requests",
-                "4. File on the official AHJ portal - RegGuard does not e-file",
+                "Review all pre-filled information for accuracy against the survey/plans",
+                "Confirm fees and trade license requirements with the AHJ clerk or portal",
+                "Attach drawings and cut sheets the jurisdiction requests",
+                "File and pay only on the official AHJ portal",
             ):
-                self.add_bullet(instruction, bullet="")
+                self.add_bullet(instruction)
 
             self.add_muted_note(
-                "This is a planning worksheet, not an official permit application."
+                "IC Permit Package worksheet — not an official permit application and not the Research Memo. "
+                "Confirm every fee and form with the AHJ before bid or submittal."
             )
 
             if output_path is None:
                 output_path = (
-                    f"/tmp/permit_package_{state}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+                    f"/tmp/permit_package_{st}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
                 )
             self.output(output_path)
             logger.info("Permit package PDF generated: %s", output_path)

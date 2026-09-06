@@ -212,12 +212,10 @@ export function DataCenterHub() {
             </p>
             <p className="mt-4">
               <a
-                href={backendUrl('/dc/moratorium-radar')}
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/moratorium-radar"
                 className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-300 hover:text-cyan-200"
               >
-                Open moratorium radar API <ArrowRight className="w-4 h-4" />
+                Open moratorium radar <ArrowRight className="w-4 h-4" />
               </a>
             </p>
           </div>

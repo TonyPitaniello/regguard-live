@@ -212,6 +212,25 @@ def build_research_result_html(research_data: dict) -> str:
 
 
 
+
+def _resend_message_id(response) -> str:
+    """Resend SDK may return a dict or an object depending on version."""
+    if response is None:
+        return ""
+    if isinstance(response, dict):
+        return str(response.get("id") or response.get("data", {}).get("id") or "")
+    for attr in ("id",):
+        val = getattr(response, attr, None)
+        if val:
+            return str(val)
+    # Some SDKs nest under .data
+    data = getattr(response, "data", None)
+    if isinstance(data, dict) and data.get("id"):
+        return str(data["id"])
+    if data is not None and getattr(data, "id", None):
+        return str(data.id)
+    return ""
+
 class EmailService:
     """Base email service"""
 
@@ -238,6 +257,9 @@ class EmailService:
         to_email: str,
         order_id: str,
         pdfs: list,
+        *,
+        share_url: str = "",
+        site_label: str = "",
     ) -> bool:
         """Notify buyer that IC Project PDF downloads are ready."""
         raise NotImplementedError
@@ -466,7 +488,14 @@ class EmailService:
 </body></html>
 """
 
-    def _build_order_pdfs_html(self, order_id: str, pdfs: list) -> str:
+    def _build_order_pdfs_html(
+        self,
+        order_id: str,
+        pdfs: list,
+        *,
+        share_url: str = "",
+        site_label: str = "",
+    ) -> str:
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         links = ""
         for p in pdfs or []:
@@ -474,25 +503,44 @@ class EmailService:
             url = p.get("url") or f"{app_url}/orders"
             links += (
                 f'<p style="margin:12px 0;">'
-                f'<a href="{url}" style="display:inline-block;background:#1d4ed8;color:#fff;'
+                f'<a href="{url}" style="display:inline-block;background:#059669;color:#fff;'
                 f'padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:600;">'
                 f"Download {name}</a></p>"
             )
         short_id = (order_id or "")[:8]
+        site_line = (
+            f'<p style="color:#334155;font-size:14px;"><strong>Site:</strong> {site_label}</p>'
+            if (site_label or "").strip()
+            else ""
+        )
+        share = (share_url or "").strip()
+        if share and not share.startswith("http"):
+            share = f"{app_url}{share if share.startswith('/') else '/' + share}"
+        share_block = (
+            f'<p style="margin:20px 0 8px;color:#334155;font-size:14px;">'
+            f"Interactive results (same diligence as the PDFs):</p>"
+            f'<p style="margin:0 0 16px;"><a href="{share}" style="display:inline-block;'
+            f'background:#7c3aed;color:#fff;padding:10px 18px;border-radius:6px;'
+            f'text-decoration:none;font-weight:600;">Open site results</a></p>'
+            if share
+            else ""
+        )
         return f"""
 <!DOCTYPE html>
-<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
-  <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
-    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Your IC Project Report is ready</h1>
-    <p style="color:#555;font-size:14px;line-height:1.5;">
-      Order #{short_id} includes your research memo, contractor punch list, and permit package worksheet.
-      These are planning diligence PDFs — confirm fees and filings with the local AHJ before bid or submittal.
+<html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;padding:24px;">
+  <div style="max-width:600px;margin:0 auto;background:#1e293b;border-radius:8px;padding:28px;border:1px solid #334155;">
+    <h1 style="margin:0 0 8px;color:#f8fafc;font-size:22px;">Your IC Project Report PDFs are ready</h1>
+    {site_line}
+    <p style="color:#94a3b8;font-size:14px;line-height:1.5;">
+      Order #{short_id} includes three labeled PDFs: Research Memo, Contractor Punch List, and Permit Package.
+      Planning diligence only — confirm fees and filings with the local AHJ before bid or submittal.
     </p>
     {links}
+    {share_block}
     <p style="margin-top:24px;">
-      <a href="{app_url}/orders" style="color:#1d4ed8;">Open My Orders</a>
+      <a href="{app_url}/orders" style="color:#34d399;">Open My Orders</a>
     </p>
-    <p style="margin-top:28px;font-size:12px;color:#888;">Reg Guard · support@regguardagent.com</p>
+    <p style="margin-top:28px;font-size:12px;color:#64748b;">Reg Guard · support@regguardagent.com</p>
   </div>
 </body></html>
 """
@@ -686,6 +734,9 @@ RegGuard © 2026
         to_email: str,
         order_id: str,
         pdfs: list,
+        *,
+        share_url: str = "",
+        site_label: str = "",
     ) -> bool:
         if not self.sg or not self.Mail:
             logger.error("❌ SendGrid not configured")
@@ -695,7 +746,9 @@ RegGuard © 2026
                 from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 to_emails=to_email,
                 subject="Your Reg Guard IC Project Report PDFs are ready",
-                html_content=self._build_order_pdfs_html(order_id, pdfs),
+                html_content=self._build_order_pdfs_html(
+                    order_id, pdfs, share_url=share_url, site_label=site_label
+                ),
             )
             response = self.sg.send(message)
             ok = 200 <= response.status_code < 300
@@ -935,14 +988,12 @@ class ResendEmailService(EmailService):
                 logger.error(f"Traceback: {traceback.format_exc()}")
                 return False
 
-            success = response.get("id") is not None
-
-            if success:
-                logger.info(f"✅ Research memo sent to {to_email} via Resend (id: {response.get('id')})")
-            else:
-                logger.error(f"❌ Resend error: {response}")
-
-            return success
+            mid = _resend_message_id(response)
+            if mid:
+                logger.info(f"✅ Research memo sent to {to_email} via Resend (id: {mid})")
+                return True
+            logger.error(f"❌ Resend error: {response}")
+            return False
 
         except Exception as e:
             logger.error(f"❌ Error sending email via Resend: {e}")
@@ -954,6 +1005,9 @@ class ResendEmailService(EmailService):
         to_email: str,
         order_id: str,
         pdfs: list,
+        *,
+        share_url: str = "",
+        site_label: str = "",
     ) -> bool:
         if not self.resend:
             logger.error("❌ Resend not configured")
@@ -963,14 +1017,16 @@ class ResendEmailService(EmailService):
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
                 "subject": "Your Reg Guard IC Project Report PDFs are ready",
-                "html": self._build_order_pdfs_html(order_id, pdfs),
+                "html": self._build_order_pdfs_html(
+                    order_id, pdfs, share_url=share_url, site_label=site_label
+                ),
             })
-            ok = bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
-            if ok:
-                logger.info("✅ IC PDF ready email sent to %s via Resend", to_email)
-            else:
-                logger.error("Resend IC PDF email failed: %s", response)
-            return ok
+            mid = _resend_message_id(response)
+            if mid:
+                logger.info("✅ IC PDF ready email sent to %s via Resend id=%s", to_email, mid)
+                return True
+            logger.error("Resend IC PDF email failed (no id): %s", response)
+            return False
         except Exception as e:
             logger.error("Resend send_order_pdfs_ready failed: %s", e)
             return False
@@ -1118,16 +1174,16 @@ class ResendEmailService(EmailService):
             })
             logger.info(f"📧 Resend response: {response}")
 
-            if response.get("id"):
-                logger.info(f"✅ Research result sent to {to_email} via Resend")
+            mid = _resend_message_id(response)
+            if mid:
+                logger.info(f"✅ Research result sent to {to_email} via Resend id={mid}")
                 return {
                     "status": "sent",
-                    "email_id": response.get("id", ""),
+                    "email_id": mid,
                     "email": to_email,
                 }
-            else:
-                logger.error(f"❌ Resend error: {response}")
-                raise Exception(f"Resend error: {response}")
+            logger.error(f"❌ Resend error: {response}")
+            raise Exception(f"Resend error: {response}")
 
         except Exception as e:
             logger.error(f"❌ Error sending result via Resend: {e}")
@@ -1141,18 +1197,22 @@ class ResendEmailService(EmailService):
 
 
 def get_email_service() -> Optional[EmailService]:
-    """Get configured email service (SendGrid or Resend)"""
+    """Get configured email service. Prefer Resend (live provider) over SendGrid."""
     sendgrid_key = os.getenv("SENDGRID_API_KEY")
     resend_key = os.getenv("RESEND_API_KEY")
 
-    logger.info(f"🔍 Email service check: SendGrid={'SET' if sendgrid_key else 'NOT SET'}, Resend={'SET' if resend_key else 'NOT SET'}")
+    logger.info(
+        "🔍 Email service check: SendGrid=%s, Resend=%s",
+        "SET" if sendgrid_key else "NOT SET",
+        "SET" if resend_key else "NOT SET",
+    )
 
+    # Prefer Resend — production uses Resend; SendGrid key may be stale/empty-looking.
+    if resend_key:
+        logger.info("📧 Using Resend email service")
+        return ResendEmailService(resend_key)
     if sendgrid_key:
         logger.info("📧 Using SendGrid email service")
         return SendGridEmailService(sendgrid_key)
-    elif resend_key:
-        logger.info("📧 Using Resend email service")
-        return ResendEmailService(resend_key)
-    else:
-        logger.error("❌ No email service configured (SENDGRID_API_KEY or RESEND_API_KEY not set)")
-        return None
+    logger.error("❌ No email service configured (SENDGRID_API_KEY or RESEND_API_KEY not set)")
+    return None

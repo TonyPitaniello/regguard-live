@@ -434,6 +434,28 @@ export default function FreeTrialForm({
         }
         if (payload.ic_pdfs_ready) {
           (analysis as AnalysisData & { ic_pdfs_ready?: boolean }).ic_pdfs_ready = true;
+          // Belt-and-suspenders: also request results email from the browser after IC fulfill.
+          // Server should already send; this covers silent Resend failures / skipped fulfill paths.
+          const to = emailNorm || data.email;
+          if (to) {
+            void fetch(backendUrl('/research/send-email'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: to,
+                email_address: to,
+                research_id: payload.research_id || analysis.research_id,
+                analysis,
+                summary: {
+                  address: analysis.project_info?.address,
+                  city: analysis.project_info?.city,
+                  state: analysis.project_info?.state,
+                  zip: analysis.project_info?.zip,
+                  share_url: analysis.share_url || payload.share_url,
+                },
+              }),
+            }).catch(() => undefined);
+          }
         }
         // Prefer server share URL so email/SMS never say "unavailable"
         const payloadShare = String(payload.share_url || '').trim();

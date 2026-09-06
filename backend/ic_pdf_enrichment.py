@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pdf_text import ascii_safe, markdown_to_plain
 
 # Bump when PDF layout/content contract changes — forces regen on download.
-PDF_FORMAT_VERSION = 4
+PDF_FORMAT_VERSION = 5
 
 
 def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -169,4 +169,12 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
             or []
         )[:8],
     }
+    # Always attach a human-readable radar card for IC results (not raw JSON API).
+    if not isinstance(data.get("moratorium_radar"), dict) or not data["moratorium_radar"].get("metros"):
+        try:
+            from dc_diligence import build_moratorium_radar_card
+
+            data["moratorium_radar"] = build_moratorium_radar_card(data)
+        except Exception:
+            pass
     return data

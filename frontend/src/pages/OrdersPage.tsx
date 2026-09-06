@@ -693,25 +693,49 @@ function OrderCard({
             </dl>
           </div>
 
-          {/* Download Info */}
+          {/* Download Info — labeled cluster matching results page */}
           <div>
             <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
               Included Files
             </h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                Research Memo PDF
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                Complete Punch List
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                State Permit Package
-              </li>
-            </ul>
+            {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
+              <div className="grid gap-2">
+                {order.pdfs.map((pdf) => {
+                  const preparing = pdfIsPreparing(pdf);
+                  return (
+                    <button
+                      key={pdf.type}
+                      type="button"
+                      onClick={() => !preparing && onDownload(pdf)}
+                      disabled={preparing}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left text-sm font-semibold transition ${
+                        preparing
+                          ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
+                          : 'bg-emerald-600/15 border-emerald-500/35 text-emerald-100 hover:bg-emerald-600/25'
+                      }`}
+                    >
+                      <Download className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{pdf.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <ul className="space-y-2 text-sm text-gray-300">
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Research Memo PDF
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Contractor Punch List PDF
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  Permit Package Worksheet PDF
+                </li>
+              </ul>
+            )}
           </div>
         </div>
 

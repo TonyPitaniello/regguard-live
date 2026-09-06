@@ -51,6 +51,8 @@ export interface AnalysisData {
   depth_claim_honest?: boolean;
   research_incomplete?: boolean;
   scout_mode?: string;
+  scout_locality_depth?: string;
+  ultralocal_scout?: { enabled?: boolean; hit_count?: number } | null;
   ic_package?: boolean | Record<string, unknown>;
   /** Set when IC Project PDFs were just generated for this lookup */
   ic_pdfs_ready?: boolean;
@@ -712,6 +714,9 @@ export default function ResultsViewerModal({
   const [gotchaText, setGotchaText] = useState('');
   const [gotchaBusy, setGotchaBusy] = useState(false);
   const [gotchaMsg, setGotchaMsg] = useState('');
+  const [icOrderPdfs, setIcOrderPdfs] = useState<
+    Array<{ type: string; name: string; url: string }>
+  >([]);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Page-scroll takeover: bring results to the top of the viewport (form scrolls away)
@@ -731,6 +736,51 @@ export default function ResultsViewerModal({
   useEffect(() => {
     setLiveAnalysis(null);
   }, [analysis]);
+
+  // Load IC Project PDF download URLs for the results-page cluster
+  useEffect(() => {
+    if (!isOpen) return;
+    const ready =
+      Boolean(analysis?.ic_pdfs_ready) ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1');
+    if (!ready) {
+      setIcOrderPdfs([]);
+      return;
+    }
+    const email = (defaultEmail || '').trim().toLowerCase();
+    if (!email) return;
+    let cancelled = false;
+    void fetch(backendUrl(`/orders?email=${encodeURIComponent(email)}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        const orders = Array.isArray(d.orders) ? d.orders : [];
+        const ic = orders.find(
+          (o: { pdfs?: unknown[]; tier?: string; status?: string }) =>
+            Array.isArray(o.pdfs) &&
+            o.pdfs.length > 0 &&
+            String(o.tier || '').toLowerCase().includes('ic')
+        ) || orders.find((o: { pdfs?: unknown[] }) => Array.isArray(o.pdfs) && o.pdfs.length > 0);
+        const pdfs = (ic?.pdfs || []) as Array<{ type?: string; name?: string; url?: string }>;
+        const mapped = pdfs
+          .filter((p) => p.url)
+          .map((p) => ({
+            type: String(p.type || 'report'),
+            name: String(p.name || p.type || 'PDF'),
+            url: String(p.url),
+          }));
+        // Prefer stable order: memo, punch, permits
+        const order = ['research_memo', 'punch_list', 'permits'];
+        mapped.sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+        setIcOrderPdfs(mapped);
+      })
+      .catch(() => {
+        if (!cancelled) setIcOrderPdfs([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, analysis?.ic_pdfs_ready, defaultEmail]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -793,8 +843,16 @@ export default function ResultsViewerModal({
         'Instant preview — deep research incomplete (not full Pro)'
       );
     }
+    const ultra =
+      view.scout_locality_depth === 'local_ultralocal' ||
+      Boolean(view.ultralocal_scout?.enabled);
+    if (ultra && (depthTier === 'ic_full' || view.ic_package)) {
+      return 'IC Project — full federal / state / local + ultralocal scout';
+    }
     if (view.depth_badge) return view.depth_badge;
-    if (depthTier === 'ic_full') return 'IC Project — full federal / state / local scout';
+    if (depthTier === 'ic_full') {
+      return 'IC Project — full federal / state / local scout';
+    }
     if (depthTier === 'pro_light' || scoutMode === 'light')
       return 'Contractor Pro — local confirm + light scout';
     if (depthTier === 'pro_partial' || depth === 'pro_partial')
@@ -972,6 +1030,62 @@ export default function ResultsViewerModal({
       showToast(e instanceof Error ? e.message : 'CSV export failed');
     } finally {
       setPacketLoading(false);
+    }
+  };
+
+  const downloadBidSheetPdf = async () => {
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/research/bid-sheet.pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: view }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Bid sheet PDF failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_Bid_Sheet.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('Bid sheet PDF downloaded — sources are clickable links.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Bid sheet PDF failed');
+    } finally {
+      setPacketLoading(false);
+    }
+  };
+
+  const downloadIcPdf = async (pdf: { type: string; name: string; url: string }) => {
+    try {
+      const raw = (pdf.url || '').trim();
+      const pathStart = raw.search(/\/orders\//);
+      let fetchUrl =
+        pathStart >= 0 ? backendUrl(raw.slice(pathStart)) : raw.startsWith('http') ? raw : backendUrl(raw);
+      const sep = fetchUrl.includes('?') ? '&' : '?';
+      if (!/[?&]refresh=/.test(fetchUrl)) {
+        fetchUrl = `${fetchUrl}${sep}refresh=1`;
+      }
+      const res = await fetch(fetchUrl, { credentials: 'omit' });
+      if (!res.ok) throw new Error(`Download failed (${res.status})`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast(`${pdf.name} downloaded`);
+    } catch {
+      showToast('Could not download PDF — try My Orders or refresh.');
     }
   };
 
@@ -1309,15 +1423,37 @@ export default function ResultsViewerModal({
                 IC Project Report PDFs are ready
               </p>
               <p className="text-gray-300 text-sm mt-1">
-                Research Memo, Punch List, and Permit Package match this site. Download them from My
-                Orders — results stay on this page.
+                Three labeled PDFs for this site — download here or forward from My Orders. Regenerated
+                with the latest layout when you click download.
               </p>
-              <a
-                href="/orders"
-                className="inline-flex mt-3 px-4 py-2.5 min-h-[44px] items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-              >
-                Open My Orders → download PDFs
-              </a>
+              {icOrderPdfs.length > 0 ? (
+                <div className="mt-3 grid sm:grid-cols-3 gap-2">
+                  {icOrderPdfs.map((pdf) => (
+                    <button
+                      key={pdf.type}
+                      type="button"
+                      onClick={() => void downloadIcPdf(pdf)}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                    >
+                      <Download className="w-4 h-4 shrink-0" />
+                      <span className="truncate">{pdf.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-amber-100/90 mt-2">
+                  Loading download links… if this stays empty, open My Orders with the same purchase
+                  email.
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href="/orders"
+                  className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-emerald-400/50 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
+                >
+                  Open My Orders → forward / re-download
+                </a>
+              </div>
             </div>
           ) : null}
           <SendResultsForm
@@ -1933,12 +2069,22 @@ export default function ResultsViewerModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void downloadBidSheetCsv()}
+                    onClick={() => void downloadBidSheetPdf()}
                     disabled={packetLoading}
                     className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
-                    title="Punch list + planning fees as CSV for your bid sheet"
+                    title="Punch list + planning fees as PDF with clickable source links"
                   >
-                    Export bid sheet CSV
+                    <Download className="w-4 h-4" />
+                    Bid sheet PDF
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidSheetCsv()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+                    title="Same rows as CSV for spreadsheet paste"
+                  >
+                    Bid sheet CSV
                   </button>
                   <button
                     type="button"
@@ -2610,12 +2756,10 @@ export default function ResultsViewerModal({
                   Export DC diligence JSON
                 </button>
                 <a
-                  href={backendUrl('/dc/moratorium-radar')}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="/moratorium-radar"
                   className="text-xs font-semibold text-cyan-100 border border-cyan-500/40 rounded-lg px-3 py-1.5 hover:bg-cyan-500/10"
                 >
-                  Open moratorium radar API
+                  Open moratorium radar
                 </a>
               </div>
             </section>
@@ -2637,6 +2781,50 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
+                <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-50">
+                  <p className="font-bold text-cyan-100 mb-1">Sites we scan for this section</p>
+                  <p className="text-xs text-cyan-100/90 leading-relaxed mb-2">
+                    Wetlands / species stay UNKNOWN when the pin GIS call fails or returns no
+                    parcel hit — use the mapper links on each card, then re-check after confirming
+                    lat/lng.
+                  </p>
+                  <ul className="text-xs text-cyan-100/85 space-y-1 list-disc pl-4">
+                    <li>
+                      <a
+                        className="underline hover:text-white"
+                        href="https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        USFWS NWI Wetlands Mapper
+                      </a>{' '}
+                      (+ USGS Wetlands MapServer query at the pin)
+                    </li>
+                    <li>
+                      <a
+                        className="underline hover:text-white"
+                        href="https://ipac.ecosphere.fws.gov/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        USFWS IPaC
+                      </a>{' '}
+                      — endangered species / critical habitat at the pin
+                    </li>
+                    <li>
+                      <a
+                        className="underline hover:text-white"
+                        href="https://msc.fema.gov/portal/home"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        FEMA MSC / NFHL
+                      </a>{' '}
+                      — flood zone at the pin
+                    </li>
+                    <li>Municipal code / noise ordinance pages for the city (often Unverified until citeable)</li>
+                  </ul>
+                </div>
                 {(view.environmental_screening?.findings || []).slice(0, findingsVisible).map((finding, idx) => {
                   const risk = String(finding.risk_level || '').toUpperCase();
                   const verified = Boolean(finding.verified);

@@ -1343,6 +1343,12 @@ def debug_config() -> Dict[str, Any]:
         "has_jobs_route": any(p == "/jobs" or p.startswith("/jobs/") for p in route_paths),
         "route_count": len(route_paths),
         "git_sha": (os.getenv("RENDER_GIT_COMMIT") or os.getenv("REG_GUARD_GIT_SHA") or "")[:12],
+        "git_sha_full_prefix": (os.getenv("RENDER_GIT_COMMIT") or os.getenv("REG_GUARD_GIT_SHA") or "")[:40],
+        "resend_from_domain": (
+            (os.getenv("RESEND_FROM_EMAIL") or "").split("@")[-1].strip().lower()
+            if "@" in (os.getenv("RESEND_FROM_EMAIL") or "")
+            else ""
+        ),
         "paid_finops": paid_finops,
         "environment_vars_loaded": {
             "firecrawl": bool(os.getenv("FIRECRAWL_API_KEY")),
@@ -4475,6 +4481,28 @@ async def post_bid_sheet_csv(body: BidSheetRequest):
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": 'attachment; filename="RegGuard_Bid_Sheet.csv"',
+        },
+    )
+
+
+@app.post("/research/bid-sheet.pdf", tags=["Results"])
+async def post_bid_sheet_pdf(body: BidSheetRequest):
+    """Bid sheet PDF with clickable source hyperlinks (same rows as CSV)."""
+    from fastapi.responses import Response
+
+    from bid_sheet_pdf import analysis_to_bid_sheet_pdf
+
+    if not body.analysis or not isinstance(body.analysis, dict):
+        raise HTTPException(status_code=400, detail="analysis required")
+    try:
+        data = analysis_to_bid_sheet_pdf(body.analysis)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bid sheet PDF failed: {e}") from e
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Sheet.pdf"',
         },
     )
 

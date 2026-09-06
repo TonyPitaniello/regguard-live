@@ -257,64 +257,24 @@ def _read_file_bytes(path: str) -> bytes:
 
 
 def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
-    """Generate research_memo, punch_list, permits as PDF bytes."""
+    """Generate research_memo, punch_list, permits as branded PDF bytes (same palette, distinct layouts)."""
     from pdf_generator import ResearchMemoPDF, PunchListPDF, PermitPackagePDF
-    from permit_package import build_permit_package_pdf
 
     shaped = analysis_for_pdfs(analysis)
     pi = shaped["project_info"]
+    state = str(pi.get("state") or "TX")
     out: Dict[str, bytes] = {}
 
     with tempfile.TemporaryDirectory(prefix="ic_pdf_") as tmp:
         memo_path = os.path.join(tmp, "research_memo.pdf")
         punch_path = os.path.join(tmp, "punch_list.pdf")
+        permit_path = os.path.join(tmp, "permits.pdf")
         ResearchMemoPDF().generate(shaped, output_path=memo_path)
         PunchListPDF().generate(shaped, output_path=punch_path)
+        PermitPackagePDF().generate(shaped, state=state, output_path=permit_path)
         out["research_memo"] = _read_file_bytes(memo_path)
         out["punch_list"] = _read_file_bytes(punch_path)
-
-    # Prefer real AHJ worksheet for permits — plain text only (no raw markdown)
-    from pdf_text import markdown_to_bullets, markdown_to_plain
-
-    site = pi.get("address") or "Project site"
-    city = pi.get("city") or ""
-    state = pi.get("state") or ""
-    zip_code = str(pi.get("zip") or "")
-    scope_bits = [
-        f"IC Project Report permit planning worksheet for {site}.",
-        f"Project type: {pi.get('type') or 'commercial'}.",
-        "Confirm all fees, trade licenses, and e-plan requirements with the AHJ before filing.",
-    ]
-    summary_md = shaped.get("pro_summary_markdown") or ""
-    if summary_md:
-        bullets = markdown_to_bullets(summary_md, limit=16)
-        if bullets:
-            scope_bits.append("Contractor action plan (confirm with AHJ):")
-            scope_bits.extend(f"- {b}" for b in bullets)
-        else:
-            plain = markdown_to_plain(summary_md, limit=1800)
-            if plain:
-                scope_bits.append(plain)
-    pack = shaped.get("pdf_pack") if isinstance(shaped.get("pdf_pack"), dict) else {}
-    fee_bits = "\n".join(pack.get("fee_lines") or [])[:1500]
-    fee_summary = fee_bits or "Confirm current AHJ fee schedule before payment."
-    try:
-        out["permits"] = build_permit_package_pdf(
-            site_address=site,
-            scope="\n".join(scope_bits),
-            fee_summary=fee_summary,
-            trade="General contractor / electrical (confirm with AHJ)",
-            zip_code=zip_code,
-            city=city,
-            county="",
-            ahj_label=f"{city}, {state}".strip(", "),
-        )
-    except Exception as e:
-        logger.warning("build_permit_package_pdf failed, falling back to PermitPackagePDF: %s", e)
-        with tempfile.TemporaryDirectory(prefix="ic_permit_") as tmp:
-            path = os.path.join(tmp, "permits.pdf")
-            PermitPackagePDF().generate(shaped, state=state or "FL", output_path=path)
-            out["permits"] = _read_file_bytes(path)
+        out["permits"] = _read_file_bytes(permit_path)
 
     return out
 
@@ -403,6 +363,14 @@ async def fulfill_ic_project_artifacts(
         prior = _IC_IDEMPOTENCY.get(idem)
         if prior == order_id and pdfs_are_ready(order.get("pdfs")) and order_id in _PDF_BYTES:
             logger.info("IC fulfill idempotent hit key=%s order=%s", idem, order_id)
+            await _notify_ic_emails_ready(
+                email_l,
+                order_id,
+                order.get("pdfs") or [],
+                share_url=str(order.get("share_url") or ""),
+                site_label=str(order.get("address") or ""),
+                analysis=analysis,
+            )
             return order
         if idem in _IC_IN_FLIGHT:
             logger.info("IC fulfill skipped — in flight for key=%s", idem)
@@ -420,6 +388,14 @@ async def fulfill_ic_project_artifacts(
         logger.info("IC fulfill skipped — PDFs already ready for order %s", order_id)
         if idem:
             _IC_IDEMPOTENCY[idem] = order_id
+        await _notify_ic_emails_ready(
+            email_l,
+            order_id,
+            order.get("pdfs") or [],
+            share_url=str(order.get("share_url") or ""),
+            site_label=str(order.get("address") or new_address or ""),
+            analysis=analysis,
+        )
         return order
 
     # Allow regenerate when caller forces, or buyer researched a different site
@@ -491,15 +467,14 @@ async def fulfill_ic_project_artifacts(
         _IC_IDEMPOTENCY[idem] = order_id
         _IC_IN_FLIGHT.discard(idem)
 
-    # Best-effort email with download links
-    try:
-        from email_service import get_email_service
-
-        svc = get_email_service()
-        if svc and hasattr(svc, "send_order_pdfs_ready"):
-            await svc.send_order_pdfs_ready(email_l, order_id, pdfs)
-    except Exception as e:
-        logger.warning("IC PDF ready email failed: %s", e)
+    await _notify_ic_emails_ready(
+        email_l,
+        order_id,
+        pdfs,
+        share_url=str(share_meta.get("share_url") or ""),
+        site_label=str(address or ""),
+        analysis=shaped,
+    )
 
     # Always surface share fields for free-trial response merge (frontend email/SMS).
     out = dict(updated or order or {})
@@ -508,6 +483,77 @@ async def fulfill_ic_project_artifacts(
     if share_meta.get("research_id"):
         out["research_id"] = share_meta["research_id"]
     return out
+
+
+async def _notify_ic_emails_ready(
+    email_l: str,
+    order_id: str,
+    pdfs: list,
+    *,
+    share_url: str = "",
+    site_label: str = "",
+    analysis: Optional[Dict[str, Any]] = None,
+) -> None:
+    """Send IC PDF-ready + results emails. Logs hard failures; never raises."""
+    from email_service import get_email_service
+
+    svc = get_email_service()
+    if not svc:
+        logger.error("IC emails skipped — email service not configured (set RESEND_API_KEY)")
+        return
+
+    # Prefer app Orders page links in email (Chrome Safe Browsing often flags bare *.onrender.com PDF URLs)
+    app = (os.getenv("FRONTEND_APP_URL") or "https://app.regguardagent.com").rstrip("/")
+    email_pdfs = []
+    for p in pdfs or []:
+        if not isinstance(p, dict):
+            continue
+        row = dict(p)
+        name = row.get("name") or row.get("type") or "PDF"
+        # Point CTA at My Orders (authenticated by email lookup) — still include API url as secondary
+        row["url"] = f"{app}/orders?email={email_l}"
+        row["name"] = name
+        email_pdfs.append(row)
+    if not email_pdfs:
+        email_pdfs = [
+            {"name": "Research Memo", "url": f"{app}/orders?email={email_l}"},
+            {"name": "Punch List", "url": f"{app}/orders?email={email_l}"},
+            {"name": "Permit Package", "url": f"{app}/orders?email={email_l}"},
+        ]
+
+    try:
+        if hasattr(svc, "send_order_pdfs_ready"):
+            ok = await svc.send_order_pdfs_ready(
+                email_l,
+                order_id,
+                email_pdfs,
+                share_url=share_url or "",
+                site_label=site_label or "",
+            )
+            if ok:
+                logger.info("IC PDF-ready email OK order=%s to=%s", order_id, email_l)
+            else:
+                logger.error("IC PDF-ready email returned False order=%s to=%s", order_id, email_l)
+        else:
+            logger.error("send_order_pdfs_ready missing on email service")
+    except Exception as e:
+        logger.exception("IC PDF-ready email failed: %s", e)
+
+    # Also send the interactive results email (punch/share) — what buyers expect after a run
+    try:
+        if analysis and isinstance(analysis, dict) and hasattr(svc, "send_research_result"):
+            payload = dict(analysis)
+            if share_url:
+                payload["share_url"] = share_url
+            result = await svc.send_research_result(email_l, payload)
+            logger.info(
+                "IC research-result email status=%s id=%s to=%s",
+                (result or {}).get("status"),
+                (result or {}).get("email_id"),
+                email_l,
+            )
+    except Exception as e:
+        logger.exception("IC research-result email failed: %s", e)
 
 
 def get_cached_pdf_bytes(order_id: str, pdf_type: str) -> Optional[bytes]:
@@ -535,7 +581,7 @@ def ensure_pdf_bytes(
     try:
         from ic_pdf_enrichment import PDF_FORMAT_VERSION
     except Exception:
-        PDF_FORMAT_VERSION = 3
+        PDF_FORMAT_VERSION = 5
 
     order = get_raw_order_by_id(order_id)
     if not order:
