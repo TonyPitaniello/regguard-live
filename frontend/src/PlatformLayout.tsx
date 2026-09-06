@@ -18,6 +18,7 @@ import {
   ensurePwaInstallListener,
   getDeferredInstallPrompt,
   getLaunchAppMode,
+  isStandaloneApp,
   subscribePwaInstall,
 } from './pwaInstall';
 
@@ -82,6 +83,8 @@ export function PlatformLayout({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [launchMode, setLaunchMode] = useState(() => getLaunchAppMode());
+  // Keep Get app visible in Safari tabs; only hide for real home-screen standalone.
+  const showGetApp = !isStandaloneApp() && launchMode !== 'standalone';
 
   // Hide desktop sidebar on public marketing home for unauthenticated users —
   // but always allow the mobile three-bar drawer (Launch app lives there).
@@ -146,7 +149,7 @@ export function PlatformLayout({
           {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
         <span className="mobile-menu-brand">Reg Guard</span>
-        {launchMode !== 'standalone' && (
+        {showGetApp && (
           <Link to="/install" className="mobile-get-app" onClick={() => setMobileMenuOpen(false)}>
             Get app
           </Link>
@@ -217,14 +220,10 @@ export function PlatformLayout({
                 title="Install or open Reg Guard as a phone app"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                {launchMode === 'standalone' ? (
-                  <Smartphone size={18} />
-                ) : (
-                  <Download size={18} />
-                )}
+                {showGetApp ? <Download size={18} /> : <Smartphone size={18} />}
                 {(sidebarOpen || mobileMenuOpen) && (
                   <span className="nav-label">
-                    {launchMode === 'standalone' ? 'Running as app' : 'Launch app'}
+                    {showGetApp ? 'Launch app' : 'App install help'}
                   </span>
                 )}
               </Link>

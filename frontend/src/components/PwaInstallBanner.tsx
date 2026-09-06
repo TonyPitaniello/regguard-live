@@ -1,6 +1,7 @@
 /**
  * Soft PWA install prompt — Chrome/Edge beforeinstallprompt.
  * iOS: show Add to Home Screen hint (no programmatic install).
+ * Stays visible on iPhone Safari — do not hide on flaky standalone matchMedia.
  */
 import { useEffect, useState } from 'react';
 import { Download, X } from 'lucide-react';
@@ -8,6 +9,8 @@ import {
   ensurePwaInstallListener,
   getDeferredInstallPrompt,
   getLaunchAppMode,
+  isIosDevice,
+  isMobileViewport,
   isStandaloneApp,
   promptPwaInstall,
   subscribePwaInstall,
@@ -17,9 +20,12 @@ export default function PwaInstallBanner() {
   const [canPrompt, setCanPrompt] = useState(false);
   const [mode, setMode] = useState(() => getLaunchAppMode());
   const [hidden, setHidden] = useState(false);
+  const [isPhone, setIsPhone] = useState(() => isMobileViewport() || isIosDevice());
 
   useEffect(() => {
     ensurePwaInstallListener();
+    setIsPhone(isMobileViewport() || isIosDevice());
+
     try {
       if (sessionStorage.getItem('pwaInstallDismissed') === '1') {
         setHidden(true);
@@ -28,6 +34,8 @@ export default function PwaInstallBanner() {
     } catch {
       /* ignore */
     }
+
+    // Only hide when truly installed as home-screen app (iOS: navigator.standalone).
     if (isStandaloneApp()) {
       setHidden(true);
       return;
@@ -36,6 +44,7 @@ export default function PwaInstallBanner() {
     const sync = () => {
       setCanPrompt(Boolean(getDeferredInstallPrompt()));
       setMode(getLaunchAppMode());
+      setIsPhone(isMobileViewport() || isIosDevice());
     };
     sync();
     return subscribePwaInstall(sync);
@@ -56,17 +65,19 @@ export default function PwaInstallBanner() {
       dismiss();
       return;
     }
-    // Fallback: dedicated page always works (no hanging SW wait).
     window.location.assign('/install');
   };
 
   if (hidden) return null;
-  if (mode === 'standalone') return null;
-  if (!canPrompt && mode !== 'ios') return null;
+  if (isStandaloneApp()) return null;
+
+  // Keep visible on phones even if mode detection flickers away from 'ios'.
+  const showMobileHint = isPhone || mode === 'ios' || mode === 'manual';
+  if (!canPrompt && !showMobileHint) return null;
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 z-[600] mx-auto max-w-lg rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 shadow-lg backdrop-blur sm:left-auto"
+      className="fixed bottom-4 left-4 right-4 z-[1100] mx-auto max-w-lg rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 shadow-lg backdrop-blur sm:left-auto"
       role="dialog"
       aria-label="Install Reg Guard"
     >
@@ -79,10 +90,10 @@ export default function PwaInstallBanner() {
           <p className="mt-0.5 text-xs text-gray-400">
             {canPrompt
               ? 'Install for one-tap Bid Risk Receipts — works offline for recent pages.'
-              : 'On iPhone: tap Share → Add to Home Screen. Then open Reg Guard from your home screen.'}
+              : 'On iPhone: tap Show install steps, then Share → Add to Home Screen.'}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
-            {canPrompt && (
+            {canPrompt ? (
               <button
                 type="button"
                 onClick={() => void install()}
@@ -90,8 +101,7 @@ export default function PwaInstallBanner() {
               >
                 Launch app
               </button>
-            )}
-            {!canPrompt && mode === 'ios' && (
+            ) : (
               <a
                 href="/install"
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 min-h-[44px] inline-flex items-center"

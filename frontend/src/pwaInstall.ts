@@ -32,13 +32,35 @@ export function isIosDevice(): boolean {
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
+/**
+ * True only when running as an installed home-screen / PWA window.
+ * On iOS, ONLY trust navigator.standalone — matchMedia('standalone') can
+ * falsely flip true in Safari tabs after load and hide Launch/Get app.
+ */
 export function isStandaloneApp(): boolean {
   if (typeof window === 'undefined') return false;
   const nav = window.navigator as Navigator & { standalone?: boolean };
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    nav.standalone === true
-  );
+  if (isIosDevice()) {
+    return nav.standalone === true;
+  }
+  try {
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      window.matchMedia('(display-mode: fullscreen)').matches
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Coarse phone/tablet signal for always showing install entry points. */
+export function isMobileViewport(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.matchMedia('(max-width: 768px)').matches || navigator.maxTouchPoints > 1;
+  } catch {
+    return navigator.maxTouchPoints > 1;
+  }
 }
 
 export function ensurePwaInstallListener(): void {
