@@ -517,7 +517,7 @@ body {
   width: 100%;
   max-width: 420px;
   background: #0f172a;
-  border: 1px solid rgba(168, 85, 247, 0.35);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   border-radius: 16px 16px 12px 12px;
   padding: 20px;
   color: #e2e8f0;
@@ -567,6 +567,24 @@ body {
 
 .pwa-launch-done:hover {
   filter: brightness(1.05);
+}
+
+.pwa-launch-repair {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  background: transparent;
+  color: #cbd5e1;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pwa-launch-repair:hover {
+  background: rgba(15, 23, 42, 0.8);
+  color: #fff;
 }
 
 @media (max-width: 480px) {

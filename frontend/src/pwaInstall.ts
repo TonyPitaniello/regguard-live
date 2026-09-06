@@ -13,6 +13,9 @@ let deferred: BeforeInstallPromptEvent | null = null;
 let listening = false;
 const listeners = new Set<Listener>();
 
+const BOOT_RECOVERY_KEY = 'rg_sw_recovery';
+const BOOT_OK_KEY = 'rg_boot_ok';
+
 function notify() {
   listeners.forEach((fn) => {
     try {
@@ -92,4 +95,51 @@ export function getLaunchAppMode(): LaunchAppMode {
   if (getDeferredInstallPrompt()) return 'prompt';
   if (isIosDevice()) return 'ios';
   return 'manual';
+}
+
+/** Mark that React successfully mounted (cancels blank-screen SW recovery). */
+export function markAppBootOk(): void {
+  try {
+    sessionStorage.setItem(BOOT_OK_KEY, '1');
+    sessionStorage.removeItem(BOOT_RECOVERY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Unregister service workers + clear Cache Storage, then hard-reload.
+ * Fixes home-screen / Launch app blanks after a bad deploy cache.
+ */
+export async function repairPwaInstall(reload = true): Promise<void> {
+  deferred = null;
+  notify();
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+  } catch {
+    /* ignore */
+  }
+  try {
+    sessionStorage.removeItem(BOOT_OK_KEY);
+    sessionStorage.setItem(BOOT_RECOVERY_KEY, '1');
+  } catch {
+    /* ignore */
+  }
+  if (reload && typeof window !== 'undefined') {
+    const url = new URL(window.location.href);
+    url.searchParams.set('source', 'pwa');
+    url.searchParams.set('repaired', '1');
+    window.location.replace(url.toString());
+  }
 }

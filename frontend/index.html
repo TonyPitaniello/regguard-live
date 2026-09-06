@@ -27,6 +27,47 @@
       rel="stylesheet"
     />
     <title>Reg Guard — Pitaniello Perkins LLC</title>
+    <!-- If a stale service worker serves a blank shell, clear caches once and reload. -->
+    <script>
+      (function () {
+        var OK = 'rg_boot_ok';
+        var USED = 'rg_sw_recovery';
+        window.setTimeout(function () {
+          try {
+            if (sessionStorage.getItem(OK) === '1') return;
+            var root = document.getElementById('root');
+            if (!root || root.childElementCount > 0) return;
+            if (sessionStorage.getItem(USED) === '1') return;
+            sessionStorage.setItem(USED, '1');
+          } catch (e) {
+            return;
+          }
+          var done = function () {
+            try {
+              var u = new URL(location.href);
+              u.searchParams.set('source', 'pwa');
+              u.searchParams.set('repaired', '1');
+              location.replace(u.toString());
+            } catch (e2) {
+              location.reload();
+            }
+          };
+          var clearCaches = function () {
+            if (!('caches' in window)) return Promise.resolve();
+            return caches.keys().then(function (keys) {
+              return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+            });
+          };
+          if (!('serviceWorker' in navigator)) {
+            clearCaches().then(done, done);
+            return;
+          }
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }).then(clearCaches, clearCaches).then(done, done);
+        }, 4000);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

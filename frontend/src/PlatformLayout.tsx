@@ -19,6 +19,7 @@ import {
   getDeferredInstallPrompt,
   getLaunchAppMode,
   promptPwaInstall,
+  repairPwaInstall,
   subscribePwaInstall,
 } from './pwaInstall';
 
@@ -127,15 +128,32 @@ export function PlatformLayout({
       setMobileMenuOpen(false);
       return;
     }
-    if (mode === 'prompt' || canPrompt) {
-      const outcome = await promptPwaInstall();
-      if (outcome === 'unavailable') {
-        setLaunchHintOpen(true);
-      } else {
-        setMobileMenuOpen(false);
+    // Always close the drawer first so the install sheet is not trapped under it.
+    setMobileMenuOpen(false);
+
+    // First visit: wait for SW so Chrome can fire beforeinstallprompt.
+    if (
+      (mode === 'manual' || mode === 'prompt' || canPrompt) &&
+      typeof navigator !== 'undefined' &&
+      'serviceWorker' in navigator
+    ) {
+      try {
+        await navigator.serviceWorker.ready;
+        await new Promise((r) => window.setTimeout(r, 250));
+      } catch {
+        /* ignore */
       }
+    }
+
+    if (getDeferredInstallPrompt() || canPrompt) {
+      const outcome = await promptPwaInstall();
+      if (outcome === 'accepted') return;
+      setLaunchMode(getLaunchAppMode());
+      setLaunchHintOpen(true);
       return;
     }
+
+    setLaunchMode(getLaunchAppMode());
     setLaunchHintOpen(true);
   };
 
@@ -307,15 +325,27 @@ export function PlatformLayout({
             </div>
             {launchMode === 'ios' ? (
               <ol className="pwa-launch-steps">
-                <li>Tap the <strong>Share</strong> button in Safari (square with arrow).</li>
-                <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
-                <li>Tap <strong>Add</strong>, then open <strong>Reg Guard</strong> from your home screen.</li>
+                <li>
+                  iPhone cannot install with one tap — use the browser{' '}
+                  <strong>Share</strong> menu (Safari works best).
+                </li>
+                <li>Tap <strong>Share</strong> (square with arrow).</li>
+                <li>Scroll and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+                <li>Open <strong>Reg Guard</strong> from your home screen (not from Safari tabs).</li>
+                <li>
+                  If that icon opens blank, tap <strong>Repair app</strong> below, then add to
+                  Home Screen again.
+                </li>
               </ol>
             ) : (
               <ol className="pwa-launch-steps">
-                <li>Open the browser menu (⋮ or ⋯).</li>
+                <li>In Chrome or Edge, open the browser menu (⋮ or ⋯).</li>
                 <li>Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
                 <li>Open <strong>Reg Guard</strong> from your home screen for one-tap launch.</li>
+                <li>
+                  If the home-screen icon opens a blank page, tap <strong>Repair app</strong>{' '}
+                  below, then try again.
+                </li>
               </ol>
             )}
             <button
@@ -327,6 +357,15 @@ export function PlatformLayout({
               }}
             >
               Got it
+            </button>
+            <button
+              type="button"
+              className="pwa-launch-repair"
+              onClick={() => {
+                void repairPwaInstall(true);
+              }}
+            >
+              Repair app (clear cache &amp; reload)
             </button>
           </div>
         </div>

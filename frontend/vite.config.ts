@@ -32,6 +32,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registered from main.tsx via virtual:pwa-register (avoids double-register).
+      injectRegister: false,
       includeAssets: [
         'icons/favicon-32.png',
         'icons/apple-touch-icon.png',
