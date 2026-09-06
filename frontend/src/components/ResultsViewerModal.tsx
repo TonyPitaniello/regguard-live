@@ -1372,7 +1372,7 @@ export default function ResultsViewerModal({
                 ) : null}
               </div>
             )}
-            {view.regguard_stamp?.is_stale || stamp?.is_stale ? (
+            {view.regguard_stamp?.is_stale ? (
               <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
                 <p className="font-bold mb-1">Stamp is outdated — re-run before bid</p>
                 <p className="text-xs text-amber-200/90 mb-2">
