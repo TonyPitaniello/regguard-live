@@ -22,7 +22,7 @@ import {
   isStandaloneApp,
   subscribePwaInstall,
 } from './pwaInstall';
-import { instantIosInstall } from './components/IosInstantInstall';
+import { instantIosInstall, showIosInstallInstructions } from './components/IosInstantInstall';
 
 export interface PlatformUser {
   id?: string;
@@ -130,11 +130,9 @@ export function PlatformLayout({
     setMobileMenuOpen(false);
     if (isIosDevice() && !isStandaloneApp()) {
       e.preventDefault();
-      void instantIosInstall().then((result) => {
-        if (result === 'unsupported' || result === 'skipped') {
-          navigate('/install');
-        }
-      });
+      showIosInstallInstructions();
+      void instantIosInstall();
+      return;
     }
   };
 

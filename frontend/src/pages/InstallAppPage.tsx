@@ -71,7 +71,7 @@ export default function InstallAppPage() {
   if (ios) {
     return (
       <div className="mx-auto max-w-lg px-4 py-8 text-slate-200 pb-28">
-        <IosInstantInstall forceShow />
+        <IosInstantInstall forceShow forceSteps />
         <div className="mb-6 flex items-center gap-3">
           <div className="rounded-xl bg-emerald-500/15 p-3 text-emerald-300">
             {isStandaloneApp() ? (

@@ -9,7 +9,7 @@ import { CheckCircle } from 'lucide-react';
 import FreeTrialForm from '../components/FreeTrialForm';
 import { backendUrl } from '../env';
 import { isIosDevice, isStandaloneApp } from '../pwaInstall';
-import { instantIosInstall } from '../components/IosInstantInstall';
+import { showIosInstallInstructions } from '../components/IosInstantInstall';
 
 export function PlatformDashboard() {
   const navigate = useNavigate();
@@ -30,9 +30,7 @@ export function PlatformDashboard() {
 
   const handleGetApp = () => {
     if (isIosDevice() && !isStandaloneApp()) {
-      void instantIosInstall().then((result) => {
-        if (result === 'unsupported' || result === 'skipped') navigate('/install');
-      });
+      showIosInstallInstructions();
       return;
     }
     navigate('/install');

@@ -1,4 +1,4 @@
-/* One-tap iPhone download bar — bottom sticky, like the old Launch app banner */
+/* One-tap iPhone download bar + full step sheet */
 
 .ios-download-bar {
   position: fixed;
@@ -46,8 +46,8 @@
   justify-content: center;
   gap: 6px;
   min-height: 48px;
-  min-width: 118px;
-  padding: 0 16px;
+  min-width: 96px;
+  padding: 0 14px;
   border: none;
   border-radius: 12px;
   background: #059669;
@@ -55,10 +55,6 @@
   font-weight: 800;
   font-size: 0.95rem;
   -webkit-tap-highlight-color: transparent;
-}
-
-.ios-download-btn:disabled {
-  opacity: 0.75;
 }
 
 .ios-download-btn:active {
@@ -89,7 +85,141 @@
   place-items: center;
 }
 
-/* Keep voice control above the download bar */
+.ios-steps-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(2, 6, 23, 0.75);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+.ios-steps-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  border-radius: 20px 20px 16px 16px;
+  padding: 24px 20px 16px;
+  background: #0f172a;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #e2e8f0;
+}
+
+.ios-steps-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #cbd5e1;
+  display: grid;
+  place-items: center;
+}
+
+.ios-steps-icon {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.ios-steps-sheet h2 {
+  margin: 0;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.ios-steps-lead {
+  margin: 8px 0 16px;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: #94a3b8;
+}
+
+.ios-steps-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.ios-steps-list li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #cbd5e1;
+}
+
+.ios-steps-num {
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.ios-steps-warn {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+  margin-bottom: 12px;
+}
+
+.ios-steps-warn strong {
+  display: block;
+  color: #fbbf24;
+  margin-bottom: 4px;
+}
+
+.ios-steps-warn span {
+  display: block;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.ios-steps-tip {
+  margin: 0 0 14px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #64748b;
+}
+
+.ios-steps-done {
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 12px;
+  background: #059669;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1rem;
+}
+
 @media (max-width: 768px) {
   .voice-command-system {
     bottom: max(88px, calc(72px + env(safe-area-inset-bottom))) !important;

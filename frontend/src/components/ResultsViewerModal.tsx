@@ -961,6 +961,129 @@ export default function ResultsViewerModal({
     );
   };
 
+  /** First thing on every scan — highlights + gotchas before the rest of the report */
+  const renderExecutiveSummary = () => {
+    const site =
+      view.project_info?.address ||
+      [view.project_info?.city, view.project_info?.state, view.project_info?.zip]
+        .filter(Boolean)
+        .join(', ') ||
+      'This site';
+    const killers = (view.margin_killers || []).slice(0, 3);
+    const gotchas = (view.gotcha_watchlist?.items || []).slice(0, 3);
+    const punch = rankedPunchItems(view)
+      .filter((p) => ['CRITICAL', 'HIGH'].includes((p.priority || '').toUpperCase()))
+      .slice(0, 3);
+    const envRisk = view.environmental_screening?.risk_level;
+    const contingency = view.contingency_band;
+    const depth =
+      view.depth_badge ||
+      coverage.badge_short ||
+      coverage.badge ||
+      view.jurisdiction?.coverage_badge ||
+      null;
+
+    const hasBody =
+      killers.length > 0 ||
+      gotchas.length > 0 ||
+      punch.length > 0 ||
+      Boolean(contingency) ||
+      Boolean(envRisk);
+
+    return (
+      <section className="rounded-xl border border-sky-500/40 bg-sky-500/5 p-4 sm:p-5 space-y-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-sky-300">
+            Executive summary
+          </p>
+          <h3 className="text-lg font-bold text-white mt-0.5">What matters before you bid</h3>
+          <p className="text-gray-400 text-sm mt-1">
+            {site}
+            {depth ? ` · ${depth}` : ''}
+            {envRisk ? ` · Env risk: ${envRisk}` : ''}
+          </p>
+        </div>
+
+        {contingency && (
+          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+            <p className="text-xs font-semibold uppercase text-emerald-300">Contingency band</p>
+            <p className="text-2xl font-black text-emerald-400 tracking-tight">
+              +{contingency.pct_low}% – +{contingency.pct_high}%
+            </p>
+            <p className="text-xs text-gray-400">
+              Mid {contingency.pct_mid}% · planning aid — not a quote
+            </p>
+          </div>
+        )}
+
+        {!hasBody && (
+          <p className="text-sm text-gray-300">
+            No high-priority flags in this preview yet — review the punch list and environmental
+            findings below. Every line shows a source or Unverified.
+          </p>
+        )}
+
+        {killers.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-amber-200 mb-2">Top risk flags</h4>
+            <ol className="space-y-2 list-decimal pl-5">
+              {killers.map((k, i) => (
+                <li key={`ex-k-${i}`} className="text-sm text-gray-200">
+                  <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                    {k.priority || 'NOTE'}
+                  </span>
+                  <span className="text-white font-medium">{k.title}</span>
+                  {k.detail && (
+                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {gotchas.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-amber-200 mb-2">Local gotchas</h4>
+            <ul className="space-y-2">
+              {gotchas.map((g) => (
+                <li key={g.id || g.title} className="text-sm text-gray-200">
+                  <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                    {g.priority || 'WATCH'}
+                  </span>
+                  <span className="text-white font-medium">{g.title}</span>
+                  {g.detail && (
+                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{g.detail}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {punch.length > 0 && (
+          <div>
+            <h4 className="text-sm font-bold text-sky-200 mb-2">Critical punch highlights</h4>
+            <ul className="space-y-2">
+              {punch.map((p, i) => (
+                <li key={`ex-p-${i}`} className="text-sm text-gray-200 flex gap-2">
+                  <span className="text-red-300 font-bold text-xs shrink-0 mt-0.5">
+                    {p.priority}
+                  </span>
+                  <span className="text-white">{p.task}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-500 border-t border-sky-500/20 pt-2">
+          Full detail, sources, and upgrade options follow below.
+        </p>
+      </section>
+    );
+  };
+
   const renderProDelta = () => {
     if (!isDeep || !proDelta?.bullets?.length) return null;
     const icTitle =
@@ -1644,6 +1767,9 @@ export default function ResultsViewerModal({
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
             Forward only what you can defend.
           </p>
+
+          {/* Executive summary — first thing on every scan */}
+          {renderExecutiveSummary()}
 
           {/* Bid Risk Receipt — first in results (forwardable hero) */}
           {(view.contingency_band || (view.margin_killers && view.margin_killers.length > 0)) && (
