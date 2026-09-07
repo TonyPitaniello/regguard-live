@@ -8,6 +8,8 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import FreeTrialForm from '../components/FreeTrialForm';
 import { backendUrl } from '../env';
+import { isIosDevice, isStandaloneApp } from '../pwaInstall';
+import { instantIosInstall } from '../components/IosInstantInstall';
 
 export function PlatformDashboard() {
   const navigate = useNavigate();
@@ -26,6 +28,16 @@ export function PlatformDashboard() {
     document.getElementById('free-trial-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const handleGetApp = () => {
+    if (isIosDevice() && !isStandaloneApp()) {
+      void instantIosInstall().then((result) => {
+        if (result === 'unsupported' || result === 'skipped') navigate('/install');
+      });
+      return;
+    }
+    navigate('/install');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20 sticky top-0 z-50">
@@ -34,10 +46,10 @@ export function PlatformDashboard() {
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               type="button"
-              onClick={() => navigate('/install')}
+              onClick={handleGetApp}
               className="sm:hidden text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
             >
-              Get app
+              Download
             </button>
             <button
               type="button"

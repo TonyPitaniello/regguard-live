@@ -12,15 +12,17 @@ import {
   BookOpen,
   Package,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import './platform-layout.css';
 import {
   ensurePwaInstallListener,
   getDeferredInstallPrompt,
   getLaunchAppMode,
+  isIosDevice,
   isStandaloneApp,
   subscribePwaInstall,
 } from './pwaInstall';
+import { instantIosInstall } from './components/IosInstantInstall';
 
 export interface PlatformUser {
   id?: string;
@@ -124,6 +126,18 @@ export function PlatformLayout({
     navigate('/');
   };
 
+  const handleGetApp = (e: MouseEvent) => {
+    setMobileMenuOpen(false);
+    if (isIosDevice() && !isStandaloneApp()) {
+      e.preventDefault();
+      void instantIosInstall().then((result) => {
+        if (result === 'unsupported' || result === 'skipped') {
+          navigate('/install');
+        }
+      });
+    }
+  };
+
   const routesByCategory = PLATFORM_ROUTES.reduce(
     (acc, route) => {
       if (!acc[route.category]) {
@@ -150,8 +164,12 @@ export function PlatformLayout({
         </button>
         <span className="mobile-menu-brand">Reg Guard</span>
         {showGetApp && (
-          <Link to="/install" className="mobile-get-app" onClick={() => setMobileMenuOpen(false)}>
-            Get app
+          <Link
+            to="/install"
+            className="mobile-get-app"
+            onClick={handleGetApp}
+          >
+            Download
           </Link>
         )}
       </div>
@@ -217,13 +235,13 @@ export function PlatformLayout({
               <Link
                 to="/install"
                 className={`nav-item ${isActive('/install') ? 'active' : ''}`}
-                title="Install or open Reg Guard as a phone app"
-                onClick={() => setMobileMenuOpen(false)}
+                title="Download Reg Guard to your Home Screen"
+                onClick={handleGetApp}
               >
                 {showGetApp ? <Download size={18} /> : <Smartphone size={18} />}
                 {(sidebarOpen || mobileMenuOpen) && (
                   <span className="nav-label">
-                    {showGetApp ? 'Launch app' : 'App install help'}
+                    {showGetApp ? 'Download app' : 'App help'}
                   </span>
                 )}
               </Link>

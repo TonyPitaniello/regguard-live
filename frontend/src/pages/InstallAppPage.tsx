@@ -1,5 +1,5 @@
 /**
- * Install page — on iPhone this is an instant Share → Add to Home Screen flow.
+ * Install page — iPhone: one-tap Download opens Share → Add to Home Screen.
  */
 import { useEffect, useState } from 'react';
 import { Download, Smartphone, Share, PlusSquare } from 'lucide-react';
@@ -52,39 +52,37 @@ export default function InstallAppPage() {
     setStatus('Use your browser menu → Install app / Add to Home screen.');
   };
 
-  const iosInstallNow = async () => {
+  const iosDownload = async () => {
     setBusy(true);
     setStatus('');
     const result = await openIosShareSheet();
     setBusy(false);
     if (result === 'shared') {
-      setStatus('Next: in Share, tap Add to Home Screen, then Add.');
+      setStatus('Next: tap Add to Home Screen, then Add.');
       return;
     }
     if (result === 'cancelled') {
-      setStatus('Share closed — tap Install now again when ready.');
+      setStatus('Tap Download again when ready.');
       return;
     }
-    setStatus(
-      'Tap Share in Safari’s toolbar (square with arrow) → Add to Home Screen → Add.'
-    );
+    setStatus('Use Safari Share (□↑) → Add to Home Screen → Add.');
   };
 
   if (ios) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-8 text-slate-200">
-        <IosInstantInstall forceOpen hideTrigger />
+      <div className="mx-auto max-w-lg px-4 py-8 text-slate-200 pb-28">
+        <IosInstantInstall forceShow />
         <div className="mb-6 flex items-center gap-3">
           <div className="rounded-xl bg-emerald-500/15 p-3 text-emerald-300">
             {isStandaloneApp() ? (
               <Smartphone className="h-7 w-7" />
             ) : (
-              <Share className="h-7 w-7" />
+              <Download className="h-7 w-7" />
             )}
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white">Install Reg Guard</h1>
-            <p className="text-sm text-slate-400">Fastest path on iPhone Safari</p>
+            <h1 className="text-2xl font-black text-white">Download Reg Guard</h1>
+            <p className="text-sm text-slate-400">One tap on iPhone Safari</p>
           </div>
         </div>
 
@@ -97,12 +95,12 @@ export default function InstallAppPage() {
         {!isStandaloneApp() && (
           <button
             type="button"
-            onClick={() => void iosInstallNow()}
+            onClick={() => void iosDownload()}
             disabled={busy}
             className="mb-4 w-full min-h-[56px] rounded-xl bg-emerald-600 px-4 py-3 text-lg font-bold text-white hover:bg-emerald-500 inline-flex items-center justify-center gap-2"
           >
-            <Share className="h-5 w-5" />
-            {busy ? 'Opening Share…' : 'Install now'}
+            <Download className="h-5 w-5" />
+            {busy ? 'Opening…' : 'Download'}
           </button>
         )}
 
@@ -112,7 +110,7 @@ export default function InstallAppPage() {
               1
             </span>
             <span>
-              Tap <strong className="text-emerald-300">Install now</strong> — opens Share
+              Tap <strong className="text-emerald-300">Download</strong> (opens Share)
             </span>
           </li>
           <li className="flex gap-3">
@@ -120,7 +118,7 @@ export default function InstallAppPage() {
               2
             </span>
             <span className="inline-flex flex-wrap items-center gap-1">
-              Scroll → <strong className="text-emerald-300">Add to Home Screen</strong>
+              Tap <strong className="text-emerald-300">Add to Home Screen</strong>
               <PlusSquare className="h-4 w-4 text-emerald-300" aria-hidden />
             </span>
           </li>
@@ -129,11 +127,15 @@ export default function InstallAppPage() {
               3
             </span>
             <span>
-              Tap <strong className="text-emerald-300">Add</strong>, then open Reg Guard from Home
-              Screen
+              Tap <strong className="text-emerald-300">Add</strong>, then open from Home Screen
             </span>
           </li>
         </ol>
+
+        <p className="mb-4 text-xs text-slate-500 inline-flex items-center gap-1">
+          <Share className="h-3.5 w-3.5" />
+          Apple requires Share → Add to Home Screen (no silent install in Safari).
+        </p>
 
         <button
           type="button"
@@ -153,8 +155,8 @@ export default function InstallAppPage() {
           {isStandaloneApp() ? <Smartphone className="h-7 w-7" /> : <Download className="h-7 w-7" />}
         </div>
         <div>
-          <h1 className="text-2xl font-black text-white">Launch Reg Guard as an app</h1>
-          <p className="text-sm text-slate-400">One-tap from your home screen</p>
+          <h1 className="text-2xl font-black text-white">Download Reg Guard</h1>
+          <p className="text-sm text-slate-400">Install to your home screen</p>
         </div>
       </div>
 
@@ -170,7 +172,7 @@ export default function InstallAppPage() {
           onClick={() => void tryNativeInstall()}
           className="mb-4 w-full min-h-[52px] rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500"
         >
-          Install Reg Guard now
+          Download Reg Guard
         </button>
       )}
 
