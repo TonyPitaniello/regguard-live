@@ -274,6 +274,94 @@ export default function SharedReportPage() {
           </div>
         )}
 
+        <section
+          id="rg-executive-summary"
+          className="rounded-xl border-2 border-sky-400/50 bg-gradient-to-br from-sky-500/15 via-slate-900/80 to-slate-900 p-4 sm:p-6 space-y-4"
+        >
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">
+              Executive summary — read this first
+            </p>
+            <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
+              What matters before you bid
+            </h2>
+            <p className="text-gray-300 text-sm mt-1">
+              {[street, place].filter(Boolean).join(' · ') || 'This site'}
+              {depthBadge ? ` · ${depthBadge}` : ''}
+              {coverageBadge ? ` · ${coverageBadge}` : ''}
+              {analysis.environmental_screening?.risk_level
+                ? ` · Env risk: ${analysis.environmental_screening.risk_level}`
+                : ''}
+            </p>
+          </div>
+          {band?.pct_low != null && band?.pct_high != null && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <p className="text-xs font-semibold uppercase text-emerald-300">Contingency band</p>
+              <p className="text-2xl font-black text-emerald-400 tracking-tight">
+                +{band.pct_low}% – +{band.pct_high}%
+              </p>
+              <p className="text-xs text-gray-400">
+                Mid {band.pct_mid}% · planning aid — not a quote
+              </p>
+            </div>
+          )}
+          {killers.length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-amber-200 mb-2">Top risk flags</h3>
+              <ol className="space-y-2 list-decimal pl-5">
+                {killers.slice(0, 3).map((k, i) => (
+                  <li key={`ex-k-${i}`} className="text-sm text-gray-200">
+                    <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                      {k.priority || 'NOTE'}
+                    </span>
+                    <span className="text-white font-medium">{k.title}</span>
+                    {k.detail && (
+                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+          {(analysis.gotcha_watchlist?.items || []).length > 0 && (
+            <div>
+              <h3 className="text-sm font-bold text-amber-200 mb-2">Local gotchas</h3>
+              <ul className="space-y-2">
+                {(analysis.gotcha_watchlist?.items || []).slice(0, 3).map((g) => (
+                  <li key={g.id || g.title} className="text-sm text-gray-200">
+                    <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
+                      {g.priority || 'WATCH'}
+                    </span>
+                    <span className="text-white font-medium">{g.title}</span>
+                    {g.detail && (
+                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{g.detail}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {punch.filter((p) => ['CRITICAL', 'HIGH'].includes((p.priority || '').toUpperCase())).length >
+            0 && (
+            <div>
+              <h3 className="text-sm font-bold text-sky-200 mb-2">Critical punch highlights</h3>
+              <ul className="space-y-2">
+                {punch
+                  .filter((p) => ['CRITICAL', 'HIGH'].includes((p.priority || '').toUpperCase()))
+                  .slice(0, 3)
+                  .map((p, i) => (
+                    <li key={`ex-p-${i}`} className="text-sm text-gray-200 flex gap-2">
+                      <span className="text-red-300 font-bold text-xs shrink-0 mt-0.5">
+                        {p.priority}
+                      </span>
+                      <span className="text-white">{p.task}</span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         {band?.pct_low != null && band?.pct_high != null && (
           <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300 mb-1">
@@ -293,7 +381,7 @@ export default function SharedReportPage() {
           <section
             className={`rounded-xl border p-5 space-y-2 ${
               (analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'FAIL'
-                ? 'border-red-500/40 bg-red-500/10'
+                ? 'border-amber-500/40 bg-amber-500/10'
                 : (analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'CAUTION'
                   ? 'border-amber-500/40 bg-amber-500/10'
                   : 'border-emerald-500/40 bg-emerald-500/10'
@@ -301,7 +389,13 @@ export default function SharedReportPage() {
           >
             <p className="text-xs font-bold uppercase tracking-wide text-gray-300">RegGuard stamp</p>
             <p className="text-3xl font-black tracking-tight">
-              {analysis.regguard_stamp?.label || `REGGUARD STAMP: ${analysis.stamp_grade}`}
+              {analysis.regguard_stamp?.label ||
+                ((analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'FAIL'
+                  ? 'REGGUARD STAMP: HOLD — high pre-bid risk'
+                  : `REGGUARD STAMP: ${analysis.stamp_grade}`)}
+            </p>
+            <p className="text-xs text-gray-400">
+              CLEAR / CAUTION / HOLD — pre-bid risk signal, not a credit rating or AHJ rejection.
             </p>
             {analysis.regguard_stamp?.headline ? (
               <p className="text-sm text-gray-200">{analysis.regguard_stamp.headline}</p>

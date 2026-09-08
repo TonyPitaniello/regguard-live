@@ -768,12 +768,18 @@ function OrderCard({
                 </a>
               ) : (
                 <a
-                  href="/"
+                  href="/?resume=1"
                   className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                 >
-                  Run / open site lookup
+                  Resume last results
                 </a>
               )}
+              <a
+                href="/?resume=1"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/40 bg-slate-900/60 hover:bg-slate-800 text-emerald-100 text-sm font-semibold"
+              >
+                Back to results (saved)
+              </a>
               <a
                 href="/jobs"
                 className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
@@ -784,77 +790,27 @@ function OrderCard({
           </div>
         ) : null}
 
-        {/* Download Buttons */}
-            {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
-              <div>
-                <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
-                  Download Files
-                </h3>
-                {orderPdfsPreparing(order) ? (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-4">
-                    <p className="text-amber-50 text-sm font-semibold">
-                      Downloads unlock after you generate the IC report for this site.
-                    </p>
-                    <p className="text-amber-100/80 text-sm mt-1">
-                      Use the same email as checkout. Your $1,500 order stays completed.
-                    </p>
-                    <button
-                      type="button"
-                      className="inline-block mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg"
-                      onClick={() => {
-                        const email =
-                          (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) ||
-                          '';
-                        startIcReportForSavedSite(email);
-                      }}
-                    >
-                      Generate IC Report now →
-                    </button>
-                  </div>
-                ) : null}
-                <div className="grid sm:grid-cols-3 gap-3">
-                  {order.pdfs.map((pdf) => {
-                    const preparing = pdfIsPreparing(pdf);
-                    const shortName =
-                      pdf.type === 'research_memo'
-                        ? 'Research Memo'
-                        : pdf.type === 'punch_list'
-                          ? 'Punch List'
-                          : pdf.type === 'permits'
-                            ? 'Permit Package'
-                            : pdf.name.replace(/\s*\(preparing\)\s*/i, '').trim() || pdf.name;
-                    return (
-                      <button
-                        key={pdf.type}
-                        onClick={() => !preparing && onDownload(pdf)}
-                        disabled={preparing}
-                        className={`flex flex-col items-center justify-center gap-1 px-3 py-3 border rounded-lg transition font-semibold min-h-[72px] ${
-                          preparing
-                            ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
-                            : 'bg-emerald-600/20 hover:bg-emerald-600/30 border-emerald-500/40 hover:border-emerald-500/60 text-emerald-100'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <Download className="w-4 h-4 shrink-0" />
-                          <span className="text-sm">{shortName}</span>
-                        </span>
-                        {preparing ? (
-                          <span className="text-[11px] font-normal text-gray-500">Not ready</span>
-                        ) : (
-                          <span className="text-[11px] font-normal text-emerald-200/80">PDF</span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-          <div className="p-4 bg-slate-700/30 border border-slate-600/30 rounded-lg text-center">
-            <p className="text-gray-400 text-sm">
-              Run a site lookup with your purchase email to generate downloadable PDFs.
+        {order.status === 'completed' && orderPdfsPreparing(order) ? (
+          <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+            <p className="text-amber-50 text-sm font-semibold">
+              Downloads unlock after you generate the IC report for this site.
             </p>
+            <p className="text-amber-100/80 text-sm mt-1">
+              Use the same email as checkout. Your order stays completed.
+            </p>
+            <button
+              type="button"
+              className="inline-block mt-3 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg"
+              onClick={() => {
+                const email =
+                  (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || '';
+                startIcReportForSavedSite(email);
+              }}
+            >
+              Generate IC Report now →
+            </button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -281,11 +281,20 @@ def build_regguard_stamp(
         "schema": "regguard.stamp.v2",
         "version": STAMP_VERSION,
         "grade": grade,
-        "label": f"REGGUARD STAMP: {grade}",
+        "label": {
+            "PASS": "REGGUARD STAMP: CLEAR",
+            "CAUTION": "REGGUARD STAMP: CAUTION — review before bid",
+            "FAIL": "REGGUARD STAMP: HOLD — high pre-bid risk",
+        }.get(grade, f"REGGUARD STAMP: {grade}"),
+        "grade_plain": {
+            "PASS": "Clear on current pack",
+            "CAUTION": "Material risk — review drivers",
+            "FAIL": "Hold — resolve drivers before money moves",
+        }.get(grade, grade),
         "headline": {
             "PASS": "No Critical local killers on current citeable pack — still confirm before bid",
-            "CAUTION": "Material pre-bid risk — review drivers before locking a number",
-            "FAIL": "Do not treat this site/bid as clear — resolve drivers before money moves",
+            "CAUTION": "Material pre-bid risk — review the drivers below before locking a number",
+            "FAIL": "High pre-bid risk on this site. This is not a rejection of the job — it means resolve the drivers below before treating the bid as clear.",
         }.get(grade, grade),
         "drivers": drivers,
         "reasons": reasons[:8],

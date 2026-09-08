@@ -113,7 +113,11 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     analysis["pro_delta"] = {
-        "title": "What IC added vs Free" if is_ic else "What Pro added vs Free",
+        "title": (
+            "What this IC Project Report includes"
+            if is_ic
+            else "What Contractor Pro added vs Free"
+        ),
         "bullets": bullets[:6],
         "pages_scraped": pages,
         "fee_rows": fee_n,

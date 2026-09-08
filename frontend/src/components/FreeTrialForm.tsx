@@ -498,11 +498,32 @@ export default function FreeTrialForm({
 
   // Clean home / hard refresh: wipe sticky site. Only ?unlock=1 or ?run_ic=1 restore.
   // (Hard refresh does NOT clear sessionStorage — we clear sticky keys intentionally.)
+  // ?resume=1 restores the last results panel without re-running research.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
     const runIc = params.get('run_ic') === '1';
+    const resume = params.get('resume') === '1';
     const explicitRestore = unlockFromCheckout || runIc;
+
+    // Keep last results available across Orders ↔ home without re-running
+    try {
+      const stored = sessionStorage.getItem('analysisResults');
+      const rid = sessionStorage.getItem('researchId') || '';
+      if (stored) {
+        const parsed = JSON.parse(stored) as AnalysisData;
+        setAnalysis(parsed);
+        setResearchId(rid || parsed.research_id || null);
+        if (resume && !explicitRestore) {
+          setResultsOpen(true);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('resume');
+          window.history.replaceState({}, '', url.pathname + (url.search || ''));
+        }
+      }
+    } catch {
+      /* ignore */
+    }
 
     if (!explicitRestore) {
       clearLastResearchForm();
@@ -511,13 +532,14 @@ export default function FreeTrialForm({
         sessionStorage.removeItem('pendingDeepUnlock');
         sessionStorage.removeItem('icForceOnce');
         sessionStorage.removeItem('icPdfsReady');
+        // Hard refresh / clean home: do not keep a sticky email in the field
+        if (!resume) sessionStorage.removeItem('userEmail');
       } catch {
         /* ignore */
       }
       setUnlockBanner(false);
       setExternalLocation(null);
       setLocationResetKey((k) => k + 1);
-      const savedEmail = (sessionStorage.getItem('userEmail') || '').trim().toLowerCase();
       setFormData((prev) => ({
         ...prev,
         address: '',
@@ -527,7 +549,9 @@ export default function FreeTrialForm({
         phone: '',
         lat: null,
         lng: null,
-        email: savedEmail || prev.email,
+        email: resume
+          ? (sessionStorage.getItem('userEmail') || prev.email || '')
+          : '',
       }));
       return;
     }
@@ -662,6 +686,21 @@ export default function FreeTrialForm({
 
   return (
     <div id="free-trial-form">
+      {!resultsOpen && analysis && (
+        <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-emerald-100">
+            Last site results are still saved in this browser tab.
+          </p>
+          <button
+            type="button"
+            onClick={() => setResultsOpen(true)}
+            className="px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+          >
+            Re-open results
+          </button>
+        </div>
+      )}
+
       {!resultsOpen && showHero && (
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
@@ -795,6 +834,7 @@ export default function FreeTrialForm({
               Email *
             </label>
             <input
+              key={`home-email-${locationResetKey}`}
               id="home-email"
               type="email"
               name="rg_contact_email"
@@ -810,7 +850,7 @@ export default function FreeTrialForm({
                 }
               }}
               placeholder="Email"
-              autoComplete="section-contact email"
+              autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -823,7 +863,7 @@ export default function FreeTrialForm({
             />
             <p className="text-xs text-gray-400 mt-2">
               Email is required to run a lookup. Optional SMS is below — never required.
-              Autofill here will not change the site address above.
+              Hard refresh clears this field; it is only restored after checkout.
             </p>
           </div>
 
