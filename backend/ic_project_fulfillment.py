@@ -14,7 +14,9 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 IC_TIERS = frozenset({"ic_project", "ic_annual", "ic_consultant"})
-PDF_TYPES = ("research_memo", "punch_list", "permits")
+# Primary boardroom package first; classic three remain as optional parts.
+PDF_TYPES = ("ic_package", "research_memo", "punch_list", "permits")
+CORE_PART_TYPES = ("research_memo", "punch_list", "permits")
 
 # order_id -> {pdf_type -> bytes}
 _PDF_BYTES: Dict[str, Dict[str, bytes]] = {}
@@ -68,19 +70,23 @@ def is_ic_tier(tier: str) -> bool:
 def pdfs_are_ready(pdfs: Optional[List[Dict[str, Any]]]) -> bool:
     if not pdfs:
         return False
-    ready_count = 0
+    by_type = {}
     for p in pdfs:
         name = str(p.get("name") or "").lower()
         url = str(p.get("url") or "")
         status = str(p.get("status") or "").lower()
         if "preparing" in name or status == "preparing" or "sample-report" in url:
             return False
-        if p.get("type") not in PDF_TYPES:
+        ptype = p.get("type")
+        if ptype not in PDF_TYPES:
             continue
         if not url or ("/orders/" not in url and "/pdfs/" not in url):
-            return False
-        ready_count += 1
-    return ready_count >= 3
+            continue
+        by_type[ptype] = p
+    # Boardroom package alone is enough for "ready"; classic trio still counts for older orders
+    if "ic_package" in by_type:
+        return True
+    return all(t in by_type for t in CORE_PART_TYPES)
 
 
 def _human_size(n: int) -> str:
@@ -257,13 +263,25 @@ def _read_file_bytes(path: str) -> bytes:
 
 
 def generate_ic_pdf_bytes(analysis: Dict[str, Any]) -> Dict[str, bytes]:
-    """Generate research_memo, punch_list, permits as branded PDF bytes (same palette, distinct layouts)."""
+    """Generate boardroom package + research_memo, punch_list, permits."""
     from pdf_generator import ResearchMemoPDF, PunchListPDF, PermitPackagePDF
+    from ic_boardroom_pdf import generate_ic_boardroom_pdf_bytes
 
     shaped = analysis_for_pdfs(analysis)
     pi = shaped["project_info"]
     state = str(pi.get("state") or "TX")
     out: Dict[str, bytes] = {}
+
+    # Primary $1,500 deliverable
+    try:
+        out["ic_package"] = generate_ic_boardroom_pdf_bytes(
+            shaped,
+            generated_for=str(shaped.get("generated_for") or ""),
+            share_url=str(shaped.get("share_url") or ""),
+        )
+    except Exception as e:
+        logger.exception("IC boardroom package failed: %s", e)
+        raise
 
     with tempfile.TemporaryDirectory(prefix="ic_pdf_") as tmp:
         memo_path = os.path.join(tmp, "research_memo.pdf")
@@ -289,8 +307,14 @@ def build_pdf_meta(
     base = api_public_base()
     email_q = (email or "").strip().lower()
     token_q = (download_token or "").strip()
-    icons = {"research_memo": "📄", "punch_list": "✅", "permits": "📋"}
+    icons = {
+        "ic_package": "📦",
+        "research_memo": "📄",
+        "punch_list": "✅",
+        "permits": "📋",
+    }
     names = {
+        "ic_package": "IC Diligence Package (full)",
         "research_memo": "Research Memo",
         "punch_list": "Contractor Punch List",
         "permits": "Permit Package Worksheet",
@@ -298,6 +322,8 @@ def build_pdf_meta(
     meta: List[Dict[str, Any]] = []
     for ptype in PDF_TYPES:
         raw = byte_map.get(ptype) or b""
+        if not raw and ptype == "ic_package":
+            continue
         qs = f"email={email_q}"
         if token_q:
             qs += f"&token={token_q}"
@@ -309,6 +335,7 @@ def build_pdf_meta(
                 "url": f"{base}/orders/{order_id}/pdfs/{ptype}?{qs}",
                 "icon": icons[ptype],
                 "status": "ready",
+                "primary": ptype == "ic_package",
             }
         )
     return meta

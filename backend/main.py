@@ -29,6 +29,7 @@ except ImportError:
 import os
 import re
 import sys
+import tempfile
 import time
 import threading
 import uuid
@@ -1482,7 +1483,11 @@ async def download_order_pdf(
     if err or not data:
         raise HTTPException(status_code=404, detail=err or "PDF not available")
 
-    filename = f"regguard_{ptype}_{oid[:8]}.pdf"
+    filename = (
+        "RegGuard_IC_Diligence_Package.pdf"
+        if ptype == "ic_package"
+        else f"regguard_{ptype}_{oid[:8]}.pdf"
+    )
     return Response(
         content=data,
         media_type="application/pdf",
@@ -5354,6 +5359,74 @@ def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
     if "analysis_data" in data and isinstance(data["analysis_data"], dict):
         data = data["analysis_data"]
     return data, generated_for, share_url, mode
+
+
+@app.post("/ic-package/pdf", tags=["Samples"])
+async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+    """
+    Generate the bound IC Project Diligence Package (boardroom PDF):
+    cover, executive summary, Bid Risk Receipt, findings, punch, sources.
+    """
+    from arbitrage_enrichment import enrich_analysis_with_arbitrage
+    from ic_boardroom_pdf import generate_ic_boardroom_pdf_bytes
+    from ic_project_fulfillment import api_public_base
+
+    data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    band = data.get("contingency_band") or {}
+    if (
+        not data.get("fee_card")
+        or not data.get("margin_killers")
+        or not band
+        or band.get("pct_low") is None
+        or band.get("pct_high") is None
+    ):
+        data = enrich_analysis_with_arbitrage(data)
+    try:
+        from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+
+        data = stamp_depth_badge(data)
+        if not resolve_forward_share_url(data, share_url=share_url):
+            meta = save_research(data, research_id=data.get("research_id"))
+            data["research_id"] = meta["research_id"]
+            data["share_url"] = meta["share_url"]
+        resolved = resolve_forward_share_url(data, share_url=share_url) or share_url
+    except Exception:
+        resolved = share_url
+
+    raw = generate_ic_boardroom_pdf_bytes(
+        data,
+        generated_for=str(generated_for or ""),
+        share_url=str(resolved or ""),
+    )
+    token = hashlib.sha256(raw[:4096] + str(time.time()).encode()).hexdigest()[:24]
+    path = os.path.join(tempfile.gettempdir(), f"rg_ic_package_{token}.pdf")
+    with open(path, "wb") as fh:
+        fh.write(raw)
+    _BID_RECEIPT_CACHE[token] = path  # reuse short-lived token cache
+    api = api_public_base()
+    return {
+        "status": "ok",
+        "download_url": f"{api}/ic-package/pdf/{token}",
+        "filename": "RegGuard_IC_Diligence_Package.pdf",
+        "artifact": "ic_package",
+        "bytes": len(raw),
+    }
+
+
+@app.get("/ic-package/pdf/{token}", tags=["Samples"])
+async def download_ic_boardroom_package_pdf(token: str):
+    from fastapi.responses import FileResponse
+
+    path = _BID_RECEIPT_CACHE.get((token or "").strip())
+    if not path or not os.path.isfile(path):
+        raise HTTPException(
+            status_code=404, detail="IC Diligence Package expired or not found — regenerate"
+        )
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename="RegGuard_IC_Diligence_Package.pdf",
+    )
 
 
 @app.post("/bid-receipt/pdf", tags=["Samples"])

@@ -56,7 +56,8 @@ def test_analysis_for_pdfs_sets_ic_flags():
 
 def test_generate_ic_pdf_bytes():
     byte_map = generate_ic_pdf_bytes(SAMPLE_ANALYSIS)
-    assert set(byte_map.keys()) == {"research_memo", "punch_list", "permits"}
+    assert "ic_package" in byte_map
+    assert set(byte_map.keys()) >= {"ic_package", "research_memo", "punch_list", "permits"}
     for name, raw in byte_map.items():
         assert raw[:4] == b"%PDF", f"{name} is not a PDF"
         assert len(raw) > 500
@@ -67,6 +68,7 @@ def test_pdf_meta_and_ready_flag():
         "order-123",
         "buyer@example.com",
         {
+            "ic_package": b"%PDF-1.4 p",
             "research_memo": b"%PDF-1.4 x",
             "punch_list": b"%PDF-1.4 y",
             "permits": b"%PDF-1.4 z",
@@ -74,6 +76,7 @@ def test_pdf_meta_and_ready_flag():
         download_token="tok123",
     )
     assert pdfs_are_ready(meta)
+    assert meta[0]["type"] == "ic_package"
     assert all("/orders/order-123/pdfs/" in p["url"] for p in meta)
     assert "email=buyer@example.com" in meta[0]["url"]
     assert "token=tok123" in meta[0]["url"]
@@ -92,7 +95,12 @@ def test_update_order_artifacts_roundtrip():
     meta = build_pdf_meta(
         "ic-test-order-1",
         "icbuyer@example.com",
-        {"research_memo": b"%PDF", "punch_list": b"%PDF", "permits": b"%PDF"},
+        {
+            "ic_package": b"%PDF",
+            "research_memo": b"%PDF",
+            "punch_list": b"%PDF",
+            "permits": b"%PDF",
+        },
     )
     updated = update_order_artifacts(
         "ic-test-order-1",

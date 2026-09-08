@@ -834,6 +834,8 @@ export default function ResultsViewerModal({
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
   const icPdfsReady =
     Boolean(view.ic_pdfs_ready) ||
+    depthTier === 'ic_full' ||
+    Boolean(view.ic_package) ||
     (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1' && depthTier === 'ic_full');
 
   const depthBadgeLabel = (() => {
@@ -1245,7 +1247,10 @@ export default function ResultsViewerModal({
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
+      a.download =
+        pdf.type === 'ic_package'
+          ? 'RegGuard_IC_Diligence_Package.pdf'
+          : `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1253,6 +1258,51 @@ export default function ResultsViewerModal({
       showToast(`${pdf.name} downloaded`);
     } catch {
       showToast('Could not download PDF — try My Orders or refresh.');
+    }
+  };
+
+  const downloadIcBoardroomPackage = async () => {
+    setPacketLoading(true);
+    try {
+      const fromOrder = icOrderPdfs.find((p) => p.type === 'ic_package');
+      if (fromOrder?.url) {
+        await downloadIcPdf(fromOrder);
+        return;
+      }
+      const res = await fetch(backendUrl('/ic-package/pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysis_data: view,
+          generated_for: emailForCheckout || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'IC package failed');
+      const rawUrl = String(data.download_url || '');
+      const pathStart = rawUrl.search(/\/ic-package\//);
+      const fetchUrl =
+        pathStart >= 0
+          ? backendUrl(rawUrl.slice(pathStart))
+          : rawUrl.startsWith('http')
+            ? rawUrl
+            : backendUrl(rawUrl);
+      const fileRes = await fetch(fetchUrl);
+      if (!fileRes.ok) throw new Error(`Download failed (${fileRes.status})`);
+      const blob = await fileRes.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_IC_Diligence_Package.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('IC Diligence Package downloaded');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'IC package download failed');
+    } finally {
+      setPacketLoading(false);
     }
   };
 
@@ -1621,35 +1671,67 @@ export default function ResultsViewerModal({
         {/* Text / Email + social share — scrolls with results (page scroll) */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
           {icPdfsReady ? (
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
-              <p className="text-emerald-200 font-bold text-sm sm:text-base">
-                IC Project Report PDFs are ready
-              </p>
-              <p className="text-gray-300 text-sm mt-1">
-                Download the three IC deliverables here (Research Memo, Punch List, Permit Package).
-                My Orders is only for re-download / forwarding — same files, not a second set.
-              </p>
-              {icOrderPdfs.length > 0 ? (
-                <div className="mt-3 grid sm:grid-cols-3 gap-2">
-                  {icOrderPdfs.map((pdf) => (
-                    <button
-                      key={pdf.type}
-                      type="button"
-                      onClick={() => void downloadIcPdf(pdf)}
-                      className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                    >
-                      <Download className="w-4 h-4 shrink-0" />
-                      <span className="truncate">{pdf.name}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-amber-100/90 mt-2">
-                  Loading download links… if this stays empty, open My Orders with the same purchase
-                  email.
+            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
+              <div>
+                <p className="text-emerald-200 font-bold text-sm sm:text-base">
+                  IC Project Diligence Package
                 </p>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
+                <p className="text-gray-300 text-sm mt-1">
+                  Your $1,500 deliverable is one bound boardroom PDF (cover, executive summary,
+                  Bid Risk Receipt, findings, punch list, sources). Optional worksheets stay below.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={packetLoading}
+                onClick={() => void downloadIcBoardroomPackage()}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
+              >
+                <Download className="w-5 h-5 shrink-0" />
+                {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
+              </button>
+              {(() => {
+                const parts = icOrderPdfs.filter((p) => p.type !== 'ic_package');
+                const primary = icOrderPdfs.find((p) => p.type === 'ic_package');
+                return (
+                  <>
+                    {primary ? (
+                      <button
+                        type="button"
+                        onClick={() => void downloadIcPdf(primary)}
+                        className="w-full text-xs text-emerald-200/90 underline text-left"
+                      >
+                        Or re-download package from My Orders link
+                      </button>
+                    ) : null}
+                    {parts.length > 0 ? (
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                          Optional parts
+                        </p>
+                        <div className="grid sm:grid-cols-3 gap-2">
+                          {parts.map((pdf) => (
+                            <button
+                              key={pdf.type}
+                              type="button"
+                              onClick={() => void downloadIcPdf(pdf)}
+                              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-500/35 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
+                            >
+                              <Download className="w-4 h-4 shrink-0" />
+                              <span className="truncate">{pdf.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : icOrderPdfs.length === 0 ? (
+                      <p className="text-xs text-amber-100/90">
+                        Loading order links… you can still download the full package above.
+                      </p>
+                    ) : null}
+                  </>
+                );
+              })()}
+              <div className="flex flex-wrap gap-2">
                 <a
                   href="/orders?from=results"
                   className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-emerald-400/50 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
