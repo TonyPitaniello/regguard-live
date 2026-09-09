@@ -5368,7 +5368,8 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> D
     cover, executive summary, Bid Risk Receipt, findings, punch, sources.
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from ic_boardroom_pdf import generate_ic_boardroom_pdf_bytes
+    from ic_boardroom_pdf import render_boardroom_pdf
+    from ic_package_composer import compose_ic_package
     from ic_project_fulfillment import api_public_base
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
@@ -5393,23 +5394,34 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> D
     except Exception:
         resolved = share_url
 
-    raw = generate_ic_boardroom_pdf_bytes(
+    package = compose_ic_package(
         data,
         generated_for=str(generated_for or ""),
         share_url=str(resolved or ""),
     )
-    token = hashlib.sha256(raw[:4096] + str(time.time()).encode()).hexdigest()[:24]
+    token = hashlib.sha256(
+        (str(package.get("generated_at")) + str(time.time())).encode()
+    ).hexdigest()[:24]
     path = os.path.join(tempfile.gettempdir(), f"rg_ic_package_{token}.pdf")
-    with open(path, "wb") as fh:
-        fh.write(raw)
-    _BID_RECEIPT_CACHE[token] = path  # reuse short-lived token cache
+    render_boardroom_pdf(package, path)
+    raw = Path(path).read_bytes()
+    _BID_RECEIPT_CACHE[token] = path
     api = api_public_base()
+    qa = package.get("boardroom_qa") or {}
     return {
         "status": "ok",
         "download_url": f"{api}/ic-package/pdf/{token}",
         "filename": "RegGuard_IC_Diligence_Package.pdf",
         "artifact": "ic_package",
         "bytes": len(raw),
+        "boardroom_qa": {
+            "pass": bool(qa.get("pass")),
+            "pct": qa.get("pct"),
+            "gc_forward_pass": bool(qa.get("gc_forward_pass")),
+            "gaps": qa.get("gaps") or [],
+            "failed_gc": (qa.get("gc_forward") or {}).get("failed") or [],
+            "human_remaining": qa.get("human_remaining") or [],
+        },
     }
 
 

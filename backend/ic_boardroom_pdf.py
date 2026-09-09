@@ -255,12 +255,22 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     if qa:
         tone = EMERALD if qa.get("pass") else AMBER
+        gc = qa.get("gc_forward") or {}
+        gc_lines = []
+        for item in gc.get("items") or []:
+            if item.get("agentic"):
+                mark = "PASS" if item.get("ok") else "FAIL"
+                gc_lines.append(f"{item.get('id')} [{mark}] {item.get('question')}")
+            else:
+                gc_lines.append(f"{item.get('id')} [HUMAN] {item.get('question')}")
         _card(
             pdf,
-            f"Boardroom QA: {qa.get('pct', 0)}% ({'PASS' if qa.get('pass') else 'GAPS'})",
+            f"Boardroom QA: {qa.get('pct', 0)}% ({'PASS' if qa.get('pass') else 'GAPS'})"
+            + (f"  |  GC forward {'OK' if qa.get('gc_forward_pass') else 'BLOCKED'}"),
             [
-                "Automated gate for GC-forward readiness (stamp, contingency drivers, gotchas, sources).",
-                ("Gaps: " + "; ".join(qa.get("gaps") or [])) if qa.get("gaps") else "All boardroom checks passed.",
+                "Automated Q2-Q5 gate. Q1 (forward without apology) remains human spot-audit.",
+                ("Gaps: " + "; ".join(qa.get("gaps") or [])) if qa.get("gaps") else "Structural + GC Q2-Q5 passed.",
+                *gc_lines[:6],
             ],
             accent=tone,
         )

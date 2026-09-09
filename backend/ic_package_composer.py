@@ -442,6 +442,66 @@ def _contingency_block(analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+def _parallel_clock_rows(
+    analysis: Dict[str, Any],
+    pi: Dict[str, Any],
+    killers: List[Dict[str, str]],
+) -> List[Dict[str, str]]:
+    """AHJ + utility clocks — synthesize for large-load / data-center sites when missing."""
+    clocks = analysis.get("parallel_clocks") if isinstance(analysis.get("parallel_clocks"), dict) else {}
+    rows: List[Dict[str, str]] = []
+    for c in clocks.get("clocks") or []:
+        if not isinstance(c, dict):
+            continue
+        rows.append(
+            {
+                "name": _s(c.get("name") or c.get("label"), 80),
+                "detail": _s(c.get("detail") or c.get("note") or c.get("status"), 240),
+            }
+        )
+    blob = " ".join(
+        [
+            _s(pi.get("type")),
+            _s(analysis.get("project_type")),
+            " ".join(_s(k.get("title")) + " " + _s(k.get("detail")) for k in killers),
+        ]
+    ).lower()
+    large = any(
+        x in blob
+        for x in (
+            "data-center",
+            "data center",
+            "large-load",
+            "large load",
+            "interconnect",
+            "mission-critical",
+            "colo",
+        )
+    )
+    if large and len(rows) < 2:
+        city = _s(pi.get("city") or "Local", 40)
+        have = " ".join(r["name"].lower() + " " + r["detail"].lower() for r in rows)
+        if "ahj" not in have and "permit" not in have and "municipal" not in have:
+            rows.insert(
+                0,
+                {
+                    "name": f"{city} AHJ permits",
+                    "detail": "Municipal plan review / trade permits run on the city clock.",
+                },
+            )
+        if "utility" not in have and "interconnect" not in have:
+            rows.append(
+                {
+                    "name": "Utility interconnection",
+                    "detail": (
+                        "Serving utility / TDSP interconnection often runs parallel to AHJ "
+                        "permits — build contingency for both clocks."
+                    ),
+                }
+            )
+    return rows[:6]
+
+
 def compose_ic_package(
     analysis: Dict[str, Any],
     *,
@@ -499,6 +559,7 @@ def compose_ic_package(
     sources = _sources(data, 40)
     actions = _next_actions(data, 5)
     contingency = _contingency_block(data)
+    clock_rows = _parallel_clock_rows(data, pi, killers)
 
     depth = _s(
         data.get("depth_badge")
@@ -573,14 +634,7 @@ def compose_ic_package(
                 for f in (env.get("findings") or [])[:6]
                 if isinstance(f, dict)
             ],
-            "parallel_clocks": [
-                {
-                    "name": _s(c.get("name") or c.get("label"), 80),
-                    "detail": _s(c.get("detail") or c.get("note") or c.get("status"), 240),
-                }
-                for c in (clocks.get("clocks") or [])[:6]
-                if isinstance(c, dict)
-            ],
+            "parallel_clocks": clock_rows,
         },
         "punch_list": {
             "timeline_summary": _s(punch_obj.get("timeline_summary"), 80),

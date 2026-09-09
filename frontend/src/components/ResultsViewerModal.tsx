@@ -1279,6 +1279,7 @@ export default function ResultsViewerModal({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'IC package failed');
+      const qa = data.boardroom_qa || {};
       const rawUrl = String(data.download_url || '');
       const pathStart = rawUrl.search(/\/ic-package\//);
       const fetchUrl =
@@ -1298,7 +1299,16 @@ export default function ResultsViewerModal({
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-      showToast('IC Diligence Package downloaded');
+      if (qa.pass) {
+        showToast(
+          `IC package downloaded — Boardroom QA ${qa.pct ?? ''}% PASS (Q1 human spot-audit remains)`
+        );
+      } else {
+        const failed = (qa.failed_gc || []).join(', ') || (qa.gaps || []).slice(0, 2).join('; ');
+        showToast(
+          `IC package downloaded — Boardroom QA blocked (${failed || 'gaps'}). Fix before GC forward.`
+        );
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC package download failed');
     } finally {

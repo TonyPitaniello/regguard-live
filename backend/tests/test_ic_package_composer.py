@@ -70,6 +70,13 @@ RICH = {
     "pro_summary_markdown": "- Confirm AHJ\n- Verify utility",
     "pro_source_urls": ["https://www.plano.gov/350/Building-Inspections-Permits"],
     "share_url": "https://app.regguardagent.com/r/test",
+    "research_id": "rg-test",
+    "parallel_clocks": {
+        "clocks": [
+            {"name": "Plano AHJ permits", "detail": "Municipal clock"},
+            {"name": "Utility interconnection", "detail": "Utility / TDSP parallel clock"},
+        ]
+    },
 }
 
 

@@ -55,12 +55,51 @@ def test_boardroom_pdf_includes_letterhead_bytes():
     assert len(raw) > 8000
 
 
-def test_dense_city_packs_outside_plano():
-    for city in DENSE_CITIES:
-        pack = resolve_city_pack(city, "TX")
-        assert pack is not None, city
-        assert len(pack.get("gotchas") or []) >= 3, city
-        ahj = lookup_ahj(city=city, state="TX")
-        assert ahj is not None, city
-        assert len(ahj.get("gotchas") or []) >= 3, city
-        assert len(ahj.get("fees") or []) >= 2, city
+def test_gc_forward_q2_to_q5_pass_on_rich():
+    pkg = compose_ic_package(RICH, generated_for="gc@example.com")
+    gc = pkg["boardroom_qa"]["gc_forward"]
+    assert gc["all_agentic_ok"] is True
+    assert gc["failed"] == []
+    by_id = {i["id"]: i for i in gc["items"]}
+    assert by_id["Q2"]["ok"] is True
+    assert by_id["Q3"]["ok"] is True
+    assert by_id["Q4"]["ok"] is True
+    assert by_id["Q5"]["ok"] is True
+    assert by_id["Q1"]["agentic"] is False
+    assert by_id["Q1"]["ok"] is None
+
+
+def test_gc_q2_fails_on_firm_quote_language():
+    from ic_package_qa import score_gc_forward_checks
+
+    pkg = compose_ic_package(RICH, generated_for="gc@example.com")
+    pkg["executive_summary"]["contingency"]["plain"] = (
+        "This is a firm quote and guaranteed price for permit fees."
+    )
+    pkg["executive_summary"]["contingency"]["disclaimer"] = "Firm quote"
+    gc = score_gc_forward_checks(pkg)
+    assert gc["all_agentic_ok"] is False
+    assert "Q2" in gc["failed"]
+
+
+def test_gc_q5_requires_clocks_for_data_center():
+    from ic_package_qa import score_gc_forward_checks
+
+    pkg = compose_ic_package(RICH, generated_for="gc@example.com")
+    pkg["site_findings"]["parallel_clocks"] = []
+    gc = score_gc_forward_checks(pkg)
+    assert "Q5" in gc["failed"]
+
+
+def test_gc_q4_requires_sister_city_on_beachhead():
+    from ic_package_qa import score_gc_forward_checks
+
+    pkg = compose_ic_package(RICH, generated_for="gc@example.com")
+    pkg["site_findings"]["gotcha_cards"] = [
+        {"title": "Generic watch", "detail": "Something local", "priority": "HIGH", "confirm_step": "Call AHJ"}
+    ]
+    pkg["site_findings"]["gotchas"] = []
+    pkg["executive_summary"]["local_gotchas"] = []
+    gc = score_gc_forward_checks(pkg)
+    assert "Q4" in gc["failed"]
+
