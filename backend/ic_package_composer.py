@@ -244,14 +244,185 @@ def _next_actions(analysis: Dict[str, Any], n: int = 5) -> List[str]:
     return actions[:n]
 
 
+def _contingency_driver_table(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """What pushes low / mid / high ends of the contingency band."""
+    rows: List[Dict[str, str]] = []
+    low_d: List[str] = []
+    mid_d: List[str] = []
+    high_d: List[str] = []
+
+    coverage = analysis.get("coverage") if isinstance(analysis.get("coverage"), dict) else {}
+    tier = _s(coverage.get("tier") or analysis.get("depth_tier"), 40).lower()
+    fee_n = len(_fees(analysis, 20))
+    killers = _killers(analysis, 5)
+    gotchas = _gotchas(analysis, 6)
+    env = analysis.get("environmental_screening") if isinstance(analysis.get("environmental_screening"), dict) else {}
+    clocks = analysis.get("parallel_clocks") if isinstance(analysis.get("parallel_clocks"), dict) else {}
+    clock_n = len(clocks.get("clocks") or [])
+
+    # Base fee / schedule uncertainty
+    mid_d.append("AHJ fee schedule still requires live confirm")
+    rows.append(
+        {
+            "driver": "AHJ fee / schedule confirm",
+            "band": "MID",
+            "impact": "+2 to +4 pts typical until schedule confirm",
+            "owner": "Estimator",
+        }
+    )
+    if fee_n == 0 or tier in ("portal_seed", "federal_state"):
+        high_d.append("Thin/portal-only local fee coverage")
+        rows.append(
+            {
+                "driver": "Portal-only or thin local fee coverage",
+                "band": "HIGH",
+                "impact": "Push toward top of band until citeable fees confirmed",
+                "owner": "Estimator / IC",
+            }
+        )
+    else:
+        low_d.append("Citeable local fee/gotcha pack available")
+
+    for k in killers:
+        pri = (k.get("priority") or "").upper()
+        title = k.get("title") or "Risk flag"
+        if pri in ("CRITICAL", "HIGH"):
+            high_d.append(title)
+            rows.append(
+                {
+                    "driver": f"[{pri}] {title}",
+                    "band": "HIGH",
+                    "impact": "Material pre-bid exposure — resolve or carry cushion",
+                    "owner": "PM / Estimator",
+                }
+            )
+        else:
+            mid_d.append(title)
+            rows.append(
+                {
+                    "driver": f"[{pri or 'NOTE'}] {title}",
+                    "band": "MID",
+                    "impact": "Watch item — confirm before lock",
+                    "owner": "Estimator",
+                }
+            )
+
+    for g in gotchas[:3]:
+        title = g.get("title") or "Local gotcha"
+        if title in high_d or title in mid_d:
+            continue
+        mid_d.append(title)
+        rows.append(
+            {
+                "driver": f"[GOTCHA] {title}",
+                "band": "MID",
+                "impact": "Local ordinance / process risk",
+                "owner": "Field / Estimator",
+            }
+        )
+
+    env_risk = _s(env.get("risk_level"), 20).upper()
+    if env_risk in ("HIGH", "CRITICAL"):
+        high_d.append(f"Environmental risk {env_risk}")
+        rows.append(
+            {
+                "driver": f"Environmental screening {env_risk}",
+                "band": "HIGH",
+                "impact": "Parcel/env uncertainty until verified",
+                "owner": "IC / Env",
+            }
+        )
+    elif env_risk:
+        mid_d.append(f"Environmental risk {env_risk}")
+
+    if clock_n >= 2:
+        high_d.append("Parallel AHJ + utility clocks")
+        rows.append(
+            {
+                "driver": "Parallel AHJ + utility clocks",
+                "band": "HIGH",
+                "impact": "Two independent timelines — slip risk stacks",
+                "owner": "PM",
+            }
+        )
+
+    if not low_d:
+        low_d.append("No Critical killers cleared yet — low end only if drivers resolve")
+
+    return {
+        "low_end": low_d[:5],
+        "mid_band": mid_d[:5],
+        "high_end": high_d[:5],
+        "rows": rows[:10],
+    }
+
+
+def _gotcha_cards(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, Any]]:
+    """Boardroom gotcha cards: ordinance -> risk -> confirm -> owner."""
+    cards: List[Dict[str, Any]] = []
+    # Prefer AHJ library gotchas with checklists when enrichment attached them
+    candidates: List[Dict[str, Any]] = []
+    wl = analysis.get("gotcha_watchlist") if isinstance(analysis.get("gotcha_watchlist"), dict) else {}
+    for g in wl.get("items") or []:
+        if isinstance(g, dict):
+            candidates.append(g)
+    # From city pack / local_pack
+    for key in ("local_pack", "pdf_pack"):
+        pack = analysis.get(key) if isinstance(analysis.get(key), dict) else {}
+        for g in pack.get("gotchas") or []:
+            if isinstance(g, dict):
+                candidates.append(g)
+    # Fallback killers
+    if len(candidates) < 2:
+        for k in analysis.get("margin_killers") or []:
+            if isinstance(k, dict):
+                candidates.append(k)
+
+    seen = set()
+    for g in candidates:
+        title = _s(g.get("title"), 160)
+        if not title or title.lower() in seen:
+            continue
+        seen.add(title.lower())
+        checklist = g.get("checklist") if isinstance(g.get("checklist"), list) else []
+        anti = g.get("anti_patterns") if isinstance(g.get("anti_patterns"), list) else []
+        confirm = _s(
+            g.get("confirm_step")
+            or g.get("action")
+            or (checklist[0] if checklist else "Confirm with AHJ / ordinance text before bid."),
+            240,
+        )
+        cards.append(
+            {
+                "priority": _s(g.get("priority") or "WATCH", 20).upper(),
+                "title": title,
+                "detail": _s(g.get("detail"), 400),
+                "checklist": [_s(c, 160) for c in checklist[:4]],
+                "anti_patterns": [_s(a, 160) for a in anti[:3]],
+                "confirm_step": confirm,
+                "owner": _s(g.get("owner") or "Estimator / PM", 40),
+                "source_url": _s(g.get("source_url") or g.get("citation_url"), 400),
+                "source_label": _s(
+                    g.get("source_label")
+                    or ("Source" if (g.get("source_url") or g.get("citation_url")) else "Unverified"),
+                    80,
+                ),
+            }
+        )
+        if len(cards) >= n:
+            break
+    return cards
+
+
 def _contingency_block(analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     band = analysis.get("contingency_band") if isinstance(analysis.get("contingency_band"), dict) else None
     if not band or band.get("pct_low") is None or band.get("pct_high") is None:
         return None
     low, mid, high = band.get("pct_low"), band.get("pct_mid"), band.get("pct_high")
+    table = _contingency_driver_table(analysis)
     drivers = [f"{k['priority']}: {k['title']}" for k in _killers(analysis, 3)]
     if not drivers:
-        drivers = ["Local AHJ fee / timeline uncertainty", "Portal confirm still required"]
+        drivers = list(table.get("high_end") or table.get("mid_band") or ["Portal confirm still required"])
     return {
         "pct_low": low,
         "pct_mid": mid,
@@ -263,6 +434,7 @@ def _contingency_block(analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             "Planning aid - not a quote or guarantee."
         ),
         "drivers": drivers,
+        "driver_table": table,
         "disclaimer": _s(
             band.get("disclaimer") or "Confirm dollars on the official AHJ schedule before bid.",
             300,
@@ -341,7 +513,7 @@ def compose_ic_package(
 
     punch_obj = data.get("punch_list") if isinstance(data.get("punch_list"), dict) else {}
 
-    return {
+    pkg = {
         "schema": PACKAGE_SCHEMA,
         "version": PACKAGE_VERSION,
         "generated_at": now,
@@ -391,6 +563,7 @@ def compose_ic_package(
             "coverage_note": _s(coverage.get("warning") or coverage.get("note"), 400),
             "fees": fees,
             "gotchas": gotchas,
+            "gotcha_cards": _gotcha_cards(data, 6),
             "env_risk": _s(env.get("risk_level"), 40),
             "env_findings": [
                 {
@@ -423,3 +596,10 @@ def compose_ic_package(
             "Package bound to the site address shown on the cover at generation time.",
         ],
     }
+    try:
+        from ic_package_qa import score_boardroom_package
+
+        pkg["boardroom_qa"] = score_boardroom_package(pkg)
+    except Exception:
+        pkg["boardroom_qa"] = {"score": 0, "pass": False, "gaps": ["qa_unavailable"]}
+    return pkg

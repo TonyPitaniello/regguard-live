@@ -2,17 +2,66 @@
   "ahj_id": "fort_worth_tx",
   "city": "Fort Worth",
   "state": "TX",
-  "zips": ["76102", "76104", "76107", "76109", "76110", "76112", "76116", "76119", "76120", "76123", "76132", "76133", "76134", "76135", "76137", "76140", "76148", "76177", "76179", "76180"],
-  "aliases": ["fort worth", "fortworth", "city of fort worth", "ft worth", "ft. worth"],
+  "zips": [
+    "76102",
+    "76104",
+    "76107",
+    "76109",
+    "76110",
+    "76112",
+    "76116",
+    "76119",
+    "76120",
+    "76123",
+    "76132",
+    "76133",
+    "76134",
+    "76135",
+    "76137",
+    "76140",
+    "76148",
+    "76177",
+    "76179",
+    "76180"
+  ],
+  "aliases": [
+    "fort worth",
+    "fortworth",
+    "city of fort worth",
+    "ft worth",
+    "ft. worth"
+  ],
   "fees": [
     {
-      "id": "ds_trade_permit_schedule",
-      "trade": "electrical",
-      "label": "Development Services / trade permit — confirm Fort Worth schedule",
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm Fort Worth Development Services schedule",
       "amount_usd": null,
       "components": [],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
-      "citation_note": "Amount requires live Fort Worth fee schedule. Do not invent dollars.",
+      "citation_note": "Amount requires live Fort Worth fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "electrical_permit_schedule",
+      "trade": "electrical",
+      "label": "Electrical / trade permit \u2014 confirm Fort Worth schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "citation_note": "Amount requires live Fort Worth fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm Fort Worth schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "citation_note": "Amount requires live Fort Worth fee schedule.",
       "verified": true,
       "amount_requires_schedule": true
     }
@@ -20,12 +69,14 @@
   "gotchas": [
     {
       "id": "fw_fee_schedule_recheck",
-      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "title": "Fee schedule is not a fixed number \u2014 recheck before bid",
       "checklist": [
         "Pull current Fort Worth Development Services fee schedule",
         "Do not invent dollar amounts from memory"
       ],
-      "anti_patterns": ["Copying Dallas min trade fee into a Fort Worth bid"],
+      "anti_patterns": [
+        "Copying Dallas min trade fee into a Fort Worth bid"
+      ],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
       "severity": "CRITICAL"
     },
@@ -36,7 +87,9 @@
         "Treat ERCOT/TDSP interconnection as parallel to City of Fort Worth permits",
         "Schedule contingency early for industrial / data-center load"
       ],
-      "anti_patterns": ["Assuming city permit alone clears large-load path"],
+      "anti_patterns": [
+        "Assuming city permit alone clears large-load path"
+      ],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
       "severity": "CRITICAL"
     },
@@ -46,9 +99,38 @@
       "checklist": [
         "Verify electrical vs general building path with Development Services"
       ],
-      "anti_patterns": ["Wrong application type that stalls review"],
+      "anti_patterns": [
+        "Wrong application type that stalls review"
+      ],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
       "severity": "HIGH"
+    },
+    {
+      "id": "fw_sister_city",
+      "title": "Do not use Dallas/Plano fees for Fort Worth",
+      "checklist": [
+        "Confirm trade fees on Fort Worth official schedule only",
+        "Document schedule page used in bid file"
+      ],
+      "anti_patterns": [
+        "Assuming DFW metros share electrical permit fees"
+      ],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "fw_inspection_sequence",
+      "title": "Fort Worth rough \u2192 service \u2192 final sequence",
+      "checklist": [
+        "Schedule rough MEP before cover",
+        "Confirm service/meter inspection when applicable",
+        "Hold final until AHJ checklist closed"
+      ],
+      "anti_patterns": [
+        "Skipping rough and hoping final covers it"
+      ],
+      "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
+      "priority": "HIGH"
     }
   ],
   "inspection_sequence": [
@@ -60,5 +142,13 @@
   "fees_url": "https://www.fortworthtexas.gov/departments/development-services",
   "apply_url": "https://www.fortworthtexas.gov/departments/development-services",
   "inspections_url": "https://www.fortworthtexas.gov/departments/development-services",
-  "last_verified": "2026-09-05"
+  "last_verified": "2026-09-08",
+  "scout_query_extras": {
+    "permits": [
+      "Fort Worth TX development services permits"
+    ],
+    "codes": [
+      "Fort Worth TX adopted codes"
+    ]
+  }
 }

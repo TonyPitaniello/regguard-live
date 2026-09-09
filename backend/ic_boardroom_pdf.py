@@ -1,12 +1,11 @@
 """
-IC Boardroom Diligence Package PDF — print-first Letter layout.
+IC Boardroom Diligence Package PDF — print-first Letter letterhead.
 
-White paper, navy/emerald accents (not app-dark UI). Consumes compose_ic_package().
+White paper, navy/emerald accents, contingency driver table, gotcha cards, QA badge.
 """
 
 from __future__ import annotations
 
-import logging
 import os
 import tempfile
 from pathlib import Path
@@ -14,13 +13,12 @@ from typing import Any, Dict, List, Tuple
 
 from fpdf import FPDF
 
-logger = logging.getLogger(__name__)
-
 NAVY = (15, 23, 42)
 EMERALD = (4, 120, 87)
 AMBER = (180, 83, 9)
 MUTED = (100, 116, 139)
 RULE = (226, 232, 240)
+SOFT = (248, 250, 252)
 WHITE = (255, 255, 255)
 INK = (15, 23, 42)
 
@@ -54,34 +52,39 @@ class BoardroomPDF(FPDF):
         self.set_auto_page_break(auto=True, margin=18)
         self.set_margins(MARGIN, MARGIN, MARGIN)
         self._doc_subtitle = "IC Project Diligence Package"
+        self._control_line = ""
 
     def header(self) -> None:  # type: ignore[override]
         if self.page_no() == 1:
             return
+        # Letterhead strip
+        self.set_fill_color(*NAVY)
+        self.rect(0, 0, PAGE_W, 12, "F")
+        self.set_fill_color(*EMERALD)
+        self.rect(0, 12, PAGE_W, 0.8, "F")
+        self.set_xy(MARGIN, 3)
+        self.set_font("Helvetica", "B", 9)
+        self.set_text_color(*WHITE)
+        self.cell(70, 6, _ascii("RegGuard"), align="L")
         self.set_font("Helvetica", "", 8)
-        self.set_text_color(*MUTED)
-        self.set_xy(MARGIN, 8)
-        self.cell(CONTENT_W * 0.55, 5, _ascii("RegGuard · IC Diligence Package"), align="L")
-        self.cell(CONTENT_W * 0.45, 5, _ascii(self._doc_subtitle)[:60], align="R")
-        self.set_draw_color(*RULE)
-        self.line(MARGIN, 14, PAGE_W - MARGIN, 14)
-        self.set_y(18)
+        self.cell(CONTENT_W - 70, 6, _ascii(self._doc_subtitle)[:70], align="R")
+        self.set_y(16)
 
     def footer(self) -> None:  # type: ignore[override]
-        self.set_y(-14)
+        self.set_y(-16)
         self.set_draw_color(*RULE)
         self.line(MARGIN, self.get_y(), PAGE_W - MARGIN, self.get_y())
-        self.set_y(-11)
+        self.set_y(-13)
         self.set_font("Helvetica", "", 7)
         self.set_text_color(*MUTED)
-        self.cell(
-            CONTENT_W,
-            5,
-            _ascii(
-                f"Planning aid only - confirm with AHJ  |  Page {self.page_no()}  |  (c) RegGuard"
-            ),
-            align="C",
-        )
+        left = "CONFIDENTIAL - Planning aid only - confirm with AHJ"
+        right = f"Page {self.page_no()}  |  (c) RegGuard"
+        self.cell(CONTENT_W * 0.62, 5, _ascii(left), align="L")
+        self.cell(CONTENT_W * 0.38, 5, _ascii(right), align="R")
+        if self._control_line:
+            self.set_y(-9)
+            self.set_font("Helvetica", "", 6.5)
+            self.cell(CONTENT_W, 4, _ascii(self._control_line)[:110], align="C")
 
 
 def _need_space(pdf: BoardroomPDF, h: float) -> None:
@@ -95,7 +98,7 @@ def _h1(pdf: BoardroomPDF, text: str) -> None:
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(*NAVY)
     pdf.multi_cell(CONTENT_W, 8, _ascii(text))
-    pdf.ln(2)
+    pdf.ln(1)
 
 
 def _h2(pdf: BoardroomPDF, text: str) -> None:
@@ -105,17 +108,17 @@ def _h2(pdf: BoardroomPDF, text: str) -> None:
     y = pdf.get_y()
     pdf.rect(MARGIN, y + 1.5, 2.0, 5.5, "F")
     pdf.set_xy(MARGIN + 4, y)
-    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*NAVY)
     pdf.cell(CONTENT_W - 4, 8, _ascii(text), ln=1)
-    pdf.ln(1)
+    pdf.ln(0.5)
 
 
 def _body(pdf: BoardroomPDF, text: str, *, size: int = 10, color: Tuple[int, int, int] = INK) -> None:
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", size)
     pdf.set_text_color(*color)
-    pdf.multi_cell(CONTENT_W, 5, _ascii(text))
+    pdf.multi_cell(CONTENT_W, 4.8, _ascii(text))
 
 
 def _muted(pdf: BoardroomPDF, text: str, size: int = 9) -> None:
@@ -127,11 +130,11 @@ def _bullet(pdf: BoardroomPDF, text: str, *, indent: float = 4) -> None:
     pdf.set_x(MARGIN + indent)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*INK)
-    pdf.multi_cell(CONTENT_W - indent, 4.5, _ascii(f"- {text}"))
+    pdf.multi_cell(CONTENT_W - indent, 4.4, _ascii(f"- {text}"))
 
 
 def _card(pdf: BoardroomPDF, title: str, lines: List[str], *, accent: Tuple[int, int, int] = EMERALD) -> None:
-    _need_space(pdf, 7 + len(lines) * 5 + 6)
+    _need_space(pdf, 7 + max(1, len(lines)) * 5 + 6)
     y0 = pdf.get_y()
     pdf.set_xy(MARGIN, y0)
     pdf.set_font("Helvetica", "B", 10)
@@ -143,72 +146,147 @@ def _card(pdf: BoardroomPDF, title: str, lines: List[str], *, accent: Tuple[int,
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*INK)
-        pdf.multi_cell(CONTENT_W, 4.5, _ascii(line))
+        pdf.multi_cell(CONTENT_W, 4.4, _ascii(line))
     pdf.ln(2)
     pdf.set_draw_color(*accent)
-    pdf.set_line_width(0.4)
-    pdf.line(MARGIN, y0 - 1, MARGIN, pdf.get_y() - 1)
+    pdf.set_line_width(0.45)
+    pdf.line(MARGIN, y0 - 0.5, MARGIN, pdf.get_y() - 1)
     pdf.set_line_width(0.2)
+
+
+def _table_header(pdf: BoardroomPDF, cols: List[Tuple[str, float]]) -> None:
+    _need_space(pdf, 10)
+    pdf.set_fill_color(*NAVY)
+    pdf.set_text_color(*WHITE)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_x(MARGIN)
+    for label, w in cols:
+        pdf.cell(w, 7, _ascii(label), border=0, fill=True, align="L")
+    pdf.ln(7)
+
+
+def _table_row(pdf: BoardroomPDF, cols: List[Tuple[str, float]], *, alt: bool = False) -> None:
+    _need_space(pdf, 12)
+    if alt:
+        pdf.set_fill_color(*SOFT)
+    else:
+        pdf.set_fill_color(*WHITE)
+    pdf.set_text_color(*INK)
+    pdf.set_font("Helvetica", "", 8)
+    x0 = MARGIN
+    y0 = pdf.get_y()
+    # measure max height
+    heights = []
+    for text, w in cols:
+        pdf.set_xy(0, 0)
+        # approximate lines
+        heights.append(max(6, 4.2 * (1 + len(_ascii(text)) // max(12, int(w)))))
+    h = min(16, max(heights))
+    pdf.set_xy(x0, y0)
+    for text, w in cols:
+        pdf.set_xy(x0, y0)
+        pdf.cell(w, h, "", border=0, fill=True)
+        pdf.set_xy(x0 + 1, y0 + 1)
+        pdf.multi_cell(w - 2, 3.8, _ascii(text)[:180])
+        x0 += w
+    pdf.set_y(y0 + h)
 
 
 def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf = BoardroomPDF()
     cover = package.get("cover") or {}
+    qa = package.get("boardroom_qa") or {}
     pdf._doc_subtitle = _ascii(cover.get("site") or "Site diligence")[:70]
+    pdf._control_line = _ascii(
+        f"Generated {package.get('generated_at') or '-'}  |  "
+        f"Research {cover.get('research_id') or '-'}  |  "
+        f"Boardroom QA {qa.get('pct', '—')}%"
+    )
 
+    # ---- Cover / letterhead ----
     pdf.add_page()
     pdf.set_fill_color(*NAVY)
-    pdf.rect(0, 0, PAGE_W, 42, "F")
+    pdf.rect(0, 0, PAGE_W, 48, "F")
     pdf.set_fill_color(*EMERALD)
-    pdf.rect(0, 42, PAGE_W, 1.5, "F")
-    pdf.set_xy(MARGIN, 14)
-    pdf.set_font("Helvetica", "B", 22)
+    pdf.rect(0, 48, PAGE_W, 2.2, "F")
+    pdf.set_xy(MARGIN, 12)
+    pdf.set_font("Helvetica", "B", 24)
     pdf.set_text_color(*WHITE)
-    pdf.cell(CONTENT_W, 10, _ascii("RegGuard"), ln=1)
+    pdf.cell(CONTENT_W * 0.55, 10, _ascii("RegGuard"), ln=0)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(CONTENT_W * 0.45, 10, _ascii("Site Diligence Intelligence"), align="R", ln=1)
     pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "", 11)
-    pdf.cell(CONTENT_W, 6, _ascii("IC Project Diligence Package"), ln=1)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(CONTENT_W, 7, _ascii("IC Project Diligence Package"), ln=1)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(CONTENT_W, 5, _ascii("$1,500 boardroom deliverable - bound site diligence"), ln=1)
 
-    pdf.set_y(52)
-    pdf.set_font("Helvetica", "B", 18)
+    pdf.set_y(58)
+    pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(*NAVY)
-    pdf.multi_cell(CONTENT_W, 9, _ascii(cover.get("product") or "IC Diligence Package"))
+    pdf.multi_cell(CONTENT_W, 8, _ascii(cover.get("product") or "IC Diligence Package"))
     pdf.ln(2)
-    _muted(pdf, cover.get("price_positioning") or "$1,500 IC Project Report")
-    pdf.ln(4)
-    _h2(pdf, "Engagement")
-    _body(pdf, f"Site: {cover.get('site') or '-'}", size=11)
-    _body(pdf, f"AHJ: {cover.get('ahj_name') or '-'}")
-    if cover.get("depth_badge"):
-        _body(pdf, f"Depth: {cover.get('depth_badge')}")
-    if cover.get("coverage_badge"):
-        _body(pdf, f"Coverage: {cover.get('coverage_badge')}")
-    if package.get("generated_for"):
-        _body(pdf, f"Prepared for: {package.get('generated_for')}")
-    _body(pdf, f"Generated: {package.get('generated_at') or '-'}")
-    if cover.get("research_id"):
-        _muted(pdf, f"Research id: {cover.get('research_id')}")
-    pdf.ln(4)
-    _muted(
-        pdf,
-        "This bound package is the primary IC Project deliverable. "
-        "Supporting memo / punch / permit worksheets may be exported separately.",
-    )
-    pdf.ln(6)
+
+    # Document control box
+    pdf.set_fill_color(*SOFT)
+    pdf.set_draw_color(*RULE)
+    y0 = pdf.get_y()
+    pdf.rect(MARGIN, y0, CONTENT_W, 42, "FD")
+    pdf.set_xy(MARGIN + 3, y0 + 2)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*NAVY)
+    pdf.cell(CONTENT_W - 6, 5, _ascii("DOCUMENT CONTROL"), ln=1)
+    pdf.set_x(MARGIN + 3)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*INK)
+    lines = [
+        f"Site: {cover.get('site') or '-'}",
+        f"AHJ: {cover.get('ahj_name') or '-'}",
+        f"Depth: {cover.get('depth_badge') or cover.get('coverage_badge') or '-'}",
+        f"Prepared for: {package.get('generated_for') or 'Authorized recipient'}",
+        f"Generated (UTC): {package.get('generated_at') or '-'}",
+        f"Share link: {package.get('share_url') or cover.get('research_id') or '-'}",
+    ]
+    for line in lines:
+        pdf.set_x(MARGIN + 3)
+        pdf.cell(CONTENT_W - 6, 5, _ascii(line)[:95], ln=1)
+    pdf.set_y(y0 + 44)
+
+    if qa:
+        tone = EMERALD if qa.get("pass") else AMBER
+        _card(
+            pdf,
+            f"Boardroom QA: {qa.get('pct', 0)}% ({'PASS' if qa.get('pass') else 'GAPS'})",
+            [
+                "Automated gate for GC-forward readiness (stamp, contingency drivers, gotchas, sources).",
+                ("Gaps: " + "; ".join(qa.get("gaps") or [])) if qa.get("gaps") else "All boardroom checks passed.",
+            ],
+            accent=tone,
+        )
+
+    pdf.ln(2)
     _h2(pdf, "Contents")
     for i, title in enumerate(
         [
-            "Executive summary",
+            "Executive summary (incl. contingency driver table)",
             "Bid Risk Receipt",
-            "Site findings (AHJ, fees, gotchas, clocks)",
+            "Site findings + gotcha confirm cards",
             "Ranked punch list",
             "Action plan highlights",
-            "Source appendix",
+            "Source appendix + disclaimers",
         ],
         start=1,
     ):
         _bullet(pdf, f"{i}. {title}")
 
+    _muted(
+        pdf,
+        "This bound package is the primary IC Project deliverable. "
+        "Optional worksheets (memo / punch / permits) may be exported separately.",
+    )
+
+    # ---- Executive summary ----
     pdf.add_page()
     ex = package.get("executive_summary") or {}
     stamp = ex.get("stamp") or {}
@@ -246,10 +324,30 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             size=14,
         )
         _body(pdf, band.get("plain") or "")
-        pdf.ln(1)
-        _muted(pdf, "What pushes this band:")
-        for drv in band.get("drivers") or []:
-            _bullet(pdf, drv)
+        table = band.get("driver_table") if isinstance(band.get("driver_table"), dict) else {}
+        if table.get("rows"):
+            pdf.ln(2)
+            _h2(pdf, "Contingency driver table")
+            _muted(pdf, "What pushes the low / mid / high ends of this band:")
+            cols = [("Driver", 78), ("Band", 18), ("Impact / owner", 88)]
+            # CONTENT_W ~183.9; use proportions
+            cols = [("Driver", 72.0), ("Band", 18.0), ("Impact / owner", 93.9)]
+            _table_header(pdf, cols)
+            for i, row in enumerate(table.get("rows") or []):
+                _table_row(
+                    pdf,
+                    [
+                        (str(row.get("driver") or ""), 72.0),
+                        (str(row.get("band") or ""), 18.0),
+                        (f"{row.get('impact') or ''} ({row.get('owner') or ''})", 93.9),
+                    ],
+                    alt=i % 2 == 1,
+                )
+            pdf.ln(2)
+            if table.get("low_end"):
+                _muted(pdf, "Low-end supported by: " + "; ".join(table.get("low_end") or []))
+            if table.get("high_end"):
+                _muted(pdf, "High-end pushed by: " + "; ".join(table.get("high_end") or []))
 
     if ex.get("env_risk"):
         pdf.ln(1)
@@ -267,17 +365,11 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _muted(pdf, "No high-priority margin killers in this package payload.")
 
     pdf.ln(1)
-    _h2(pdf, "Local gotchas")
-    for g in ex.get("local_gotchas") or []:
-        _bullet(pdf, f"[{g.get('priority')}] {g.get('title')}")
-    if not (ex.get("local_gotchas") or []):
-        _muted(pdf, "No local gotcha items listed.")
-
-    pdf.ln(1)
     _h2(pdf, "Next actions")
     for a in ex.get("next_actions") or []:
         _bullet(pdf, a)
 
+    # ---- Bid Risk Receipt ----
     pdf.add_page()
     receipt = package.get("bid_risk_receipt") or {}
     _h1(pdf, "2. Bid Risk Receipt")
@@ -309,6 +401,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.ln(2)
     _muted(pdf, receipt.get("disclaimer") or "")
 
+    # ---- Site findings + gotcha cards ----
     pdf.add_page()
     findings = package.get("site_findings") or {}
     _h1(pdf, "3. Site findings")
@@ -337,18 +430,25 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             if f.get("note"):
                 _muted(pdf, f"  {f.get('note')}")
 
-    gotchas = findings.get("gotchas") or []
-    if gotchas:
+    cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
+    if cards:
         pdf.ln(2)
-        _h2(pdf, "Local gotcha watchlist")
-        for g in gotchas:
-            _need_space(pdf, 18)
-            _body(pdf, f"[{g.get('priority')}] {g.get('title')}", size=10)
+        _h2(pdf, "Gotcha confirm cards")
+        for g in cards:
+            _need_space(pdf, 28)
+            _body(pdf, f"[{g.get('priority') or 'WATCH'}] {g.get('title')}", size=10)
             if g.get("detail"):
                 _muted(pdf, g.get("detail"))
+            for c in g.get("checklist") or []:
+                _bullet(pdf, c, indent=6)
             if g.get("confirm_step"):
                 _body(pdf, f"Confirm: {g.get('confirm_step')}", size=9)
-            _muted(pdf, f"Citation: {g.get('source_label') or 'Unverified'}")
+            _muted(
+                pdf,
+                f"Owner: {g.get('owner') or 'Estimator / PM'} · Citation: {g.get('source_label') or 'Unverified'}",
+            )
+            for a in g.get("anti_patterns") or []:
+                _muted(pdf, f"Don't: {a}")
             pdf.ln(1)
 
     if findings.get("env_risk") or findings.get("env_findings"):
@@ -365,6 +465,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         for c in clocks:
             _bullet(pdf, f"{c.get('name')}: {c.get('detail')}")
 
+    # ---- Punch ----
     pdf.add_page()
     punch = package.get("punch_list") or {}
     _h1(pdf, "4. Ranked punch list")
@@ -381,6 +482,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _body(pdf, f"[{item.get('priority')}] {item.get('task')}{cost_s}", size=9)
         _muted(pdf, f"Timing: {item.get('timeline') or 'Pre-bid'} · {item.get('citation') or 'Unverified'}")
 
+    # ---- Action plan ----
     pdf.add_page()
     _h1(pdf, "5. Action plan highlights")
     for a in package.get("action_plan_summary") or []:
@@ -391,6 +493,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _h2(pdf, "Deep research excerpt")
         _body(pdf, excerpt[:2200], size=8)
 
+    # ---- Sources ----
     pdf.add_page()
     _h1(pdf, "6. Source appendix")
     _muted(

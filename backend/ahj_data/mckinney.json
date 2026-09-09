@@ -1,0 +1,140 @@
+{
+  "ahj_id": "mckinney_tx",
+  "city": "McKinney",
+  "state": "TX",
+  "zips": [
+    "75069",
+    "75070",
+    "75071",
+    "75072"
+  ],
+  "aliases": [
+    "mckinney",
+    "mc kinney",
+    "city of mckinney"
+  ],
+  "fees": [
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm on McKinney fee schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "citation_note": "Amount requires live McKinney fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "electrical_permit_schedule",
+      "trade": "electrical",
+      "label": "Electrical / trade permit \u2014 confirm on McKinney schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "citation_note": "Amount requires live McKinney fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm on McKinney schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "citation_note": "Amount requires live McKinney fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "mckinney_tx_fee_schedule_recheck",
+      "title": "McKinney fee schedule is not a fixed number \u2014 recheck before bid",
+      "checklist": [
+        "Pull current McKinney Building / Development Services fee schedule",
+        "Do not invent dollar amounts from memory or sister-city sheets",
+        "Stamp contingency only after schedule confirm"
+      ],
+      "anti_patterns": [
+        "Copying Plano/Dallas fee lines into a McKinney bid"
+      ],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "mckinney_tx_sister_city",
+      "title": "Do not use sister-city fees for McKinney",
+      "checklist": [
+        "Confirm trade fees on McKinney official schedule only",
+        "Document which schedule PDF/page was used in the bid file"
+      ],
+      "anti_patterns": [
+        "Assuming DFW metros share the same electrical permit fee"
+      ],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "mckinney_tx_dc_parallel",
+      "title": "Large-load / data center: AHJ + utility parallel clocks",
+      "checklist": [
+        "Treat utility interconnection as parallel to McKinney permits",
+        "Build contingency for both municipal and utility timelines",
+        "Confirm zoning/use path early for mission-critical load"
+      ],
+      "anti_patterns": [
+        "Assuming city permit alone clears large-load path"
+      ],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "mckinney_tx_trade_type",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Electrical vs general building vs multi-trade path \u2014 confirm with AHJ",
+        "Wrong application type stalls plan review"
+      ],
+      "anti_patterns": [
+        "Assuming one permit path covers all trades"
+      ],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "priority": "HIGH"
+    },
+    {
+      "id": "mckinney_tx_inspection_sequence",
+      "title": "McKinney rough \u2192 service \u2192 final sequence",
+      "checklist": [
+        "Schedule rough MEP before cover",
+        "Confirm service/meter equipment inspection when applicable",
+        "Hold final until AHJ checklist items are closed"
+      ],
+      "anti_patterns": [
+        "Skipping rough and hoping final covers it"
+      ],
+      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+      "priority": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough MEP inspections",
+    "Service / meter equipment inspection (if applicable)",
+    "Final building / electrical inspection"
+  ],
+  "portal_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+  "fees_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+  "apply_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+  "inspections_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+  "last_verified": "2026-09-08",
+  "scout_query_extras": {
+    "permits": [
+      "McKinney TX building inspections"
+    ],
+    "codes": [
+      "McKinney TX building codes"
+    ]
+  }
+}

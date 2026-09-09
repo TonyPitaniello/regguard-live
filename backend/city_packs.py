@@ -21,6 +21,18 @@ def _norm_city_state(city: str = "", state: str = "", zip_code: str = "") -> str
         return "fort worth, tx"
     if "roundrock" in c_compact or "round rock" in text:
         return "round rock, tx"
+    if "arlington" in text or "arlington" in c:
+        return "arlington, tx"
+    if "irving" in text or "irving" in c:
+        return "irving, tx"
+    if "garland" in text or "garland" in c:
+        return "garland, tx"
+    if "mckinney" in c_compact or "mc kinney" in text or "mckinney" in text:
+        return "mckinney, tx"
+    if "richardson" in text or "richardson" in c:
+        return "richardson, tx"
+    if "carrollton" in text or "carrollton" in c:
+        return "carrollton, tx"
     for name in ("plano", "dallas", "austin"):
         if name in text or name in c:
             return f"{name}, tx"
@@ -32,6 +44,18 @@ def _norm_city_state(city: str = "", state: str = "", zip_code: str = "") -> str
         return "fort worth, tx"
     if z[:5] in ("78664", "78665", "78681"):
         return "round rock, tx"
+    if z[:5] in ("76010", "76011", "76012", "76013", "76014", "76015", "76016", "76017", "76018"):
+        return "arlington, tx"
+    if z[:5] in ("75038", "75039", "75060", "75061", "75062", "75063"):
+        return "irving, tx"
+    if z[:5] in ("75040", "75041", "75042", "75043", "75044"):
+        return "garland, tx"
+    if z[:5] in ("75069", "75070", "75071", "75072"):
+        return "mckinney, tx"
+    if z[:5] in ("75080", "75081", "75082", "75083"):
+        return "richardson, tx"
+    if z[:5] in ("75006", "75007", "75010"):
+        return "carrollton, tx"
     if z.startswith("750") and not c:
         return "plano, tx"
     if (z.startswith("752") or z.startswith("751")) and not c:
@@ -428,6 +452,330 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             "Permit application / intake",
             "Rough electrical inspection",
             "Final electrical inspection",
+        ],
+    },
+    "arlington, tx": {
+        "city": "Arlington",
+        "state": "TX",
+        "ahj": {
+            "name": "City of Arlington Planning & Development Services",
+            "portal_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+            "fees_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+            "phone": "Confirm on arlingtontx.gov",
+            "notes": "Confirm fees with Arlington PDS. Do not copy Dallas/Plano fee lines.",
+        },
+        "fees": [
+            {
+                "label": "Building / trade permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on Arlington PDS fee schedule — amounts change",
+                "verified": False,
+                "source_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+                "source_label": "Arlington PDS",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "arlington_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm Arlington fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+                "source_label": "Arlington PDS",
+            },
+            {
+                "id": "arlington_sister_city",
+                "title": "Do not use sister-city fees for Arlington",
+                "detail": "Dallas/Plano fee lines are not Arlington fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+                "source_label": "Arlington PDS",
+            },
+            {
+                "id": "arlington_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to Arlington permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
+                "source_label": "Arlington AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm Arlington PDS review windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
+        ],
+    },
+    "irving, tx": {
+        "city": "Irving",
+        "state": "TX",
+        "ahj": {
+            "name": "City of Irving Building Inspections",
+            "portal_url": "https://www.cityofirving.org/353/Building-Inspections",
+            "fees_url": "https://www.cityofirving.org/353/Building-Inspections",
+            "phone": "Confirm on cityofirving.org",
+            "notes": "Confirm fees with Irving Building Inspections. Do not copy Dallas/Plano fees.",
+        },
+        "fees": [
+            {
+                "label": "Trade / building permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on Irving Building Inspections fee schedule",
+                "verified": False,
+                "source_url": "https://www.cityofirving.org/353/Building-Inspections",
+                "source_label": "Irving Building Inspections",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "irving_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm Irving fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofirving.org/353/Building-Inspections",
+                "source_label": "Irving Building Inspections",
+            },
+            {
+                "id": "irving_sister_city",
+                "title": "Do not use sister-city fees for Irving",
+                "detail": "Dallas/Plano fee lines are not Irving fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofirving.org/353/Building-Inspections",
+                "source_label": "Irving Building Inspections",
+            },
+            {
+                "id": "irving_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to Irving permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofirving.org/353/Building-Inspections",
+                "source_label": "Irving AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm Irving inspection windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
+        ],
+    },
+    "garland, tx": {
+        "city": "Garland",
+        "state": "TX",
+        "ahj": {
+            "name": "City of Garland Building Inspection",
+            "portal_url": "https://www.garlandtx.gov/353/Building-Inspection",
+            "fees_url": "https://www.garlandtx.gov/353/Building-Inspection",
+            "phone": "Confirm on garlandtx.gov",
+            "notes": "Confirm fees with Garland Building Inspection. Do not copy Dallas fees.",
+        },
+        "fees": [
+            {
+                "label": "Trade / building permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on Garland Building Inspection fee schedule",
+                "verified": False,
+                "source_url": "https://www.garlandtx.gov/353/Building-Inspection",
+                "source_label": "Garland Building Inspection",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "garland_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm Garland fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.garlandtx.gov/353/Building-Inspection",
+                "source_label": "Garland Building Inspection",
+            },
+            {
+                "id": "garland_sister_city",
+                "title": "Do not use sister-city fees for Garland",
+                "detail": "Dallas/Plano fee lines are not Garland fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.garlandtx.gov/353/Building-Inspection",
+                "source_label": "Garland Building Inspection",
+            },
+            {
+                "id": "garland_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to Garland permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.garlandtx.gov/353/Building-Inspection",
+                "source_label": "Garland AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm Garland inspection windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
+        ],
+    },
+    "mckinney, tx": {
+        "city": "McKinney",
+        "state": "TX",
+        "ahj": {
+            "name": "City of McKinney Building Inspections",
+            "portal_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+            "fees_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+            "phone": "Confirm on mckinneytexas.org",
+            "notes": "Confirm fees with McKinney Building Inspections. Do not copy Plano/Frisco fees.",
+        },
+        "fees": [
+            {
+                "label": "Trade / building permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on McKinney Building Inspections fee schedule",
+                "verified": False,
+                "source_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+                "source_label": "McKinney Building Inspections",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "mckinney_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm McKinney fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+                "source_label": "McKinney Building Inspections",
+            },
+            {
+                "id": "mckinney_sister_city",
+                "title": "Do not use sister-city fees for McKinney",
+                "detail": "Plano/Frisco fee lines are not McKinney fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+                "source_label": "McKinney Building Inspections",
+            },
+            {
+                "id": "mckinney_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to McKinney permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.mckinneytexas.org/149/Building-Inspections",
+                "source_label": "McKinney AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm McKinney inspection windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
+        ],
+    },
+    "richardson, tx": {
+        "city": "Richardson",
+        "state": "TX",
+        "ahj": {
+            "name": "City of Richardson Building Inspection",
+            "portal_url": "https://www.cor.net/departments/development-services/building-inspection",
+            "fees_url": "https://www.cor.net/departments/development-services/building-inspection",
+            "phone": "Confirm on cor.net",
+            "notes": "Confirm fees with Richardson Building Inspection. Do not copy Plano/Dallas fees.",
+        },
+        "fees": [
+            {
+                "label": "Trade / building permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on Richardson Building Inspection fee schedule",
+                "verified": False,
+                "source_url": "https://www.cor.net/departments/development-services/building-inspection",
+                "source_label": "Richardson Building Inspection",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "richardson_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm Richardson fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cor.net/departments/development-services/building-inspection",
+                "source_label": "Richardson Building Inspection",
+            },
+            {
+                "id": "richardson_sister_city",
+                "title": "Do not use sister-city fees for Richardson",
+                "detail": "Plano/Dallas fee lines are not Richardson fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cor.net/departments/development-services/building-inspection",
+                "source_label": "Richardson Building Inspection",
+            },
+            {
+                "id": "richardson_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to Richardson permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cor.net/departments/development-services/building-inspection",
+                "source_label": "Richardson AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm Richardson inspection windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
+        ],
+    },
+    "carrollton, tx": {
+        "city": "Carrollton",
+        "state": "TX",
+        "ahj": {
+            "name": "City of Carrollton Building Inspection",
+            "portal_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+            "fees_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+            "phone": "Confirm on cityofcarrollton.com",
+            "notes": "Confirm fees with Carrollton Building Inspection. Do not copy Plano/Dallas fees.",
+        },
+        "fees": [
+            {
+                "label": "Trade / building permit fees",
+                "amount_usd": None,
+                "detail": "Confirm on Carrollton Building Inspection fee schedule",
+                "verified": False,
+                "source_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+                "source_label": "Carrollton Building Inspection",
+            }
+        ],
+        "gotchas": [
+            {
+                "id": "carrollton_fee_schedule_recheck",
+                "title": "Fee schedule is not a fixed number — recheck before bid",
+                "detail": "Confirm Carrollton fee schedule before locking contingency.",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+                "source_label": "Carrollton Building Inspection",
+            },
+            {
+                "id": "carrollton_sister_city",
+                "title": "Do not use sister-city fees for Carrollton",
+                "detail": "Plano/Dallas fee lines are not Carrollton fees",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+                "source_label": "Carrollton Building Inspection",
+            },
+            {
+                "id": "carrollton_dc_parallel",
+                "title": "Large-load: AHJ + utility parallel clocks",
+                "detail": "Utility interconnection runs parallel to Carrollton permits",
+                "priority": "CRITICAL",
+                "source_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
+                "source_label": "Carrollton AHJ + serving utility",
+            },
+        ],
+        "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
+        "timeline_hint": "Confirm Carrollton inspection windows before bid",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Rough MEP inspections",
+            "Final building / electrical inspection",
         ],
     },
 }

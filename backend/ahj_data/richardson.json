@@ -1,0 +1,139 @@
+{
+  "ahj_id": "richardson_tx",
+  "city": "Richardson",
+  "state": "TX",
+  "zips": [
+    "75080",
+    "75081",
+    "75082",
+    "75083"
+  ],
+  "aliases": [
+    "richardson",
+    "city of richardson"
+  ],
+  "fees": [
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm on Richardson fee schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "citation_note": "Amount requires live Richardson fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "electrical_permit_schedule",
+      "trade": "electrical",
+      "label": "Electrical / trade permit \u2014 confirm on Richardson schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "citation_note": "Amount requires live Richardson fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm on Richardson schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "citation_note": "Amount requires live Richardson fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "richardson_tx_fee_schedule_recheck",
+      "title": "Richardson fee schedule is not a fixed number \u2014 recheck before bid",
+      "checklist": [
+        "Pull current Richardson Building / Development Services fee schedule",
+        "Do not invent dollar amounts from memory or sister-city sheets",
+        "Stamp contingency only after schedule confirm"
+      ],
+      "anti_patterns": [
+        "Copying Plano/Dallas fee lines into a Richardson bid"
+      ],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "richardson_tx_sister_city",
+      "title": "Do not use sister-city fees for Richardson",
+      "checklist": [
+        "Confirm trade fees on Richardson official schedule only",
+        "Document which schedule PDF/page was used in the bid file"
+      ],
+      "anti_patterns": [
+        "Assuming DFW metros share the same electrical permit fee"
+      ],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "richardson_tx_dc_parallel",
+      "title": "Large-load / data center: AHJ + utility parallel clocks",
+      "checklist": [
+        "Treat utility interconnection as parallel to Richardson permits",
+        "Build contingency for both municipal and utility timelines",
+        "Confirm zoning/use path early for mission-critical load"
+      ],
+      "anti_patterns": [
+        "Assuming city permit alone clears large-load path"
+      ],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "richardson_tx_trade_type",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Electrical vs general building vs multi-trade path \u2014 confirm with AHJ",
+        "Wrong application type stalls plan review"
+      ],
+      "anti_patterns": [
+        "Assuming one permit path covers all trades"
+      ],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "priority": "HIGH"
+    },
+    {
+      "id": "richardson_tx_inspection_sequence",
+      "title": "Richardson rough \u2192 service \u2192 final sequence",
+      "checklist": [
+        "Schedule rough MEP before cover",
+        "Confirm service/meter equipment inspection when applicable",
+        "Hold final until AHJ checklist items are closed"
+      ],
+      "anti_patterns": [
+        "Skipping rough and hoping final covers it"
+      ],
+      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
+      "priority": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough MEP inspections",
+    "Service / meter equipment inspection (if applicable)",
+    "Final building / electrical inspection"
+  ],
+  "portal_url": "https://www.cor.net/departments/development-services/building-inspection",
+  "fees_url": "https://www.cor.net/departments/development-services/building-inspection",
+  "apply_url": "https://www.cor.net/departments/development-services/building-inspection",
+  "inspections_url": "https://www.cor.net/departments/development-services/building-inspection",
+  "last_verified": "2026-09-08",
+  "scout_query_extras": {
+    "permits": [
+      "Richardson TX building inspection"
+    ],
+    "codes": [
+      "Richardson TX codes"
+    ]
+  }
+}

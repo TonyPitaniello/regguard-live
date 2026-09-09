@@ -2,17 +2,47 @@
   "ahj_id": "frisco_tx",
   "city": "Frisco",
   "state": "TX",
-  "zips": ["75033", "75034", "75035", "75036"],
-  "aliases": ["frisco", "city of frisco"],
+  "zips": [
+    "75033",
+    "75034",
+    "75035",
+    "75036"
+  ],
+  "aliases": [
+    "frisco",
+    "city of frisco"
+  ],
   "fees": [
     {
-      "id": "trade_permit_schedule",
-      "trade": "electrical",
-      "label": "Trade / electrical permit — confirm Frisco Building Inspections schedule",
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm Frisco Building Inspections schedule",
       "amount_usd": null,
       "components": [],
       "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
-      "citation_note": "Amount requires live Frisco fee schedule. Do not invent dollars.",
+      "citation_note": "Amount requires live Frisco fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "electrical_permit_schedule",
+      "trade": "electrical",
+      "label": "Electrical / trade permit \u2014 confirm Frisco schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "citation_note": "Amount requires live Frisco fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm Frisco schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "citation_note": "Amount requires live Frisco fee schedule.",
       "verified": true,
       "amount_requires_schedule": true
     }
@@ -20,12 +50,14 @@
   "gotchas": [
     {
       "id": "frisco_fee_schedule_recheck",
-      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "title": "Fee schedule is not a fixed number \u2014 recheck before bid",
       "checklist": [
         "Pull current Frisco Building Inspections fee schedule",
         "Do not copy Plano fee lines into a Frisco bid"
       ],
-      "anti_patterns": ["Using Plano $75 electrical fee as Frisco"],
+      "anti_patterns": [
+        "Using Plano $75 electrical fee as Frisco"
+      ],
       "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
       "severity": "CRITICAL"
     },
@@ -36,7 +68,9 @@
         "Treat utility interconnection as parallel to Frisco permits",
         "Build contingency for both clocks"
       ],
-      "anti_patterns": ["Assuming AHJ permit alone clears large-load path"],
+      "anti_patterns": [
+        "Assuming AHJ permit alone clears large-load path"
+      ],
       "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
       "severity": "CRITICAL"
     },
@@ -44,11 +78,39 @@
       "id": "frisco_trade_type",
       "title": "Confirm trade application type early",
       "checklist": [
-        "Electrical vs general building path — confirm with Building Inspections"
+        "Electrical vs general building path \u2014 confirm with Building Inspections"
       ],
-      "anti_patterns": ["Assuming one permit path covers all trades"],
+      "anti_patterns": [
+        "Assuming one permit path covers all trades"
+      ],
       "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
       "severity": "HIGH"
+    },
+    {
+      "id": "frisco_sister_city",
+      "title": "Do not use Plano fees for Frisco",
+      "checklist": [
+        "Confirm trade fees on Frisco official schedule only",
+        "Never bid Frisco using Plano $75 electrical line without confirm"
+      ],
+      "anti_patterns": [
+        "Using Plano electrical fee as Frisco"
+      ],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "frisco_permit_path",
+      "title": "Frisco permit path must be reconfirmed before bid",
+      "checklist": [
+        "Verify Building Inspections portal path",
+        "Confirm contractor registration requirements"
+      ],
+      "anti_patterns": [
+        "Assuming Plano TraKit path works for Frisco"
+      ],
+      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
+      "priority": "HIGH"
     }
   ],
   "inspection_sequence": [
@@ -61,5 +123,13 @@
   "fees_url": "https://www.friscotexas.gov/292/Building-Inspections",
   "apply_url": "https://www.friscotexas.gov/292/Building-Inspections",
   "inspections_url": "https://www.friscotexas.gov/292/Building-Inspections",
-  "last_verified": "2026-09-05"
+  "last_verified": "2026-09-08",
+  "scout_query_extras": {
+    "permits": [
+      "Frisco TX building inspections permits"
+    ],
+    "codes": [
+      "Frisco TX building codes"
+    ]
+  }
 }

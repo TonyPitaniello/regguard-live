@@ -1,0 +1,140 @@
+{
+  "ahj_id": "garland_tx",
+  "city": "Garland",
+  "state": "TX",
+  "zips": [
+    "75040",
+    "75041",
+    "75042",
+    "75043",
+    "75044"
+  ],
+  "aliases": [
+    "garland",
+    "city of garland"
+  ],
+  "fees": [
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Building permit \u2014 confirm on Garland fee schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "citation_note": "Amount requires live Garland fee schedule. Do not invent dollars.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "electrical_permit_schedule",
+      "trade": "electrical",
+      "label": "Electrical / trade permit \u2014 confirm on Garland schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "citation_note": "Amount requires live Garland fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    },
+    {
+      "id": "plumbing_permit_schedule",
+      "trade": "plumbing",
+      "label": "Plumbing permit \u2014 confirm on Garland schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "citation_note": "Amount requires live Garland fee schedule.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "garland_tx_fee_schedule_recheck",
+      "title": "Garland fee schedule is not a fixed number \u2014 recheck before bid",
+      "checklist": [
+        "Pull current Garland Building / Development Services fee schedule",
+        "Do not invent dollar amounts from memory or sister-city sheets",
+        "Stamp contingency only after schedule confirm"
+      ],
+      "anti_patterns": [
+        "Copying Plano/Dallas fee lines into a Garland bid"
+      ],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "garland_tx_sister_city",
+      "title": "Do not use sister-city fees for Garland",
+      "checklist": [
+        "Confirm trade fees on Garland official schedule only",
+        "Document which schedule PDF/page was used in the bid file"
+      ],
+      "anti_patterns": [
+        "Assuming DFW metros share the same electrical permit fee"
+      ],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "garland_tx_dc_parallel",
+      "title": "Large-load / data center: AHJ + utility parallel clocks",
+      "checklist": [
+        "Treat utility interconnection as parallel to Garland permits",
+        "Build contingency for both municipal and utility timelines",
+        "Confirm zoning/use path early for mission-critical load"
+      ],
+      "anti_patterns": [
+        "Assuming city permit alone clears large-load path"
+      ],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "priority": "CRITICAL"
+    },
+    {
+      "id": "garland_tx_trade_type",
+      "title": "Confirm trade application type early",
+      "checklist": [
+        "Electrical vs general building vs multi-trade path \u2014 confirm with AHJ",
+        "Wrong application type stalls plan review"
+      ],
+      "anti_patterns": [
+        "Assuming one permit path covers all trades"
+      ],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "priority": "HIGH"
+    },
+    {
+      "id": "garland_tx_inspection_sequence",
+      "title": "Garland rough \u2192 service \u2192 final sequence",
+      "checklist": [
+        "Schedule rough MEP before cover",
+        "Confirm service/meter equipment inspection when applicable",
+        "Hold final until AHJ checklist items are closed"
+      ],
+      "anti_patterns": [
+        "Skipping rough and hoping final covers it"
+      ],
+      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
+      "priority": "HIGH"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough MEP inspections",
+    "Service / meter equipment inspection (if applicable)",
+    "Final building / electrical inspection"
+  ],
+  "portal_url": "https://www.garlandtx.gov/353/Building-Inspection",
+  "fees_url": "https://www.garlandtx.gov/353/Building-Inspection",
+  "apply_url": "https://www.garlandtx.gov/353/Building-Inspection",
+  "inspections_url": "https://www.garlandtx.gov/353/Building-Inspection",
+  "last_verified": "2026-09-08",
+  "scout_query_extras": {
+    "permits": [
+      "Garland TX building inspection permits"
+    ],
+    "codes": [
+      "Garland TX codes"
+    ]
+  }
+}

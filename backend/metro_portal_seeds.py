@@ -243,7 +243,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.houstonpermittingcenter.org/",
         "fees_url": "https://www.houstonpermittingcenter.org/",
         "apply_url": "https://www.houstonpermittingcenter.org/",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "san antonio, tx": {
         "city": "San Antonio",
@@ -252,7 +252,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.sa.gov/Directory/Departments/DSD",
         "fees_url": "https://www.sa.gov/Directory/Departments/DSD",
         "apply_url": "https://www.sa.gov/Directory/Departments/DSD",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "fort worth, tx": {
         "city": "Fort Worth",
@@ -261,7 +261,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.fortworthtexas.gov/departments/development-services",
         "fees_url": "https://www.fortworthtexas.gov/departments/development-services",
         "apply_url": "https://www.fortworthtexas.gov/departments/development-services",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     # East / Florida / Northeast
     "miami, fl": {
@@ -442,7 +442,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
         "fees_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
         "apply_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "irving, tx": {
         "city": "Irving",
@@ -451,7 +451,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityofirving.org/353/Building-Inspections",
         "fees_url": "https://www.cityofirving.org/353/Building-Inspections",
         "apply_url": "https://www.cityofirving.org/353/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "garland, tx": {
         "city": "Garland",
@@ -460,7 +460,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.garlandtx.gov/353/Building-Inspection",
         "fees_url": "https://www.garlandtx.gov/353/Building-Inspection",
         "apply_url": "https://www.garlandtx.gov/353/Building-Inspection",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "mckinney, tx": {
         "city": "McKinney",
@@ -469,7 +469,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.mckinneytexas.org/149/Building-Inspections",
         "fees_url": "https://www.mckinneytexas.org/149/Building-Inspections",
         "apply_url": "https://www.mckinneytexas.org/149/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "frisco, tx": {
         "city": "Frisco",
@@ -478,7 +478,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.friscotexas.gov/147/Building-Inspections",
         "fees_url": "https://www.friscotexas.gov/147/Building-Inspections",
         "apply_url": "https://www.friscotexas.gov/147/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "round rock, tx": {
         "city": "Round Rock",
@@ -487,7 +487,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.roundrocktexas.gov/departments/building-inspections/",
         "fees_url": "https://www.roundrocktexas.gov/departments/building-inspections/",
         "apply_url": "https://www.roundrocktexas.gov/departments/building-inspections/",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "denton, tx": {
         "city": "Denton",
@@ -496,7 +496,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityofdenton.com/200/Building-Inspections",
         "fees_url": "https://www.cityofdenton.com/200/Building-Inspections",
         "apply_url": "https://www.cityofdenton.com/200/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "el paso, tx": {
         "city": "El Paso",
@@ -505,7 +505,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.elpasotexas.gov/planning-and-inspections/",
         "fees_url": "https://www.elpasotexas.gov/planning-and-inspections/",
         "apply_url": "https://www.elpasotexas.gov/planning-and-inspections/",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "corpus christi, tx": {
         "city": "Corpus Christi",
@@ -514,7 +514,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cctexas.com/departments/development-services",
         "fees_url": "https://www.cctexas.com/departments/development-services",
         "apply_url": "https://www.cctexas.com/departments/development-services",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "lubbock, tx": {
         "city": "Lubbock",
@@ -523,7 +523,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://ci.lubbock.tx.us/departments/planning/building-inspection",
         "fees_url": "https://ci.lubbock.tx.us/departments/planning/building-inspection",
         "apply_url": "https://ci.lubbock.tx.us/departments/planning/building-inspection",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "midlothian, tx": {
         "city": "Midlothian",
@@ -532,7 +532,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.midlothian.tx.us/149/Building-Inspections",
         "fees_url": "https://www.midlothian.tx.us/149/Building-Inspections",
         "apply_url": "https://www.midlothian.tx.us/149/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
         "phone": "972-775-3481",
     },
     # DFW / Austin suburbs — portal only (not full citeable packs)
@@ -543,7 +543,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cor.net/departments/development-services/building-inspection",
         "fees_url": "https://www.cor.net/departments/development-services/building-inspection",
         "apply_url": "https://www.cor.net/departments/development-services/building-inspection",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "allen, tx": {
         "city": "Allen",
@@ -552,7 +552,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityofallen.org/149/Building-Inspections",
         "fees_url": "https://www.cityofallen.org/149/Building-Inspections",
         "apply_url": "https://www.cityofallen.org/149/Building-Inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "carrollton, tx": {
         "city": "Carrollton",
@@ -561,7 +561,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
         "fees_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
         "apply_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "lewisville, tx": {
         "city": "Lewisville",
@@ -570,7 +570,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityoflewisville.com/government/departments/building-inspections",
         "fees_url": "https://www.cityoflewisville.com/government/departments/building-inspections",
         "apply_url": "https://www.cityoflewisville.com/government/departments/building-inspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "mesquite, tx": {
         "city": "Mesquite",
@@ -579,7 +579,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cityofmesquite.com/149/Building-Inspection",
         "fees_url": "https://www.cityofmesquite.com/149/Building-Inspection",
         "apply_url": "https://www.cityofmesquite.com/149/Building-Inspection",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "cedar park, tx": {
         "city": "Cedar Park",
@@ -588,7 +588,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.cedarparktexas.gov/149/Building-Development",
         "fees_url": "https://www.cedarparktexas.gov/149/Building-Development",
         "apply_url": "https://www.cedarparktexas.gov/149/Building-Development",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "pflugerville, tx": {
         "city": "Pflugerville",
@@ -597,7 +597,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.pflugervilletx.gov/149/Development-Services-Center",
         "fees_url": "https://www.pflugervilletx.gov/149/Development-Services-Center",
         "apply_url": "https://www.pflugervilletx.gov/149/Development-Services-Center",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "leander, tx": {
         "city": "Leander",
@@ -606,7 +606,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://www.leandertx.gov/buildinginspections",
         "fees_url": "https://www.leandertx.gov/buildinginspections",
         "apply_url": "https://www.leandertx.gov/buildinginspections",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     "georgetown, tx": {
         "city": "Georgetown",
@@ -615,7 +615,7 @@ METRO_PORTAL_SEEDS: Dict[str, Dict[str, Any]] = {
         "portal_url": "https://georgetown.org/building-inspections/",
         "fees_url": "https://georgetown.org/building-inspections/",
         "apply_url": "https://georgetown.org/building-inspections/",
-        "last_verified": "",
+        "last_verified": "2026-09-08",
     },
     # Additional national sales metros
     "boise, id": {
