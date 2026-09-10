@@ -37,6 +37,8 @@ type Props = {
   onSelection: (sel: AddressSelection | null) => void;
   /** Fires on widget input / selection / clear so parents can gate UI on raw search text. */
   onAddressSearchChange?: (value: string) => void;
+  /** Bump to destroy/recreate the Places widget empty (hard refresh / New site). */
+  resetKey?: number;
 };
 
 /** Loads from `frontend/.env` via Vite (`import.meta.env.VITE_GOOGLE_MAPS_API_KEY`); echoed in `index.html` preload. */
@@ -145,7 +147,10 @@ export function mapsAutocompleteEnabled(): boolean {
 }
 
 export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
-  function AddressAutocomplete({ disabled, onSelection, onAddressSearchChange }, ref) {
+  function AddressAutocomplete(
+    { disabled, onSelection, onAddressSearchChange, resetKey = 0 },
+    ref,
+  ) {
     const hostRef = useRef<HTMLDivElement>(null);
     const widgetRef = useRef<google.maps.places.PlaceAutocompleteElement | null>(null);
     const lastCommittedAddr = useRef<string | null>(null);
@@ -263,7 +268,12 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
             requestedRegion: "us",
           } as google.maps.places.PlaceAutocompleteElementOptions);
         }
-        el.placeholder = "Search street address (Google Places)…";
+        el.placeholder = "";
+        try {
+          el.value = "";
+        } catch {
+          /* ignore */
+        }
         el.classList.add("rg-address-autocomplete-widget");
         el.id = hostId;
 
@@ -375,7 +385,7 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
         widgetRef.current = null;
         host.innerHTML = "";
       };
-    }, [key, mapsReady, hostId]);
+    }, [key, mapsReady, hostId, resetKey]);
 
     useEffect(() => {
       const w = widgetRef.current;

@@ -109,6 +109,8 @@ export default function FreeTrialForm({
   } | null>(null);
   const [locationResetKey, setLocationResetKey] = useState(0);
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  /** Delay mounting contact inputs so Chrome cannot autofill a pre-painted email field */
+  const [contactFieldsReady, setContactFieldsReady] = useState(false);
   const contactAutofillPurgeUntilRef = useRef(0);
   const unlockFields = () => {
     setFieldsUnlocked(true);
@@ -511,7 +513,10 @@ export default function FreeTrialForm({
       | undefined;
     const isHardReload = nav?.type === 'reload';
 
-    if (keepForCheckout) return;
+    if (keepForCheckout) {
+      setContactFieldsReady(true);
+      return;
+    }
 
     try {
       sessionStorage.removeItem('userEmail');
@@ -544,22 +549,44 @@ export default function FreeTrialForm({
       lng: null,
     }));
     setLocationResetKey((k) => k + 1);
-    contactAutofillPurgeUntilRef.current = Date.now() + 700;
+    setContactFieldsReady(false);
+    contactAutofillPurgeUntilRef.current = Date.now() + 2500;
+
+    const wipeDomInputs = () => {
+      try {
+        document.querySelectorAll('#free-trial-form input').forEach((node) => {
+          const el = node as HTMLInputElement;
+          if (el.readOnly && document.activeElement === el) return;
+          if (el.name && /rg_contact|rg_jobsite/.test(el.name)) {
+            el.value = '';
+            el.defaultValue = '';
+          }
+        });
+      } catch {
+        /* ignore */
+      }
+    };
 
     const purgeContact = () => {
       if (Date.now() > contactAutofillPurgeUntilRef.current) return;
-      if (fieldsUnlocked) return;
       setFormData((prev) =>
         prev.email || prev.phone ? { ...prev, email: '', phone: '' } : prev
       );
+      wipeDomInputs();
     };
+    const tReady = window.setTimeout(() => setContactFieldsReady(true), 120);
     const t1 = window.setTimeout(purgeContact, 50);
     const t2 = window.setTimeout(purgeContact, 350);
     const t3 = window.setTimeout(purgeContact, 700);
+    const t4 = window.setTimeout(purgeContact, 1500);
+    const t5 = window.setTimeout(purgeContact, 2500);
     return () => {
+      window.clearTimeout(tReady);
       window.clearTimeout(t1);
       window.clearTimeout(t2);
       window.clearTimeout(t3);
+      window.clearTimeout(t4);
+      window.clearTimeout(t5);
     };
   }, []);
 
@@ -917,7 +944,11 @@ export default function FreeTrialForm({
           */}
         </form>
 
-        <div className="mt-5 space-y-5" data-rg-contact-fields>
+        <div className="mt-5 space-y-5" data-rg-contact-fields autoComplete="off">
+          {!contactFieldsReady ? (
+            <div className="h-[7.5rem] rounded-lg border border-slate-700/60 bg-slate-800/40" aria-hidden />
+          ) : (
+            <>
           <div>
             <label htmlFor="home-email" className="block text-white font-bold mb-2">
               Email *
@@ -925,7 +956,8 @@ export default function FreeTrialForm({
             <input
               key={`home-email-${locationResetKey}`}
               id="home-email"
-              type="email"
+              type="text"
+              inputMode="email"
               name={`rg_contact_email_${locationResetKey}`}
               value={formData.email}
               onChange={(e) =>
@@ -939,7 +971,7 @@ export default function FreeTrialForm({
                 }
               }}
               placeholder=""
-              autoComplete="off"
+              autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="off"
               spellCheck={false}
@@ -963,10 +995,9 @@ export default function FreeTrialForm({
             <input
               key={`home-phone-${locationResetKey}`}
               id="home-phone"
-              type="tel"
-              name={`rg_contact_phone_${locationResetKey}`}
+              type="text"
               inputMode="tel"
-              autoComplete="off"
+              name={`rg_contact_phone_${locationResetKey}`}
               value={formData.phone}
               onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
               onFocus={unlockFields}
@@ -977,6 +1008,7 @@ export default function FreeTrialForm({
                 }
               }}
               placeholder=""
+              autoComplete="new-password"
               readOnly={!fieldsUnlocked}
               data-lpignore="true"
               data-1p-ignore="true"
@@ -989,6 +1021,8 @@ export default function FreeTrialForm({
               Leaving this blank is fine — email + web receipt still work.
             </p>
           </div>
+            </>
+          )}
         </div>
 
         <form

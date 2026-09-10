@@ -957,7 +957,11 @@ export function LocationPicker({
           >
             Optional: search address (Places)
           </label>
-          <AddressAutocomplete disabled={disabled} onSelection={handlePlacesSelection} />
+          <AddressAutocomplete
+            disabled={disabled}
+            resetKey={resetKey}
+            onSelection={handlePlacesSelection}
+          />
           <p className="text-xs text-gray-400">
             Or type street, city, state, and ZIP below — the map pin updates automatically.
           </p>
@@ -1031,7 +1035,7 @@ export function LocationPicker({
               readOnly={!siteFieldsUnlocked}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
               placeholder=""
-              autoComplete="off"
+              autoComplete="new-password"
               autoCorrect="off"
               spellCheck={false}
               data-lpignore="true"
@@ -1057,7 +1061,7 @@ export function LocationPicker({
                 readOnly={!siteFieldsUnlocked}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
                 placeholder=""
-                autoComplete="off"
+                autoComplete="new-password"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
@@ -1080,7 +1084,7 @@ export function LocationPicker({
                 readOnly={!siteFieldsUnlocked}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
                 placeholder=""
-                autoComplete="off"
+                autoComplete="new-password"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
@@ -1104,7 +1108,7 @@ export function LocationPicker({
                 inputMode="numeric"
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
                 placeholder=""
-                autoComplete="off"
+                autoComplete="new-password"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
