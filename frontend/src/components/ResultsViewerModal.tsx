@@ -966,6 +966,14 @@ export default function ResultsViewerModal({
     );
   };
 
+  const formatStampSeverity = (raw?: string | null) => {
+    const s = String(raw || '').toUpperCase();
+    if (s === 'FAIL' || s === 'HOLD' || s === 'CRITICAL') return 'High Risk';
+    if (s === 'CAUTION' || s === 'WARN' || s === 'WARNING' || s === 'HIGH') return 'Caution';
+    if (s === 'PASS' || s === 'CLEAR' || s === 'OK') return 'Clear';
+    return raw || 'Note';
+  };
+
   /** First thing on every scan — boardroom brief before PDFs and detail */
   const renderExecutiveSummary = () => {
     const site =
@@ -987,43 +995,40 @@ export default function ResultsViewerModal({
     const stampGrade = (view.regguard_stamp?.grade || view.stamp_grade || '').toUpperCase();
     const stampDisplay =
       stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || null;
-    const stampPlain =
-      stampDisplay === 'HOLD'
-        ? 'HOLD means high pre-bid risk — not that the project is invalid. Resolve the drivers below before locking a bid number.'
-        : stampDisplay === 'CAUTION'
-          ? 'CAUTION means material risk remains. Review the drivers before treating this bid as clear.'
-          : stampDisplay === 'CLEAR'
-            ? 'CLEAR on the current citeable pack — still confirm fees and portal requirements with the AHJ before bid.'
-            : null;
 
     const lead =
       stampDisplay === 'HOLD'
-        ? `${site} carries elevated pre-bid risk under ${ahjName}. Treat municipal permits and utility interconnection as separate clocks until both are confirmed.`
+        ? `${site} presents elevated pre-bid risk under ${ahjName}. Municipal permitting and utility interconnection should be treated as parallel clocks until both paths are confirmed.`
         : stampDisplay === 'CAUTION'
-          ? `${site} has material pre-bid items under ${ahjName} that should be cleared before you lock a number.`
-          : `${site}: review the contingency band and priority items below, then confirm dollars on the ${ahjName} fee schedule before bid.`;
+          ? `${site} has material pre-bid items under ${ahjName} that warrant review before a bid number is locked.`
+          : `${site}: the current local pack does not show Critical blockers. Confirm fees and portal requirements with ${ahjName} before bid.`;
 
-    const hasBody =
-      killers.length > 0 ||
-      gotchas.length > 0 ||
-      punch.length > 0 ||
-      Boolean(contingency) ||
-      Boolean(envRisk) ||
-      Boolean(stampDisplay);
+    const priorityLines = [
+      ...killers.map((k) => ({
+        sev: formatStampSeverity(k.priority),
+        title: k.title,
+        detail: k.detail,
+      })),
+      ...gotchas.slice(0, Math.max(0, 3 - killers.length)).map((g) => ({
+        sev: formatStampSeverity(g.priority),
+        title: g.title,
+        detail: g.detail,
+      })),
+    ].slice(0, 3);
 
     return (
       <section
         id="rg-executive-summary"
-        className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-slate-950 via-[#0a1429] to-slate-900 p-5 sm:p-6 space-y-4 shadow-xl shadow-black/30"
+        className="rounded-xl border border-emerald-400/50 bg-gradient-to-br from-[#0a1429] via-slate-950 to-slate-900 p-5 sm:p-6 space-y-4 shadow-xl shadow-black/40"
       >
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-300/90">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
             Executive summary
           </p>
           <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
-            {site}
+            Boardroom brief — {site}
           </h3>
-          <p className="text-gray-300 text-sm sm:text-[15px] leading-relaxed max-w-3xl">{lead}</p>
+          <p className="text-gray-200 text-sm sm:text-[15px] leading-relaxed max-w-3xl">{lead}</p>
           {stampDisplay && (
             <p
               className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${
@@ -1035,7 +1040,6 @@ export default function ResultsViewerModal({
               RegGuard stamp: {stampDisplay}
             </p>
           )}
-          {stampPlain && <p className="text-sm text-gray-400 leading-relaxed">{stampPlain}</p>}
         </div>
 
         {contingency && (
@@ -1047,43 +1051,25 @@ export default function ResultsViewerModal({
               +{contingency.pct_low}% – +{contingency.pct_high}%
             </p>
             <p className="text-sm text-gray-200 mt-1.5 leading-relaxed">
-              Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on your base estimate
-              for local fees, review timing, and site risk (midpoint {contingency.pct_mid}%). This
-              is a planning aid — not a quote or guarantee. Confirm final dollars with {ahjName}.
+              Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
+              local fees, review timing, and site risk (midpoint {contingency.pct_mid}%). This is a
+              planning aid — not a quote or guarantee. Confirm final dollars with {ahjName}.
             </p>
           </div>
         )}
 
-        {!hasBody && (
-          <p className="text-sm text-gray-300 leading-relaxed">
-            No high-priority flags in this preview yet. Review the punch list and environmental
-            findings below. Every line shows a source or is marked Unverified.
-          </p>
-        )}
-
-        {(killers.length > 0 || gotchas.length > 0) && (
+        {priorityLines.length > 0 && (
           <div>
-            <h4 className="text-sm font-semibold text-white mb-2">Priority items before bid</h4>
+            <h4 className="text-sm font-semibold text-white mb-2">What to resolve before bid</h4>
             <ol className="space-y-2.5 list-decimal pl-5">
-              {killers.map((k, i) => (
-                <li key={`ex-k-${i}`} className="text-sm text-gray-200 leading-relaxed">
+              {priorityLines.map((item, i) => (
+                <li key={`ex-p-${i}`} className="text-sm text-gray-200 leading-relaxed">
                   <span className="text-amber-200 font-semibold text-xs uppercase mr-1.5">
-                    {k.priority || 'NOTE'}
+                    {item.sev}
                   </span>
-                  <span className="text-white font-medium">{k.title}</span>
-                  {k.detail && (
-                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
-                  )}
-                </li>
-              ))}
-              {gotchas.slice(0, Math.max(0, 3 - killers.length)).map((g) => (
-                <li key={g.id || g.title} className="text-sm text-gray-200 leading-relaxed">
-                  <span className="text-amber-200 font-semibold text-xs uppercase mr-1.5">
-                    {g.priority || 'WATCH'}
-                  </span>
-                  <span className="text-white font-medium">{g.title}</span>
-                  {g.detail && (
-                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{g.detail}</p>
+                  <span className="text-white font-medium">{item.title}</span>
+                  {item.detail && (
+                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{item.detail}</p>
                   )}
                 </li>
               ))}
@@ -1096,9 +1082,9 @@ export default function ResultsViewerModal({
             <h4 className="text-sm font-semibold text-white mb-2">Immediate punch highlights</h4>
             <ul className="space-y-2">
               {punch.map((p, i) => (
-                <li key={`ex-p-${i}`} className="text-sm text-gray-200 flex gap-2 leading-relaxed">
+                <li key={`ex-punch-${i}`} className="text-sm text-gray-200 flex gap-2 leading-relaxed">
                   <span className="text-red-300 font-bold text-xs shrink-0 mt-0.5">
-                    {p.priority}
+                    {formatStampSeverity(p.priority)}
                   </span>
                   <span className="text-white">{p.task}</span>
                 </li>
@@ -1109,12 +1095,14 @@ export default function ResultsViewerModal({
 
         {envRisk && (
           <p className="text-xs text-gray-400">
-            Environmental screening risk: <span className="text-gray-200 font-medium">{envRisk}</span>
+            Environmental screening risk:{' '}
+            <span className="text-gray-200 font-medium">{envRisk}</span>
           </p>
         )}
 
         <p className="text-xs text-gray-500 border-t border-emerald-500/20 pt-3 leading-relaxed">
-          The bound IC Diligence Package and detailed sections below expand every item with sources.
+          The IC Project Report PDFs below are the bound deliverable. Detail sections that follow
+          expand every item with sources.
         </p>
       </section>
     );
@@ -1122,13 +1110,23 @@ export default function ResultsViewerModal({
 
   const jumpToCityPack = () => {
     setExpanded((prev) => ({ ...prev, punchList: true, critical: true }));
-    window.requestAnimationFrame(() => {
+    const tryScroll = (attempt: number) => {
       const el =
         document.getElementById('rg-city-pack') ||
         document.getElementById('bid-arbitrage') ||
         document.getElementById('rg-local-gotchas');
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.add('ring-2', 'ring-emerald-400/70', 'ring-offset-2', 'ring-offset-slate-900');
+        window.setTimeout(
+          () => el.classList.remove('ring-2', 'ring-emerald-400/70', 'ring-offset-2', 'ring-offset-slate-900'),
+          1800
+        );
+        showToast('Opened full city pack — fees & gotchas for this AHJ.');
+        return;
+      }
+      if (attempt < 4) {
+        window.setTimeout(() => tryScroll(attempt + 1), 80 * (attempt + 1));
         return;
       }
       showToast(
@@ -1136,7 +1134,8 @@ export default function ResultsViewerModal({
           ? 'No curated city pack for this ZIP yet — open the AHJ portal to confirm fees.'
           : 'City pack section is not on this results view — expand punch list or re-run with a pin.'
       );
-    });
+    };
+    window.requestAnimationFrame(() => tryScroll(0));
   };
 
   const renderProDelta = () => {
@@ -1714,34 +1713,38 @@ export default function ResultsViewerModal({
           </div>
         )}
 
-        {/* Executive summary — immediately under title, before share tools */}
-        <div id="executive-summary" className="px-5 sm:px-8 pt-5 pb-2">
+        {/* Executive summary — immediately before IC Project Report PDFs */}
+        <div id="executive-summary" className="px-5 sm:px-8 pt-5 pb-2 scroll-mt-4">
           {renderExecutiveSummary()}
         </div>
 
         {/* Text / Email + social share — scrolls with results (page scroll) */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
-          {icPdfsReady ? (
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3">
-              <div>
-                <p className="text-emerald-200 font-bold text-sm sm:text-base">
-                  IC Project Report PDFs
-                </p>
-                <p className="text-gray-300 text-sm mt-1 leading-relaxed">
-                  Primary deliverable: one bound boardroom package (cover, executive summary, Bid
-                  Risk Receipt, findings, punch list, sources). Optional worksheets below.
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled={packetLoading}
-                onClick={() => void downloadIcBoardroomPackage()}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
-              >
-                <Download className="w-5 h-5 shrink-0" />
-                {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
-              </button>
-              {(() => {
+          <div
+            id="ic-project-report-pdfs"
+            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3"
+          >
+            <div>
+              <p className="text-emerald-200 font-bold text-sm sm:text-base">
+                IC Project Report PDFs are ready
+              </p>
+              <p className="text-gray-300 text-sm mt-1 leading-relaxed">
+                {icPdfsReady
+                  ? 'Primary deliverable: one bound boardroom package (cover, executive summary, Bid Risk Receipt, findings, punch list, sources). Optional worksheets below.'
+                  : 'Download the bound boardroom package for this site when your IC order is active. Memo / punch / permits remain available as optional parts.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={packetLoading}
+              onClick={() => void downloadIcBoardroomPackage()}
+              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
+            >
+              <Download className="w-5 h-5 shrink-0" />
+              {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
+            </button>
+            {icPdfsReady ? (
+              (() => {
                 const parts = icOrderPdfs.filter((p) => p.type !== 'ic_package');
                 const primary = icOrderPdfs.find((p) => p.type === 'ic_package');
                 return (
@@ -1781,23 +1784,27 @@ export default function ResultsViewerModal({
                     ) : null}
                   </>
                 );
-              })()}
-              <div className="flex flex-wrap gap-2">
-                <a
-                  href="/orders?from=results"
-                  className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-emerald-400/50 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
-                >
-                  My Orders (re-download / forward)
-                </a>
-                <a
-                  href="/jobs"
-                  className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
-                >
-                  My Jobs
-                </a>
-              </div>
+              })()
+            ) : (
+              <p className="text-xs text-gray-400">
+                Package builds on demand from this results set. For order history, open My Orders.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <a
+                href="/orders?from=results"
+                className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-emerald-400/50 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
+              >
+                My Orders (re-download / forward)
+              </a>
+              <a
+                href="/jobs"
+                className="inline-flex px-4 py-2.5 min-h-[44px] items-center rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
+              >
+                My Jobs
+              </a>
             </div>
-          ) : null}
+          </div>
           <SendResultsForm
             researchId={effectiveResearchId}
             summary={summary}
@@ -1844,7 +1851,7 @@ export default function ResultsViewerModal({
                   {(view.regguard_stamp?.drivers || []).slice(0, 3).map((d) => (
                     <li key={d.label} className="text-xs text-gray-300">
                       <span className="font-semibold text-white">
-                        [{d.severity === 'FAIL' ? 'HOLD' : d.severity}]
+                        [{formatStampSeverity(d.severity)}]
                       </span>{' '}
                       {d.label}
                       {d.detail ? ` — ${d.detail}` : ''}
@@ -2066,7 +2073,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Coverage — Full city pack opens the curated fees + gotchas section */}
+          {/* Coverage — Full city pack always jumps to curated fees + gotchas */}
           <section
             className={`rounded-xl border p-4 ${
               coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
@@ -2078,47 +2085,28 @@ export default function ResultsViewerModal({
             aria-label="Coverage depth"
           >
             <div className="flex flex-wrap items-center gap-2">
-              {(coverage.tier === 'full_pack' ||
-                coverage.tier === 'paid_local' ||
-                view.fee_card ||
-                view.gotcha_watchlist ||
-                view.ahj_card) &&
-              (coverage.badge || '').toLowerCase().includes('city pack') ? (
-                <button
-                  type="button"
-                  onClick={jumpToCityPack}
-                  className="inline-flex items-center px-3 py-2 min-h-[40px] rounded-lg text-xs font-bold tracking-wide border bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50"
-                  title="Open curated city pack fees and gotchas for this AHJ"
-                >
-                  Open full city pack →
-                </button>
-              ) : (
-                <span
-                  className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${
-                    coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
-                      ? 'bg-emerald-950/60 text-emerald-200 border-emerald-500/40'
-                      : coverage.tier === 'portal_seed'
-                        ? 'bg-amber-950/60 text-amber-100 border-amber-500/40'
-                        : 'bg-slate-700 text-gray-100 border-slate-500'
-                  }`}
-                >
-                  Coverage: {coverage.badge}
-                </span>
-              )}
+              <button
+                type="button"
+                onClick={jumpToCityPack}
+                className={`inline-flex items-center px-3 py-2 min-h-[40px] rounded-lg text-xs font-bold tracking-wide border ${
+                  coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
+                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
+                    : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
+                }`}
+                title="Open curated city pack fees and gotchas for this AHJ"
+              >
+                {(coverage.badge || '').toLowerCase().includes('city pack')
+                  ? 'Open full city pack →'
+                  : `Open coverage: ${coverage.badge || 'local pack'} →`}
+              </button>
               <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
-              {(coverage.tier === 'full_pack' ||
-                coverage.tier === 'paid_local' ||
-                view.fee_card ||
-                view.gotcha_watchlist ||
-                view.ahj_card) && (
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg border border-emerald-500/40 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-xs font-bold"
-                  onClick={jumpToCityPack}
-                >
-                  Jump to local fees &amp; gotchas
-                </button>
-              )}
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg border border-emerald-500/40 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-xs font-bold"
+                onClick={jumpToCityPack}
+              >
+                Jump to local fees &amp; gotchas
+              </button>
             </div>
             {view.paid_local?.status === 'capped' && (
               <p className="text-sm text-amber-200 mt-3" role="status">
@@ -2397,9 +2385,8 @@ export default function ResultsViewerModal({
             </div>
           </div>
 
-          {/* Bid-time arbitrage layer */}
-          {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) && (
-            <section id="rg-city-pack" className="space-y-3 scroll-mt-4">
+          {/* City pack — always mounted so Full city pack CTA can scroll here */}
+          <section id="rg-city-pack" className="space-y-3 scroll-mt-6">
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
                 <p className="text-sm font-bold text-emerald-200">
                   Full city pack
@@ -2412,6 +2399,7 @@ export default function ResultsViewerModal({
                   official schedule before bid.
                 </p>
               </div>
+            {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) ? (
             <div id="bid-arbitrage" className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <h3 className="text-lg font-bold text-white">Bid-time arbitrage</h3>
@@ -2719,8 +2707,13 @@ export default function ResultsViewerModal({
                 </div>
               )}
             </div>
-            </section>
-          )}
+            ) : (
+              <p className="text-sm text-gray-400 px-1">
+                Curated fee rows are not in this pack yet. Use Jump to local fees above when available,
+                or open the AHJ portal from the stamp / AHJ card to confirm schedule dollars.
+              </p>
+            )}
+          </section>
 
 
           {/* Community friction signals */}

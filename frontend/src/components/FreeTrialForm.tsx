@@ -36,6 +36,9 @@ function generateClientResearchId(): string {
   return `ft-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/** Once per document load — remount after Moratorium→Home must not re-wipe session results. */
+let homeSessionInitDone = false;
+
 type ProgressStep = 'geocode' | 'screen' | 'punch';
 
 const PROGRESS_LABELS: Record<ProgressStep, string> = {
@@ -235,6 +238,11 @@ export default function FreeTrialForm({
     setResearchId(id);
     setAnalysis(analysisWithId);
     setResultsOpen(true);
+    try {
+      sessionStorage.setItem('resultsOpen', '1');
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   const runResearch = useCallback(async () => {
@@ -501,8 +509,7 @@ export default function FreeTrialForm({
     await runResearch();
   };
 
-  // Clean home / hard refresh: wipe sticky site. Only ?unlock=1 or ?run_ic=1 restore.
-  // Hard reload = blank slate (all fields + prior results). Checkout return keeps email/site.
+  // Hard reload = blank slate once per document load. Soft remount (Moratorium → Home) keeps results.
   useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
@@ -511,9 +518,24 @@ export default function FreeTrialForm({
     const nav = performance.getEntriesByType?.('navigation')?.[0] as
       | PerformanceNavigationTiming
       | undefined;
+    // Note: nav.type stays "reload" for the whole document life — do not re-wipe on remount.
     const isHardReload = nav?.type === 'reload';
+    const alreadyInitThisDocument = homeSessionInitDone;
+    homeSessionInitDone = true;
 
     if (keepForCheckout) {
+      setContactFieldsReady(true);
+      return;
+    }
+
+    // Soft client-side remount or first paint after soft nav: keep sticky results
+    if (alreadyInitThisDocument || !isHardReload) {
+      try {
+        sessionStorage.removeItem('userEmail');
+        localStorage.removeItem('regguard_jobs_email');
+      } catch {
+        /* ignore */
+      }
       setContactFieldsReady(true);
       return;
     }
@@ -521,14 +543,13 @@ export default function FreeTrialForm({
     try {
       sessionStorage.removeItem('userEmail');
       localStorage.removeItem('regguard_jobs_email');
-      if (isHardReload) {
-        sessionStorage.removeItem('analysisResults');
-        sessionStorage.removeItem('researchId');
-        sessionStorage.removeItem('lastResearchForm');
-        sessionStorage.removeItem('pendingDeepUnlock');
-        sessionStorage.removeItem('icForceOnce');
-        sessionStorage.removeItem('icPdfsReady');
-      }
+      sessionStorage.removeItem('analysisResults');
+      sessionStorage.removeItem('researchId');
+      sessionStorage.removeItem('lastResearchForm');
+      sessionStorage.removeItem('pendingDeepUnlock');
+      sessionStorage.removeItem('icForceOnce');
+      sessionStorage.removeItem('icPdfsReady');
+      sessionStorage.removeItem('resultsOpen');
     } catch {
       /* ignore */
     }
@@ -600,73 +621,82 @@ export default function FreeTrialForm({
       | PerformanceNavigationTiming
       | undefined;
     const isHardReload = nav?.type === 'reload';
+    // Only blank-slate on the first hard-reload mount of this document
+    const wipeHardReloadSession =
+      isHardReload && !sessionStorage.getItem('analysisResults') && !sessionStorage.getItem('researchId');
 
-    // Soft nav only: keep last results. Hard reload is a blank slate.
-    if (!isHardReload) {
-      try {
-        const stored = sessionStorage.getItem('analysisResults');
-        const rid = sessionStorage.getItem('researchId') || '';
-        if (stored) {
-          const parsed = JSON.parse(stored) as AnalysisData;
-          setAnalysis(parsed);
-          setResearchId(rid || parsed.research_id || null);
-          if (resume && !explicitRestore) {
-            setResultsOpen(true);
-            const url = new URL(window.location.href);
-            url.searchParams.delete('resume');
-            window.history.replaceState({}, '', url.pathname + (url.search || ''));
+    // Soft nav / resume: restore last results and re-open the panel
+    try {
+      const stored = sessionStorage.getItem('analysisResults');
+      const rid = sessionStorage.getItem('researchId') || '';
+      const wantOpen =
+        resume ||
+        sessionStorage.getItem('resultsOpen') === '1' ||
+        Boolean(stored);
+      if (stored && !wipeHardReloadSession) {
+        const parsed = JSON.parse(stored) as AnalysisData;
+        setAnalysis(parsed);
+        setResearchId(rid || parsed.research_id || null);
+        if (wantOpen && !explicitRestore) {
+          setResultsOpen(true);
+          try {
+            sessionStorage.setItem('resultsOpen', '1');
+          } catch {
+            /* ignore */
           }
         }
-      } catch {
-        /* ignore */
+        if (resume) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('resume');
+          window.history.replaceState({}, '', url.pathname + (url.search || ''));
+        }
       }
+    } catch {
+      /* ignore */
     }
 
     if (!explicitRestore) {
-      clearLastResearchForm();
-      clearPendingIcReport();
-      try {
-        sessionStorage.removeItem('pendingDeepUnlock');
-        sessionStorage.removeItem('icForceOnce');
-        sessionStorage.removeItem('icPdfsReady');
-        sessionStorage.removeItem('userEmail');
-        localStorage.removeItem('regguard_jobs_email');
-        if (isHardReload) {
+      if (wipeHardReloadSession) {
+        clearLastResearchForm();
+        clearPendingIcReport();
+        try {
+          sessionStorage.removeItem('pendingDeepUnlock');
+          sessionStorage.removeItem('icForceOnce');
+          sessionStorage.removeItem('icPdfsReady');
+          sessionStorage.removeItem('userEmail');
+          localStorage.removeItem('regguard_jobs_email');
           sessionStorage.removeItem('analysisResults');
           sessionStorage.removeItem('researchId');
+          sessionStorage.removeItem('resultsOpen');
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
-      }
-      setUnlockBanner(false);
-      setExternalLocation(null);
-      setFieldsUnlocked(false);
-      setLocationResetKey((k) => k + 1);
-      setFormData((prev) => ({
-        ...prev,
-        address: '',
-        city: '',
-        state: '',
-        zip: '',
-        phone: '',
-        lat: null,
-        lng: null,
-        email: '',
-      }));
-      if (isHardReload) {
+        setUnlockBanner(false);
+        setExternalLocation(null);
+        setFieldsUnlocked(false);
+        setLocationResetKey((k) => k + 1);
+        setFormData((prev) => ({
+          ...prev,
+          address: '',
+          city: '',
+          state: '',
+          zip: '',
+          phone: '',
+          lat: null,
+          lng: null,
+          email: '',
+        }));
         setAnalysis(null);
         setResearchId(null);
         setResultsOpen(false);
-      }
-      if (isHardReload || params.has('email')) {
-        try {
-          const url = new URL(window.location.href);
-          if (url.searchParams.has('email') && !explicitRestore) {
+        if (params.has('email')) {
+          try {
+            const url = new URL(window.location.href);
             url.searchParams.delete('email');
             window.history.replaceState({}, '', url.pathname + (url.search || ''));
+          } catch {
+            /* ignore */
           }
-        } catch {
-          /* ignore */
         }
       }
       return;
@@ -809,7 +839,14 @@ export default function FreeTrialForm({
           </p>
           <button
             type="button"
-            onClick={() => setResultsOpen(true)}
+            onClick={() => {
+              setResultsOpen(true);
+              try {
+                sessionStorage.setItem('resultsOpen', '1');
+              } catch {
+                /* ignore */
+              }
+            }}
             className="px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
           >
             Re-open results
@@ -1131,6 +1168,11 @@ export default function FreeTrialForm({
             isOpen={resultsOpen}
             onClose={() => {
               setResultsOpen(false);
+              try {
+                sessionStorage.setItem('resultsOpen', '0');
+              } catch {
+                /* ignore */
+              }
               window.requestAnimationFrame(() => {
                 document.getElementById('free-trial-form')?.scrollIntoView({
                   behavior: 'smooth',

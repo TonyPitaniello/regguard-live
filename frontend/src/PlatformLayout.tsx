@@ -37,6 +37,17 @@ interface PlatformLayoutProps {
   onLogout?: () => void;
 }
 
+function homePathWithResume(): string {
+  try {
+    if (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('analysisResults')) {
+      return '/?resume=1';
+    }
+  } catch {
+    /* ignore */
+  }
+  return '/';
+}
+
 const PLATFORM_ROUTES = [
   {
     name: 'Home',
@@ -179,7 +190,11 @@ export function PlatformLayout({
           } ${!shouldShowDesktopSidebar ? 'mobile-only-sidebar' : ''}`}
         >
           <div className="sidebar-header">
-            <Link to="/" className="platform-logo" onClick={() => setMobileMenuOpen(false)}>
+            <Link
+              to={homePathWithResume()}
+              className="platform-logo"
+              onClick={() => setMobileMenuOpen(false)}
+            >
               <div className="logo-mark">RG</div>
               <div className="logo-text">
                 <h1>RegGuard</h1>
@@ -203,10 +218,12 @@ export function PlatformLayout({
                 {routes.map((route) => {
                   const Icon = route.icon;
                   const active = isActive(route.path);
+                  const to =
+                    route.path === '/' ? homePathWithResume() : route.path;
                   return (
                     <Link
                       key={route.path}
-                      to={route.path}
+                      to={to}
                       className={`nav-item ${active ? 'active' : ''}`}
                       title={route.description}
                       onClick={() => setMobileMenuOpen(false)}
