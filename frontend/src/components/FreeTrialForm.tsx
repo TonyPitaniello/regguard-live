@@ -4,7 +4,7 @@
  * Listens for voice-fill events from VoiceCommandSystem.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Loader2, MapPin, Search, ListChecks } from 'lucide-react';
 import { LocationPicker } from './LocationPicker';
@@ -497,14 +497,44 @@ export default function FreeTrialForm({
   };
 
   // Clean home / hard refresh: wipe sticky site. Only ?unlock=1 or ?run_ic=1 restore.
-  // (Hard refresh does NOT clear sessionStorage — we clear sticky keys intentionally.)
+  // (Hard refresh does NOT clear sessionStorage by itself — we clear sticky keys intentionally.)
   // ?resume=1 restores the last results panel without re-running research.
+  // Hard reload always clears the email field (even with ?resume=1); checkout return keeps it.
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const unlockFromCheckout = params.get('unlock') === '1';
+    const runIc = params.get('run_ic') === '1';
+    const keepEmailForCheckout = unlockFromCheckout || runIc;
+    const nav = performance.getEntriesByType?.('navigation')?.[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const isHardReload = nav?.type === 'reload';
+
+    if (keepEmailForCheckout) return;
+
+    // Hard refresh or clean home load: never leave a sticky email in the field
+    try {
+      sessionStorage.removeItem('userEmail');
+      localStorage.removeItem('regguard_jobs_email');
+    } catch {
+      /* ignore */
+    }
+    setFormData((prev) => (prev.email ? { ...prev, email: '' } : prev));
+    if (isHardReload) {
+      setLocationResetKey((k) => k + 1);
+    }
+  }, []);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
     const runIc = params.get('run_ic') === '1';
     const resume = params.get('resume') === '1';
     const explicitRestore = unlockFromCheckout || runIc;
+    const nav = performance.getEntriesByType?.('navigation')?.[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const isHardReload = nav?.type === 'reload';
 
     // Keep last results available across Orders ↔ home without re-running
     try {
@@ -532,8 +562,9 @@ export default function FreeTrialForm({
         sessionStorage.removeItem('pendingDeepUnlock');
         sessionStorage.removeItem('icForceOnce');
         sessionStorage.removeItem('icPdfsReady');
-        // Hard refresh / clean home: do not keep a sticky email in the field
-        if (!resume) sessionStorage.removeItem('userEmail');
+        // Always clear sticky email on clean home / hard reload (do not restore on resume)
+        sessionStorage.removeItem('userEmail');
+        localStorage.removeItem('regguard_jobs_email');
       } catch {
         /* ignore */
       }
@@ -549,10 +580,20 @@ export default function FreeTrialForm({
         phone: '',
         lat: null,
         lng: null,
-        email: resume
-          ? (sessionStorage.getItem('userEmail') || prev.email || '')
-          : '',
+        email: '',
       }));
+      // Strip stray ?email= so nothing rehydrates the field after a hard refresh
+      if (isHardReload || params.has('email')) {
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has('email') && !explicitRestore) {
+            url.searchParams.delete('email');
+            window.history.replaceState({}, '', url.pathname + (url.search || ''));
+          }
+        } catch {
+          /* ignore */
+        }
+      }
       return;
     }
 
@@ -837,7 +878,7 @@ export default function FreeTrialForm({
               key={`home-email-${locationResetKey}`}
               id="home-email"
               type="email"
-              name="rg_contact_email"
+              name={`rg_contact_email_${locationResetKey}`}
               value={formData.email}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, email: e.target.value }))
