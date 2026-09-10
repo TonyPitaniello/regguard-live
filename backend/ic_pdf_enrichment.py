@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pdf_text import ascii_safe, markdown_to_bullets, markdown_to_plain
 
 # Bump when PDF layout/content contract changes — forces regen on download.
-PDF_FORMAT_VERSION = 8
+PDF_FORMAT_VERSION = 9
 
 
 def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:

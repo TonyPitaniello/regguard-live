@@ -13,6 +13,7 @@
     "76119",
     "76120",
     "76123",
+    "76126",
     "76132",
     "76133",
     "76134",
@@ -33,20 +34,35 @@
   ],
   "fees": [
     {
+      "id": "commercial_new_application_deposit",
+      "trade": "building",
+      "label": "New commercial construction — plan review deposit + application + technology fee (intake)",
+      "amount_usd": 289,
+      "components": [
+        {"name": "Plan review deposit", "amount_usd": 246},
+        {"name": "Application fee", "amount_usd": 28},
+        {"name": "Technology fee", "amount_usd": 15}
+      ],
+      "citation_url": "https://www.fortworthtexas.gov/files/assets/public/v/8/development-services/documents/resources-applications-forms-videos/p/new-construction-packet-fillable-0522.pdf",
+      "citation_note": "City packet: remaining permitting fees calculated after plan review by use and square footage / valuation.",
+      "verified": true,
+      "amount_requires_schedule": false
+    },
+    {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm Fort Worth Development Services schedule",
+      "label": "Building permit balance — valuation-based (confirm current Master Fee Schedule)",
       "amount_usd": null,
       "components": [],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
-      "citation_note": "Amount requires live Fort Worth fee schedule.",
+      "citation_note": "Final building/trade permit dollars vary by valuation and use — pull live Fort Worth fee schedule before bid.",
       "verified": true,
       "amount_requires_schedule": true
     },
     {
       "id": "electrical_permit_schedule",
       "trade": "electrical",
-      "label": "Electrical / trade permit \u2014 confirm Fort Worth schedule",
+      "label": "Electrical / trade permit — confirm Fort Worth schedule",
       "amount_usd": null,
       "components": [],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
@@ -57,13 +73,24 @@
     {
       "id": "plumbing_permit_schedule",
       "trade": "plumbing",
-      "label": "Plumbing permit \u2014 confirm Fort Worth schedule",
+      "label": "Plumbing permit — confirm Fort Worth schedule",
       "amount_usd": null,
       "components": [],
       "citation_url": "https://www.fortworthtexas.gov/departments/development-services",
       "citation_note": "Amount requires live Fort Worth fee schedule.",
       "verified": true,
       "amount_requires_schedule": true
+    },
+    {
+      "id": "stormwater_drainage_study_review",
+      "trade": "civil",
+      "label": "Stormwater drainage study review (base)",
+      "amount_usd": 1406.25,
+      "components": [{"name": "Plus per acre over 1 acre", "amount_usd": 11.25}],
+      "citation_url": "https://www.fortworthtexas.gov/files/assets/public/v/1/development-services/all-deactivated-pdfs/development-fee-schedule-preview.pdf",
+      "citation_note": "From Fort Worth fee ordinance exhibit — reconfirm effective date before bid.",
+      "verified": true,
+      "amount_requires_schedule": false
     }
   ],
   "gotchas": [
@@ -140,9 +167,9 @@
   ],
   "portal_url": "https://www.fortworthtexas.gov/departments/development-services",
   "fees_url": "https://www.fortworthtexas.gov/departments/development-services",
-  "apply_url": "https://www.fortworthtexas.gov/departments/development-services",
+  "apply_url": "https://aca-prod.accela.com/CFW",
   "inspections_url": "https://www.fortworthtexas.gov/departments/development-services",
-  "last_verified": "2026-09-08",
+  "last_verified": "2026-09-09",
   "scout_query_extras": {
     "permits": [
       "Fort Worth TX development services permits"

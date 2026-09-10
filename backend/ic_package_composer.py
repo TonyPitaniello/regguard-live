@@ -47,8 +47,8 @@ def _stamp_plain(grade: str) -> Dict[str, str]:
             "display": "HOLD",
             "label": "REGGUARD STAMP: HOLD — high pre-bid risk",
             "plain": (
-                "High pre-bid risk on this site. Not a rejection of the job — "
-                "resolve the drivers below before treating the bid as clear."
+                "HOLD means elevated pre-bid risk — not that the project is invalid or unplanned. "
+                "Resolve the drivers below before locking a bid number or treating the site as clear."
             ),
         }
     if g == "CAUTION":
@@ -56,7 +56,9 @@ def _stamp_plain(grade: str) -> Dict[str, str]:
             "grade": "CAUTION",
             "display": "CAUTION",
             "label": "REGGUARD STAMP: CAUTION — review before bid",
-            "plain": "Material pre-bid risk — review drivers before locking a number.",
+            "plain": (
+                "Material pre-bid risk remains. Review the drivers below before locking a number."
+            ),
         }
     if g == "PASS":
         return {
@@ -64,8 +66,8 @@ def _stamp_plain(grade: str) -> Dict[str, str]:
             "display": "CLEAR",
             "label": "REGGUARD STAMP: CLEAR",
             "plain": (
-                "No Critical killers on the current citeable pack — still confirm "
-                "fees and portal asks with the AHJ before bid."
+                "No Critical items on the current local pack. Still confirm fees and portal "
+                "requirements with the AHJ before bid."
             ),
         }
     return {
@@ -219,12 +221,18 @@ def _sources(analysis: Dict[str, Any], limit: int = 40) -> List[Dict[str, str]]:
 
 
 def _next_actions(analysis: Dict[str, Any], n: int = 5) -> List[str]:
+    pi = _pi(analysis)
+    ahj = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
+    ahj_name = _s(ahj.get("name") or (f"City of {pi.get('city')}" if pi.get("city") else "the local AHJ"), 80)
     actions: List[str] = []
     for k in _killers(analysis, 3):
-        actions.append(f"Resolve: {k['title']}")
+        title = k.get("title") or "priority risk"
+        actions.append(f"Confirm and close out: {title} — document the AHJ or utility response in the bid file.")
     for g in _gotchas(analysis, 2):
-        step = g.get("confirm_step") or g["title"]
-        if step not in actions:
+        step = _s(g.get("confirm_step") or g.get("title"), 200)
+        if step and step not in actions:
+            if not step.lower().startswith(("confirm", "verify", "pull", "treat", "schedule")):
+                step = f"Confirm with {ahj_name}: {step}"
             actions.append(step)
     env = analysis.get("environmental_screening") if isinstance(analysis.get("environmental_screening"), dict) else {}
     for a in env.get("action_plan") or []:
@@ -237,8 +245,8 @@ def _next_actions(analysis: Dict[str, Any], n: int = 5) -> List[str]:
             actions.append(t)
     if not actions:
         actions = [
-            "Confirm permit fees and trade registrations with the local AHJ.",
-            "Review punch list HIGH/CRITICAL lines before bid day.",
+            f"Confirm permit fees and trade registrations with {ahj_name}.",
+            "Review punch-list HIGH and CRITICAL lines before bid day.",
             "Verify utility / interconnection lead times for this site.",
         ]
     return actions[:n]
@@ -429,9 +437,9 @@ def _contingency_block(analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "pct_high": high,
         "label": _s(band.get("label") or "Suggested bid contingency cushion", 120),
         "plain": (
-            f"Add about {low}%-{high}% on top of your base estimate for AHJ fee, "
-            f"timeline, and local-risk exposure on this site (mid {mid}%). "
-            "Planning aid - not a quote or guarantee."
+            f"Plan a {low}%–{high}% cushion on your base estimate for local fees, "
+            f"review timing, and site risk (midpoint {mid}%). "
+            "This is a planning aid — not a quote or guarantee. Confirm final dollars with the AHJ."
         ),
         "drivers": drivers,
         "driver_table": table,
@@ -573,6 +581,23 @@ def compose_ic_package(
     )
 
     punch_obj = data.get("punch_list") if isinstance(data.get("punch_list"), dict) else {}
+    site_line = _site_line(pi)
+    ahj_name = _s(ahj.get("name") or f"City of {pi.get('city') or 'Local'}", 120)
+    if stamp.get("display") == "HOLD":
+        headline = (
+            f"{site_line} carries elevated pre-bid risk under {ahj_name}. "
+            "Treat municipal permits and utility interconnection as separate clocks until both are confirmed."
+        )
+    elif stamp.get("display") == "CAUTION":
+        headline = (
+            f"{site_line} has material pre-bid items under {ahj_name} "
+            "that should be cleared before you lock a number."
+        )
+    else:
+        headline = (
+            f"{site_line}: review the contingency band and priority items below, "
+            f"then confirm dollars on the {ahj_name} fee schedule before bid."
+        )
 
     pkg = {
         "schema": PACKAGE_SCHEMA,
@@ -581,21 +606,21 @@ def compose_ic_package(
         "generated_for": _s(generated_for, 120).lower(),
         "share_url": share,
         "cover": {
-            "product": "RegGuard IC Project Diligence Package",
-            "price_positioning": "$1,500 IC Project Report - bound site diligence",
-            "site": _site_line(pi),
+            "product": f"RegGuard IC Diligence Package — {site_line}",
+            "price_positioning": "$1,500 IC Project Report — bound site diligence",
+            "site": site_line,
             "address": pi.get("address"),
             "city": pi.get("city"),
             "state": pi.get("state"),
             "zip": pi.get("zip"),
             "project_type": pi.get("type"),
-            "ahj_name": _s(ahj.get("name") or f"{pi.get('city') or 'Local'} AHJ", 120),
+            "ahj_name": ahj_name,
             "depth_badge": depth,
             "coverage_badge": _s(coverage.get("badge") or coverage.get("badge_short"), 80),
             "research_id": _s(data.get("research_id"), 80),
         },
         "executive_summary": {
-            "headline": "What matters before you bid",
+            "headline": headline,
             "stamp": stamp,
             "contingency": contingency,
             "top_risks": killers[:3],
