@@ -719,18 +719,27 @@ export default function ResultsViewerModal({
   >([]);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Page-scroll takeover: land on executive summary first
+  // Scroll the real app scroller (.platform-content), not window — otherwise the
+  // executive summary can sit off-screen while the stamp looks like the top of results.
   useEffect(() => {
     if (!isOpen) return;
-    const id = window.requestAnimationFrame(() => {
-      const summary = document.getElementById('rg-executive-summary') || document.getElementById('executive-summary');
-      const el = summary || rootRef.current;
-      if (!el) return;
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const top = el.getBoundingClientRect().top + window.scrollY - 12;
-      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-    });
-    return () => window.cancelAnimationFrame(id);
+    const id = window.setTimeout(() => {
+      const summary =
+        document.getElementById('rg-executive-summary') ||
+        document.getElementById('executive-summary');
+      const scroller = document.querySelector('.platform-content') as HTMLElement | null;
+      if (summary && scroller) {
+        const top =
+          summary.getBoundingClientRect().top -
+          scroller.getBoundingClientRect().top +
+          scroller.scrollTop -
+          8;
+        scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+        return;
+      }
+      summary?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(id);
   }, [isOpen, analysis]);
 
   useEffect(() => {
@@ -1027,16 +1036,41 @@ export default function ResultsViewerModal({
     return (
       <section
         id="rg-executive-summary"
-        className="rounded-xl border-2 border-sky-400/70 bg-gradient-to-br from-[#071525] via-[#0a1429] to-slate-950 p-5 sm:p-6 space-y-4 shadow-2xl shadow-sky-900/40"
+        style={{
+          border: '2px solid #38bdf8',
+          borderRadius: 12,
+          padding: '20px 22px',
+          background: 'linear-gradient(145deg,#071525 0%,#0a1429 45%,#020617 100%)',
+          marginBottom: 8,
+        }}
       >
         <div className="space-y-2">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 900,
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: '#7dd3fc',
+              margin: 0,
+            }}
+          >
             Executive summary — read this first
           </p>
-          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
+          <h3
+            style={{
+              fontSize: 22,
+              fontWeight: 900,
+              color: '#fff',
+              margin: '6px 0 0',
+              lineHeight: 1.25,
+            }}
+          >
             Boardroom brief — {site}
           </h3>
-          <p className="text-gray-100 text-sm sm:text-[15px] leading-relaxed max-w-3xl">{lead}</p>
+          <p style={{ color: '#f1f5f9', fontSize: 15, lineHeight: 1.55, margin: '8px 0 0', maxWidth: 720 }}>
+            {lead}
+          </p>
           {stampDisplay && (
             <p
               className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${
@@ -1051,14 +1085,22 @@ export default function ResultsViewerModal({
         </div>
 
         {contingency && (
-          <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
+          <div
+            style={{
+              marginTop: 14,
+              border: '1px solid rgba(56,189,248,0.35)',
+              borderRadius: 10,
+              padding: '12px 14px',
+              background: 'rgba(14,165,233,0.12)',
+            }}
+          >
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7dd3fc', margin: 0 }}>
               Suggested bid contingency
             </p>
-            <p className="text-2xl font-bold text-sky-200 tracking-tight mt-0.5">
+            <p style={{ fontSize: 28, fontWeight: 800, color: '#e0f2fe', margin: '4px 0 0' }}>
               +{contingency.pct_low}% – +{contingency.pct_high}%
             </p>
-            <p className="text-sm text-gray-200 mt-1.5 leading-relaxed">
+            <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
               Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
               local fees, review timing, and site risk
               {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. This is a
@@ -1068,8 +1110,10 @@ export default function ResultsViewerModal({
         )}
 
         {priorityLines.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-2">What to resolve before bid</h4>
+          <div style={{ marginTop: 16 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
+              What to resolve before bid
+            </h4>
             <ol className="space-y-2.5 list-decimal pl-5">
               {priorityLines.map((item, i) => (
                 <li key={`ex-p-${i}`} className="text-sm text-gray-200 leading-relaxed">
@@ -1087,8 +1131,10 @@ export default function ResultsViewerModal({
         )}
 
         {punch.length > 0 && (
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-2">Immediate punch highlights</h4>
+          <div style={{ marginTop: 16 }}>
+            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
+              Immediate punch highlights
+            </h4>
             <ul className="space-y-2">
               {punch.map((p, i) => (
                 <li key={`ex-punch-${i}`} className="text-sm text-gray-200 flex gap-2 leading-relaxed">
@@ -1103,13 +1149,22 @@ export default function ResultsViewerModal({
         )}
 
         {envRisk && (
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400" style={{ marginTop: 12 }}>
             Environmental screening risk:{' '}
             <span className="text-gray-200 font-medium">{envRisk}</span>
           </p>
         )}
 
-        <p className="text-xs text-gray-400 border-t border-sky-500/25 pt-3 leading-relaxed">
+        <p
+          style={{
+            fontSize: 12,
+            color: '#94a3b8',
+            borderTop: '1px solid rgba(56,189,248,0.25)',
+            paddingTop: 12,
+            marginTop: 14,
+            lineHeight: 1.5,
+          }}
+        >
           Next: download the IC Project Report PDFs below. Detail sections further down expand every
           item with sources.
         </p>
@@ -1626,6 +1681,7 @@ export default function ResultsViewerModal({
             <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
               Your Site Diligence Analysis
             </h2>
+            <p className="text-[10px] text-slate-500 mt-1 font-mono">ui-build epoch5 · exec-summary-v3</p>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
                 const pi = view.project_info || ({} as AnalysisData['project_info']);
@@ -1684,10 +1740,18 @@ export default function ResultsViewerModal({
           <button
             type="button"
             onClick={() => {
-              document.getElementById('rg-executive-summary')?.scrollIntoView({
-                behavior: 'smooth',
-                block: 'start',
-              });
+              const summary = document.getElementById('rg-executive-summary');
+              const scroller = document.querySelector('.platform-content') as HTMLElement | null;
+              if (summary && scroller) {
+                const top =
+                  summary.getBoundingClientRect().top -
+                  scroller.getBoundingClientRect().top +
+                  scroller.scrollTop -
+                  8;
+                scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+                return;
+              }
+              summary?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }}
             className="px-3 py-2 min-h-[40px] rounded-lg border border-sky-500/50 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25 font-bold"
           >
@@ -1736,14 +1800,7 @@ export default function ResultsViewerModal({
 
         {/* Email first, then executive summary + IC PDFs (the pair users ask for) */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-4">
-          <SendResultsForm
-            researchId={effectiveResearchId}
-            summary={summary}
-            analysis={view}
-            defaultEmail={defaultEmail}
-            defaultPhone={defaultPhone}
-          />
-
+          {/* Always first in the results body — inline styles so a stale CSS chunk cannot hide it */}
           <div id="executive-summary" className="scroll-mt-4">
             {renderExecutiveSummary()}
           </div>
@@ -1834,6 +1891,14 @@ export default function ResultsViewerModal({
             </div>
           </div>
 
+          <SendResultsForm
+            researchId={effectiveResearchId}
+            summary={summary}
+            analysis={view}
+            defaultEmail={defaultEmail}
+            defaultPhone={defaultPhone}
+          />
+
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-2 flex items-center gap-2">
               <Share2 className="w-3.5 h-3.5" />
@@ -1854,6 +1919,13 @@ export default function ResultsViewerModal({
                     ((view.regguard_stamp?.grade || view.stamp_grade) === 'FAIL'
                       ? 'REGGUARD STAMP: HOLD — high pre-bid risk'
                       : `REGGUARD STAMP: ${view.stamp_grade}`)}
+                </p>
+                <p className="text-xs text-sky-200/95 mt-2 leading-relaxed border border-sky-400/30 rounded-md bg-sky-950/40 px-2.5 py-2">
+                  <span className="font-bold uppercase tracking-wide text-sky-300">Boardroom brief: </span>
+                  {(view.regguard_stamp?.headline ||
+                    view.project_info?.address ||
+                    'This site') +
+                    ' — treat municipal permits and utility interconnection as parallel clocks until both are confirmed. See Executive summary above for contingency and drivers.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   CLEAR = no Critical killers on the current pack · CAUTION = material risk · HOLD =
