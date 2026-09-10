@@ -108,9 +108,12 @@ export default function FreeTrialForm({
     zip?: string;
   } | null>(null);
   const [locationResetKey, setLocationResetKey] = useState(0);
-  /** Chrome ignores autocomplete=off; unlock on focus so fields stay blank on load. */
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
-  const unlockFields = () => setFieldsUnlocked(true);
+  const contactAutofillPurgeUntilRef = useRef(0);
+  const unlockFields = () => {
+    setFieldsUnlocked(true);
+    contactAutofillPurgeUntilRef.current = 0;
+  };
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [progressStep, setProgressStep] = useState<ProgressStep>('geocode');
@@ -497,32 +500,67 @@ export default function FreeTrialForm({
   };
 
   // Clean home / hard refresh: wipe sticky site. Only ?unlock=1 or ?run_ic=1 restore.
-  // (Hard refresh does NOT clear sessionStorage by itself — we clear sticky keys intentionally.)
-  // ?resume=1 restores the last results panel without re-running research.
-  // Hard reload always clears the email field (even with ?resume=1); checkout return keeps it.
+  // Hard reload = blank slate (all fields + prior results). Checkout return keeps email/site.
   useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unlockFromCheckout = params.get('unlock') === '1';
     const runIc = params.get('run_ic') === '1';
-    const keepEmailForCheckout = unlockFromCheckout || runIc;
+    const keepForCheckout = unlockFromCheckout || runIc;
     const nav = performance.getEntriesByType?.('navigation')?.[0] as
       | PerformanceNavigationTiming
       | undefined;
     const isHardReload = nav?.type === 'reload';
 
-    if (keepEmailForCheckout) return;
+    if (keepForCheckout) return;
 
-    // Hard refresh or clean home load: never leave a sticky email in the field
     try {
       sessionStorage.removeItem('userEmail');
       localStorage.removeItem('regguard_jobs_email');
+      if (isHardReload) {
+        sessionStorage.removeItem('analysisResults');
+        sessionStorage.removeItem('researchId');
+        sessionStorage.removeItem('lastResearchForm');
+        sessionStorage.removeItem('pendingDeepUnlock');
+        sessionStorage.removeItem('icForceOnce');
+        sessionStorage.removeItem('icPdfsReady');
+      }
     } catch {
       /* ignore */
     }
-    setFormData((prev) => (prev.email ? { ...prev, email: '' } : prev));
-    if (isHardReload) {
-      setLocationResetKey((k) => k + 1);
-    }
+    setAnalysis(null);
+    setResearchId(null);
+    setResultsOpen(false);
+    setExternalLocation(null);
+    setFieldsUnlocked(false);
+    setFormData((prev) => ({
+      ...prev,
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      email: '',
+      phone: '',
+      lat: null,
+      lng: null,
+    }));
+    setLocationResetKey((k) => k + 1);
+    contactAutofillPurgeUntilRef.current = Date.now() + 700;
+
+    const purgeContact = () => {
+      if (Date.now() > contactAutofillPurgeUntilRef.current) return;
+      if (fieldsUnlocked) return;
+      setFormData((prev) =>
+        prev.email || prev.phone ? { ...prev, email: '', phone: '' } : prev
+      );
+    };
+    const t1 = window.setTimeout(purgeContact, 50);
+    const t2 = window.setTimeout(purgeContact, 350);
+    const t3 = window.setTimeout(purgeContact, 700);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
   }, []);
 
   useEffect(() => {
@@ -536,23 +574,25 @@ export default function FreeTrialForm({
       | undefined;
     const isHardReload = nav?.type === 'reload';
 
-    // Keep last results available across Orders ↔ home without re-running
-    try {
-      const stored = sessionStorage.getItem('analysisResults');
-      const rid = sessionStorage.getItem('researchId') || '';
-      if (stored) {
-        const parsed = JSON.parse(stored) as AnalysisData;
-        setAnalysis(parsed);
-        setResearchId(rid || parsed.research_id || null);
-        if (resume && !explicitRestore) {
-          setResultsOpen(true);
-          const url = new URL(window.location.href);
-          url.searchParams.delete('resume');
-          window.history.replaceState({}, '', url.pathname + (url.search || ''));
+    // Soft nav only: keep last results. Hard reload is a blank slate.
+    if (!isHardReload) {
+      try {
+        const stored = sessionStorage.getItem('analysisResults');
+        const rid = sessionStorage.getItem('researchId') || '';
+        if (stored) {
+          const parsed = JSON.parse(stored) as AnalysisData;
+          setAnalysis(parsed);
+          setResearchId(rid || parsed.research_id || null);
+          if (resume && !explicitRestore) {
+            setResultsOpen(true);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('resume');
+            window.history.replaceState({}, '', url.pathname + (url.search || ''));
+          }
         }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
     }
 
     if (!explicitRestore) {
@@ -562,14 +602,18 @@ export default function FreeTrialForm({
         sessionStorage.removeItem('pendingDeepUnlock');
         sessionStorage.removeItem('icForceOnce');
         sessionStorage.removeItem('icPdfsReady');
-        // Always clear sticky email on clean home / hard reload (do not restore on resume)
         sessionStorage.removeItem('userEmail');
         localStorage.removeItem('regguard_jobs_email');
+        if (isHardReload) {
+          sessionStorage.removeItem('analysisResults');
+          sessionStorage.removeItem('researchId');
+        }
       } catch {
         /* ignore */
       }
       setUnlockBanner(false);
       setExternalLocation(null);
+      setFieldsUnlocked(false);
       setLocationResetKey((k) => k + 1);
       setFormData((prev) => ({
         ...prev,
@@ -582,7 +626,11 @@ export default function FreeTrialForm({
         lng: null,
         email: '',
       }));
-      // Strip stray ?email= so nothing rehydrates the field after a hard refresh
+      if (isHardReload) {
+        setAnalysis(null);
+        setResearchId(null);
+        setResultsOpen(false);
+      }
       if (isHardReload || params.has('email')) {
         try {
           const url = new URL(window.location.href);
@@ -890,7 +938,7 @@ export default function FreeTrialForm({
                   void runResearch();
                 }
               }}
-              placeholder="Email"
+              placeholder=""
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -904,7 +952,7 @@ export default function FreeTrialForm({
             />
             <p className="text-xs text-gray-400 mt-2">
               Email is required to run a lookup. Optional SMS is below — never required.
-              Hard refresh clears this field; it is only restored after checkout.
+              Hard refresh clears all fields; email is only restored after checkout.
             </p>
           </div>
 
@@ -913,11 +961,12 @@ export default function FreeTrialForm({
               Phone <span className="text-gray-400 font-normal">(optional — SMS)</span>
             </label>
             <input
+              key={`home-phone-${locationResetKey}`}
               id="home-phone"
               type="tel"
-              name="rg_contact_phone"
+              name={`rg_contact_phone_${locationResetKey}`}
               inputMode="tel"
-              autoComplete="section-contact tel"
+              autoComplete="off"
               value={formData.phone}
               onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
               onFocus={unlockFields}
@@ -927,7 +976,7 @@ export default function FreeTrialForm({
                   void runResearch();
                 }
               }}
-              placeholder="(555) 123-4567"
+              placeholder=""
               readOnly={!fieldsUnlocked}
               data-lpignore="true"
               data-1p-ignore="true"

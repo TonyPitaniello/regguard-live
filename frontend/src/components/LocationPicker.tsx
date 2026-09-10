@@ -114,6 +114,8 @@ export function LocationPicker({
   /** Bump to force Leaflet re-init when the shell remounts (fixes gray blank map). */
   const [mapEpoch, setMapEpoch] = useState(0);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
+  /** Unlock after focus so Chrome cannot autofill jobsite on hard refresh */
+  const [siteFieldsUnlocked, setSiteFieldsUnlocked] = useState(false);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -121,6 +123,13 @@ export function LocationPicker({
   /** Last query we already resolved (forward / reverse / places) — avoids geocode loops. */
   const settledQueryRef = useRef('');
   const forwardAbortRef = useRef<AbortController | null>(null);
+  /** While > now, blank autofill paint is purged (cancelled on site-field focus). */
+  const autofillPurgeUntilRef = useRef(0);
+  /**
+   * Chrome/Safari contact autofill often writes home street/city/ZIP when the user
+   * fills phone/email. Ignore site-field onChange unless a site input actually has focus.
+   */
+  const siteFieldFocusedRef = useRef(false);
 
   const destroyMap = () => {
     if (mapRef.current) {
@@ -149,11 +158,13 @@ export function LocationPicker({
     const nextState = externalValues.state ?? '';
     const nextZip = externalValues.zip ?? '';
     if (!nextAddress && !nextCity && !nextState && !nextZip) return;
+    autofillPurgeUntilRef.current = 0; // do not wipe checkout / voice restore
     settledQueryRef.current = ''; // allow forward geocode
     if (nextAddress) setAddress(nextAddress);
     if (nextCity) setCity(nextCity);
     if (nextState) setState(nextState);
     if (nextZip) setZip(nextZip);
+    setSiteFieldsUnlocked(true);
     setMapVisible(true);
     setLocationConfirmed(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,9 +175,8 @@ export function LocationPicker({
     externalValues?.zip,
   ]);
 
-  // Parent "New site" — wipe local pin state
+  // Parent "New site" / hard refresh — wipe local pin state
   useEffect(() => {
-    if (!resetKey) return;
     settledQueryRef.current = '';
     setAddress('');
     setCity('');
@@ -178,7 +188,25 @@ export function LocationPicker({
     setLocationConfirmed(false);
     setError('');
     setMapVisible(true);
+    setSiteFieldsUnlocked(false);
     destroyMap();
+    autofillPurgeUntilRef.current = Date.now() + 700;
+    const purge = () => {
+      if (Date.now() > autofillPurgeUntilRef.current) return;
+      if (siteFieldFocusedRef.current) return;
+      setAddress('');
+      setCity('');
+      setState('');
+      setZip('');
+    };
+    const t1 = window.setTimeout(purge, 50);
+    const t2 = window.setTimeout(purge, 350);
+    const t3 = window.setTimeout(purge, 700);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
 
@@ -198,9 +226,11 @@ export function LocationPicker({
     setLng(null);
     latLngRef.current = null;
     setLocationConfirmed(false);
+    setSiteFieldsUnlocked(false);
     setError('');
-    destroyMap();
     setMapVisible(true);
+    destroyMap();
+    setMapEpoch((e) => e + 1);
   };
 
   useEffect(() => {
@@ -842,10 +872,10 @@ export function LocationPicker({
    * fills phone/email. Ignore site-field onChange unless a site input actually has focus
    * (Places / map / reverse-geocode still update via setState, not this handler).
    */
-  const siteFieldFocusedRef = useRef(false);
-
   const markSiteFieldFocused = () => {
     siteFieldFocusedRef.current = true;
+    autofillPurgeUntilRef.current = 0;
+    setSiteFieldsUnlocked(true);
   };
 
   const onSiteFieldBlur = () => {
@@ -989,17 +1019,19 @@ export function LocationPicker({
               Street *
             </label>
             <input
+              key={`rg-street-${resetKey}`}
               id="rg-jobsite-street"
               type="text"
-              name="rg_jobsite_street"
+              name={`rg_jobsite_street_${resetKey}`}
               value={address}
               onChange={onFieldChange(setAddress)}
               onFocus={markSiteFieldFocused}
               onBlur={onSiteFieldBlur}
               disabled={disabled || locationConfirmed}
+              readOnly={!siteFieldsUnlocked}
               className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-              placeholder="100 W Avenue F"
-              autoComplete="section-jobsite address-line1"
+              placeholder=""
+              autoComplete="off"
               autoCorrect="off"
               spellCheck={false}
               data-lpignore="true"
@@ -1013,17 +1045,19 @@ export function LocationPicker({
                 City *
               </label>
               <input
+                key={`rg-city-${resetKey}`}
                 id="rg-jobsite-city"
                 type="text"
-                name="rg_jobsite_city"
+                name={`rg_jobsite_city_${resetKey}`}
                 value={city}
                 onChange={onFieldChange(setCity)}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
+                readOnly={!siteFieldsUnlocked}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-                placeholder="Midlothian"
-                autoComplete="section-jobsite address-level2"
+                placeholder=""
+                autoComplete="off"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
@@ -1034,17 +1068,19 @@ export function LocationPicker({
                 State *
               </label>
               <input
+                key={`rg-state-${resetKey}`}
                 id="rg-jobsite-state"
                 type="text"
-                name="rg_jobsite_state"
+                name={`rg_jobsite_state_${resetKey}`}
                 value={state}
                 onChange={onFieldChange(setState)}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
+                readOnly={!siteFieldsUnlocked}
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-                placeholder="TX"
-                autoComplete="section-jobsite address-level1"
+                placeholder=""
+                autoComplete="off"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
@@ -1055,18 +1091,20 @@ export function LocationPicker({
                 ZIP *
               </label>
               <input
+                key={`rg-zip-${resetKey}`}
                 id="rg-jobsite-zip"
                 type="text"
-                name="rg_jobsite_zip"
+                name={`rg_jobsite_zip_${resetKey}`}
                 value={zip}
                 onChange={onFieldChange(setZip)}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
+                readOnly={!siteFieldsUnlocked}
                 inputMode="numeric"
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
-                placeholder="76065"
-                autoComplete="section-jobsite postal-code"
+                placeholder=""
+                autoComplete="off"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"

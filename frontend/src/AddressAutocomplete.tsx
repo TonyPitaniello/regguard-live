@@ -399,7 +399,7 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
           className={barClass}
           type="text"
           disabled
-          placeholder="Set VITE_GOOGLE_MAPS_API_KEY to enable U.S. address search…"
+          placeholder=""
           autoComplete="off"
           aria-labelledby="job-site-address-label"
         />
@@ -419,7 +419,7 @@ export const AddressAutocomplete = forwardRef<AddressAutocompleteHandle, Props>(
             className={barClass}
             type="text"
             disabled
-            placeholder="Loading Maps…"
+            placeholder=""
             autoComplete="off"
             readOnly
             aria-hidden
