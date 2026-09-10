@@ -974,7 +974,7 @@ export default function ResultsViewerModal({
     return raw || 'Note';
   };
 
-  /** First thing on every scan — boardroom brief before PDFs and detail */
+  /** First thing leadership should read — boardroom brief before PDFs and detail */
   const renderExecutiveSummary = () => {
     const site =
       view.project_info?.address ||
@@ -995,6 +995,7 @@ export default function ResultsViewerModal({
     const stampGrade = (view.regguard_stamp?.grade || view.stamp_grade || '').toUpperCase();
     const stampDisplay =
       stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || null;
+    const stampDrivers = (view.regguard_stamp?.drivers || []).slice(0, 3);
 
     const lead =
       stampDisplay === 'HOLD'
@@ -1009,26 +1010,33 @@ export default function ResultsViewerModal({
         title: k.title,
         detail: k.detail,
       })),
-      ...gotchas.slice(0, Math.max(0, 3 - killers.length)).map((g) => ({
+      ...gotchas.map((g) => ({
         sev: formatStampSeverity(g.priority),
         title: g.title,
         detail: g.detail,
       })),
-    ].slice(0, 3);
+      ...stampDrivers.map((d) => ({
+        sev: formatStampSeverity(d.severity),
+        title: d.label,
+        detail: d.detail,
+      })),
+    ]
+      .filter((item, idx, arr) => arr.findIndex((x) => x.title === item.title) === idx)
+      .slice(0, 4);
 
     return (
       <section
         id="rg-executive-summary"
-        className="rounded-xl border border-emerald-400/50 bg-gradient-to-br from-[#0a1429] via-slate-950 to-slate-900 p-5 sm:p-6 space-y-4 shadow-xl shadow-black/40"
+        className="rounded-xl border-2 border-sky-400/70 bg-gradient-to-br from-[#071525] via-[#0a1429] to-slate-950 p-5 sm:p-6 space-y-4 shadow-2xl shadow-sky-900/40"
       >
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-            Executive summary
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-sky-300">
+            Executive summary — read this first
           </p>
-          <h3 className="text-xl sm:text-2xl font-bold text-white tracking-tight leading-snug">
+          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">
             Boardroom brief — {site}
           </h3>
-          <p className="text-gray-200 text-sm sm:text-[15px] leading-relaxed max-w-3xl">{lead}</p>
+          <p className="text-gray-100 text-sm sm:text-[15px] leading-relaxed max-w-3xl">{lead}</p>
           {stampDisplay && (
             <p
               className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${
@@ -1043,16 +1051,17 @@ export default function ResultsViewerModal({
         </div>
 
         {contingency && (
-          <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-300">
+          <div className="rounded-lg border border-sky-500/35 bg-sky-500/10 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-sky-300">
               Suggested bid contingency
             </p>
-            <p className="text-2xl font-bold text-emerald-400 tracking-tight mt-0.5">
+            <p className="text-2xl font-bold text-sky-200 tracking-tight mt-0.5">
               +{contingency.pct_low}% – +{contingency.pct_high}%
             </p>
             <p className="text-sm text-gray-200 mt-1.5 leading-relaxed">
               Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
-              local fees, review timing, and site risk (midpoint {contingency.pct_mid}%). This is a
+              local fees, review timing, and site risk
+              {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. This is a
               planning aid — not a quote or guarantee. Confirm final dollars with {ahjName}.
             </p>
           </div>
@@ -1100,9 +1109,9 @@ export default function ResultsViewerModal({
           </p>
         )}
 
-        <p className="text-xs text-gray-500 border-t border-emerald-500/20 pt-3 leading-relaxed">
-          The IC Project Report PDFs below are the bound deliverable. Detail sections that follow
-          expand every item with sources.
+        <p className="text-xs text-gray-400 border-t border-sky-500/25 pt-3 leading-relaxed">
+          Next: download the IC Project Report PDFs below. Detail sections further down expand every
+          item with sources.
         </p>
       </section>
     );
@@ -1672,6 +1681,18 @@ export default function ResultsViewerModal({
           >
             ← Back to form (results stay saved)
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              document.getElementById('rg-executive-summary')?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              });
+            }}
+            className="px-3 py-2 min-h-[40px] rounded-lg border border-sky-500/50 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25 font-bold"
+          >
+            Executive summary
+          </button>
           <a
             href="/orders?from=results"
             className="px-3 py-2 min-h-[40px] inline-flex items-center rounded-lg border border-slate-600 text-gray-200 hover:bg-slate-800 font-semibold"
@@ -1713,13 +1734,20 @@ export default function ResultsViewerModal({
           </div>
         )}
 
-        {/* Executive summary — immediately before IC Project Report PDFs */}
-        <div id="executive-summary" className="px-5 sm:px-8 pt-5 pb-2 scroll-mt-4">
-          {renderExecutiveSummary()}
-        </div>
+        {/* Email first, then executive summary + IC PDFs (the pair users ask for) */}
+        <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-4">
+          <SendResultsForm
+            researchId={effectiveResearchId}
+            summary={summary}
+            analysis={view}
+            defaultEmail={defaultEmail}
+            defaultPhone={defaultPhone}
+          />
 
-        {/* Text / Email + social share — scrolls with results (page scroll) */}
-        <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-3">
+          <div id="executive-summary" className="scroll-mt-4">
+            {renderExecutiveSummary()}
+          </div>
+
           <div
             id="ic-project-report-pdfs"
             className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3"
@@ -1805,13 +1833,6 @@ export default function ResultsViewerModal({
               </a>
             </div>
           </div>
-          <SendResultsForm
-            researchId={effectiveResearchId}
-            summary={summary}
-            analysis={view}
-            defaultEmail={defaultEmail}
-            defaultPhone={defaultPhone}
-          />
 
           <div>
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-2 flex items-center gap-2">
