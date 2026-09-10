@@ -130,6 +130,11 @@ export function LocationPicker({
    * fills phone/email. Ignore site-field onChange unless a site input actually has focus.
    */
   const siteFieldFocusedRef = useRef(false);
+  /** After a successful pin place, ignore autofill package overwrites briefly. */
+  const pinGuardUntilRef = useRef(0);
+  const pinnedStreetRef = useRef('');
+  /** True while forward-geocoding from Find/Update pin — form must follow geocode result. */
+  const forceGeoFormSyncRef = useRef(false);
 
   const destroyMap = () => {
     if (mapRef.current) {
@@ -319,7 +324,12 @@ export function LocationPicker({
     }
   };
 
-  const reverseGeocode = async (latitude: number, longitude: number) => {
+  const reverseGeocode = async (
+    latitude: number,
+    longitude: number,
+    opts?: { overwriteForm?: boolean }
+  ) => {
+    const overwriteForm = Boolean(opts?.overwriteForm);
     setLoading(true);
     setError('');
     setLocationConfirmed(false);
@@ -363,34 +373,53 @@ export function LocationPicker({
       const geoState = (data.state || parsed.state || '').trim();
       const geoZip = ((data.zip || parsed.zip || '').match(/\d{5}/) || [''])[0];
 
-      // Keep user-typed Plano / 75074 — reverse geocode must not swap to Dallas/Tyler
-      const merged = preferUserLocality({
-        userStreet: address,
-        userCity: city,
-        userState: state,
-        userZip: zip,
-        geoStreet,
-        geoCity,
-        geoState,
-        geoZip,
-      });
+      let useStreet: string;
+      let useCity: string;
+      let useStateVal: string;
+      let useZip: string;
 
-      if (!address.trim() || address.trim().length < 5) {
-        setAddress(merged.street || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      }
-      if (!city.trim()) setCity(merged.city);
-      if (!state.trim()) setState(merged.state);
-      if (zip5Of(zip).length < 5) setZip(merged.zip);
+      if (overwriteForm) {
+        // Auto-Detect / explicit GPS — form follows the device pin.
+        useStreet = geoStreet || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        useCity = geoCity;
+        useStateVal = geoState;
+        useZip = geoZip;
+        setAddress(useStreet);
+        setCity(useCity);
+        setState(useStateVal);
+        setZip(useZip);
+        pinGuardUntilRef.current = Date.now() + 4000;
+        pinnedStreetRef.current = useStreet;
+      } else {
+        // Map click: keep a strong user-typed street; only fill blanks for locality.
+        // Never let reverse (e.g. "5300 FM 2871") replace "9999 Chapin School Road".
+        const merged = preferUserLocality({
+          userStreet: address,
+          userCity: city,
+          userState: state,
+          userZip: zip,
+          geoStreet,
+          geoCity,
+          geoState,
+          geoZip,
+        });
+        if (!address.trim() || isWeakStreetLine(address)) {
+          setAddress(merged.street || formatted || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+        }
+        if (!city.trim()) setCity(merged.city);
+        if (!state.trim()) setState(merged.state);
+        if (zip5Of(zip).length < 5) setZip(merged.zip);
 
-      const useStreet = address.trim().length >= 5 ? address.trim() : merged.street;
-      const useCity = city.trim() || merged.city;
-      const useStateVal = state.trim() || merged.state;
-      const useZip = zip5Of(zip).length === 5 ? zip5Of(zip) : merged.zip;
+        useStreet = !isWeakStreetLine(address) ? address.trim() : merged.street;
+        useCity = city.trim() || merged.city;
+        useStateVal = state.trim() || merged.state;
+        useZip = zip5Of(zip).length === 5 ? zip5Of(zip) : merged.zip;
 
-      if (merged.corrected) {
-        setError(
-          `Kept your city/ZIP (${useCity || 'site'}, ${useZip}) — map pin updated. Geocoder had suggested a different city.`
-        );
+        if (merged.corrected) {
+          setError(
+            `Kept your city/ZIP (${useCity || 'site'}, ${useZip}) — map pin updated. Geocoder had suggested a different city.`
+          );
+        }
       }
 
       commitPin(
@@ -417,7 +446,11 @@ export function LocationPicker({
     }
   };
 
-  const applyPin = async (latitude: number, longitude: number) => {
+  const applyPin = async (
+    latitude: number,
+    longitude: number,
+    opts?: { overwriteForm?: boolean }
+  ) => {
     latLngRef.current = { lat: latitude, lng: longitude };
     setLat(latitude);
     setLng(longitude);
@@ -430,7 +463,7 @@ export function LocationPicker({
       placeMarker(latitude, longitude);
       refreshMapView(latitude, longitude);
     });
-    await reverseGeocode(latitude, longitude);
+    await reverseGeocode(latitude, longitude, opts);
     window.requestAnimationFrame(() => {
       if (!mapRef.current) {
         setMapEpoch((n) => n + 1);
@@ -498,11 +531,13 @@ export function LocationPicker({
     street: string,
     nextCity: string,
     nextState: string,
-    nextZip: string
+    nextZip: string,
+    opts?: { forceFormSync?: boolean }
   ) => {
+    const forceFormSync = Boolean(opts?.forceFormSync || forceGeoFormSyncRef.current);
     const query = composeQuery(street, nextCity, nextState, nextZip);
     if (!addressReadyForGeocode(street, nextCity, nextState, nextZip)) return;
-    if (query === settledQueryRef.current) return;
+    if (!forceFormSync && query === settledQueryRef.current) return;
 
     forwardAbortRef.current?.abort();
     const controller = new AbortController();
@@ -510,12 +545,23 @@ export function LocationPicker({
     setLoading(true);
     setError('');
     try {
+      // If city and ZIP disagree (autofill ZIP vs typed city), do not bias the geocoder
+      // with the wrong postal code — that maps Chapin→Plano centroid.
+      const zip5 = zip5Of(nextZip);
+      const cityTrim = nextCity.trim();
+      const mappedForZip = zip5.length === 5 ? cityForTxZip(zip5) : null;
+      const zipCityConflict =
+        Boolean(mappedForZip) &&
+        Boolean(cityTrim) &&
+        mappedForZip!.toLowerCase() !== cityTrim.toLowerCase();
+      const biasZip = zipCityConflict ? '' : zip5;
+
       const params = new URLSearchParams({
         street: street.trim(),
-        city: nextCity.trim(),
+        city: cityTrim,
         state: nextState.trim(),
-        zip: nextZip.replace(/\D/g, '').slice(0, 5),
-        address: query,
+        zip: biasZip,
+        address: composeQuery(street, nextCity, nextState, biasZip),
       });
       let data: {
         street?: string;
@@ -540,11 +586,14 @@ export function LocationPicker({
       }
 
       if (!data) {
-        const viaMaps = await forwardGeocodeViaMapsJs(query, {
-          zip: nextZip,
-          city: nextCity,
-          state: nextState,
-        });
+        const viaMaps = await forwardGeocodeViaMapsJs(
+          composeQuery(street, nextCity, nextState, biasZip),
+          {
+            zip: biasZip,
+            city: nextCity,
+            state: nextState,
+          }
+        );
         if (viaMaps) {
           data = {
             street: viaMaps.street,
@@ -570,43 +619,49 @@ export function LocationPicker({
         return;
       }
 
-      const merged = preferUserLocality({
-        userStreet: street,
-        userCity: nextCity,
-        userState: nextState,
-        userZip: nextZip,
-        geoStreet: data.street || data.formatted_address?.split(',')[0] || '',
-        geoCity: data.city || '',
-        geoState: data.state || '',
-        geoZip: data.zip || '',
-      });
+      const geoStreet = (data.street || data.formatted_address?.split(',')[0] || '').trim();
+      const geoCity = (data.city || '').trim();
+      const geoState = (data.state || '').trim();
+      const geoZip = zip5Of(data.zip || '');
 
-      // Only fill blanks in the form — never overwrite Plano with Dallas
-      if (!city.trim() && merged.city) setCity(merged.city);
-      if (!state.trim() && merged.state) setState(merged.state);
-      if (zip5Of(zip).length < 5 && merged.zip) setZip(merged.zip);
-      if (street.trim().length < 5 && merged.street) setAddress(merged.street);
+      // Typed street wins when it's a real line; locality always follows the pin (geocode).
+      const useStreet =
+        street.trim().length >= 5 && !isWeakStreetLine(street) ? street.trim() : geoStreet || street.trim();
+      const useCity = geoCity || cityTrim;
+      const useStateVal = (geoState || nextState.trim()).toUpperCase().slice(0, 2);
+      const useZip = geoZip.length === 5 ? geoZip : zip5Of(nextZip);
 
-      if (merged.corrected) {
+      // Always sync the form to the pin — stops Chrome autofill (e.g. Plano home) from
+      // leaving the wrong city/ZIP under a Fort Worth pin.
+      setAddress(useStreet);
+      setCity(useCity);
+      setState(useStateVal);
+      setZip(useZip);
+      pinGuardUntilRef.current = Date.now() + 4000;
+      pinnedStreetRef.current = useStreet;
+
+      if (zipCityConflict || (zip5.length === 5 && geoZip && geoZip !== zip5)) {
         setError(
-          `Using ${merged.city}, ${merged.state} ${merged.zip} (your ZIP/city). Map pin placed — verify before running.`
+          `Pin placed at ${useStreet}, ${useCity}, ${useStateVal} ${useZip}. ` +
+            `Corrected city/ZIP to match the map (autofill had a different locality).`
         );
       }
 
       commitPin(
         latitude,
         longitude,
-        merged.street,
-        merged.city,
-        merged.state,
-        merged.zip,
-        Boolean(merged.street && merged.city && merged.state && merged.zip.length === 5)
+        useStreet,
+        useCity,
+        useStateVal,
+        useZip,
+        Boolean(useStreet && useCity && useStateVal && useZip.length === 5)
       );
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
       setError('Address lookup timed out — try again or click the map.');
       setLocationConfirmed(false);
     } finally {
+      forceGeoFormSyncRef.current = false;
       if (forwardAbortRef.current === controller) {
         setLoading(false);
       }
@@ -642,7 +697,9 @@ export function LocationPicker({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setMapVisible(true);
-        void applyPin(position.coords.latitude, position.coords.longitude);
+        void applyPin(position.coords.latitude, position.coords.longitude, {
+          overwriteForm: true,
+        });
       },
       () => {
         setError('Location access denied — enter the address below or click the map.');
@@ -759,16 +816,11 @@ export function LocationPicker({
       setError('Fill street, city, state, and 5-digit ZIP, then place the pin.');
       return;
     }
-    if (lat === null || lng === null) {
-      void forwardGeocode(address, city, state, zip);
-      setError('Placing pin on the map…');
-      return;
-    }
-    onLocationSelect(address.trim(), city.trim(), state.trim(), zip5, lat, lng);
-    settledQueryRef.current = composeQuery(address, city, state, zip5);
-    // Do not lock — fields stay editable; optional Lock pin below
-    setLocationConfirmed(false);
-    setError('');
+    // Always re-geocode from the form text — never reuse a stale Auto-Detect pin.
+    settledQueryRef.current = '';
+    forceGeoFormSyncRef.current = true;
+    setError('Placing pin from the address you typed…');
+    void forwardGeocode(address, city, state, zip, { forceFormSync: true });
   };
 
   const lockPin = () => {
@@ -895,6 +947,21 @@ export function LocationPicker({
     if (!focusOnThis && !focusInSite && !siteFieldFocusedRef.current) {
       // Contact autofill tried to overwrite the jobsite — keep React-controlled values.
       return;
+    }
+    // After Find/Update pin, Chrome often pastes the saved home address into all site
+    // fields at once. Reject package overwrites that replace the pinned street.
+    if (Date.now() < pinGuardUntilRef.current) {
+      const next = e.target.value.trim();
+      const pinned = pinnedStreetRef.current.trim().toLowerCase();
+      if (pinned && setter === setAddress) {
+        const nextL = next.toLowerCase();
+        if (nextL && nextL !== pinned && !nextL.includes(pinned.slice(0, 12)) && !pinned.includes(nextL.slice(0, 12))) {
+          return;
+        }
+      }
+      if (pinned && (setter === setCity || setter === setZip || setter === setState) && !focusOnThis) {
+        return;
+      }
     }
     settledQueryRef.current = ''; // user edited — allow re-geocode
     setter(e.target.value);
