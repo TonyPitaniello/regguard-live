@@ -1735,7 +1735,7 @@ export default function ResultsViewerModal({
                 borderRadius: 6,
               }}
             >
-              BUILD exec-v4 — if you do not see a gold Executive summary below, clear site data
+              BUILD exec-v5 — if you do not see a gold Executive summary below, open this URL in Chrome Incognito
             </p>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {

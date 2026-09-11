@@ -31,6 +31,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Temporarily self-destroy SW so Arc/PWA cannot keep a poisoned old shell.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       // Registered from main.tsx via virtual:pwa-register (avoids double-register).
       injectRegister: false,

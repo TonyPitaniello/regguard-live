@@ -1,5 +1,4 @@
 import { createRoot } from 'react-dom/client';
-import { registerSW } from 'virtual:pwa-register';
 
 import { AppRouter } from './AppRouter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -13,10 +12,11 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'exec-v4-20260910';
+const RG_BUILD_ID = 'exec-v5-20260910';
 
 /**
  * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.
+ * Do NOT re-register a service worker while Arc is holding stale shells.
  */
 async function migrateStalePwaCaches(): Promise<boolean> {
   let previous = '';
@@ -32,13 +32,6 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     localStorage.setItem('rg_build_id', RG_BUILD_ID);
   } catch {
     /* ignore */
-  }
-
-  let hadController = false;
-  try {
-    hadController = Boolean(navigator.serviceWorker?.controller);
-  } catch {
-    hadController = false;
   }
 
   try {
@@ -59,10 +52,9 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
-  // Always reload once after a build-id change so HTML+JS cannot stay half-stale.
-  if (previous || hadController) {
+  if (previous) {
     const url = new URL(window.location.href);
-    url.searchParams.set('rgbuild', RG_BUILD_ID);
+    url.searchParams.set('v', RG_BUILD_ID);
     window.location.replace(url.toString());
     return true;
   }
@@ -79,24 +71,24 @@ async function boot() {
   // Strip one-time cache-bust query after successful boot
   try {
     const url = new URL(window.location.href);
-    if (url.searchParams.has('rgbuild')) {
+    if (url.searchParams.has('rgbuild') || url.searchParams.has('forceclear')) {
       url.searchParams.delete('rgbuild');
+      url.searchParams.delete('forceclear');
       window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
     }
   } catch {
     /* ignore */
   }
 
-  // Network-first SW — keeps Android installability without blank shells.
-  registerSW({
-    immediate: true,
-    onRegisteredSW(_swUrl, registration) {
-      if (!registration) return;
-      window.setInterval(() => {
-        void registration.update();
-      }, 60 * 60 * 1000);
-    },
-  });
+  // SW disabled (selfDestroying) until Arc cache poison is fully cleared.
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+  } catch {
+    /* ignore */
+  }
 
   createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>

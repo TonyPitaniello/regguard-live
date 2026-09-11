@@ -26,7 +26,66 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,800;1,9..40,400&display=swap"
       rel="stylesheet"
     />
-    <title>Reg Guard — Pitaniello Perkins LLC</title>
+    <title>Reg Guard — exec-v5 · Pitaniello Perkins LLC</title>
+    <!-- HARD cache break for Arc/PWA: unregister SW + clear Cache Storage before React -->
+    <script>
+      (function () {
+        var BUILD = 'exec-v5-20260910';
+        var KEY = 'rg_html_build_v';
+        var force = false;
+        try {
+          var q = new URLSearchParams(location.search || '');
+          force = q.get('forceclear') === '1' || q.get('rgbuild') != null;
+        } catch (e0) {}
+        var prev = '';
+        try {
+          prev = localStorage.getItem(KEY) || '';
+        } catch (e1) {}
+        if (prev === BUILD && !force) return;
+
+        var finish = function () {
+          try {
+            localStorage.setItem(KEY, BUILD);
+          } catch (e2) {}
+          try {
+            var u = new URL(location.href);
+            u.searchParams.delete('forceclear');
+            u.searchParams.delete('rgbuild');
+            u.searchParams.set('v', BUILD);
+            location.replace(u.pathname + '?' + u.searchParams.toString());
+          } catch (e3) {
+            location.reload();
+          }
+        };
+
+        var clearCaches = function () {
+          if (!('caches' in window)) return Promise.resolve();
+          return caches.keys().then(function (keys) {
+            return Promise.all(
+              keys.map(function (k) {
+                return caches.delete(k);
+              })
+            );
+          });
+        };
+
+        var killSw = function () {
+          if (!('serviceWorker' in navigator)) return Promise.resolve();
+          return navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(
+              regs.map(function (r) {
+                return r.unregister();
+              })
+            );
+          });
+        };
+
+        Promise.resolve()
+          .then(killSw)
+          .then(clearCaches)
+          .then(finish, finish);
+      })();
+    </script>
     <!-- Wipe sticky contact/site keys before React paints (hard refresh / clean home). -->
     <script>
       (function () {
