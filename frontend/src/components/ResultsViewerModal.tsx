@@ -818,6 +818,77 @@ export default function ResultsViewerModal({
   const view = liveAnalysis || analysis;
   const coverage = resolveCoverage(view);
 
+  /** City-pack body: prefer fee_card / gotcha_watchlist, fall back to local_pack rows */
+  const packFees: Array<{
+    trade?: string;
+    label?: string;
+    amount_usd?: number | null;
+    amount_requires_schedule?: boolean;
+    verified?: boolean;
+    source_url?: string;
+    source_label?: string;
+    citation_url?: string;
+    citation_note?: string;
+    planning_aid?: boolean;
+  }> = (() => {
+    const fromCard = view.fee_card?.fees;
+    if (Array.isArray(fromCard) && fromCard.length > 0) return fromCard;
+    const fromLocal = view.local_pack?.fees;
+    if (Array.isArray(fromLocal) && fromLocal.length > 0) {
+      return fromLocal.map((row) => {
+        const r = row as Record<string, unknown>;
+        return {
+          trade: typeof r.trade === 'string' ? r.trade : undefined,
+          label: String(r.label || r.name || 'Fee line'),
+          amount_usd: typeof r.amount_usd === 'number' ? r.amount_usd : null,
+          amount_requires_schedule: Boolean(r.amount_requires_schedule),
+          verified: Boolean(r.verified),
+          source_url: typeof r.citation_url === 'string' ? r.citation_url : typeof r.source_url === 'string' ? r.source_url : undefined,
+          source_label: typeof r.citation_note === 'string' ? r.citation_note : typeof r.source_label === 'string' ? r.source_label : undefined,
+        };
+      });
+    }
+    return [];
+  })();
+
+  const packGotchas: Array<{
+    id?: string;
+    title?: string;
+    priority?: string;
+    detail?: string;
+    source_url?: string;
+    source_label?: string;
+  }> = (() => {
+    const fromWl = view.gotcha_watchlist?.items;
+    if (Array.isArray(fromWl) && fromWl.length > 0) return fromWl;
+    const fromLocal = view.local_pack?.gotchas;
+    if (Array.isArray(fromLocal) && fromLocal.length > 0) {
+      return fromLocal.map((row, i) => {
+        const r = row as Record<string, unknown>;
+        const checklist = Array.isArray(r.checklist) ? r.checklist.map(String).slice(0, 2).join(' · ') : '';
+        return {
+          id: typeof r.id === 'string' ? r.id : `lp-g-${i}`,
+          title: String(r.title || 'Local gotcha'),
+          priority: String(r.priority || 'CAUTION'),
+          detail: checklist || String(r.detail || r.citation_note || ''),
+          source_url: typeof r.citation_url === 'string' ? r.citation_url : undefined,
+          source_label: typeof r.citation_note === 'string' ? r.citation_note : undefined,
+        };
+      });
+    }
+    return [];
+  })();
+
+  const cityPackHasBody = Boolean(
+    packFees.length ||
+      packGotchas.length ||
+      view.ahj_card ||
+      view.contingency_band ||
+      view.fee_card ||
+      view.gotcha_watchlist ||
+      view.inspection_sequence_card
+  );
+
   const summary = buildSummaryFromAnalysis(view);
   const effectiveResearchId = researchId || view.research_id || null;
   const emailForCheckout = (defaultEmail || sessionStorage.getItem('userEmail') || '')
@@ -2321,8 +2392,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Local gotchas — directly under Flagged before bid day */}
-          {renderLocalGotchas()}
+          {/* Local gotchas render inside Full city pack (#rg-city-pack) so Jump lands on them */}
 
           {/* F2: prove Pro/IC uniqueness once when deep */}
           {renderProDelta()}
@@ -2532,332 +2602,362 @@ export default function ResultsViewerModal({
             </div>
           </div>
 
-          {/* City pack — always mounted so Full city pack CTA can scroll here */}
+          {/* City pack — fees/gotchas/contingency first so Jump lands on real content */}
           <section id="rg-city-pack" className="space-y-3 scroll-mt-6">
-              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-                <p className="text-sm font-bold text-emerald-200">
-                  Full city pack
-                  {view.ahj_card?.name || view.project_info?.city
-                    ? ` — ${view.ahj_card?.name || view.project_info?.city}`
-                    : ''}
-                </p>
-                <p className="text-xs text-gray-300 mt-1 leading-relaxed">
-                  Curated fees, gotchas, and contingency for this jurisdiction. Confirm dollars on the
-                  official schedule before bid.
-                </p>
-              </div>
-            {(view.fee_card || view.ahj_card || view.gotcha_watchlist || view.contingency_band) ? (
-            <div id="bid-arbitrage" className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <h3 className="text-lg font-bold text-white">Bid-time arbitrage</h3>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidReceipt()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
-                  >
-                    <Download className="w-4 h-4" />
-                    {packetLoading ? 'Building…' : 'Download Receipt PDF'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidSheetPdf()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
-                    title="Punch list + planning fees as PDF with clickable source links"
-                  >
-                    <Download className="w-4 h-4" />
-                    Bid sheet PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidSheetCsv()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
-                    title="Same rows as CSV for spreadsheet paste"
-                  >
-                    Bid sheet CSV
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void downloadBidPacketFull()}
-                    disabled={packetLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
-                    title="Full Bid Packet — contingency, ranked punch, AHJ, fees, gotchas (matches on-screen arbitrage)"
-                  >
-                    Full Bid Packet PDF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void runRecheck()}
-                    disabled={recheckLoading}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-purple-400/40 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    {recheckLoading ? 'Re-checking…' : 'Re-check site'}
-                  </button>
-                </div>
-              </div>
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+              <p className="text-sm font-bold text-emerald-200">
+                Full city pack
+                {view.ahj_card?.name || view.project_info?.city || view.local_pack?.city
+                  ? ` — ${view.ahj_card?.name || view.project_info?.city || view.local_pack?.city}`
+                  : ''}
+                {view.project_info?.state || view.local_pack?.state
+                  ? `, ${view.project_info?.state || view.local_pack?.state}`
+                  : ''}
+              </p>
+              <p className="text-xs text-gray-300 mt-1 leading-relaxed">
+                {packFees.length || packGotchas.length || view.contingency_band
+                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Confirm dollars on the official schedule before bid.`
+                  : 'Curated fees, gotchas, and contingency for this jurisdiction. Confirm dollars on the official schedule before bid.'}
+              </p>
+            </div>
 
-              {view.recheck_diff && (view.recheck_diff.change_count || 0) > 0 && (
-                <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
-                  <p className="font-bold mb-1">
-                    {view.recheck_diff.change_count} change(s) since last run
-                  </p>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {(view.recheck_diff.changes || []).slice(0, 8).map((c) => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {view.ahj_card && (
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <h4 className="text-sm font-bold text-emerald-300">
-                      {view.ahj_card.title || 'AHJ portal & contact'}
+            {cityPackHasBody ? (
+              <div id="bid-arbitrage" className="space-y-3">
+                {view.contingency_band && (
+                  <div className="bg-slate-800/40 border border-emerald-500/30 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-emerald-300 mb-2">
+                      {view.contingency_band.label || 'Suggested contingency'}
                     </h4>
-                    {view.ahj_card.last_verified && (
-                      <span className="text-xs font-semibold text-emerald-200/90">
-                        Verified {view.ahj_card.last_verified}
+                    <p className="text-2xl font-black text-emerald-400">
+                      {view.contingency_band.pct_low}% – {view.contingency_band.pct_high}%
+                      <span className="text-base font-semibold text-gray-300 ml-2">
+                        (mid {view.contingency_band.pct_mid}%)
                       </span>
+                    </p>
+                    {typeof view.contingency_band.usd_mid === 'number' && !softLocked && (
+                      <p className="text-sm text-gray-300 mt-1">
+                        ~${view.contingency_band.usd_mid.toLocaleString()} mid band on current rollup
+                      </p>
                     )}
-                  </div>
-                  <p className="text-white font-semibold">{view.ahj_card.name}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
-                    {view.ahj_card.portal_url && (
-                      <a
-                        href={view.ahj_card.portal_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-purple-300 underline"
-                      >
-                        Portal
-                      </a>
-                    )}
-                    {view.ahj_card.fees_url && (
-                      <a
-                        href={view.ahj_card.fees_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-purple-300 underline"
-                      >
-                        Fees
-                      </a>
-                    )}
-                    {view.ahj_card.apply_url && (
-                      <a
-                        href={view.ahj_card.apply_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-purple-300 underline"
-                      >
-                        Apply
-                      </a>
-                    )}
-                    {view.ahj_card.inspections_url && (
-                      <a
-                        href={view.ahj_card.inspections_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-purple-300 underline"
-                      >
-                        Inspections
-                      </a>
-                    )}
-                  </div>
-                  {view.ahj_card.notes && (
-                    <p className="text-gray-400 text-xs mt-2">{view.ahj_card.notes}</p>
-                  )}
-                </div>
-              )}
-
-              {view.inspection_sequence_card &&
-                (view.inspection_sequence_card.steps || []).length > 0 && (
-                  <div className="bg-slate-800/40 border border-indigo-500/30 rounded-lg p-4">
-                    <h4 className="text-sm font-bold text-indigo-300 mb-2">
-                      {view.inspection_sequence_card.title || 'Inspection sequence'}
-                    </h4>
-                    <ol className="list-decimal pl-5 space-y-1">
-                      {(view.inspection_sequence_card.steps || []).map((step, i) => (
-                        <li key={i} className="text-sm text-gray-200">
-                          {step}
-                        </li>
-                      ))}
-                    </ol>
+                    <p className="text-gray-500 text-xs mt-2">{view.contingency_band.disclaimer}</p>
+                    <CitationBadge verified={false} source_label="Heuristic — not a quote" />
                   </div>
                 )}
 
-              {view.fee_card && (
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
-                  <h4 className="text-sm font-bold text-blue-300 mb-2">
-                    {view.fee_card.title || 'Fee & timeline extract'}
-                    {(view.fee_card.planning_aid || view.fee_card.paid_local_confirm) && (
-                      <span className="ml-2 text-xs font-semibold text-amber-300">
-                        Planning aid
-                      </span>
-                    )}
-                  </h4>
-                  <p className="text-white text-sm mb-2">
-                    Timeline: {view.fee_card.timeline || view.summary?.estimated_timeline}
-                  </p>
-                  {!coverage.feesAllowed ? (
-                    <p className="text-amber-200/90 text-sm">
-                      Dollar fees not shown for {coverage.badge.toLowerCase()} coverage. Use{' '}
-                      {view.ahj_card?.fees_url || view.ahj_card?.portal_url ? (
-                        <a
-                          href={view.ahj_card.fees_url || view.ahj_card.portal_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline text-purple-300"
-                        >
-                          the AHJ portal
-                        </a>
-                      ) : (
-                        'the AHJ portal'
-                      )}{' '}
-                      to confirm the official schedule before bid.
+                {packFees.length > 0 && (
+                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-blue-300 mb-2">
+                      {view.fee_card?.title || 'Fee & timeline extract'}
+                      {(view.fee_card?.planning_aid || view.fee_card?.paid_local_confirm) && (
+                        <span className="ml-2 text-xs font-semibold text-amber-300">Planning aid</span>
+                      )}
+                    </h4>
+                    <p className="text-white text-sm mb-2">
+                      Timeline: {view.fee_card?.timeline || view.summary?.estimated_timeline || 'Confirm with AHJ'}
                     </p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {(view.fee_card.fees || []).slice(0, 8).map((f, i) => (
-                        <li key={i} className="text-sm text-gray-300">
-                          {f.trade && (
-                            <span className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-slate-700 text-blue-200">
-                              {f.trade}
-                            </span>
+                    {!coverage.feesAllowed ? (
+                      <p className="text-amber-200/90 text-sm">
+                        Dollar fees not shown for {coverage.badge.toLowerCase()} coverage. Use{' '}
+                        {view.ahj_card?.fees_url || view.ahj_card?.portal_url ? (
+                          <a
+                            href={view.ahj_card.fees_url || view.ahj_card.portal_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline text-purple-300"
+                          >
+                            the AHJ portal
+                          </a>
+                        ) : (
+                          'the AHJ portal'
+                        )}{' '}
+                        to confirm the official schedule before bid.
+                      </p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {packFees.slice(0, 10).map((f, i) => (
+                          <li key={i} className="text-sm text-gray-300">
+                            {f.trade && (
+                              <span className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-slate-700 text-blue-200">
+                                {f.trade}
+                              </span>
+                            )}
+                            <span className="text-white font-medium">{f.label}</span>
+                            {typeof f.amount_usd === 'number'
+                              ? ` — $${f.amount_usd.toLocaleString()}`
+                              : f.amount_requires_schedule
+                                ? ' — confirm on schedule'
+                                : ''}
+                            {(f.planning_aid ||
+                              view.fee_card?.planning_aid ||
+                              view.fee_card?.paid_local_confirm) && (
+                              <span className="ml-1 text-xs text-amber-300/90">(planning aid)</span>
+                            )}
+                            <CitationBadge
+                              verified={Boolean(f.verified)}
+                              source_url={f.source_url || f.citation_url}
+                              source_label={f.source_label || f.citation_note || 'Confirm with AHJ'}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {(view.fee_card?.disclaimer ||
+                      view.fee_card?.paid_local_confirm ||
+                      view.fee_card?.planning_aid) && (
+                      <p className="text-amber-200/80 text-xs mt-2">
+                        {view.fee_card?.disclaimer ||
+                          'Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid.'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {packGotchas.length > 0 && (
+                  <div
+                    id="rg-local-gotchas"
+                    className="bg-slate-800/40 border border-amber-500/35 rounded-lg p-4 space-y-3"
+                  >
+                    <h4 className="text-sm font-bold text-amber-200">
+                      {view.gotcha_watchlist?.title || 'Local gotcha watchlist'}
+                    </h4>
+                    <ul className="space-y-3">
+                      {packGotchas.slice(0, 8).map((g) => (
+                        <li key={g.id || g.title} className="text-sm text-gray-300">
+                          <span className="text-amber-200 font-semibold text-xs uppercase mr-1.5">
+                            {formatStampSeverity(g.priority)}
+                          </span>
+                          <span className="text-white font-medium">{g.title}</span>
+                          {g.detail ? <p className="text-gray-400 text-xs mt-1">{g.detail}</p> : null}
+                          {(g.source_url || g.source_label) && (
+                            <CitationBadge
+                              verified={Boolean(g.source_url)}
+                              source_url={g.source_url}
+                              source_label={g.source_label || 'AHJ source'}
+                            />
                           )}
-                          <span className="text-white font-medium">{f.label}</span>
-                          {typeof f.amount_usd === 'number'
-                            ? ` — $${f.amount_usd.toLocaleString()}`
-                            : f.amount_requires_schedule
-                              ? ' — confirm on schedule'
-                              : ''}
-                          {(f.planning_aid ||
-                            view.fee_card?.planning_aid ||
-                            view.fee_card?.paid_local_confirm) && (
-                            <span className="ml-1 text-xs text-amber-300/90">(planning aid)</span>
-                          )}
-                          <CitationBadge
-                            verified={Boolean(f.verified)}
-                            source_url={f.source_url}
-                            source_label={f.source_label || 'Confirm with AHJ'}
-                          />
                         </li>
                       ))}
                     </ul>
+                  </div>
+                )}
+
+                {view.ahj_card && (
+                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                      <h4 className="text-sm font-bold text-emerald-300">
+                        {view.ahj_card.title || 'AHJ portal & contact'}
+                      </h4>
+                      {view.ahj_card.last_verified && (
+                        <span className="text-xs font-semibold text-emerald-200/90">
+                          Verified {view.ahj_card.last_verified}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-white font-semibold">{view.ahj_card.name}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                      {view.ahj_card.portal_url && (
+                        <a
+                          href={view.ahj_card.portal_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-purple-300 underline"
+                        >
+                          Portal
+                        </a>
+                      )}
+                      {view.ahj_card.fees_url && (
+                        <a
+                          href={view.ahj_card.fees_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-purple-300 underline"
+                        >
+                          Fees
+                        </a>
+                      )}
+                      {view.ahj_card.apply_url && (
+                        <a
+                          href={view.ahj_card.apply_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-purple-300 underline"
+                        >
+                          Apply
+                        </a>
+                      )}
+                      {view.ahj_card.inspections_url && (
+                        <a
+                          href={view.ahj_card.inspections_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-purple-300 underline"
+                        >
+                          Inspections
+                        </a>
+                      )}
+                    </div>
+                    {view.ahj_card.notes && (
+                      <p className="text-gray-400 text-xs mt-2">{view.ahj_card.notes}</p>
+                    )}
+                  </div>
+                )}
+
+                {view.inspection_sequence_card &&
+                  (view.inspection_sequence_card.steps || []).length > 0 && (
+                    <div className="bg-slate-800/40 border border-indigo-500/30 rounded-lg p-4">
+                      <h4 className="text-sm font-bold text-indigo-300 mb-2">
+                        {view.inspection_sequence_card.title || 'Inspection sequence'}
+                      </h4>
+                      <ol className="list-decimal pl-5 space-y-1">
+                        {(view.inspection_sequence_card.steps || []).map((step, i) => (
+                          <li key={i} className="text-sm text-gray-200">
+                            {step}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
                   )}
-                  {(view.fee_card.disclaimer ||
-                    view.fee_card.paid_local_confirm ||
-                    view.fee_card.planning_aid) && (
-                    <p className="text-amber-200/80 text-xs mt-2">
-                      {view.fee_card.disclaimer ||
-                        'Planning aid only — not an AHJ quote. Confirm on the official fee schedule before bid.'}
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
+                  <h3 className="text-lg font-bold text-white">Bid-time downloads</h3>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidReceipt()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                    >
+                      <Download className="w-4 h-4" />
+                      {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidSheetPdf()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                    >
+                      <Download className="w-4 h-4" />
+                      Bid sheet PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidSheetCsv()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+                    >
+                      Bid sheet CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidPacketFull()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
+                    >
+                      Full Bid Packet PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void runRecheck()}
+                      disabled={recheckLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-purple-400/40 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      {recheckLoading ? 'Re-checking…' : 'Re-check site'}
+                    </button>
+                  </div>
+                </div>
+
+                {view.recheck_diff && (view.recheck_diff.change_count || 0) > 0 && (
+                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    <p className="font-bold mb-1">
+                      {view.recheck_diff.change_count} change(s) since last run
                     </p>
-                  )}
-                </div>
-              )}
+                    <ul className="list-disc pl-5 space-y-1">
+                      {(view.recheck_diff.changes || []).slice(0, 8).map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-              <div className="bg-slate-800/40 border border-slate-600 rounded-lg p-4 space-y-2">
-                <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
-                <p className="text-xs text-gray-400">
-                  Partner / Pro emails get a $20 credit after ops verifies and cites the portal.
-                </p>
-                <textarea
-                  value={gotchaText}
-                  onChange={(e) => setGotchaText(e.target.value)}
-                  rows={3}
-                  placeholder="e.g. Plano rejects X if filed before Y…"
-                  className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
-                />
-                <button
-                  type="button"
-                  disabled={gotchaBusy || !gotchaText.trim()}
-                  className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50"
-                  onClick={() => {
-                    void (async () => {
-                      const zip =
-                        view.project_info?.zip ||
-                        view.jurisdiction?.zip ||
-                        view.coverage?.pack_key ||
-                        '';
-                      if (!zip || String(zip).length < 5) {
-                        setGotchaMsg('Need a ZIP on this result to attach the note.');
-                        return;
-                      }
-                      setGotchaBusy(true);
-                      setGotchaMsg('');
-                      try {
-                        const body = new FormData();
-                        body.set('zip_code', String(zip).slice(0, 5));
-                        body.set('text', gotchaText.trim());
-                        body.set('email', (defaultEmail || '').trim());
-                        const res = await fetch(backendUrl('/community-gotchas'), {
-                          method: 'POST',
-                          body,
-                        });
-                        const data = await res.json().catch(() => ({}));
-                        if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
-                        setGotchaMsg(String(data.message || 'Saved.'));
-                        setGotchaText('');
-                      } catch (e) {
-                        setGotchaMsg(e instanceof Error ? e.message : 'Submit failed');
-                      } finally {
-                        setGotchaBusy(false);
-                      }
-                    })();
-                  }}
-                >
-                  {gotchaBusy ? 'Sending…' : 'Submit gotcha'}
-                </button>
-                {gotchaMsg && <p className="text-xs text-amber-200">{gotchaMsg}</p>}
-              </div>
-
-              {view.document_checklist && (
-                <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
-                  <h4 className="text-sm font-bold text-purple-300 mb-2">
-                    {view.document_checklist.title || 'Document checklist'}
-                  </h4>
-                  <ul className="space-y-1">
-                    {(view.document_checklist.items || []).map((d, i) => (
-                      <li key={i} className="text-sm text-gray-300">
-                        [ ] {d.task}
-                      </li>
-                    ))}
-                  </ul>
-                  {view.document_checklist.disclaimer && (
-                    <p className="text-gray-500 text-xs mt-2">{view.document_checklist.disclaimer}</p>
-                  )}
-                </div>
-              )}
-
-              {view.contingency_band && (
-                <div className="bg-slate-800/40 border border-emerald-500/30 rounded-lg p-4">
-                  <h4 className="text-sm font-bold text-emerald-300 mb-2">
-                    {view.contingency_band.label || 'Suggested contingency'}
-                  </h4>
-                  <p className="text-2xl font-black text-emerald-400">
-                    {view.contingency_band.pct_low}% – {view.contingency_band.pct_high}%
-                    <span className="text-base font-semibold text-gray-300 ml-2">
-                      (mid {view.contingency_band.pct_mid}%)
-                    </span>
+                <div className="bg-slate-800/40 border border-slate-600 rounded-lg p-4 space-y-2">
+                  <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
+                  <p className="text-xs text-gray-400">
+                    Partner / Pro emails get a $20 credit after ops verifies and cites the portal.
                   </p>
-                  {typeof view.contingency_band.usd_mid === 'number' && !softLocked && (
-                    <p className="text-sm text-gray-300 mt-1">
-                      ~${view.contingency_band.usd_mid.toLocaleString()} mid band on current rollup
-                    </p>
-                  )}
-                  <p className="text-gray-500 text-xs mt-2">{view.contingency_band.disclaimer}</p>
-                  <CitationBadge verified={false} source_label="Heuristic — not a quote" />
+                  <textarea
+                    value={gotchaText}
+                    onChange={(e) => setGotchaText(e.target.value)}
+                    rows={3}
+                    placeholder="e.g. Plano rejects X if filed before Y…"
+                    className="w-full rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-white"
+                  />
+                  <button
+                    type="button"
+                    disabled={gotchaBusy || !gotchaText.trim()}
+                    className="px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        const zip =
+                          view.project_info?.zip ||
+                          view.jurisdiction?.zip ||
+                          view.coverage?.pack_key ||
+                          '';
+                        if (!zip || String(zip).length < 5) {
+                          setGotchaMsg('Need a ZIP on this result to attach the note.');
+                          return;
+                        }
+                        setGotchaBusy(true);
+                        setGotchaMsg('');
+                        try {
+                          const body = new FormData();
+                          body.set('zip_code', String(zip).slice(0, 5));
+                          body.set('text', gotchaText.trim());
+                          body.set('email', (defaultEmail || '').trim());
+                          const res = await fetch(backendUrl('/community-gotchas'), {
+                            method: 'POST',
+                            body,
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+                          setGotchaMsg(String(data.message || 'Saved.'));
+                          setGotchaText('');
+                        } catch (e) {
+                          setGotchaMsg(e instanceof Error ? e.message : 'Submit failed');
+                        } finally {
+                          setGotchaBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {gotchaBusy ? 'Sending…' : 'Submit gotcha'}
+                  </button>
+                  {gotchaMsg && <p className="text-xs text-amber-200">{gotchaMsg}</p>}
                 </div>
-              )}
-            </div>
+
+                {view.document_checklist && (
+                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-purple-300 mb-2">
+                      {view.document_checklist.title || 'Document checklist'}
+                    </h4>
+                    <ul className="space-y-1">
+                      {(view.document_checklist.items || []).map((d, i) => (
+                        <li key={i} className="text-sm text-gray-300">
+                          [ ] {d.task}
+                        </li>
+                      ))}
+                    </ul>
+                    {view.document_checklist.disclaimer && (
+                      <p className="text-gray-500 text-xs mt-2">{view.document_checklist.disclaimer}</p>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-sm text-gray-400 px-1">
-                Curated fee rows are not in this pack yet. Use Jump to local fees above when available,
-                or open the AHJ portal from the stamp / AHJ card to confirm schedule dollars.
+              <p className="text-sm text-amber-100/90 px-1 leading-relaxed">
+                This ZIP matched a city-pack badge, but fee/gotcha rows are not attached to this
+                results payload yet. Open the AHJ portal links from coverage above, or re-run deep
+                research with the pin confirmed.
               </p>
             )}
           </section>
