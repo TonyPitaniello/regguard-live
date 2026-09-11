@@ -758,11 +758,10 @@ export function LocationPicker({
     }).setView([initialLat, initialLng], seed || (lat != null && lng != null) ? 13 : 5);
     mapRef.current = map;
 
-    // Carto tiles are more reliable than OSM’s public tile endpoint in production browsers
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 20,
+    // Free raster tiles — no API key. (Carto voyager now watermarks "API KEY REQUIRED".)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19,
     }).addTo(map);
 
     if (seed || (lat != null && lng != null)) {
