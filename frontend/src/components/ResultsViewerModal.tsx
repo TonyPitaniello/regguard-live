@@ -505,6 +505,10 @@ interface ResultsViewerModalProps {
   canUnlockDeeper?: boolean;
   onUnlockDeeper?: () => void;
   unlockLoading?: boolean;
+  /** Paid product tiers for this email (partner / contractor_pro / ic_*) — hide buy CTAs already owned */
+  entitlementTiers?: string[];
+  /** IC purchased but PDFs not ready yet — show generate, not buy */
+  icReportPending?: boolean;
 }
 
 /** Canonical shareable report link for social + clipboard + PDF/email CTAs. Never homepage. */
@@ -694,6 +698,8 @@ export default function ResultsViewerModal({
   canUnlockDeeper = false,
   onUnlockDeeper,
   unlockLoading = false,
+  entitlementTiers = [],
+  icReportPending = false,
 }: ResultsViewerModalProps) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState({
@@ -747,12 +753,16 @@ export default function ResultsViewerModal({
     setLiveAnalysis(null);
   }, [analysis]);
 
-  // Load IC Project PDF download URLs for the results-page cluster
+  // Load IC Project PDF download URLs only for IC-depth results (not free + stale session)
   useEffect(() => {
     if (!isOpen) return;
+    const depthTierNow = String(analysis?.depth_tier || '').toLowerCase();
+    const depthNow = String(analysis?.research_depth || '').toLowerCase();
     const ready =
       Boolean(analysis?.ic_pdfs_ready) ||
-      (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1');
+      depthTierNow === 'ic_full' ||
+      depthNow === 'ic' ||
+      depthNow === 'ic_full';
     if (!ready) {
       setIcOrderPdfs([]);
       return;
@@ -790,7 +800,7 @@ export default function ResultsViewerModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, analysis?.ic_pdfs_ready, defaultEmail]);
+  }, [isOpen, analysis?.ic_pdfs_ready, analysis?.depth_tier, analysis?.research_depth, defaultEmail]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -905,7 +915,21 @@ export default function ResultsViewerModal({
     view.depth_claim_honest === false;
   // Never treat Instant Preview / missing pin as "deep Pro" for unlock chrome
   const isDeep =
-    (depth === 'pro' || depth === 'pro_partial' || depthTier === 'ic_full') && !incompleteRun;
+    !incompleteRun &&
+    (depth === 'pro' ||
+      depth === 'pro_partial' ||
+      depth === 'ic' ||
+      depth === 'ic_full' ||
+      depthTier === 'ic_full' ||
+      depthTier === 'pro_local' ||
+      depthTier === 'pro_light' ||
+      depthTier === 'pro_partial');
+  const isIcDepth =
+    !incompleteRun &&
+    (depthTier === 'ic_full' ||
+      depth === 'ic' ||
+      depth === 'ic_full' ||
+      Boolean(view.ic_pdfs_ready));
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
@@ -913,11 +937,25 @@ export default function ResultsViewerModal({
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
+  // Never treat bare session / ic_package flag as "PDFs ready" on a free run
   const icPdfsReady =
     Boolean(view.ic_pdfs_ready) ||
-    depthTier === 'ic_full' ||
-    Boolean(view.ic_package) ||
-    (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1' && depthTier === 'ic_full');
+    (isIcDepth &&
+      typeof window !== 'undefined' &&
+      sessionStorage.getItem('icPdfsReady') === '1');
+  /** Bound $1,500 package download — IC-depth results only (matches API gate) */
+  const allowIcPackageDownload = isIcDepth || Boolean(view.ic_pdfs_ready);
+
+  const ownedTierSet = new Set(
+    (entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
+  );
+  const ownsIc =
+    icReportPending ||
+    ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => ownedTierSet.has(t)) ||
+    isIcDepth;
+  const ownsPro =
+    ownsIc || ownedTierSet.has('contractor_pro') || (isDeep && !incompleteRun && depthTier !== 'free');
+  const ownsPartner = ownsPro || ownedTierSet.has('partner');
 
   const depthBadgeLabel = (() => {
     if (incompleteRun) {
@@ -929,13 +967,17 @@ export default function ResultsViewerModal({
     const ultra =
       view.scout_locality_depth === 'local_ultralocal' ||
       Boolean(view.ultralocal_scout?.enabled);
-    if (ultra && (depthTier === 'ic_full' || view.ic_package)) {
+    // Require real IC depth — do not promote free runs via leftover ic_package flags
+    if (ultra && depthTier === 'ic_full') {
       return 'IC Project — full federal / state / local + ultralocal scout';
     }
-    if (view.depth_badge) return view.depth_badge;
+    if (view.depth_badge && !/free|preview|instant/i.test(String(view.depth_badge))) {
+      return view.depth_badge;
+    }
     if (depthTier === 'ic_full') {
       return 'IC Project — full federal / state / local scout';
     }
+    if (view.depth_badge) return view.depth_badge;
     if (depthTier === 'pro_light' || scoutMode === 'light')
       return 'Contractor Pro — local confirm + light scout';
     if (depthTier === 'pro_partial' || depth === 'pro_partial')
@@ -951,15 +993,69 @@ export default function ResultsViewerModal({
   ): 'partner' | 'contractor_pro' | 'ic_project' | null => {
     const t = (tier || '').toLowerCase();
     if (t === 'partner' || t === 'contractor_pro' || t === 'ic_project') return t;
-    if (t === 'ic_annual') return 'ic_project';
+    if (t === 'ic_annual' || t === 'ic_consultant') return 'ic_project';
     return null;
   };
 
-  /** F1: one primary upgrade block for the whole results view */
+  const alreadyOwnsCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project'): boolean => {
+    if (tier === 'partner') return ownsPartner;
+    if (tier === 'contractor_pro') return ownsPro;
+    if (tier === 'ic_project') return ownsIc;
+    return false;
+  };
+
+  /** F1: one primary upgrade block — hide CTAs for tiers already owned */
   const renderPrimaryUpgrade = () => {
     if (!offer?.message) return null;
-    const primary = checkoutTier(offer.cta_tier);
-    const secondary = checkoutTier(offer.secondary_cta_tier);
+    // IC-depth results: no further product upsell in the primary slot
+    if (allowIcPackageDownload) return null;
+    const primaryRaw = checkoutTier(offer.cta_tier);
+    const secondaryRaw = checkoutTier(offer.secondary_cta_tier);
+    const primary = primaryRaw && !alreadyOwnsCheckout(primaryRaw) ? primaryRaw : null;
+    const secondary =
+      secondaryRaw && !alreadyOwnsCheckout(secondaryRaw) && secondaryRaw !== primary
+        ? secondaryRaw
+        : null;
+    // IC pending: show generate, not buy
+    if (ownsIc && !allowIcPackageDownload && (icReportPending || canUnlockDeeper)) {
+      return (
+        <section
+          id="rg-primary-upgrade"
+          className="rounded-xl border border-emerald-500/40 bg-gradient-to-br from-emerald-500/10 via-slate-900/70 to-slate-900/40 p-4 sm:p-5"
+        >
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-white font-bold text-sm sm:text-base">
+                IC Project paid — generate the boardroom package for this site
+              </h3>
+              <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">
+                This results set is still free / Pro depth. Re-run with Generate IC Report to unlock
+                the $1,500 Diligence Package download.
+              </p>
+              {onUnlockDeeper ? (
+                <button
+                  type="button"
+                  onClick={onUnlockDeeper}
+                  disabled={unlockLoading}
+                  className="mt-3 px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
+                >
+                  {unlockLoading ? 'Generating…' : 'Generate IC Report for this site'}
+                </button>
+              ) : (
+                <a
+                  href="/?run_ic=1"
+                  className="mt-3 inline-flex px-4 py-3 min-h-[48px] items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                >
+                  Generate IC Report for this site
+                </a>
+              )}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    if (!primary && !secondary) return null;
     return (
       <section
         id="rg-primary-upgrade"
@@ -1256,7 +1352,13 @@ export default function ResultsViewerModal({
               lineHeight: 1.5,
             }}
           >
-            IC Project Report PDFs are next. The bound package includes this boardroom brief.
+            {allowIcPackageDownload
+              ? 'IC Project Report PDFs are ready below. The bound package includes this boardroom brief.'
+              : ownsIc
+                ? 'Generate an IC Report for this site to unlock the bound Diligence Package download.'
+                : isDeep
+                  ? 'Upgrade to IC Project for the bound boardroom Diligence Package on this site.'
+                  : 'This is a free preview brief. Partner / Pro unlock more depth; IC Project unlocks the boardroom package.'}
           </p>
         </section>
       );
@@ -1478,6 +1580,12 @@ export default function ResultsViewerModal({
   };
 
   const downloadIcBoardroomPackage = async () => {
+    if (!allowIcPackageDownload) {
+      showToast(
+        'IC Diligence Package requires an IC Project run for this site — free preview cannot download it.'
+      );
+      return;
+    }
     setPacketLoading(true);
     try {
       const fromOrder = icOrderPdfs.find((p) => p.type === 'ic_package');
@@ -1494,7 +1602,15 @@ export default function ResultsViewerModal({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'IC package failed');
+      if (!res.ok) {
+        const detail =
+          typeof data.detail === 'string'
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((d: { msg?: string }) => d.msg || String(d)).join('; ')
+              : 'IC package failed';
+        throw new Error(detail);
+      }
       const qa = data.boardroom_qa || {};
       const rawUrl = String(data.download_url || '');
       const pathStart = rawUrl.search(/\/ic-package\//);
@@ -1806,7 +1922,7 @@ export default function ResultsViewerModal({
                 borderRadius: 6,
               }}
             >
-              BUILD exec-v5 — if you do not see a gold Executive summary below, open this URL in Chrome Incognito
+              BUILD exec-v6 — if you do not see a gold Executive summary below, open this URL in Chrome Incognito
             </p>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
@@ -1928,77 +2044,162 @@ export default function ResultsViewerModal({
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-4">
           <div
             id="ic-project-report-pdfs"
-            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-4"
+            className={`rounded-xl border p-4 space-y-4 ${
+              allowIcPackageDownload
+                ? 'border-emerald-500/40 bg-emerald-500/10'
+                : 'border-slate-600/50 bg-slate-900/50'
+            }`}
           >
             <div id="executive-summary" className="scroll-mt-4">
               {renderExecutiveSummary()}
             </div>
 
-            <div>
-              <p className="text-emerald-200 font-bold text-sm sm:text-base">
-                IC Project Report PDFs are ready
-              </p>
-              <p className="text-gray-300 text-sm mt-1 leading-relaxed">
-                {icPdfsReady
-                  ? 'Primary deliverable: one bound boardroom package (cover, executive summary, Bid Risk Receipt, findings, punch list, sources). Optional worksheets below.'
-                  : 'Download the bound boardroom package for this site when your IC order is active. Memo / punch / permits remain available as optional parts.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={packetLoading}
-              onClick={() => void downloadIcBoardroomPackage()}
-              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
-            >
-              <Download className="w-5 h-5 shrink-0" />
-              {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
-            </button>
-            {icPdfsReady ? (
-              (() => {
-                const parts = icOrderPdfs.filter((p) => p.type !== 'ic_package');
-                const primary = icOrderPdfs.find((p) => p.type === 'ic_package');
-                return (
-                  <>
-                    {primary ? (
-                      <button
-                        type="button"
-                        onClick={() => void downloadIcPdf(primary)}
-                        className="w-full text-xs text-emerald-200/90 underline text-left"
-                      >
-                        Or re-download package from My Orders link
-                      </button>
-                    ) : null}
-                    {parts.length > 0 ? (
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                          Optional parts
-                        </p>
-                        <div className="grid sm:grid-cols-3 gap-2">
-                          {parts.map((pdf) => (
-                            <button
-                              key={pdf.type}
-                              type="button"
-                              onClick={() => void downloadIcPdf(pdf)}
-                              className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-500/35 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
-                            >
-                              <Download className="w-4 h-4 shrink-0" />
-                              <span className="truncate">{pdf.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : icOrderPdfs.length === 0 ? (
-                      <p className="text-xs text-amber-100/90">
-                        Loading order links… you can still download the full package above.
-                      </p>
-                    ) : null}
-                  </>
-                );
-              })()
+            {allowIcPackageDownload ? (
+              <>
+                <div>
+                  <p className="text-emerald-200 font-bold text-sm sm:text-base">
+                    IC Project Report PDFs are ready
+                  </p>
+                  <p className="text-gray-300 text-sm mt-1 leading-relaxed">
+                    {icPdfsReady
+                      ? 'Primary deliverable: one bound boardroom package (cover, executive summary, Bid Risk Receipt, findings, punch list, sources). Optional worksheets below.'
+                      : 'Download the bound boardroom package for this IC-depth site. Memo / punch / permits remain available as optional parts.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={packetLoading}
+                  onClick={() => void downloadIcBoardroomPackage()}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
+                >
+                  <Download className="w-5 h-5 shrink-0" />
+                  {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
+                </button>
+                {icPdfsReady ? (
+                  (() => {
+                    const parts = icOrderPdfs.filter((p) => p.type !== 'ic_package');
+                    const primary = icOrderPdfs.find((p) => p.type === 'ic_package');
+                    return (
+                      <>
+                        {primary ? (
+                          <button
+                            type="button"
+                            onClick={() => void downloadIcPdf(primary)}
+                            className="w-full text-xs text-emerald-200/90 underline text-left"
+                          >
+                            Or re-download package from My Orders link
+                          </button>
+                        ) : null}
+                        {parts.length > 0 ? (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
+                              Optional parts
+                            </p>
+                            <div className="grid sm:grid-cols-3 gap-2">
+                              {parts.map((pdf) => (
+                                <button
+                                  key={pdf.type}
+                                  type="button"
+                                  onClick={() => void downloadIcPdf(pdf)}
+                                  className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-500/35 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-sm font-semibold"
+                                >
+                                  <Download className="w-4 h-4 shrink-0" />
+                                  <span className="truncate">{pdf.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ) : icOrderPdfs.length === 0 ? (
+                          <p className="text-xs text-amber-100/90">
+                            Loading order links… you can still download the full package above.
+                          </p>
+                        ) : null}
+                      </>
+                    );
+                  })()
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    Package builds on demand from this IC results set. For order history, open My
+                    Orders.
+                  </p>
+                )}
+              </>
+            ) : ownsIc ? (
+              <div className="space-y-3">
+                <p className="text-amber-100 font-bold text-sm sm:text-base">
+                  IC access on file — this run is not IC depth yet
+                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Free / Pro previews cannot download the $1,500 Diligence Package. Generate an IC
+                  Report for this site to unlock the boardroom PDF.
+                </p>
+                {onUnlockDeeper ? (
+                  <button
+                    type="button"
+                    onClick={onUnlockDeeper}
+                    disabled={unlockLoading}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold disabled:opacity-50"
+                  >
+                    {unlockLoading ? 'Generating…' : 'Generate IC Report for this site'}
+                  </button>
+                ) : (
+                  <a
+                    href="/?run_ic=1"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold"
+                  >
+                    Generate IC Report for this site
+                  </a>
+                )}
+              </div>
+            ) : isDeep ? (
+              <div className="space-y-3">
+                <p className="text-slate-200 font-bold text-sm sm:text-base">
+                  IC Project Report — next product tier
+                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Contractor Pro covers local confirm + light scout. IC Project adds the bound
+                  boardroom Diligence Package for this site.
+                </p>
+                {!alreadyOwnsCheckout('ic_project') && (
+                  <button
+                    type="button"
+                    onClick={() => goCheckout('ic_project')}
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-base font-bold"
+                  >
+                    Unlock IC Project Diligence Package
+                  </button>
+                )}
+              </div>
             ) : (
-              <p className="text-xs text-gray-400">
-                Package builds on demand from this results set. For order history, open My Orders.
-              </p>
+              <div className="space-y-3">
+                <p className="text-slate-200 font-bold text-sm sm:text-base">
+                  Free preview — Diligence Package locked
+                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  You are viewing the free report. Partner or Contractor Pro deepen monthly
+                  lookups; only an IC Project run unlocks the full boardroom PDF download.
+                </p>
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                  {!alreadyOwnsCheckout('partner') && (
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('partner')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
+                    >
+                      Start Partner — $79/mo
+                    </button>
+                  )}
+                  {!alreadyOwnsCheckout('contractor_pro') && (
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('contractor_pro')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+                    >
+                      Contractor Pro — $149/mo
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
             <div className="flex flex-wrap gap-2">
               <a
@@ -2379,13 +2580,15 @@ export default function ResultsViewerModal({
                     >
                       Copy receipt text
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => goCheckout('partner')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
-                    >
-                      Start Partner — $79/mo
-                    </button>
+                    {!alreadyOwnsCheckout('partner') && (
+                      <button
+                        type="button"
+                        onClick={() => goCheckout('partner')}
+                        className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
+                      >
+                        Start Partner — $79/mo
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -2547,13 +2750,15 @@ export default function ResultsViewerModal({
                       >
                         Copy receipt text
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => goCheckout('partner')}
-                        className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
-                      >
-                        Partner — $79/mo
-                      </button>
+                      {!alreadyOwnsCheckout('partner') && (
+                        <button
+                          type="button"
+                          onClick={() => goCheckout('partner')}
+                          className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
+                        >
+                          Partner — $79/mo
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}

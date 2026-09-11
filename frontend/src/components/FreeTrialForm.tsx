@@ -129,6 +129,22 @@ export default function FreeTrialForm({
   const [paidEntitled, setPaidEntitled] = useState(
     () => typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1'
   );
+  const [entitlementTiers, setEntitlementTiers] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = sessionStorage.getItem('regguardEntitlementTiers');
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map((t) => String(t).toLowerCase()) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [icReportPending, setIcReportPending] = useState(() =>
+    ['ic_project', 'ic_consultant', 'ic_annual'].includes(
+      (typeof window !== 'undefined' ? sessionStorage.getItem('regguardTier') || '' : '').toLowerCase()
+    )
+  );
   const [unlockBanner, setUnlockBanner] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const autoUnlockTried = useRef(false);
@@ -304,6 +320,12 @@ export default function FreeTrialForm({
       const tiers = Array.isArray(entData.tiers)
         ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
         : [];
+      setEntitlementTiers(tiers);
+      try {
+        sessionStorage.setItem('regguardEntitlementTiers', JSON.stringify(tiers));
+      } catch {
+        /* ignore */
+      }
       const primary = String(entData.primary_tier || '').toLowerCase();
       const tier =
         tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
@@ -313,6 +335,7 @@ export default function FreeTrialForm({
       icReportPending =
         Boolean(entData.ic_report_pending) ||
         ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier);
+      setIcReportPending(icReportPending);
     }
 
     // Premortem F9: skip-confirm path only via one-shot icForceOnce (set from ?run_ic=1)
@@ -438,6 +461,18 @@ export default function FreeTrialForm({
       if (payload.ic_pdfs_ready) {
         sessionStorage.setItem('icPdfsReady', '1');
         // Keep results open in-app — PDF banner lives on the results panel (no hard redirect).
+      } else {
+        // Free / Pro runs must not inherit a prior IC "ready" flag
+        try {
+          const ad = payload.analysis_data as { depth_tier?: string; research_depth?: string } | undefined;
+          const dt = String(ad?.depth_tier || '').toLowerCase();
+          const rd = String(ad?.research_depth || payload.research_depth || '').toLowerCase();
+          if (dt !== 'ic_full' && rd !== 'ic' && rd !== 'ic_full') {
+            sessionStorage.removeItem('icPdfsReady');
+          }
+        } catch {
+          sessionStorage.removeItem('icPdfsReady');
+        }
       }
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
@@ -759,10 +794,20 @@ export default function FreeTrialForm({
       const tiers = Array.isArray(entData.tiers)
         ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
         : [];
+      setEntitlementTiers(tiers);
+      try {
+        sessionStorage.setItem('regguardEntitlementTiers', JSON.stringify(tiers));
+      } catch {
+        /* ignore */
+      }
       const primary = String(entData.primary_tier || '').toLowerCase();
       const tier =
         tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
       if (tier) sessionStorage.setItem('regguardTier', tier);
+      setIcReportPending(
+        Boolean(entData.ic_report_pending) ||
+          ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)
+      );
 
       const readySite =
         (last.address || formDataRef.current.address) &&
@@ -1187,13 +1232,28 @@ export default function FreeTrialForm({
             canUnlockDeeper={
               paidEntitled &&
               analysis.research_depth !== 'pro' &&
-              analysis.research_depth !== 'pro_partial'
+              analysis.research_depth !== 'pro_partial' &&
+              analysis.research_depth !== 'ic' &&
+              analysis.research_depth !== 'ic_full' &&
+              String(analysis.depth_tier || '').toLowerCase() !== 'ic_full' &&
+              String(analysis.depth_tier || '').toLowerCase() !== 'pro_local' &&
+              String(analysis.depth_tier || '').toLowerCase() !== 'pro_light'
             }
             onUnlockDeeper={() => {
+              try {
+                if (icReportPending || entitlementTiers.some((t) => String(t).includes('ic'))) {
+                  sessionStorage.setItem('icForceOnce', '1');
+                  setPendingIcReport(true);
+                }
+              } catch {
+                /* ignore */
+              }
               setResultsOpen(false);
               void runResearch();
             }}
             unlockLoading={loading}
+            entitlementTiers={entitlementTiers}
+            icReportPending={icReportPending}
           />
         </ErrorBoundary>
       )}

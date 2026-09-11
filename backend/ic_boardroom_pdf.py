@@ -17,11 +17,17 @@ from fpdf import FPDF
 # App-aligned palette (App.css / results UI)
 NAVY = (10, 20, 41)  # #0a1429
 NAVY_MID = (15, 29, 56)  # #0f1d38
+NAVY_DEEP = (6, 12, 28)
 EMERALD = (16, 185, 129)  # #10b981
+EMERALD_SOFT = (209, 250, 229)  # #d1fae5
 AMBER = (245, 158, 11)  # #f59e0b
-MUTED = (148, 163, 184)
-RULE = (226, 232, 240)
-SOFT = (248, 250, 252)
+AMBER_SOFT = (254, 243, 199)  # #fef3c7
+ROSE = (225, 29, 72)  # #e11d48
+ROSE_SOFT = (255, 228, 230)
+SKY = (14, 165, 233)
+MUTED = (100, 116, 139)
+RULE = (203, 213, 225)
+SOFT = (241, 245, 249)
 WHITE = (255, 255, 255)
 INK = (15, 23, 42)
 
@@ -95,12 +101,17 @@ def _need_space(pdf: BoardroomPDF, h: float) -> None:
 
 
 def _h1(pdf: BoardroomPDF, text: str) -> None:
-    _need_space(pdf, 14)
+    _need_space(pdf, 18)
     pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 15)
+    pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(*NAVY)
     pdf.multi_cell(CONTENT_W, 7.5, _ascii(text))
-    pdf.ln(1)
+    y = pdf.get_y()
+    pdf.set_fill_color(*EMERALD)
+    pdf.rect(MARGIN, y + 0.5, 28, 1.4, "F")
+    pdf.set_fill_color(*RULE)
+    pdf.rect(MARGIN + 30, y + 0.8, CONTENT_W - 30, 0.6, "F")
+    pdf.ln(5)
 
 
 def _h2(pdf: BoardroomPDF, text: str) -> None:
@@ -108,11 +119,11 @@ def _h2(pdf: BoardroomPDF, text: str) -> None:
     pdf.set_x(MARGIN)
     pdf.set_fill_color(*EMERALD)
     y = pdf.get_y()
-    pdf.rect(MARGIN, y + 1.5, 2.0, 5.5, "F")
-    pdf.set_xy(MARGIN + 4, y)
+    pdf.rect(MARGIN, y + 1.2, 2.4, 6.0, "F")
+    pdf.set_xy(MARGIN + 5, y)
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(*NAVY)
-    pdf.cell(CONTENT_W - 4, 8, _ascii(text), ln=1)
+    pdf.cell(CONTENT_W - 5, 8, _ascii(text), ln=1)
     pdf.ln(0.5)
 
 
@@ -127,6 +138,15 @@ def _muted(pdf: BoardroomPDF, text: str, size: int = 9) -> None:
     _body(pdf, text, size=size, color=MUTED)
 
 
+def _severity_color(label: str) -> Tuple[int, int, int]:
+    u = str(label or "").upper()
+    if any(x in u for x in ("CRIT", "FAIL", "HOLD", "HIGH")):
+        return ROSE
+    if any(x in u for x in ("WARN", "CAUTION", "MED", "MODERATE")):
+        return AMBER
+    return EMERALD
+
+
 def _bullet(pdf: BoardroomPDF, text: str, *, indent: float = 4) -> None:
     _need_space(pdf, 8)
     pdf.set_x(MARGIN + indent)
@@ -135,25 +155,91 @@ def _bullet(pdf: BoardroomPDF, text: str, *, indent: float = 4) -> None:
     pdf.multi_cell(CONTENT_W - indent, 4.4, _ascii(f"- {text}"))
 
 
+def _severity_bullet(pdf: BoardroomPDF, severity: str, text: str) -> None:
+    _need_space(pdf, 9)
+    tone = _severity_color(severity)
+    pdf.set_x(MARGIN + 2)
+    pdf.set_fill_color(*tone)
+    pdf.set_text_color(*WHITE)
+    pdf.set_font("Helvetica", "B", 7)
+    tag = _ascii(str(severity or "NOTE").upper())[:12]
+    pdf.cell(22, 5, tag, border=0, fill=True, align="C")
+    pdf.set_xy(MARGIN + 26, pdf.get_y())
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*INK)
+    pdf.multi_cell(CONTENT_W - 26, 4.4, _ascii(text))
+    pdf.ln(1)
+
+
 def _card(pdf: BoardroomPDF, title: str, lines: List[str], *, accent: Tuple[int, int, int] = EMERALD) -> None:
-    _need_space(pdf, 7 + max(1, len(lines)) * 5 + 6)
+    usable = [ln for ln in lines if ln]
+    # Prefit: title + body lines
+    est = 10 + max(1, len(usable)) * 5 + 6
+    _need_space(pdf, est)
     y0 = pdf.get_y()
-    pdf.set_xy(MARGIN, y0)
+    pdf.set_xy(MARGIN + 6, y0 + 3.5)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*accent)
-    pdf.multi_cell(CONTENT_W, 5, _ascii(title))
-    for line in lines:
-        if not line:
-            continue
-        pdf.set_x(MARGIN)
+    pdf.multi_cell(CONTENT_W - 10, 5, _ascii(title))
+    for line in usable:
+        pdf.set_x(MARGIN + 6)
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(*INK)
-        pdf.multi_cell(CONTENT_W, 4.4, _ascii(line))
-    pdf.ln(2)
-    pdf.set_draw_color(*accent)
-    pdf.set_line_width(0.45)
-    pdf.line(MARGIN, y0 - 0.5, MARGIN, pdf.get_y() - 1)
+        pdf.multi_cell(CONTENT_W - 10, 4.4, _ascii(line))
+    y1 = pdf.get_y() + 3.5
+    h = max(10, y1 - y0)
+    # Paint panel behind by redrawing fill then re-emitting is awkward in FPDF;
+    # use outline + accent rail for a clean boardroom card.
+    pdf.set_draw_color(*RULE)
+    pdf.set_line_width(0.35)
+    pdf.rect(MARGIN, y0, CONTENT_W, h, "D")
+    pdf.set_fill_color(*accent)
+    pdf.rect(MARGIN, y0, 2.6, h, "F")
     pdf.set_line_width(0.2)
+    pdf.set_y(y0 + h + 3)
+
+def _metric_box(
+    pdf: BoardroomPDF,
+    label: str,
+    value: str,
+    *,
+    accent: Tuple[int, int, int] = EMERALD,
+) -> None:
+    _need_space(pdf, 22)
+    y0 = pdf.get_y()
+    pdf.set_fill_color(*NAVY)
+    pdf.rect(MARGIN, y0, CONTENT_W, 18, "F")
+    pdf.set_fill_color(*accent)
+    pdf.rect(MARGIN, y0, 3.2, 18, "F")
+    pdf.set_xy(MARGIN + 8, y0 + 2.5)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(180, 190, 210)
+    pdf.cell(CONTENT_W - 12, 4, _ascii(label.upper()), ln=1)
+    pdf.set_x(MARGIN + 8)
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(CONTENT_W - 12, 8, _ascii(value)[:90], ln=1)
+    pdf.set_y(y0 + 20)
+
+
+def _stamp_banner(pdf: BoardroomPDF, label: str, plain: str, *, hold: bool) -> None:
+    _need_space(pdf, 28)
+    tone = AMBER if hold else EMERALD
+    soft = AMBER_SOFT if hold else EMERALD_SOFT
+    y0 = pdf.get_y()
+    pdf.set_fill_color(*soft)
+    pdf.rect(MARGIN, y0, CONTENT_W, 24, "F")
+    pdf.set_fill_color(*tone)
+    pdf.rect(MARGIN, y0, 4, 24, "F")
+    pdf.set_xy(MARGIN + 8, y0 + 3)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*NAVY)
+    pdf.multi_cell(CONTENT_W - 12, 5.5, _ascii(label))
+    pdf.set_x(MARGIN + 8)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*INK)
+    pdf.multi_cell(CONTENT_W - 12, 4.2, _ascii(plain)[:280])
+    pdf.set_y(y0 + 26)
 
 
 def _table_header(pdf: BoardroomPDF, cols: List[Tuple[str, float]]) -> None:
@@ -163,8 +249,11 @@ def _table_header(pdf: BoardroomPDF, cols: List[Tuple[str, float]]) -> None:
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_x(MARGIN)
     for label, w in cols:
-        pdf.cell(w, 7, _ascii(label), border=0, fill=True, align="L")
-    pdf.ln(7)
+        pdf.cell(w, 7.5, _ascii(label), border=0, fill=True, align="L")
+    pdf.ln(7.5)
+    pdf.set_fill_color(*EMERALD)
+    pdf.rect(MARGIN, pdf.get_y(), CONTENT_W, 0.7, "F")
+    pdf.ln(1.2)
 
 
 def _table_row(pdf: BoardroomPDF, cols: List[Tuple[str, float]], *, alt: bool = False) -> None:
@@ -188,8 +277,9 @@ def _table_row(pdf: BoardroomPDF, cols: List[Tuple[str, float]], *, alt: bool = 
         pdf.set_xy(x0 + 1, y0 + 1)
         pdf.multi_cell(w - 2, 3.8, _ascii(text)[:180])
         x0 += w
+    pdf.set_draw_color(*RULE)
+    pdf.line(MARGIN, y0 + h, MARGIN + CONTENT_W, y0 + h)
     pdf.set_y(y0 + h)
-
 
 def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf = BoardroomPDF()
@@ -211,32 +301,41 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     # ---- Cover ----
     pdf.add_page()
-    pdf.set_fill_color(*NAVY)
-    pdf.rect(0, 0, PAGE_W, 52, "F")
+    pdf.set_fill_color(*NAVY_DEEP)
+    pdf.rect(0, 0, PAGE_W, 58, "F")
     pdf.set_fill_color(*EMERALD)
-    pdf.rect(0, 52, PAGE_W, 2.0, "F")
-    pdf.set_xy(MARGIN, 11)
+    pdf.rect(0, 58, PAGE_W, 2.4, "F")
+    pdf.set_fill_color(*AMBER)
+    pdf.rect(0, 60.4, PAGE_W, 0.7, "F")
+    pdf.set_xy(MARGIN, 10)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*EMERALD)
+    pdf.cell(CONTENT_W, 5, _ascii("REGGUARD  ·  IC PROJECT"), ln=1)
+    pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 22)
     pdf.set_text_color(*WHITE)
-    pdf.cell(CONTENT_W, 9, _ascii("RegGuard"), ln=1)
+    pdf.cell(CONTENT_W, 10, _ascii("Diligence Package"), ln=1)
     pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.multi_cell(CONTENT_W, 6, title_line)
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(200, 210, 230)
+    pdf.multi_cell(CONTENT_W, 5.5, title_line)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 8.5)
+    pdf.set_text_color(160, 175, 200)
     pdf.cell(CONTENT_W, 5, _ascii("$1,500 boardroom deliverable — bound site diligence"), ln=1)
 
-    pdf.set_y(62)
+    pdf.set_y(68)
     # Document control
     pdf.set_fill_color(*SOFT)
     pdf.set_draw_color(*RULE)
     y0 = pdf.get_y()
-    pdf.rect(MARGIN, y0, CONTENT_W, 38, "FD")
-    pdf.set_xy(MARGIN + 3, y0 + 2)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*NAVY)
-    pdf.cell(CONTENT_W - 6, 5, _ascii("DOCUMENT CONTROL"), ln=1)
+    pdf.rect(MARGIN, y0, CONTENT_W, 40, "FD")
+    pdf.set_fill_color(*EMERALD)
+    pdf.rect(MARGIN, y0, 2.4, 40, "F")
+    pdf.set_xy(MARGIN + 5, y0 + 2.5)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*EMERALD)
+    pdf.cell(CONTENT_W - 8, 4, _ascii("DOCUMENT CONTROL"), ln=1)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*INK)
     for line in [
@@ -247,9 +346,9 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         f"Generated (UTC): {package.get('generated_at') or '-'}",
         f"Share link: {package.get('share_url') or cover.get('research_id') or '-'}",
     ]:
-        pdf.set_x(MARGIN + 3)
-        pdf.cell(CONTENT_W - 6, 4.8, _ascii(line)[:100], ln=1)
-    pdf.set_y(y0 + 40)
+        pdf.set_x(MARGIN + 5)
+        pdf.cell(CONTENT_W - 8, 4.8, _ascii(line)[:100], ln=1)
+    pdf.set_y(y0 + 42)
 
     if qa:
         tone = EMERALD if qa.get("pass") else AMBER
@@ -304,31 +403,33 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.ln(2)
 
     display = stamp.get("display") or stamp.get("grade") or "-"
-    _card(
+    hold = str(display).upper() in ("HOLD", "CAUTION", "FAIL", "HIGH RISK")
+    stamp_plain = str(stamp.get("plain") or stamp.get("headline") or "").strip()
+    stamp_meta = f"Valid until: {stamp.get('valid_until') or '-'}" + (
+        f"  ·  fp {stamp.get('fingerprint')}" if stamp.get("fingerprint") else ""
+    )
+    _stamp_banner(
         pdf,
         stamp.get("label") or f"REGGUARD STAMP: {display}",
-        [
-            stamp.get("plain") or stamp.get("headline") or "",
-            f"Valid until: {stamp.get('valid_until') or '-'}"
-            + (f"  |  fp {stamp.get('fingerprint')}" if stamp.get("fingerprint") else ""),
-        ],
-        accent=AMBER if display in ("HOLD", "CAUTION", "FAIL") else EMERALD,
+        f"{stamp_plain}  |  {stamp_meta}" if stamp_plain else stamp_meta,
+        hold=hold,
     )
     for d in stamp.get("drivers") or []:
-        _bullet(
+        _severity_bullet(
             pdf,
-            f"[{d.get('severity')}] {d.get('label')}"
-            + (f" — {d.get('detail')}" if d.get("detail") else ""),
+            str(d.get("severity") or "NOTE"),
+            f"{d.get('label')}" + (f" — {d.get('detail')}" if d.get("detail") else ""),
         )
 
     band = ex.get("contingency")
     if isinstance(band, dict):
         pdf.ln(2)
         _h2(pdf, "Suggested bid contingency")
-        _body(
+        _metric_box(
             pdf,
+            "Suggested contingency band",
             f"+{band.get('pct_low')}% – +{band.get('pct_high')}%  (mid {band.get('pct_mid')}%)",
-            size=13,
+            accent=AMBER if hold else EMERALD,
         )
         _body(pdf, band.get("plain") or "")
         table = band.get("driver_table") if isinstance(band.get("driver_table"), dict) else {}
@@ -351,21 +452,26 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     if ex.get("env_risk"):
         pdf.ln(1)
-        _body(pdf, f"Environmental screening risk: {ex.get('env_risk')}")
+        _card(
+            pdf,
+            "Environmental screening",
+            [f"Risk level: {ex.get('env_risk')}"],
+            accent=SKY,
+        )
 
     pdf.ln(2)
     _h2(pdf, "Priority items before bid")
     for k in ex.get("top_risks") or []:
-        _bullet(
+        _severity_bullet(
             pdf,
-            f"[{k.get('priority')}] {k.get('title')}"
-            + (f" — {k.get('detail')}" if k.get("detail") else ""),
+            str(k.get("priority") or "NOTE"),
+            f"{k.get('title')}" + (f" — {k.get('detail')}" if k.get("detail") else ""),
         )
     for g in ex.get("local_gotchas") or []:
-        _bullet(
+        _severity_bullet(
             pdf,
-            f"[{g.get('priority')}] {g.get('title')}"
-            + (f" — {g.get('detail')}" if g.get("detail") else ""),
+            str(g.get("priority") or "NOTE"),
+            f"{g.get('title')}" + (f" — {g.get('detail')}" if g.get("detail") else ""),
         )
     if not (ex.get("top_risks") or []) and not (ex.get("local_gotchas") or []):
         _muted(pdf, "No high-priority risk flags in this package payload.")
@@ -387,24 +493,31 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     _body(pdf, "Forward this page to the GC or owner as a one-page risk brief.", size=10)
     pdf.ln(2)
     st = receipt.get("stamp") or stamp
-    _body(pdf, st.get("label") or "", size=12)
-    _body(pdf, st.get("plain") or st.get("headline") or "")
+    st_display = st.get("display") or st.get("grade") or display
+    st_hold = str(st_display).upper() in ("HOLD", "CAUTION", "FAIL", "HIGH RISK")
+    _stamp_banner(
+        pdf,
+        st.get("label") or f"REGGUARD STAMP: {st_display}",
+        st.get("plain") or st.get("headline") or "",
+        hold=st_hold,
+    )
     band = receipt.get("contingency") or band
     if isinstance(band, dict):
-        pdf.ln(2)
-        _body(
+        pdf.ln(1)
+        _metric_box(
             pdf,
-            f"Contingency: +{band.get('pct_low')}% – +{band.get('pct_high')}% (mid {band.get('pct_mid')}%)",
-            size=12,
+            "Contingency",
+            f"+{band.get('pct_low')}% – +{band.get('pct_high')}% (mid {band.get('pct_mid')}%)",
+            accent=AMBER if st_hold else EMERALD,
         )
         _muted(pdf, band.get("plain") or "")
     pdf.ln(2)
     _h2(pdf, "Three risk flags")
     for k in receipt.get("killers") or []:
-        _bullet(
+        _severity_bullet(
             pdf,
-            f"[{k.get('priority')}] {k.get('title')}"
-            + (f" — {k.get('detail')}" if k.get("detail") else ""),
+            str(k.get("priority") or "NOTE"),
+            f"{k.get('title')}" + (f" — {k.get('detail')}" if k.get("detail") else ""),
         )
     if receipt.get("share_url"):
         pdf.ln(2)

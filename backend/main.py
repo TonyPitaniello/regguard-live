@@ -5366,13 +5366,56 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> D
     """
     Generate the bound IC Project Diligence Package (boardroom PDF):
     cover, executive summary, Bid Risk Receipt, findings, punch, sources.
+
+    Paywall: free / instant preview payloads cannot mint the $1,500 IC package.
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
+    from entitlement import access_summary
     from ic_boardroom_pdf import render_boardroom_pdf
     from ic_package_composer import compose_ic_package
-    from ic_project_fulfillment import api_public_base
+    from ic_project_fulfillment import api_public_base, is_ic_tier
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    email_l = str(generated_for or body.get("email") or "").strip().lower()
+    depth_tier = str(data.get("depth_tier") or "").strip().lower()
+    research_depth = str(data.get("research_depth") or "").strip().lower()
+    depth_badge = str(data.get("depth_badge") or "").strip().lower()
+    incomplete = bool(
+        data.get("research_incomplete")
+        or data.get("depth_claim_honest") is False
+        or "instant" in depth_badge
+        or "preview" in depth_badge
+        or research_depth in ("free", "instant", "preview")
+        or depth_tier in ("free", "federal_state", "portal_seed", "")
+    )
+    ic_run = bool(
+        data.get("ic_pdfs_ready")
+        or depth_tier == "ic_full"
+        or research_depth in ("ic", "ic_full")
+    )
+    if not ic_run:
+        # Entitlement alone is not enough — this site must have been run as IC.
+        # Allow only when caller has IC order PDFs ready AND payload is not free/instant.
+        ent = access_summary(email_l) if email_l else {}
+        tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
+        has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
+        if incomplete or not has_ic_entitlement:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "IC Diligence Package requires an IC Project Report run for this site. "
+                    "Free preview / Contractor Pro results cannot download the $1,500 boardroom package. "
+                    "Open Pricing → IC Project, then re-run with Generate IC Report."
+                ),
+            )
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Your email has IC access, but this results set is not an IC-depth run. "
+                "Re-run the site with Generate IC Report enabled."
+            ),
+        )
+
     band = data.get("contingency_band") or {}
     if (
         not data.get("fee_card")
