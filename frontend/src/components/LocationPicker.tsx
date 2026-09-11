@@ -3,8 +3,13 @@
  * or click map / Places / Auto-Detect. No Manual Entry gate required.
  */
 
-import { useState, useEffect, useRef, type CSSProperties, type ChangeEvent } from 'react';
-import { MapPin, Navigation, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties, type ChangeEvent } from 'react';
+import { MapPin, Navigation, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { backendUrl } from '../env';
 import {
   AddressAutocomplete,
@@ -12,6 +17,13 @@ import {
   type AddressSelection,
 } from '../AddressAutocomplete';
 import { preferUserLocality, zip5Of, cityForTxZip } from '../addressPrefer';
+
+// Vite bundles PNG URLs — without this, default markers are blank / broken.
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
 
 function isWeakStreetLine(s: string): boolean {
   const t = (s || '').trim();
@@ -113,6 +125,7 @@ export function LocationPicker({
   const [mapVisible, setMapVisible] = useState(true);
   /** Bump to force Leaflet re-init when the shell remounts (fixes gray blank map). */
   const [mapEpoch, setMapEpoch] = useState(0);
+  const mapHealAttemptsRef = useRef(0);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   /** Unlock after focus so Chrome cannot autofill jobsite on hard refresh */
   const [siteFieldsUnlocked, setSiteFieldsUnlocked] = useState(false);
@@ -195,6 +208,7 @@ export function LocationPicker({
     setMapVisible(true);
     setSiteFieldsUnlocked(false);
     destroyMap();
+    setMapEpoch((e) => e + 1);
     autofillPurgeUntilRef.current = Date.now() + 700;
     const purge = () => {
       if (Date.now() > autofillPurgeUntilRef.current) return;
@@ -275,9 +289,8 @@ export function LocationPicker({
   };
 
   const placeMarker = (latitude: number, longitude: number) => {
-    const L = (window as any).L;
     const map = mapRef.current;
-    if (!L || !map) return;
+    if (!map) return;
     // If React remounted the shell, Leaflet still points at a detached node → gray box
     try {
       if (mapContainer.current && map.getContainer() !== mapContainer.current) {
@@ -711,7 +724,7 @@ export function LocationPicker({
   };
 
   // Initialize map once when visible (re-init if React remounted the shell)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (collapseMap || !mapVisible || !mapContainer.current) return;
     try {
       if (
@@ -725,76 +738,70 @@ export function LocationPicker({
       destroyMap();
     }
     if (mapRef.current) {
-      // Already bound to this shell — still kick size (Auto-Detect / layout shifts)
       const seed = latLngRef.current;
       refreshMapView(seed?.lat ?? lat ?? undefined, seed?.lng ?? lng ?? undefined);
       return;
     }
 
-    const initializeMap = () => {
-      if (!mapContainer.current || mapRef.current) return;
-      const L = (window as any).L;
-      if (!L) return;
-      const seed = latLngRef.current;
-      const initialLat = seed?.lat ?? lat ?? 32.78;
-      const initialLng = seed?.lng ?? lng ?? -96.8;
+    const seed = latLngRef.current;
+    const initialLat = seed?.lat ?? lat ?? 32.78;
+    const initialLng = seed?.lng ?? lng ?? -96.8;
+    const el = mapContainer.current;
+    if (!el) return;
 
-      const map = L.map(mapContainer.current, { preferCanvas: true }).setView(
-        [initialLat, initialLng],
-        seed || (lat && lng) ? 13 : 5
-      );
-      mapRef.current = map;
+    // Clear any leftover Leaflet DOM from a prior destroy (prevents gray empty shell)
+    el.innerHTML = '';
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
-        maxZoom: 19,
-      }).addTo(map);
+    const map = L.map(el, {
+      preferCanvas: false,
+      zoomControl: true,
+    }).setView([initialLat, initialLng], seed || (lat != null && lng != null) ? 13 : 5);
+    mapRef.current = map;
 
-      if (seed || (lat != null && lng != null)) {
-        placeMarker(seed?.lat ?? (lat as number), seed?.lng ?? (lng as number));
-      }
+    // Carto tiles are more reliable than OSM’s public tile endpoint in production browsers
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20,
+    }).addTo(map);
 
-      map.on('click', (e: any) => {
-        const { lat: clickLat, lng: clickLng } = e.latlng;
-        void applyPin(clickLat, clickLng);
+    if (seed || (lat != null && lng != null)) {
+      placeMarker(seed?.lat ?? (lat as number), seed?.lng ?? (lng as number));
+    }
+
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      const { lat: clickLat, lng: clickLng } = e.latlng;
+      void applyPin(clickLat, clickLng);
+    });
+
+    refreshMapView(initialLat, initialLng);
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        const s = latLngRef.current;
+        refreshMapView(s?.lat ?? lat ?? initialLat, s?.lng ?? lng ?? initialLng);
       });
+      ro.observe(el);
+      (map as { __rgRo?: ResizeObserver }).__rgRo = ro;
+    }
 
-      refreshMapView(initialLat, initialLng);
-
-      const el = mapContainer.current;
-      if (el && typeof ResizeObserver !== 'undefined') {
-        const ro = new ResizeObserver(() => refreshMapView(initialLat, initialLng));
-        ro.observe(el);
-        (map as { __rgRo?: ResizeObserver }).__rgRo = ro;
+    // Health check: if Leaflet never mounts into the shell, remount once
+    const health = window.setTimeout(() => {
+      try {
+        const hasPane = Boolean(el.querySelector('.leaflet-map-pane'));
+        if (!hasPane && mapHealAttemptsRef.current < 2) {
+          mapHealAttemptsRef.current += 1;
+          destroyMap();
+          setMapEpoch((n) => n + 1);
+        }
+      } catch {
+        /* ignore */
       }
+    }, 500);
+
+    return () => {
+      window.clearTimeout(health);
     };
-
-    const L = (window as any).L;
-    if (L) {
-      initializeMap();
-      return;
-    }
-
-    if (!document.querySelector('link[data-rg-leaflet]')) {
-      const cssLink = document.createElement('link');
-      cssLink.rel = 'stylesheet';
-      cssLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
-      cssLink.setAttribute('data-rg-leaflet', '1');
-      document.head.appendChild(cssLink);
-    }
-
-    const existing = document.querySelector('script[data-rg-leaflet]') as HTMLScriptElement | null;
-    if (existing) {
-      if ((window as any).L) initializeMap();
-      else existing.addEventListener('load', () => initializeMap(), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
-    script.setAttribute('data-rg-leaflet', '1');
-    script.onload = () => initializeMap();
-    document.body.appendChild(script);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapVisible, collapseMap, mapEpoch]);
 
@@ -802,7 +809,6 @@ export function LocationPicker({
   useEffect(() => {
     if (lat == null || lng == null) return;
     if (!mapRef.current) {
-      // Map may still be loading Leaflet — kick visibility so init effect can run
       setMapVisible(true);
       return;
     }
@@ -1238,9 +1244,26 @@ export function LocationPicker({
             className="rg-location-map-shell w-full h-80 rounded-lg border border-purple-500/30 bg-slate-700"
             style={MAP_SHELL_STYLE}
           />
-          <p className="text-gray-400 text-sm text-center">
-            Type the site address above to drop the pin — or click the map to nudge it
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <p className="text-gray-400 text-sm text-center">
+              Type the site address above to drop the pin — or click the map to nudge it
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                destroyMap();
+                mapHealAttemptsRef.current = 0;
+                setMapVisible(true);
+                setMapEpoch((n) => n + 1);
+                setError('Reloading map…');
+                window.setTimeout(() => setError(''), 1200);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-500 bg-slate-900/70 text-xs font-semibold text-gray-200 hover:bg-slate-800"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Reload map
+            </button>
+          </div>
         </div>
       )}
     </div>

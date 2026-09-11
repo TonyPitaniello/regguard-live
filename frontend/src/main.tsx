@@ -12,7 +12,7 @@ import './voice-command.css';
 import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
-const PWA_EPOCH = 'rg_pwa_epoch_5';
+const PWA_EPOCH = 'rg_pwa_epoch_6';
 
 /**
  * One-time purge of poisoned precaches from older deploys.
