@@ -12,18 +12,26 @@ import './voice-command.css';
 import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
-const PWA_EPOCH = 'rg_pwa_epoch_6';
+/** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
+const RG_BUILD_ID = 'exec-v4-20260910';
 
 /**
- * One-time purge of poisoned precaches from older deploys.
- * Home-screen icons often opened a blank shell because SW served stale index+chunk hashes.
+ * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.
  */
 async function migrateStalePwaCaches(): Promise<boolean> {
+  let previous = '';
   try {
-    if (localStorage.getItem(PWA_EPOCH) === '1') return false;
-    localStorage.setItem(PWA_EPOCH, '1');
+    previous = localStorage.getItem('rg_build_id') || '';
   } catch {
-    return false;
+    previous = '';
+  }
+
+  if (previous === RG_BUILD_ID) return false;
+
+  try {
+    localStorage.setItem('rg_build_id', RG_BUILD_ID);
+  } catch {
+    /* ignore */
   }
 
   let hadController = false;
@@ -51,8 +59,11 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
-  if (hadController) {
-    window.location.reload();
+  // Always reload once after a build-id change so HTML+JS cannot stay half-stale.
+  if (previous || hadController) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('rgbuild', RG_BUILD_ID);
+    window.location.replace(url.toString());
     return true;
   }
   return false;
@@ -64,6 +75,17 @@ async function boot() {
 
   const reloading = await migrateStalePwaCaches();
   if (reloading) return;
+
+  // Strip one-time cache-bust query after successful boot
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('rgbuild')) {
+      url.searchParams.delete('rgbuild');
+      window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
+    }
+  } catch {
+    /* ignore */
+  }
 
   // Network-first SW — keeps Android installability without blank shells.
   registerSW({

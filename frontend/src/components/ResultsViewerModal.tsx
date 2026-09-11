@@ -663,7 +663,8 @@ function getPriorityBadge(priority: string) {
 const PRIORITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
 
 function rankedPunchItems(view: AnalysisData): PunchListItemData[] {
-  const items = [...(view.punch_list?.punch_list || [])];
+  const raw = view.punch_list?.punch_list;
+  const items = Array.isArray(raw) ? [...raw] : [];
   const rank = (p: string) => {
     const i = PRIORITY_ORDER.indexOf((p || '').toUpperCase() as (typeof PRIORITY_ORDER)[number]);
     return i === -1 ? 9 : i;
@@ -983,75 +984,81 @@ export default function ResultsViewerModal({
     return raw || 'Note';
   };
 
-  /** First thing leadership should read — boardroom brief before PDFs and detail */
+  /** Boardroom brief — never throw; always return visible markup */
   const renderExecutiveSummary = () => {
-    const site =
-      view.project_info?.address ||
-      [view.project_info?.city, view.project_info?.state, view.project_info?.zip]
-        .filter(Boolean)
-        .join(', ') ||
-      'This site';
-    const ahjName =
-      view.ahj_card?.name ||
-      (view.project_info?.city ? `City of ${view.project_info.city}` : 'the local AHJ');
-    const killers = (view.margin_killers || []).slice(0, 3);
-    const gotchas = (view.gotcha_watchlist?.items || []).slice(0, 3);
-    const punch = rankedPunchItems(view)
-      .filter((p) => ['CRITICAL', 'HIGH'].includes((p.priority || '').toUpperCase()))
-      .slice(0, 3);
-    const envRisk = view.environmental_screening?.risk_level;
-    const contingency = view.contingency_band;
-    const stampGrade = (view.regguard_stamp?.grade || view.stamp_grade || '').toUpperCase();
-    const stampDisplay =
-      stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || null;
-    const stampDrivers = (view.regguard_stamp?.drivers || []).slice(0, 3);
+    try {
+      const site =
+        view.project_info?.address ||
+        [view.project_info?.city, view.project_info?.state, view.project_info?.zip]
+          .filter(Boolean)
+          .join(', ') ||
+        'This site';
+      const ahjName =
+        view.ahj_card?.name ||
+        (view.project_info?.city ? `City of ${view.project_info.city}` : 'the local AHJ');
+      const killers = Array.isArray(view.margin_killers) ? view.margin_killers.slice(0, 3) : [];
+      const gotchas = Array.isArray(view.gotcha_watchlist?.items)
+        ? view.gotcha_watchlist!.items!.slice(0, 3)
+        : [];
+      const punch = rankedPunchItems(view)
+        .filter((p) => ['CRITICAL', 'HIGH'].includes((p.priority || '').toUpperCase()))
+        .slice(0, 3);
+      const envRisk = view.environmental_screening?.risk_level;
+      const contingency = view.contingency_band;
+      const stampGrade = (view.regguard_stamp?.grade || view.stamp_grade || '').toUpperCase();
+      const stampDisplay =
+        stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || null;
+      const stampDrivers = Array.isArray(view.regguard_stamp?.drivers)
+        ? view.regguard_stamp!.drivers!.slice(0, 3)
+        : [];
 
-    const lead =
-      stampDisplay === 'HOLD'
-        ? `${site} presents elevated pre-bid risk under ${ahjName}. Municipal permitting and utility interconnection should be treated as parallel clocks until both paths are confirmed.`
-        : stampDisplay === 'CAUTION'
-          ? `${site} has material pre-bid items under ${ahjName} that warrant review before a bid number is locked.`
-          : `${site}: the current local pack does not show Critical blockers. Confirm fees and portal requirements with ${ahjName} before bid.`;
+      const lead =
+        stampDisplay === 'HOLD'
+          ? `${site} presents elevated pre-bid risk under ${ahjName}. Municipal permitting and utility interconnection should be treated as parallel clocks until both paths are confirmed.`
+          : stampDisplay === 'CAUTION'
+            ? `${site} has material pre-bid items under ${ahjName} that warrant review before a bid number is locked.`
+            : `${site}: the current local pack does not show Critical blockers. Confirm fees and portal requirements with ${ahjName} before bid.`;
 
-    const priorityLines = [
-      ...killers.map((k) => ({
-        sev: formatStampSeverity(k.priority),
-        title: k.title,
-        detail: k.detail,
-      })),
-      ...gotchas.map((g) => ({
-        sev: formatStampSeverity(g.priority),
-        title: g.title,
-        detail: g.detail,
-      })),
-      ...stampDrivers.map((d) => ({
-        sev: formatStampSeverity(d.severity),
-        title: d.label,
-        detail: d.detail,
-      })),
-    ]
-      .filter((item, idx, arr) => arr.findIndex((x) => x.title === item.title) === idx)
-      .slice(0, 4);
+      const priorityLines = [
+        ...killers.map((k) => ({
+          sev: formatStampSeverity(k.priority),
+          title: String(k.title || 'Risk item'),
+          detail: k.detail,
+        })),
+        ...gotchas.map((g) => ({
+          sev: formatStampSeverity(g.priority),
+          title: String(g.title || 'Gotcha'),
+          detail: g.detail,
+        })),
+        ...stampDrivers.map((d) => ({
+          sev: formatStampSeverity(d.severity),
+          title: String(d.label || 'Driver'),
+          detail: d.detail,
+        })),
+      ]
+        .filter((item, idx, arr) => arr.findIndex((x) => x.title === item.title) === idx)
+        .slice(0, 4);
 
-    return (
-      <section
-        id="rg-executive-summary"
-        style={{
-          border: '2px solid #38bdf8',
-          borderRadius: 12,
-          padding: '20px 22px',
-          background: 'linear-gradient(145deg,#071525 0%,#0a1429 45%,#020617 100%)',
-          marginBottom: 8,
-        }}
-      >
-        <div className="space-y-2">
+      return (
+        <section
+          id="rg-executive-summary"
+          data-rg-exec="1"
+          style={{
+            border: '3px solid #fbbf24',
+            borderRadius: 12,
+            padding: '20px 22px',
+            background: 'linear-gradient(145deg,#1c1917 0%,#0c4a6e 55%,#020617 100%)',
+            marginBottom: 12,
+            boxShadow: '0 0 0 1px rgba(251,191,36,0.35), 0 12px 40px rgba(0,0,0,0.45)',
+          }}
+        >
           <p
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 900,
-              letterSpacing: '0.2em',
+              letterSpacing: '0.18em',
               textTransform: 'uppercase',
-              color: '#7dd3fc',
+              color: '#fde68a',
               margin: 0,
             }}
           >
@@ -1062,114 +1069,148 @@ export default function ResultsViewerModal({
               fontSize: 22,
               fontWeight: 900,
               color: '#fff',
-              margin: '6px 0 0',
+              margin: '8px 0 0',
               lineHeight: 1.25,
             }}
           >
             Boardroom brief — {site}
           </h3>
-          <p style={{ color: '#f1f5f9', fontSize: 15, lineHeight: 1.55, margin: '8px 0 0', maxWidth: 720 }}>
+          <p style={{ color: '#fff', fontSize: 15, lineHeight: 1.55, margin: '10px 0 0', maxWidth: 760 }}>
             {lead}
           </p>
-          {stampDisplay && (
+          {stampDisplay ? (
             <p
-              className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border ${
-                stampDisplay === 'HOLD' || stampDisplay === 'CAUTION'
-                  ? 'bg-amber-500/15 text-amber-100 border-amber-500/45'
-                  : 'bg-emerald-500/15 text-emerald-200 border-emerald-500/40'
-              }`}
+              style={{
+                display: 'inline-block',
+                marginTop: 10,
+                padding: '4px 10px',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 800,
+                color: '#fef3c7',
+                border: '1px solid rgba(251,191,36,0.5)',
+                background: 'rgba(251,191,36,0.12)',
+              }}
             >
               RegGuard stamp: {stampDisplay}
             </p>
-          )}
-        </div>
+          ) : null}
 
-        {contingency && (
-          <div
+          {contingency ? (
+            <div
+              style={{
+                marginTop: 14,
+                border: '1px solid rgba(251,191,36,0.4)',
+                borderRadius: 10,
+                padding: '12px 14px',
+                background: 'rgba(251,191,36,0.1)',
+              }}
+            >
+              <p
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: '#fde68a',
+                  margin: 0,
+                }}
+              >
+                Suggested bid contingency
+              </p>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
+                +{contingency.pct_low ?? '—'}% – +{contingency.pct_high ?? '—'}%
+              </p>
+              <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
+                Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
+                local fees, review timing, and site risk
+                {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. Planning
+                aid only — confirm dollars with {ahjName}.
+              </p>
+            </div>
+          ) : null}
+
+          {priorityLines.length > 0 ? (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
+                What to resolve before bid
+              </h4>
+              <ol style={{ margin: 0, paddingLeft: 20 }}>
+                {priorityLines.map((item, i) => (
+                  <li key={`ex-p-${i}`} style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 8 }}>
+                    <span style={{ color: '#fde68a', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
+                      {item.sev}
+                    </span>
+                    <span style={{ color: '#fff', fontWeight: 600 }}>{item.title}</span>
+                    {item.detail ? (
+                      <p style={{ color: '#94a3b8', fontSize: 12, margin: '4px 0 0' }}>{item.detail}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+
+          {punch.length > 0 ? (
+            <div style={{ marginTop: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
+                Immediate punch highlights
+              </h4>
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {punch.map((p, i) => (
+                  <li key={`ex-punch-${i}`} style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 6 }}>
+                    <span style={{ color: '#fca5a5', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
+                      {formatStampSeverity(p.priority)}
+                    </span>
+                    {p.task}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {envRisk ? (
+            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 12 }}>
+              Environmental screening risk: <span style={{ color: '#e2e8f0' }}>{envRisk}</span>
+            </p>
+          ) : null}
+
+          <p
             style={{
+              fontSize: 12,
+              color: '#cbd5e1',
+              borderTop: '1px solid rgba(251,191,36,0.25)',
+              paddingTop: 12,
               marginTop: 14,
-              border: '1px solid rgba(56,189,248,0.35)',
-              borderRadius: 10,
-              padding: '12px 14px',
-              background: 'rgba(14,165,233,0.12)',
+              lineHeight: 1.5,
             }}
           >
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7dd3fc', margin: 0 }}>
-              Suggested bid contingency
-            </p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: '#e0f2fe', margin: '4px 0 0' }}>
-              +{contingency.pct_low}% – +{contingency.pct_high}%
-            </p>
-            <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
-              Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
-              local fees, review timing, and site risk
-              {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. This is a
-              planning aid — not a quote or guarantee. Confirm final dollars with {ahjName}.
-            </p>
-          </div>
-        )}
-
-        {priorityLines.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
-              What to resolve before bid
-            </h4>
-            <ol className="space-y-2.5 list-decimal pl-5">
-              {priorityLines.map((item, i) => (
-                <li key={`ex-p-${i}`} className="text-sm text-gray-200 leading-relaxed">
-                  <span className="text-amber-200 font-semibold text-xs uppercase mr-1.5">
-                    {item.sev}
-                  </span>
-                  <span className="text-white font-medium">{item.title}</span>
-                  {item.detail && (
-                    <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{item.detail}</p>
-                  )}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {punch.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
-              Immediate punch highlights
-            </h4>
-            <ul className="space-y-2">
-              {punch.map((p, i) => (
-                <li key={`ex-punch-${i}`} className="text-sm text-gray-200 flex gap-2 leading-relaxed">
-                  <span className="text-red-300 font-bold text-xs shrink-0 mt-0.5">
-                    {formatStampSeverity(p.priority)}
-                  </span>
-                  <span className="text-white">{p.task}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {envRisk && (
-          <p className="text-xs text-gray-400" style={{ marginTop: 12 }}>
-            Environmental screening risk:{' '}
-            <span className="text-gray-200 font-medium">{envRisk}</span>
+            IC Project Report PDFs are next. The bound package includes this boardroom brief.
           </p>
-        )}
-
-        <p
+        </section>
+      );
+    } catch (err) {
+      console.error('[RegGuard] executive summary render failed', err);
+      return (
+        <section
+          id="rg-executive-summary"
+          data-rg-exec="1"
           style={{
-            fontSize: 12,
-            color: '#94a3b8',
-            borderTop: '1px solid rgba(56,189,248,0.25)',
-            paddingTop: 12,
-            marginTop: 14,
-            lineHeight: 1.5,
+            border: '3px solid #fbbf24',
+            borderRadius: 12,
+            padding: 20,
+            background: '#1c1917',
+            color: '#fff',
           }}
         >
-          Next: download the IC Project Report PDFs below. Detail sections further down expand every
-          item with sources.
-        </p>
-      </section>
-    );
+          <p style={{ fontWeight: 900, color: '#fde68a', margin: 0 }}>EXECUTIVE SUMMARY</p>
+          <p style={{ marginTop: 8, lineHeight: 1.5 }}>
+            {view.project_info?.address || 'This site'} — review contingency, stamp drivers, and punch
+            list below before bid. (Summary renderer recovered from a data shape error.)
+          </p>
+        </section>
+      );
+    }
   };
 
   const jumpToCityPack = () => {
@@ -1681,7 +1722,21 @@ export default function ResultsViewerModal({
             <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
               Your Site Diligence Analysis
             </h2>
-            <p className="text-[10px] text-slate-500 mt-1 font-mono">ui-build epoch5 · exec-summary-v3</p>
+            <p
+              style={{
+                marginTop: 8,
+                display: 'inline-block',
+                background: '#fbbf24',
+                color: '#111827',
+                fontWeight: 900,
+                fontSize: 12,
+                letterSpacing: '0.04em',
+                padding: '4px 10px',
+                borderRadius: 6,
+              }}
+            >
+              BUILD exec-v4 — if you do not see a gold Executive summary below, clear site data
+            </p>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
                 const pi = view.project_info || ({} as AnalysisData['project_info']);
@@ -1798,17 +1853,16 @@ export default function ResultsViewerModal({
           </div>
         )}
 
-        {/* Email first, then executive summary + IC PDFs (the pair users ask for) */}
+        {/* Executive summary + IC PDFs — summary is INSIDE the green card users stare at */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-4">
-          {/* Always first in the results body — inline styles so a stale CSS chunk cannot hide it */}
-          <div id="executive-summary" className="scroll-mt-4">
-            {renderExecutiveSummary()}
-          </div>
-
           <div
             id="ic-project-report-pdfs"
-            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-3"
+            className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 space-y-4"
           >
+            <div id="executive-summary" className="scroll-mt-4">
+              {renderExecutiveSummary()}
+            </div>
+
             <div>
               <p className="text-emerald-200 font-bold text-sm sm:text-base">
                 IC Project Report PDFs are ready
