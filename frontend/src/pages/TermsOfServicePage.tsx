@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function TermsOfServicePage() {
-  const updated = 'September 4, 2026';
+  const updated = 'September 12, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -39,9 +39,12 @@ export default function TermsOfServicePage() {
             <h2 className="text-2xl font-bold text-white">The Service</h2>
             <p>
               RegGuard provides AI-assisted research and summaries related to construction permitting,
-              codes, fees, and site diligence. Outputs are informational research aids for contractors
-              and related professionals. RegGuard is not a law firm, engineering firm, surveying firm,
-              or licensed design professional, and does not provide legal advice.
+              codes, fees, and site diligence. Outputs are <strong className="text-white">planning aids</strong>{' '}
+              for citeable pre-bid diligence — not quotes, sealed bids, interconnection studies, geotech
+              reports, power studies, or AHJ approvals. RegGuard is not a law firm, engineering firm,
+              surveying firm, or licensed design professional, and does not provide legal advice. Fee
+              dollars and Unverified lines must be confirmed with the Authority Having Jurisdiction (AHJ)
+              before you bid or file. RegGuard does not invent fees that are not grounded in sources.
             </p>
           </section>
 
@@ -83,9 +86,10 @@ export default function TermsOfServicePage() {
             <h2 className="text-2xl font-bold text-white">Fees and payments</h2>
             <p>
               Paid plans and one-time purchases are described at checkout or on the pricing page.
-              Fees are charged through our payment processor. Except where required by law or expressly
-              stated otherwise, payments are non-refundable once research delivery has begun or digital
-              results have been made available.
+              Payments are processed by <strong className="text-white">Stripe</strong> (Stripe Checkout
+              or Stripe Elements). Reg Guard does not store card numbers. Except where required by law
+              or expressly stated otherwise, payments are non-refundable once research delivery has begun
+              or digital results have been made available.
             </p>
           </section>
 
@@ -105,7 +109,9 @@ export default function TermsOfServicePage() {
               The Service and all outputs are provided &quot;as is&quot; and &quot;as available.&quot;
               Municipal rules, fees, and requirements change and may be incomplete in public sources.
               Always verify critical decisions with the Authority Having Jurisdiction (AHJ), licensed
-              professionals, and primary source documents before bidding, filing, or building.
+              professionals, and primary source documents before bidding, filing, or building. Lines
+              marked Unverified require confirm-with-AHJ. Do not treat RegGuard artifacts as a sealed
+              bid package, interconnection study, geotech report, or guarantee of approval.
             </p>
           </section>
 

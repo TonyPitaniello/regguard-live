@@ -37,6 +37,8 @@ def test_bid_sheet_csv_has_punch_and_fee():
     assert "punch" in csv
     assert "fee" in csv
     assert "167" in csv
+    assert "cost_code" in csv
+    assert "estimator_fill" in csv
 
 
 def test_share_unlock_roundtrip():

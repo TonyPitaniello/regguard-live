@@ -26,8 +26,13 @@ export default function SampleReportPage() {
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl font-black text-white mb-6">Sample Report</h1>
-          <p className="text-xl text-gray-300 mb-6">
-            Here's a real anonymized RegGuard report. This is exactly what you'll receive when you order.
+          <p className="text-xl text-gray-300 mb-4">
+            Anonymized example of RegGuard citeable pre-bid diligence — planning aids you can forward
+            and verify, not a sealed bid or interconnection study.
+          </p>
+          <p className="text-sm text-amber-200/90 mb-6">
+            Sample structure only. Fee dollars and Unverified lines always require confirm-with-AHJ.
+            Payments via Stripe — Reg Guard does not store cards.
           </p>
           <a
             href={backendUrl('/sample/plano-punch-list.pdf')}
@@ -78,18 +83,21 @@ export default function SampleReportPage() {
               <div className="flex gap-4">
                 <CheckCircle className="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-white font-bold">Recommendation: GO</p>
-                  <p className="text-gray-400">Interconnection viable via standard large-load path (12–18 months Phase 1 feasibility study)</p>
+                  <p className="text-white font-bold">Recommendation: CAUTION (sample)</p>
+                  <p className="text-gray-400">
+                    Pre-bid screening flags parallel AHJ permit and utility clocks. Not an interconnection
+                    approval or sealed-bid package — confirm every claim with sources / AHJ.
+                  </p>
                 </div>
               </div>
               <div className="mt-6 bg-slate-700/50 rounded-lg p-4">
                 <p className="text-white font-bold mb-3">Key Findings:</p>
                 <ul className="space-y-2 text-sm">
-                  <li>✓ Site within ERCOT transmission area; large-load interconnection path available</li>
-                  <li>✓ No state-level moratorium; Texas has no statewide data center restrictions</li>
-                  <li>✓ Preliminary network upgrade cost estimate: $15M–$40M (to be refined in Phase 1)</li>
-                  <li>✓ No critical environmental blockers identified</li>
-                  <li>✓ Interconnection timeline: 12–18 months Phase 1 + 12–18 months Phase 2/3 if upgrades needed</li>
+                  <li>✓ Site appears within ERCOT footprint (planning note — Unverified until utility confirm)</li>
+                  <li>✓ No statewide data-center moratorium flagged in public sources (confirm current)</li>
+                  <li>✓ Network upgrade dollars shown as ranges only — not a quote; utility study required</li>
+                  <li>✓ Environmental blockers screened from public layers — not a geotech report</li>
+                  <li>✓ Parallel clocks: municipal permits + utility interconnection (independent paths)</li>
                 </ul>
               </div>
             </div>
@@ -97,23 +105,21 @@ export default function SampleReportPage() {
 
           {/* Interconnection Process */}
           <div>
-            <h3 className="text-xl font-bold text-white mb-4">Interconnection Process Timeline</h3>
+            <h3 className="text-xl font-bold text-white mb-4">Parallel clocks (sample — not a utility study)</h3>
             <div className="space-y-3 text-sm">
               <div className="flex gap-4">
-                <span className="text-purple-400 font-bold min-w-fit">Phase 1 (12–18 mo):</span>
-                <span>Feasibility study — ERCOT determines system capacity at your POI</span>
+                <span className="text-purple-400 font-bold min-w-fit">AHJ permits:</span>
+                <span>Municipal plan review / trade permits on the city clock (confirm with AHJ)</span>
               </div>
               <div className="flex gap-4">
-                <span className="text-purple-400 font-bold min-w-fit">Phase 2 (12–18 mo):</span>
-                <span>System impact study — Network upgrade requirements defined</span>
+                <span className="text-purple-400 font-bold min-w-fit">Utility path:</span>
+                <span>
+                  Interconnection / large-load steps are a separate clock — RegGuard does not run the study
+                </span>
               </div>
               <div className="flex gap-4">
-                <span className="text-purple-400 font-bold min-w-fit">Phase 3 (6–12 mo):</span>
-                <span>Facilities study — Final design and interconnection agreement</span>
-              </div>
-              <div className="flex gap-4">
-                <span className="text-purple-400 font-bold min-w-fit">Total: 30–48+ months</span>
-                <span>From application to grid connection</span>
+                <span className="text-purple-400 font-bold min-w-fit">Planning note:</span>
+                <span>Illustrative Phase 1–3 timelines from public practice — Unverified for your POI</span>
               </div>
             </div>
           </div>
@@ -154,7 +160,8 @@ export default function SampleReportPage() {
                 <span className="text-white font-bold">$100K–$500K</span>
               </div>
               <p className="text-gray-400 text-xs pt-4 border-t border-slate-600">
-                Note: Estimates based on historical data for your MW range and RTO. Actual costs determined during Phase 1 study. This is preliminary only.
+                Planning aid ranges only — not a quote. Actual costs come from utility / AHJ schedules and
+                licensed studies. This is citeable pre-bid diligence, not sealed-bid completeness.
               </p>
             </div>
           </div>
@@ -191,17 +198,20 @@ export default function SampleReportPage() {
           <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-6">
             <h3 className="text-lg font-bold text-white mb-4">Recommended Next Steps</h3>
             <ol className="space-y-3 text-sm">
-              <li><span className="text-blue-400 font-bold">1.</span> <span className="text-white">Schedule pre-application meeting with utility interconnection team</span></li>
-              <li><span className="text-blue-400 font-bold">2.</span> <span className="text-white">Engage IC consultant to guide Phase 1 scope and cost negotiation</span></li>
-              <li><span className="text-blue-400 font-bold">3.</span> <span className="text-white">Submit formal interconnection application to ERCOT (with IC consultant support)</span></li>
-              <li><span className="text-blue-400 font-bold">4.</span> <span className="text-white">Retain environmental counsel for any required reviews</span></li>
+              <li><span className="text-blue-400 font-bold">1.</span> <span className="text-white">Confirm AHJ fee schedule and portal asks before bid</span></li>
+              <li><span className="text-blue-400 font-bold">2.</span> <span className="text-white">Treat utility interconnection as a parallel clock — engage the serving utility / consultant</span></li>
+              <li><span className="text-blue-400 font-bold">3.</span> <span className="text-white">Do not treat this sample as an interconnection application or sealed bid</span></li>
+              <li><span className="text-blue-400 font-bold">4.</span> <span className="text-white">Retain licensed professionals for geotech / env / power studies as needed</span></li>
             </ol>
           </div>
 
           {/* Disclaimer */}
           <div className="border-t border-purple-500/20 pt-8">
             <p className="text-xs text-gray-500">
-              <strong>DISCLAIMER:</strong> This is a sample anonymized report showing the structure, depth, and quality of RegGuard analysis. Actual reports are customized to your specific site, jurisdiction, and project type. All findings are based on public sources and cited for independent verification. This report is not legal advice, engineering advice, or a guarantee of interconnection approval.
+              <strong>DISCLAIMER:</strong> Sample anonymized structure only. RegGuard outputs are planning
+              aids for citeable pre-bid diligence — not legal advice, engineering advice, a sealed bid,
+              an interconnection study, a geotech report, or a guarantee of approval. Confirm Unverified
+              lines and fees with the AHJ. Payments are handled by Stripe; Reg Guard does not store cards.
             </p>
           </div>
         </div>

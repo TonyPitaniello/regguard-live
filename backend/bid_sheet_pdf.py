@@ -115,8 +115,9 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
             pdf.ln(0.5)
 
     pdf.add_muted_note(
-        "Bid Sheet PDF — planning aid with clickable sources. Not a quote. Confirm every fee and "
-        "requirement with the AHJ before bid."
+        "Bid Sheet PDF — planning aid with clickable sources. Citeable pre-bid diligence, "
+        "not a quote or sealed bid. Fill your cost codes / quantities / crew rates before bidding. "
+        "Confirm every fee and Unverified line with the AHJ."
     )
 
     if output_path is None:

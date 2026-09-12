@@ -67,7 +67,7 @@ const TIERS = [
     price: '$1,500',
     billing: 'one-time per project',
     description:
-      'High-touch pre-bid diligence PDF package for one site — including colo / large-load parallel-track risk (not an interconnection study or AHJ filing).',
+      'High-touch citeable pre-bid diligence PDF package for one site — including colo / large-load parallel-track risk. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
     features: [
       'Research memo (PDF)',
       'Contractor punch list (PDF)',

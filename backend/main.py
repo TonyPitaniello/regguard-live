@@ -5489,13 +5489,16 @@ async def download_ic_boardroom_package_pdf(token: str):
 
 
 @app.post("/bid-receipt/pdf", tags=["Samples"])
-async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)):
     """
-    Generate the 1-page Bid Risk Receipt (default forwardable share object):
-    contingency band + top 3 margin killers + share CTA.
+    Generate the 1-page Bid Risk Receipt and return PDF bytes (multi-instance safe).
+    Also caches a token download_url for legacy clients.
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf
+    from bid_risk_receipt_pdf import (
+        generate_bid_risk_receipt_pdf,
+        generate_bid_risk_receipt_pdf_bytes,
+    )
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     if not data.get("fee_card") or not data.get("margin_killers"):
@@ -5509,20 +5512,33 @@ async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, 
         data["research_id"] = meta["research_id"]
         data["share_url"] = meta["share_url"]
     resolved = resolve_forward_share_url(data, share_url=share_url)
-    path = generate_bid_risk_receipt_pdf(
-        data,
-        generated_for=str(generated_for) if generated_for else None,
-        share_url=resolved or None,
-    )
-    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-    _BID_RECEIPT_CACHE[token] = path
-    api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
-    return {
-        "status": "ok",
-        "download_url": f"{api}/bid-receipt/pdf/{token}",
-        "filename": "RegGuard_Bid_Risk_Receipt.pdf",
-        "artifact": "bid_risk_receipt",
+    try:
+        pdf_bytes = generate_bid_risk_receipt_pdf_bytes(
+            data,
+            generated_for=str(generated_for) if generated_for else None,
+            share_url=resolved or None,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bid Risk Receipt failed: {e}") from e
+    # Best-effort disk + token for email / legacy GET (may 404 across instances)
+    try:
+        path = generate_bid_risk_receipt_pdf(
+            data,
+            generated_for=str(generated_for) if generated_for else None,
+            share_url=resolved or None,
+        )
+        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+        _BID_RECEIPT_CACHE[token] = path
+    except Exception:
+        token = ""
+    headers = {
+        "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
+        "X-RegGuard-Artifact": "bid_risk_receipt",
     }
+    if token:
+        api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
+        headers["X-RegGuard-Download-Url"] = f"{api}/bid-receipt/pdf/{token}"
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 @app.get("/bid-receipt/pdf/{token}", tags=["Samples"])
@@ -5542,14 +5558,18 @@ async def download_bid_receipt_pdf(token: str):
 
 
 @app.post("/bid-packet/pdf", tags=["Samples"])
-async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
     """
     Generate a forwardable PDF. Default mode=receipt (1-page Bid Risk Receipt).
     Pass mode=full for the longer bid packet (fees, docs, full punch).
+    Returns PDF bytes directly (multi-instance safe).
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from bid_packet_pdf import generate_bid_packet_pdf
-    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf
+    from bid_packet_pdf import generate_bid_packet_pdf, generate_bid_packet_pdf_bytes
+    from bid_risk_receipt_pdf import (
+        generate_bid_risk_receipt_pdf,
+        generate_bid_risk_receipt_pdf_bytes,
+    )
 
     data, generated_for, share_url, mode = _unwrap_analysis_body(analysis_data)
     band = data.get("contingency_band") or {}
@@ -5564,15 +5584,23 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Di
 
     api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
     if mode in ("full", "packet", "bid_packet"):
-        path = generate_bid_packet_pdf(data)
-        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-        _BID_PACKET_CACHE[token] = path
-        return {
-            "status": "ok",
-            "download_url": f"{api}/bid-packet/pdf/{token}",
-            "filename": "RegGuard_Bid_Packet.pdf",
-            "artifact": "bid_packet",
+        try:
+            pdf_bytes = generate_bid_packet_pdf_bytes(data)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Bid packet failed: {e}") from e
+        try:
+            path = generate_bid_packet_pdf(data)
+            token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+            _BID_PACKET_CACHE[token] = path
+        except Exception:
+            token = ""
+        headers = {
+            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Packet.pdf"',
+            "X-RegGuard-Artifact": "bid_packet",
         }
+        if token:
+            headers["X-RegGuard-Download-Url"] = f"{api}/bid-packet/pdf/{token}"
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
     from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
 
@@ -5582,19 +5610,31 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)) -> Di
         data["research_id"] = meta["research_id"]
         data["share_url"] = meta["share_url"]
     resolved = resolve_forward_share_url(data, share_url=share_url)
-    path = generate_bid_risk_receipt_pdf(
-        data,
-        generated_for=str(generated_for) if generated_for else None,
-        share_url=resolved or None,
-    )
-    token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-    _BID_RECEIPT_CACHE[token] = path
-    return {
-        "status": "ok",
-        "download_url": f"{api}/bid-receipt/pdf/{token}",
-        "filename": "RegGuard_Bid_Risk_Receipt.pdf",
-        "artifact": "bid_risk_receipt",
+    try:
+        pdf_bytes = generate_bid_risk_receipt_pdf_bytes(
+            data,
+            generated_for=str(generated_for) if generated_for else None,
+            share_url=resolved or None,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bid Risk Receipt failed: {e}") from e
+    try:
+        path = generate_bid_risk_receipt_pdf(
+            data,
+            generated_for=str(generated_for) if generated_for else None,
+            share_url=resolved or None,
+        )
+        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
+        _BID_RECEIPT_CACHE[token] = path
+    except Exception:
+        token = ""
+    headers = {
+        "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
+        "X-RegGuard-Artifact": "bid_risk_receipt",
     }
+    if token:
+        headers["X-RegGuard-Download-Url"] = f"{api}/bid-receipt/pdf/{token}"
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 @app.get("/bid-packet/pdf/{token}", tags=["Samples"])

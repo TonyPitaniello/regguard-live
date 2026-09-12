@@ -167,19 +167,37 @@ def _punch(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, Any]]:
     return out
 
 
-def _fees(analysis: Dict[str, Any], n: int = 10) -> List[Dict[str, str]]:
+def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
     fee_card = analysis.get("fee_card") if isinstance(analysis.get("fee_card"), dict) else {}
     fees = fee_card.get("fees") or []
     out: List[Dict[str, str]] = []
     for f in fees:
         if not isinstance(f, dict):
             continue
+        amt = f.get("amount_usd")
+        if isinstance(amt, (int, float)):
+            amount = f"${amt:,.0f}"
+        elif f.get("amount_requires_schedule"):
+            amount = "confirm on schedule"
+        else:
+            amount = _s(f.get("amount") or f.get("value") or f.get("range"), 80)
+        src = _s(f.get("source_url") or f.get("citation_url"), 400)
         out.append(
             {
                 "name": _s(f.get("name") or f.get("label") or f.get("fee"), 120),
-                "amount": _s(f.get("amount") or f.get("value") or f.get("range"), 80),
+                "amount": amount,
+                "trade": _s(f.get("trade"), 40),
+                "source_url": src,
+                "source_label": _s(
+                    f.get("source_label")
+                    or f.get("citation_note")
+                    or ("Source" if src else "Unverified — confirm with AHJ"),
+                    80,
+                ),
                 "note": _s(
-                    f.get("note") or f.get("detail") or "Planning aid — confirm on AHJ schedule",
+                    f.get("note")
+                    or f.get("detail")
+                    or "Planning aid — confirm on AHJ schedule",
                     200,
                 ),
             }
@@ -189,7 +207,50 @@ def _fees(analysis: Dict[str, Any], n: int = 10) -> List[Dict[str, str]]:
     return out
 
 
-def _sources(analysis: Dict[str, Any], limit: int = 40) -> List[Dict[str, str]]:
+def _inspection_steps(analysis: Dict[str, Any], n: int = 15) -> List[str]:
+    card = (
+        analysis.get("inspection_sequence_card")
+        if isinstance(analysis.get("inspection_sequence_card"), dict)
+        else {}
+    )
+    steps: List[str] = []
+    for s in card.get("steps") or []:
+        t = _s(s, 220)
+        if t:
+            steps.append(t)
+        if len(steps) >= n:
+            break
+    return steps
+
+
+def _document_checklist(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
+    dc = (
+        analysis.get("document_checklist")
+        if isinstance(analysis.get("document_checklist"), dict)
+        else {}
+    )
+    out: List[Dict[str, str]] = []
+    for d in dc.get("items") or []:
+        if isinstance(d, dict):
+            task = _s(d.get("task") or d.get("item") or d.get("title"), 220)
+            if not task:
+                continue
+            out.append(
+                {
+                    "task": task,
+                    "note": _s(d.get("note") or d.get("detail"), 160),
+                }
+            )
+        else:
+            task = _s(d, 220)
+            if task:
+                out.append({"task": task, "note": ""})
+        if len(out) >= n:
+            break
+    return out
+
+
+def _sources(analysis: Dict[str, Any], limit: int = 60) -> List[Dict[str, str]]:
     seen = set()
     out: List[Dict[str, str]] = []
 
@@ -206,6 +267,8 @@ def _sources(analysis: Dict[str, Any], limit: int = 40) -> List[Dict[str, str]]:
     ahj = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
     add(ahj.get("portal_url"), _s(ahj.get("name") or "AHJ portal", 80))
     add(ahj.get("fees_url"), "AHJ fees")
+    add(ahj.get("apply_url"), "AHJ apply")
+    add(ahj.get("inspections_url"), "AHJ inspections")
     for k in analysis.get("margin_killers") or []:
         if isinstance(k, dict):
             add(k.get("source_url"), _s(k.get("source_label") or k.get("title"), 80))
@@ -217,6 +280,13 @@ def _sources(analysis: Dict[str, Any], limit: int = 40) -> List[Dict[str, str]]:
     for item in punch.get("punch_list") or []:
         if isinstance(item, dict):
             add(item.get("source_url") or item.get("citation_url"), _s(item.get("task"), 80))
+    fee_card = analysis.get("fee_card") if isinstance(analysis.get("fee_card"), dict) else {}
+    for f in fee_card.get("fees") or []:
+        if isinstance(f, dict):
+            add(
+                f.get("source_url") or f.get("citation_url"),
+                _s(f.get("source_label") or f.get("label") or "Fee source", 80),
+            )
     return out[:limit]
 
 
@@ -561,13 +631,15 @@ def compose_ic_package(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     killers = _killers(data, 5)
-    gotchas = _gotchas(data, 6)
-    punch = _punch(data, 25)
-    fees = _fees(data, 12)
-    sources = _sources(data, 40)
-    actions = _next_actions(data, 5)
+    gotchas = _gotchas(data, 8)
+    punch = _punch(data, 35)
+    fees = _fees(data, 20)
+    sources = _sources(data, 60)
+    actions = _next_actions(data, 6)
     contingency = _contingency_block(data)
     clock_rows = _parallel_clock_rows(data, pi, killers)
+    inspection_steps = _inspection_steps(data, 15)
+    doc_checklist = _document_checklist(data, 20)
 
     depth = _s(
         data.get("depth_badge")
@@ -635,8 +707,9 @@ def compose_ic_package(
             "killers": killers[:3],
             "share_url": share,
             "disclaimer": (
-                "Planning aid for pre-bid / pre-LOI screening only. "
-                "NOT a bond, insurance quote, legal opinion, AHJ approval, or interconnection study."
+                "Planning aid for citeable pre-bid / pre-LOI screening only. "
+                "NOT a quote, sealed bid, bond, insurance quote, legal opinion, "
+                "AHJ approval, interconnection study, or geotech report."
             ),
         },
         "site_findings": {
@@ -644,12 +717,17 @@ def compose_ic_package(
                 "name": _s(ahj.get("name"), 120),
                 "portal_url": _s(ahj.get("portal_url"), 400),
                 "fees_url": _s(ahj.get("fees_url"), 400),
+                "apply_url": _s(ahj.get("apply_url"), 400),
+                "inspections_url": _s(ahj.get("inspections_url"), 400),
                 "last_verified": _s(ahj.get("last_verified"), 40),
+                "notes": _s(ahj.get("notes"), 400),
             },
             "coverage_note": _s(coverage.get("warning") or coverage.get("note"), 400),
             "fees": fees,
             "gotchas": gotchas,
-            "gotcha_cards": _gotcha_cards(data, 6),
+            "gotcha_cards": _gotcha_cards(data, 8),
+            "inspection_sequence": inspection_steps,
+            "document_checklist": doc_checklist,
             "env_risk": _s(env.get("risk_level"), 40),
             "env_findings": [
                 {
@@ -669,9 +747,12 @@ def compose_ic_package(
         "action_plan_excerpt": _s((data.get("pro_summary_markdown") or "")[:2500], 2500),
         "sources": sources,
         "disclaimers": [
-            "Planning aid only - confirm all fees, timelines, and portal asks with the AHJ.",
+            "Planning aid only — citeable pre-bid diligence, not a quote or sealed bid.",
+            "Unverified lines and fee dollars require confirm-with-AHJ on the official schedule.",
+            "NOT an interconnection study, geotech report, power study, or AHJ approval.",
             "Stamp CLEAR / CAUTION / HOLD is a pre-bid risk signal, not a credit rating or AHJ rejection.",
             "Dollar and day figures are planning aids unless marked citeable and still require live confirm.",
+            "Payments are handled by Stripe Checkout — Reg Guard does not store card numbers.",
             "Package bound to the site address shown on the cover at generation time.",
         ],
     }

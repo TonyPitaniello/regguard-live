@@ -565,8 +565,14 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _muted(pdf, f"Portal: {ahj.get('portal_url')}")
     if ahj.get("fees_url"):
         _muted(pdf, f"Fees: {ahj.get('fees_url')}")
+    if ahj.get("apply_url"):
+        _muted(pdf, f"Apply: {ahj.get('apply_url')}")
+    if ahj.get("inspections_url"):
+        _muted(pdf, f"Inspections: {ahj.get('inspections_url')}")
     if ahj.get("last_verified"):
         _muted(pdf, f"Last verified: {ahj.get('last_verified')}")
+    if ahj.get("notes"):
+        _muted(pdf, ahj.get("notes"))
     if findings.get("coverage_note"):
         pdf.ln(1)
         _body(pdf, findings.get("coverage_note"))
@@ -577,11 +583,34 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _h2(pdf, "Fee & timeline extracts (planning aids — confirm on schedule)")
         for f in fees:
             line = f.get("name") or "Fee"
+            if f.get("trade"):
+                line = f"[{f.get('trade')}] {line}"
             if f.get("amount"):
                 line += f" — {f.get('amount')}"
             _bullet(pdf, line)
+            cite = f.get("source_label") or ("Source" if f.get("source_url") else "Unverified — confirm with AHJ")
+            _muted(pdf, f"  {cite}" + (f" · {f.get('source_url')}" if f.get("source_url") else ""))
             if f.get("note"):
                 _muted(pdf, f"  {f.get('note')}")
+
+    insp = findings.get("inspection_sequence") or []
+    if insp:
+        pdf.ln(2)
+        _h2(pdf, "Inspection sequence (from live city pack)")
+        for i, step in enumerate(insp, start=1):
+            _bullet(pdf, f"{i}. {step}")
+
+    docs = findings.get("document_checklist") or []
+    if docs:
+        pdf.ln(2)
+        _h2(pdf, "Document checklist (from live results)")
+        for d in docs:
+            if isinstance(d, dict):
+                task = d.get("task") or "Document"
+                note = d.get("note") or ""
+                _bullet(pdf, f"[ ] {task}" + (f" — {note}" if note else ""))
+            else:
+                _bullet(pdf, f"[ ] {d}")
 
     cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
     if cards:
@@ -610,13 +639,6 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             _body(pdf, f"Risk level: {findings.get('env_risk')}")
         for f in findings.get("env_findings") or []:
             _bullet(pdf, f"{f.get('category')}: {f.get('description')}")
-
-    clocks = findings.get("parallel_clocks") or []
-    if clocks:
-        pdf.ln(1)
-        _h2(pdf, "Parallel clocks (AHJ + utility)")
-        for c in clocks:
-            _bullet(pdf, f"{c.get('name')}: {c.get('detail')}")
 
     # ---- Punch ----
     pdf.add_page()

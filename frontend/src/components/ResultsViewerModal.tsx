@@ -1459,8 +1459,9 @@ export default function ResultsViewerModal({
           ...(share ? { share_url: share } : {}),
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const ctype = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         const detail =
           typeof data.detail === 'string'
             ? data.detail
@@ -1469,23 +1470,29 @@ export default function ResultsViewerModal({
               : 'Bid Risk Receipt failed';
         throw new Error(detail);
       }
-      const rawUrl = String(data.download_url || '');
-      if (!rawUrl) throw new Error('Receipt generated but no download URL returned');
-      // Always hit our API host — absolute Render URLs can 404 on multi-instance token cache
-      const pathStart = rawUrl.search(/\/bid-receipt\//);
-      const fetchUrl =
-        pathStart >= 0
-          ? backendUrl(rawUrl.slice(pathStart))
-          : rawUrl.startsWith('http')
-            ? rawUrl
-            : backendUrl(rawUrl);
-      const fileRes = await fetch(fetchUrl, { credentials: 'omit' });
-      if (!fileRes.ok) {
-        throw new Error(
-          `Receipt download failed (${fileRes.status}). Try again — if it keeps failing, use Share link.`
-        );
+      // Prefer inline PDF bytes (multi-instance safe). Fall back to token URL for legacy APIs.
+      let blob: Blob;
+      if (ctype.includes('application/pdf')) {
+        blob = await res.blob();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const rawUrl = String(data.download_url || '');
+        if (!rawUrl) throw new Error('Receipt generated but no PDF returned');
+        const pathStart = rawUrl.search(/\/bid-receipt\//);
+        const fetchUrl =
+          pathStart >= 0
+            ? backendUrl(rawUrl.slice(pathStart))
+            : rawUrl.startsWith('http')
+              ? rawUrl
+              : backendUrl(rawUrl);
+        const fileRes = await fetch(fetchUrl, { credentials: 'omit' });
+        if (!fileRes.ok) {
+          throw new Error(
+            `Receipt download failed (${fileRes.status}). Try again — if it keeps failing, use Share link.`
+          );
+        }
+        blob = await fileRes.blob();
       }
-      const blob = await fileRes.blob();
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -1531,7 +1538,7 @@ export default function ResultsViewerModal({
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-      showToast('Bid sheet CSV downloaded — paste into your estimate.');
+      showToast('Bid sheet CSV downloaded — paste into your estimate (cost_code / qty / rates are yours).');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'CSV export failed');
     } finally {
@@ -1675,17 +1682,42 @@ export default function ResultsViewerModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analysis_data: view, mode: 'full' }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Bid packet failed');
-      if (data.download_url) {
-        window.open(data.download_url, '_blank', 'noopener,noreferrer');
-        setToast('Full bid packet PDF ready');
+      const ctype = (res.headers.get('content-type') || '').toLowerCase();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || 'Bid packet failed');
       }
+      let blob: Blob;
+      if (ctype.includes('application/pdf')) {
+        blob = await res.blob();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        const rawUrl = String(data.download_url || '');
+        if (!rawUrl) throw new Error('Bid packet generated but no PDF returned');
+        const pathStart = rawUrl.search(/\/bid-packet\//);
+        const fetchUrl =
+          pathStart >= 0
+            ? backendUrl(rawUrl.slice(pathStart))
+            : rawUrl.startsWith('http')
+              ? rawUrl
+              : backendUrl(rawUrl);
+        const fileRes = await fetch(fetchUrl, { credentials: 'omit' });
+        if (!fileRes.ok) throw new Error(`Bid packet download failed (${fileRes.status})`);
+        blob = await fileRes.blob();
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_Bid_Packet.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('Full bid packet PDF downloaded — citeable pre-bid diligence, not a sealed bid');
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Bid packet failed');
+      showToast(err instanceof Error ? err.message : 'Bid packet failed');
     } finally {
       setPacketLoading(false);
-      window.setTimeout(() => setToast(''), 3500);
     }
   };
 
@@ -2313,6 +2345,14 @@ export default function ResultsViewerModal({
               WhatsApp opens with the receipt text. Facebook/Instagram copy the caption — paste into your post.
               Link: <span className="text-emerald-300 break-all">{shareLink}</span>
             </p>
+            <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+              <span className="text-gray-300 font-semibold">Lock stamp</span> freezes grade + fingerprint
+              on this shared report so war-room edits cannot rewrite what was stamped — dispute-record
+              integrity for you and the recipient. It is not a liability shield for Reg Guard. Seller
+              protection lives in Terms: planning aid only, Unverified / confirm-with-AHJ labels, no
+              invented fees, no sealed-bid / interconnection / geotech completeness claims, Stripe-handled
+              payments (no cards stored in Reg Guard), and citeable pre-bid diligence — not a quote.
+            </p>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -2328,7 +2368,7 @@ export default function ResultsViewerModal({
                 onClick={() => void freezeWarRoomStamp()}
                 disabled={!effectiveResearchId}
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-white/10 border border-white/20 text-gray-200 text-sm font-semibold disabled:opacity-50"
-                title="Locks this stamp grade + fingerprint so later comments cannot change the dispute record"
+                title="Locks stamp grade + fingerprint on this shared report so later edits cannot rewrite what was stamped"
               >
                 Lock stamp
               </button>
@@ -2390,7 +2430,8 @@ export default function ResultsViewerModal({
         <div className="px-5 sm:px-8 py-6 space-y-6">
           <p className="text-xs text-gray-400">
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
-            Forward only what you can defend.
+            Outputs are planning aids — confirm with AHJ before bid. Citeable pre-bid diligence, not a quote
+            or sealed bid. Forward only what you can defend.
           </p>
 
           {/* Bid Risk Receipt — forwardable hero */}
@@ -2405,9 +2446,9 @@ export default function ResultsViewerModal({
                     Bid Risk Receipt — forward to GC / owner
                   </h3>
                   <p className="text-gray-400 text-sm mt-1">
-                    Site-specific CYA stamp: big contingency + 3 risk flags. Planning aid —
-                    not a quote, not a filing.
-                    {view.dc_positioning ? ' Parallel AHJ + utility clocks.' : ''}
+                    Site-specific CYA stamp: contingency + top risks. Citeable pre-bid diligence —
+                    planning aid, not a quote, sealed bid, or AHJ filing.
+                    {view.dc_positioning ? ' Parallel AHJ + utility clocks (not an interconnection study).' : ''}
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
@@ -2515,11 +2556,11 @@ export default function ResultsViewerModal({
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
                     : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
                 }`}
-                title="Open curated city pack fees and gotchas for this AHJ"
+                title="Open Full city pack — contingency, fees, gotchas, AHJ links, and bid downloads"
               >
                 {(coverage.badge || '').toLowerCase().includes('city pack')
-                  ? 'Open full city pack →'
-                  : `Open coverage: ${coverage.badge || 'local pack'} →`}
+                  ? 'Open Full city pack →'
+                  : `Open Full city pack (${coverage.badge || 'local'}) →`}
               </button>
               <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
               <button
@@ -2527,7 +2568,7 @@ export default function ResultsViewerModal({
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg border border-emerald-500/40 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-xs font-bold"
                 onClick={jumpToCityPack}
               >
-                Jump to local fees &amp; gotchas
+                Jump to Full city pack
               </button>
             </div>
             {view.paid_local?.status === 'capped' && (
@@ -2810,9 +2851,12 @@ export default function ResultsViewerModal({
             </div>
           </div>
 
-          {/* City pack — fees/gotchas/contingency first so Jump lands on real content */}
-          <section id="rg-city-pack" className="space-y-3 scroll-mt-6">
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
+          {/* City pack — one contiguous section: header + all subsections */}
+          <section
+            id="rg-city-pack"
+            className="scroll-mt-6 rounded-xl border border-emerald-500/35 bg-emerald-500/[0.07] overflow-hidden"
+          >
+            <div className="px-4 py-3 border-b border-emerald-500/25 bg-emerald-500/10">
               <p className="text-sm font-bold text-emerald-200">
                 Full city pack
                 {view.ahj_card?.name || view.project_info?.city || view.local_pack?.city
@@ -2824,15 +2868,15 @@ export default function ResultsViewerModal({
               </p>
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
                 {packFees.length || packGotchas.length || view.contingency_band
-                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Everything below this header (contingency, fees, gotchas, AHJ links, bid downloads) is the city pack.`
-                  : 'Curated fees, gotchas, contingency, AHJ links, and bid downloads for this jurisdiction appear below. Confirm dollars on the official schedule before bid.'}
+                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. This whole block is the city pack: contingency, fees, gotchas, AHJ links, and bid downloads.`
+                  : 'This whole block is the Full city pack: curated fees, gotchas, contingency, AHJ links, and bid downloads (planning aids — confirm dollars on the official schedule before bid).'}
               </p>
             </div>
 
             {cityPackHasBody ? (
-              <div id="bid-arbitrage" className="space-y-3">
+              <div id="bid-arbitrage" className="divide-y divide-emerald-500/20">
                 {view.contingency_band && (
-                  <div className="bg-slate-800/40 border border-emerald-500/30 rounded-lg p-4">
+                  <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-emerald-300 mb-2">
                       {view.contingency_band.label || 'Suggested contingency'}
                     </h4>
@@ -2853,7 +2897,7 @@ export default function ResultsViewerModal({
                 )}
 
                 {packFees.length > 0 && (
-                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-blue-300 mb-2">
                       {view.fee_card?.title || 'Fee & timeline extract'}
                       {(view.fee_card?.planning_aid || view.fee_card?.paid_local_confirm) && (
@@ -2921,10 +2965,7 @@ export default function ResultsViewerModal({
                 )}
 
                 {packGotchas.length > 0 && (
-                  <div
-                    id="rg-local-gotchas"
-                    className="bg-slate-800/40 border border-amber-500/35 rounded-lg p-4 space-y-3"
-                  >
+                  <div id="rg-local-gotchas" className="px-4 py-4 space-y-3">
                     <h4 className="text-sm font-bold text-amber-200">
                       {view.gotcha_watchlist?.title || 'Local gotcha watchlist'}
                     </h4>
@@ -2950,7 +2991,7 @@ export default function ResultsViewerModal({
                 )}
 
                 {view.ahj_card && (
-                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <div className="px-4 py-4">
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <h4 className="text-sm font-bold text-emerald-300">
                         {view.ahj_card.title || 'AHJ portal & contact'}
@@ -3012,7 +3053,7 @@ export default function ResultsViewerModal({
 
                 {view.inspection_sequence_card &&
                   (view.inspection_sequence_card.steps || []).length > 0 && (
-                    <div className="bg-slate-800/40 border border-indigo-500/30 rounded-lg p-4">
+                    <div className="px-4 py-4">
                       <h4 className="text-sm font-bold text-indigo-300 mb-2">
                         {view.inspection_sequence_card.title || 'Inspection sequence'}
                       </h4>
@@ -3026,8 +3067,8 @@ export default function ResultsViewerModal({
                     </div>
                   )}
 
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-1">
-                  <h3 className="text-lg font-bold text-white">Bid-time downloads</h3>
+                <div className="px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="text-base font-bold text-white">Bid-time downloads</h3>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -3076,7 +3117,7 @@ export default function ResultsViewerModal({
                 </div>
 
                 {view.recheck_diff && (view.recheck_diff.change_count || 0) > 0 && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+                  <div className="px-4 py-4 text-sm text-amber-100 bg-amber-500/10">
                     <p className="font-bold mb-1">
                       {view.recheck_diff.change_count} change(s) since last run
                     </p>
@@ -3088,7 +3129,7 @@ export default function ResultsViewerModal({
                   </div>
                 )}
 
-                <div className="bg-slate-800/40 border border-slate-600 rounded-lg p-4 space-y-2">
+                <div className="px-4 py-4 space-y-2">
                   <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
                   <p className="text-xs text-gray-400">
                     Partner / Pro emails get a $20 credit after ops verifies and cites the portal.
@@ -3144,7 +3185,7 @@ export default function ResultsViewerModal({
                 </div>
 
                 {view.document_checklist && (
-                  <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-4">
+                  <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-purple-300 mb-2">
                       {view.document_checklist.title || 'Document checklist'}
                     </h4>
@@ -3162,7 +3203,7 @@ export default function ResultsViewerModal({
                 )}
               </div>
             ) : (
-              <p className="text-sm text-amber-100/90 px-1 leading-relaxed">
+              <p className="text-sm text-amber-100/90 px-4 py-3 leading-relaxed">
                 This ZIP matched a city-pack badge, but fee/gotcha rows are not attached to this
                 results payload yet. Open the AHJ portal links from coverage above, or re-run deep
                 research with the pin confirmed.

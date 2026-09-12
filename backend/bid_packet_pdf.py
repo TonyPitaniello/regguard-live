@@ -586,8 +586,9 @@ def generate_bid_packet_pdf(
         CONTENT_W - 8,
         3.5,
         _ascii(
-            "Not a quote, not guaranteed savings, not an official AHJ filing. "
-            "Confirm fees, forms, and timeline with the AHJ before bid. "
+            "Citeable pre-bid diligence - not a quote or sealed bid. "
+            "Not an interconnection study, geotech report, or AHJ filing. "
+            "Confirm fees and Unverified lines with the AHJ before bid. "
             "app.regguardagent.com"
         ),
     )
@@ -603,3 +604,16 @@ def generate_bid_packet_pdf(
     pdf.output(output_path)
     logger.info("Bid packet PDF (branded) -> %s", output_path)
     return output_path
+
+
+def generate_bid_packet_pdf_bytes(analysis: Dict[str, Any]) -> bytes:
+    """Return PDF bytes in-process (multi-instance safe; no token cache)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="bid_packet_") as tmp:
+        path = os.path.join(tmp, "RegGuard_Bid_Packet.pdf")
+        generate_bid_packet_pdf(analysis, output_path=path)
+        raw = Path(path).read_bytes()
+    if raw[:4] != b"%PDF":
+        raise RuntimeError("Bid packet PDF generation failed")
+    return raw

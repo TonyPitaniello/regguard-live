@@ -57,7 +57,10 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc ml-5 space-y-2">
               <li>Contact details you submit (name, email address, mobile phone number)</li>
               <li>Project details (address, trade/project type, and related research inputs)</li>
-              <li>Account and billing information needed to process paid orders</li>
+              <li>
+                Account and order metadata needed for paid plans. Card payments are processed by{' '}
+                <strong className="text-white">Stripe</strong> — Reg Guard does not store card numbers
+              </li>
               <li>Usage data such as pages visited, device/browser type, and basic analytics</li>
               <li>Communications you send us (support requests, feedback)</li>
               <li>
@@ -76,7 +79,10 @@ export default function PrivacyPolicyPage() {
                 share links, order or PDF-ready notices, ZIP-watch alerts you enable, and related account
                 status)
               </li>
-              <li>To process payments, prevent fraud, and provide customer support</li>
+              <li>
+                To process payments via Stripe (Reg Guard does not store card numbers), prevent fraud, and
+                provide customer support
+              </li>
               <li>To improve product reliability, security, and user experience</li>
               <li>To comply with legal obligations</li>
             </ul>
@@ -133,8 +139,9 @@ export default function PrivacyPolicyPage() {
             <p>
               For general account and product operation (not for marketing your mobile number), we may
               share limited personal information with service providers that help us run RegGuard
-              (hosting, email delivery, payment processing, analytics), with professional advisors or
-              authorities when required by law, or with successors in a merger or acquisition.{' '}
+              (hosting, email delivery, <strong className="text-white">Stripe</strong> payment processing,
+              analytics), with professional advisors or authorities when required by law, or with
+              successors in a merger or acquisition.{' '}
               <strong className="text-white">
                 This does not authorize sharing mobile phone numbers or messaging consent for marketing.
               </strong>

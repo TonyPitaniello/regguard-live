@@ -37,8 +37,9 @@ MARGIN = 12
 CONTENT_W = PAGE_W - (MARGIN * 2)
 
 CYA = (
-    "PLANNING AID ONLY - not a quote, not guaranteed savings, "
-    "not an official AHJ filing. Confirm with AHJ before bid."
+    "PLANNING AID ONLY - citeable pre-bid diligence, not a quote or sealed bid. "
+    "Not an interconnection study, geotech report, or AHJ filing. "
+    "Unverified lines need confirm-with-AHJ before bid."
 )
 
 
@@ -504,3 +505,26 @@ def generate_bid_risk_receipt_pdf(
     pdf.output(output_path)
     logger.info("Bid Risk Receipt PDF (branded) -> %s", output_path)
     return output_path
+
+
+def generate_bid_risk_receipt_pdf_bytes(
+    analysis: Dict[str, Any],
+    *,
+    generated_for: Optional[str] = None,
+    share_url: Optional[str] = None,
+) -> bytes:
+    """Return PDF bytes in-process (multi-instance safe; no token cache)."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="bid_receipt_") as tmp:
+        path = os.path.join(tmp, "RegGuard_Bid_Risk_Receipt.pdf")
+        generate_bid_risk_receipt_pdf(
+            analysis,
+            output_path=path,
+            generated_for=generated_for,
+            share_url=share_url,
+        )
+        raw = Path(path).read_bytes()
+    if raw[:4] != b"%PDF":
+        raise RuntimeError("Bid Risk Receipt PDF generation failed")
+    return raw

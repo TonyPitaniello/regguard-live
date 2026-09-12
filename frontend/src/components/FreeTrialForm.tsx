@@ -903,7 +903,7 @@ export default function FreeTrialForm({
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
           <p className="text-gray-300 text-base md:text-lg">
-            One site. Seconds to a citeable punch list you can forward.
+            One site. Seconds to citeable pre-bid diligence you can forward — not a quote.
             Or tap the mic and say the address.
             {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
               <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">
@@ -1164,7 +1164,7 @@ export default function FreeTrialForm({
           <p className="text-gray-400 text-sm text-center leading-relaxed">
             {paidEntitled
               ? 'Paid access active for this email — results include deeper scout research.'
-              : 'No credit card. Results in seconds. Upgrade from the results window for deeper research.'}
+              : 'No credit card stored by Reg Guard (Stripe handles paid upgrades). Results in seconds.'}
           </p>
         </form>
       </div>
