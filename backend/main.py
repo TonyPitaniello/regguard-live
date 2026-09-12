@@ -235,6 +235,10 @@ _STREAM_HEARTBEAT_SEC = 2.0
 
 _ORIGIN_RE = re.compile(r"^https?://(127\.0\.0\.1|localhost)(:\d+)?$")
 _VERCEL_ORIGIN_RE = re.compile(r"^https://[a-zA-Z0-9][-a-zA-Z0-9]*\.vercel\.app$")
+_PROD_APP_ORIGIN_RE = re.compile(
+    r"^https://(app\.)?regguardagent\.com$",
+    re.IGNORECASE,
+)
 
 
 def _extra_cors_origins() -> List[str]:
@@ -246,7 +250,7 @@ def _origin_allowed(origin: str) -> bool:
     o = (origin or "").strip()
     if not o:
         return False
-    if _ORIGIN_RE.match(o) or _VERCEL_ORIGIN_RE.match(o):
+    if _ORIGIN_RE.match(o) or _VERCEL_ORIGIN_RE.match(o) or _PROD_APP_ORIGIN_RE.match(o):
         return True
     return o in _extra_cors_origins()
 
