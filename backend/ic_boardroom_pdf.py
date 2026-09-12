@@ -378,27 +378,27 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     _h2(pdf, "Contents")
     for i, title in enumerate(
         [
-            "Executive summary",
-            "Bid Risk Receipt",
-            "Site findings + gotcha confirm cards",
-            "Ranked punch list",
-            "Next actions",
-            "Source appendix + disclaimers",
+            "Executive recommendation",
+            "Risk stamp & contingency",
+            "Parallel path schedule (AHJ + utility)",
+            "Jurisdiction, fees & gotcha cards",
+            "Critical-path punch list",
+            "Next actions & source appendix",
         ],
         start=1,
     ):
         _bullet(pdf, f"{i}. {title}")
     _muted(
         pdf,
-        "This bound package is the primary IC Project deliverable. "
-        "Optional worksheets (memo / punch / permits) may be exported separately.",
+        "Bound site diligence package for construction readiness / data-center pre-bid screening. "
+        "Planning aid only — confirm with AHJ and utility before bid.",
     )
 
     # ---- Executive summary ----
     pdf.add_page()
     ex = package.get("executive_summary") or {}
     stamp = ex.get("stamp") or {}
-    _h1(pdf, f"1. Executive summary — {site}")
+    _h1(pdf, f"1. Executive recommendation — {site}")
     _body(pdf, ex.get("headline") or "What matters before you bid", size=11)
     pdf.ln(2)
 
@@ -486,11 +486,15 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         "CAUTION = material risk · HOLD = resolve drivers before treating the bid as clear.",
     )
 
-    # ---- Bid Risk Receipt ----
+    # ---- Bid Risk Receipt / stamp page ----
     pdf.add_page()
     receipt = package.get("bid_risk_receipt") or {}
-    _h1(pdf, f"2. Bid Risk Receipt — {site}")
-    _body(pdf, "Forward this page to the GC or owner as a one-page risk brief.", size=10)
+    _h1(pdf, f"2. Risk stamp & contingency — {site}")
+    _body(
+        pdf,
+        "One-page risk brief for GC / owner / IC war-room. Planning aid — not a quote.",
+        size=10,
+    )
     pdf.ln(2)
     st = receipt.get("stamp") or stamp
     st_display = st.get("display") or st.get("grade") or display
@@ -525,12 +529,37 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.ln(2)
     _muted(pdf, receipt.get("disclaimer") or "")
 
-    # ---- Site findings ----
+    # ---- Parallel clocks + site findings ----
     pdf.add_page()
     findings = package.get("site_findings") or {}
-    _h1(pdf, f"3. Site findings — {site}")
-    ahj = findings.get("ahj") or {}
+    _h1(pdf, f"3. Parallel path schedule & jurisdiction — {site}")
+    clocks = findings.get("parallel_clocks") or []
+    if clocks:
+        _h2(pdf, "Parallel path schedule (do not serialize)")
+        _body(
+            pdf,
+            "Data-center / large-load sites typically run municipal AHJ permits and utility "
+            "interconnection on independent clocks. Slip on either path moves bid risk.",
+            size=9,
+        )
+        pdf.ln(1)
+        cols = [("Path", 55.0), ("Planning note", 128.9)]
+        _table_header(pdf, cols)
+        for i, c in enumerate(clocks[:8]):
+            if not isinstance(c, dict):
+                continue
+            _table_row(
+                pdf,
+                [
+                    (str(c.get("name") or c.get("label") or "Path"), 55.0),
+                    (str(c.get("detail") or c.get("note") or ""), 128.9),
+                ],
+                alt=i % 2 == 1,
+            )
+        pdf.ln(2)
+
     _h2(pdf, "Authority having jurisdiction")
+    ahj = findings.get("ahj") or {}
     _body(pdf, ahj.get("name") or cover.get("ahj_name") or "Local AHJ")
     if ahj.get("portal_url"):
         _muted(pdf, f"Portal: {ahj.get('portal_url')}")
@@ -545,7 +574,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     fees = findings.get("fees") or []
     if fees:
         pdf.ln(2)
-        _h2(pdf, "Fee & timeline extracts (planning aids)")
+        _h2(pdf, "Fee & timeline extracts (planning aids — confirm on schedule)")
         for f in fees:
             line = f.get("name") or "Fee"
             if f.get("amount"):
@@ -557,7 +586,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
     if cards:
         pdf.ln(2)
-        _h2(pdf, "Gotcha confirm cards")
+        _h2(pdf, "Local gotcha confirm cards")
         for g in cards:
             _need_space(pdf, 28)
             _body(pdf, f"[{g.get('priority') or 'WATCH'}] {g.get('title')}", size=10)
@@ -592,7 +621,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     # ---- Punch ----
     pdf.add_page()
     punch = package.get("punch_list") or {}
-    _h1(pdf, f"4. Ranked punch list — {site}")
+    _h1(pdf, f"4. Critical-path punch list — {site}")
     if punch.get("timeline_summary"):
         _muted(pdf, f"Timeline summary: {punch.get('timeline_summary')}")
         pdf.ln(1)
@@ -608,7 +637,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     # ---- Next actions (was action plan / code dump) ----
     pdf.add_page()
-    _h1(pdf, f"5. Next actions — {site}")
+    _h1(pdf, f"5. Next actions & sources — {site}")
     _muted(
         pdf,
         "Boardroom next steps drawn from high-priority risks and confirm cards. "

@@ -370,7 +370,7 @@ export default function FreeTrialForm({
         // Soft confirm chip — Cancel aborts IC slot consume
         generateIcReport = window.confirm(
           `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
-            'This uses your IC Project purchase for this exact address. Cancel to stop.'
+            'Your email already has IC Project access. OK generates the boardroom package for this site using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without IC PDFs.'
         );
         try {
           sessionStorage.removeItem('icForceOnce');
@@ -386,8 +386,8 @@ export default function FreeTrialForm({
         generateIcReport = window.confirm(
           `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
             (annual
-              ? 'This will create or replace the PDFs on your IC Annual order for this address. Cancel to research without updating PDFs.'
-              : 'This will create or replace the PDFs on your IC Project purchase for this address. Cancel to research without generating PDFs.')
+              ? 'Your email has IC Annual access. OK creates/updates PDFs for this address under that subscription. Cancel researches without updating PDFs. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
+              : 'Your email has an IC Project purchase on file. OK builds the $1,500 boardroom package for this address from that order (no new charge here). Cancel researches without generating PDFs. Reg Guard does not store your credit card.')
         );
         if (!generateIcReport) {
           clearPendingIcReport();

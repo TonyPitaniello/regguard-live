@@ -1229,7 +1229,7 @@ export default function ResultsViewerModal({
               margin: 0,
             }}
           >
-            Executive summary — read this first
+            Executive summary
           </p>
           <h3
             style={{
@@ -1240,7 +1240,7 @@ export default function ResultsViewerModal({
               lineHeight: 1.25,
             }}
           >
-            Boardroom brief — {site}
+            {site}
           </h3>
           <p style={{ color: '#fff', fontSize: 15, lineHeight: 1.55, margin: '10px 0 0', maxWidth: 760 }}>
             {lead}
@@ -1460,30 +1460,49 @@ export default function ResultsViewerModal({
         }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || 'Bid Risk Receipt failed');
-      if (data.download_url) {
-        const blobUrl = data.download_url.startsWith('http')
-          ? data.download_url
-          : backendUrl(data.download_url);
-        const fileRes = await fetch(blobUrl);
-        const blob = await fileRes.blob();
-        const objectUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = objectUrl;
-        a.download = 'RegGuard_Bid_Risk_Receipt.pdf';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-        grantShareUnlock('bid_receipt_pdf');
-        trackStampEvent('stamp_receipt_download', {
-          researchId: effectiveResearchId,
-          zip: view.project_info?.zip,
-          stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
-          stampFingerprint: view.regguard_stamp?.fingerprint,
-          channel: 'receipt_pdf',
-        });
+      if (!res.ok) {
+        const detail =
+          typeof data.detail === 'string'
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((d: { msg?: string }) => d.msg || String(d)).join('; ')
+              : 'Bid Risk Receipt failed';
+        throw new Error(detail);
       }
+      const rawUrl = String(data.download_url || '');
+      if (!rawUrl) throw new Error('Receipt generated but no download URL returned');
+      // Always hit our API host — absolute Render URLs can 404 on multi-instance token cache
+      const pathStart = rawUrl.search(/\/bid-receipt\//);
+      const fetchUrl =
+        pathStart >= 0
+          ? backendUrl(rawUrl.slice(pathStart))
+          : rawUrl.startsWith('http')
+            ? rawUrl
+            : backendUrl(rawUrl);
+      const fileRes = await fetch(fetchUrl, { credentials: 'omit' });
+      if (!fileRes.ok) {
+        throw new Error(
+          `Receipt download failed (${fileRes.status}). Try again — if it keeps failing, use Share link.`
+        );
+      }
+      const blob = await fileRes.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_Bid_Risk_Receipt.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      grantShareUnlock('bid_receipt_pdf');
+      trackStampEvent('stamp_receipt_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+        stampFingerprint: view.regguard_stamp?.fingerprint,
+        channel: 'receipt_pdf',
+      });
+      showToast('Bid Risk Receipt downloaded');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Receipt download failed');
     } finally {
@@ -1719,10 +1738,10 @@ export default function ResultsViewerModal({
         const detail = await res.json().catch(() => ({}));
         throw new Error((detail as { detail?: string }).detail || `Freeze failed (${res.status})`);
       }
-      setToast('Stamp frozen for war-room dispute proof.');
+      setToast('Stamp locked — grade and fingerprint frozen for dispute records.');
       window.setTimeout(() => setToast(''), 3500);
     } catch (err) {
-      setToast(err instanceof Error ? err.message : 'Freeze failed');
+      setToast(err instanceof Error ? err.message : 'Could not lock stamp');
     }
   };
 
@@ -1909,21 +1928,6 @@ export default function ResultsViewerModal({
             <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
               Your Site Diligence Analysis
             </h2>
-            <p
-              style={{
-                marginTop: 8,
-                display: 'inline-block',
-                background: '#fbbf24',
-                color: '#111827',
-                fontWeight: 900,
-                fontSize: 12,
-                letterSpacing: '0.04em',
-                padding: '4px 10px',
-                borderRadius: 6,
-              }}
-            >
-              BUILD exec-v6 — if you do not see a gold Executive summary below, open this URL in Chrome Incognito
-            </p>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
                 const pi = view.project_info || ({} as AnalysisData['project_info']);
@@ -2247,7 +2251,6 @@ export default function ResultsViewerModal({
                       : `REGGUARD STAMP: ${view.stamp_grade}`)}
                 </p>
                 <p className="text-xs text-sky-200/95 mt-2 leading-relaxed border border-sky-400/30 rounded-md bg-sky-950/40 px-2.5 py-2">
-                  <span className="font-bold uppercase tracking-wide text-sky-300">Boardroom brief: </span>
                   {(view.regguard_stamp?.headline ||
                     view.project_info?.address ||
                     'This site') +
@@ -2325,9 +2328,9 @@ export default function ResultsViewerModal({
                 onClick={() => void freezeWarRoomStamp()}
                 disabled={!effectiveResearchId}
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-white/10 border border-white/20 text-gray-200 text-sm font-semibold disabled:opacity-50"
-                title="Freeze stamp for dispute proof"
+                title="Locks this stamp grade + fingerprint so later comments cannot change the dispute record"
               >
-                Freeze stamp
+                Lock stamp
               </button>
               <button
                 type="button"
@@ -2821,8 +2824,8 @@ export default function ResultsViewerModal({
               </p>
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
                 {packFees.length || packGotchas.length || view.contingency_band
-                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Confirm dollars on the official schedule before bid.`
-                  : 'Curated fees, gotchas, and contingency for this jurisdiction. Confirm dollars on the official schedule before bid.'}
+                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Everything below this header (contingency, fees, gotchas, AHJ links, bid downloads) is the city pack.`
+                  : 'Curated fees, gotchas, contingency, AHJ links, and bid downloads for this jurisdiction appear below. Confirm dollars on the official schedule before bid.'}
               </p>
             </div>
 
