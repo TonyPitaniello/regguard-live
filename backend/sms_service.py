@@ -71,6 +71,25 @@ def _strip_emoji(text: str) -> str:
     return cleaned.strip()
 
 
+_SMS_COMPLIANCE_FOOTER = " Msg & data rates may apply. Reply STOP to cancel, HELP for help."
+
+
+def _with_sms_compliance_footer(message: str) -> str:
+    """Ensure live outbound SMS match A2P sample disclosures (STOP / HELP / rates)."""
+    body = (message or "").strip()
+    if not body:
+        return body
+    upper = body.upper()
+    if "STOP" in upper and "HELP" in upper:
+        return body
+    footer = _SMS_COMPLIANCE_FOOTER
+    combined = f"{body}{footer}"
+    if len(combined) <= 480:
+        return combined
+    keep = max(0, 480 - len(footer))
+    return f"{body[:keep].rstrip()}{footer}"
+
+
 def twilio_user_message(code: Optional[int], raw: str = "") -> str:
     """Map Twilio error code to a clear user-facing sentence."""
     if code is not None and code in _TWILIO_USER_HINTS:
@@ -247,14 +266,14 @@ class TwilioSMSService(SMSService):
             f"{report_line}"
         )
 
-        if len(message) > 480:
+        if len(message) > 420:
             message = (
                 f"RegGuard {city}, {state}\n"
                 f"{'Est ' if unverified else ''}{cost_tag}${total_cost:,.0f}\n"
                 f"{share or 'app.regguardagent.com'}"
             )
 
-        return _strip_emoji(message)
+        return _with_sms_compliance_footer(_strip_emoji(message))
 
     async def send_sms(
         self,

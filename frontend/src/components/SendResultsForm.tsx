@@ -267,6 +267,11 @@ export default function SendResultsForm({
       } catch {
         /* ignore */
       }
+      try {
+        sessionStorage.setItem('userPhone', phone.trim());
+      } catch {
+        /* ignore */
+      }
       const path = '/research/send-sms';
       const response = await fetch(backendUrl(path), {
         method: 'POST',

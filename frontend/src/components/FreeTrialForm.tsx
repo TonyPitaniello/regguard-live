@@ -1065,42 +1065,9 @@ export default function FreeTrialForm({
               disabled={loading}
             />
             <p className="text-xs text-gray-400 mt-2">
-              Email is required to run a lookup. Optional SMS is below — never required.
-              Hard refresh clears all fields; email is only restored after checkout.
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="home-phone" className="block text-white font-bold mb-2">
-              Phone <span className="text-gray-400 font-normal">(optional — SMS)</span>
-            </label>
-            <input
-              key={`home-phone-${locationResetKey}`}
-              id="home-phone"
-              type="text"
-              inputMode="tel"
-              name={`rg_contact_phone_${locationResetKey}`}
-              value={formData.phone}
-              onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-              onFocus={unlockFields}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  void runResearch();
-                }
-              }}
-              placeholder=""
-              autoComplete="new-password"
-              readOnly={!fieldsUnlocked}
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-form-type="other"
-              className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
-              disabled={loading}
-            />
-            <p className="text-xs text-gray-400 mt-2">
-              Optional. After results load, use Text me on the results panel (consent checkbox required).
-              Leaving this blank is fine — email + web receipt still work.
+              Email is required to run a lookup. SMS is never required — after results you may
+              optionally tap Text me (separate consent checkbox). Hard refresh clears fields;
+              email is only restored after checkout.
             </p>
           </div>
             </>

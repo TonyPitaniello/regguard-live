@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>A2P Messaging Evidence — RegGuard / Pitaniello Perkins LLC</title>
-  <meta name="description" content="Public Twilio evidence: email-only signup vs optional SMS checkbox. SMS is never required to use RegGuard." />
+  <meta name="description" content="Public Twilio evidence: email-only signup vs optional SMS checkbox. Website opt-in only. SMS is never required to use RegGuard." />
   <style>
     body { font-family: system-ui, sans-serif; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.55; color: #111; }
     h1 { font-size: 1.5rem; }
@@ -15,14 +15,16 @@
     input[type="tel"], input[type="email"], input[type="text"] { width: 100%; padding: 0.6rem; margin: 0.35rem 0 0.7rem; box-sizing: border-box; }
     a { color: #1d4ed8; }
     .banner { background: #fef3c7; border: 1px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 8px; font-weight: 600; }
-    code { background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.9rem; }
+    code, pre { background: #f1f5f9; padding: 0.1rem 0.35rem; border-radius: 4px; font-size: 0.85rem; }
+    pre { padding: 0.85rem 1rem; white-space: pre-wrap; overflow-x: auto; }
   </style>
 </head>
 <body>
-  <h1>RegGuard A2P evidence — SMS is optional</h1>
+  <h1>RegGuard A2P evidence — SMS is optional (website opt-in only)</h1>
   <p class="banner">
-    SMS is NEVER required to sign up or use RegGuard. Form A (below) has no phone and no SMS checkbox.
-    Form B is a separate optional step after Results.
+    Opt-in method: WEBSITE ONLY. No keyword text-in, verbal, paper, or QR opt-in.
+    SMS is NEVER required to sign up or use RegGuard. Form A has email only (no phone).
+    Form B is a separate optional step after Results with an unchecked consent checkbox.
   </p>
   <p>
     Legal entity: <strong>Pitaniello Perkins LLC</strong> · Brand: <strong>RegGuard</strong> ·
@@ -36,9 +38,9 @@
     SMS is transactional account notification only — not marketing.
   </p>
 
-  <h2>2. Form A — Sign up / free lookup (no SMS)</h2>
+  <h2>2. Form A — Sign up / free lookup (no SMS, no phone)</h2>
   <div class="ok">
-    <p>Live home lookup uses <strong>email only</strong>. Paid signup uses email + password + company — <strong>no SMS field</strong>.</p>
+    <p>Live home lookup uses <strong>email only</strong> — no phone field on the home form. Paid signup uses email + password + company — <strong>no SMS field</strong>.</p>
     <label>Email *</label>
     <input type="email" placeholder="you@company.com" />
     <button type="button">Run lookup / Continue</button>
@@ -51,24 +53,25 @@
 
   <h2>3. Form B — Optional SMS (separate unchecked checkbox)</h2>
   <div class="sms">
-    <p>Appears only if the user chooses Text on Results. Skipping this still delivers email + web report.</p>
+    <p>Appears only if the user chooses Text on Results. Skipping this still delivers email + web report. Live UI: <a href="https://app.regguardagent.com/sms-opt-in">/sms-opt-in</a></p>
     <label>Mobile number</label>
     <input type="tel" placeholder="(555) 123-4567" />
     <label class="row">
       <input type="checkbox" />
       <span>
-        Separate optional consent (unchecked by default): I agree to transactional texts from RegGuard /
-        Pitaniello Perkins LLC about this research request / Bid Risk Receipt / order notices / ZIP-watch
-        if enabled. Message frequency varies. Message and data rates may apply. Reply STOP to cancel;
-        HELP for help. Not required to use RegGuard.
-        <a href="https://app.regguardagent.com/privacy">Privacy</a> ·
-        <a href="https://app.regguardagent.com/terms">Terms</a>.
+        I agree to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about this
+        research request, Bid Risk Receipt or share links, and related order/PDF notices (and
+        ZIP-watch alerts if I enable them). Message frequency varies. Message and data rates may
+        apply. Reply STOP to opt out; HELP for help. Consent is not a condition of purchase. We do
+        not share mobile numbers or messaging consent with third parties or affiliates for marketing.
+        <a href="https://app.regguardagent.com/privacy">Privacy Policy</a> ·
+        <a href="https://app.regguardagent.com/terms">Terms of Service</a>.
       </span>
     </label>
     <button type="button">Text me (optional)</button>
   </div>
 
-  <h2>4. Legal URLs (Twilio form — never use apex regguardagent.com)</h2>
+  <h2>4. Legal URLs (Twilio form — use app.regguardagent.com, not the apex domain)</h2>
   <ul>
     <li>Website: <a href="https://app.regguardagent.com/">https://app.regguardagent.com/</a></li>
     <li>Privacy: <a href="https://app.regguardagent.com/privacy">https://app.regguardagent.com/privacy</a></li>
@@ -77,8 +80,24 @@
     <li>Optional SMS UI: <a href="https://app.regguardagent.com/sms-opt-in">https://app.regguardagent.com/sms-opt-in</a></li>
   </ul>
 
-  <h2>5. Sample messages</h2>
-  <p><code>RegGuard: Your Bid Risk Receipt for Midlothian, TX 76065 is ready. Open: https://app.regguardagent.com/r/example Reply STOP to cancel, HELP for help.</code></p>
-  <p><code>RegGuard: Local diligence changed for ZIP 75074. Re-run: https://app.regguardagent.com/jobs Msg &amp; data rates may apply. Reply STOP to cancel.</code></p>
+  <h2>5. message_flow (paste into Twilio Console)</h2>
+  <pre>Opt-in method: WEBSITE ONLY. RegGuard does not use keyword text-in, verbal, paper, QR, or shared/third-party consent.
+
+Who opts in: US contractors / users of RegGuard (Pitaniello Perkins LLC) who choose optional SMS after a site lookup.
+
+Where opt-in happens:
+(1) User visits https://app.regguardagent.com/ and completes a free site lookup with EMAIL ONLY (phone is not collected on the home form). Email-only proof: https://app.regguardagent.com/signup-without-sms
+(2) After Results load, the user may open “Text results (SMS)” OR skip SMS and use Email me / the web report.
+(3) To opt in they enter a US mobile number on the Results panel, check a SEPARATE unchecked-by-default consent checkbox naming RegGuard / Pitaniello Perkins LLC, and tap Text me. Leaving the box unchecked does not block the service.
+(4) Public screenshotable consent UI (same language): https://app.regguardagent.com/sms-opt-in
+(5) Full evidence packet: https://app.regguardagent.com/a2p-evidence
+
+Consent disclosures shown before Text me: transactional SMS about this research request, Bid Risk Receipt / share links, order or PDF-ready notices, and ZIP-watch alerts if enabled; message frequency varies; message and data rates may apply; Reply STOP to opt out; HELP for help; consent is not a condition of purchase; mobile numbers and messaging consent are not shared with third parties or affiliates for marketing. Links: Privacy https://app.regguardagent.com/privacy · Terms https://app.regguardagent.com/terms
+
+Privacy Policy states mobile numbers are not shared with third parties/affiliates for marketing, message frequency varies, and message and data rates may apply.</pre>
+
+  <h2>6. Sample messages</h2>
+  <p><code>RegGuard: Your Bid Risk Receipt for Midlothian, TX 76065 is ready. Open: https://app.regguardagent.com/r/example Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.</code></p>
+  <p><code>RegGuard: Local diligence changed for ZIP 75074. Re-run for a fresh stamp: https://app.regguardagent.com/jobs Msg &amp; data rates may apply. Reply STOP to cancel, HELP for help.</code></p>
 </body>
 </html>

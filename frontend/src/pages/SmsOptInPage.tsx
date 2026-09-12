@@ -49,11 +49,12 @@ export default function SmsOptInPage() {
             Brand: <strong className="text-white">RegGuard / Pitaniello Perkins LLC</strong>. Use case:
             transactional account notifications (research results, Bid Risk Receipt / share links,
             order or PDF-ready notices, and optional ZIP-watch / Saved Job alerts the user enables).
+            Opt-in method: <strong className="text-white">website only</strong> (no keyword text-in).
           </p>
           <p className="text-amber-100/90 text-sm mt-2 border border-amber-500/30 rounded-lg p-3">
-            SMS is optional. You can use RegGuard and receive results by email without providing a
-            mobile number or checking this box. Consent to texts is never required to sign up or run
-            a lookup.
+            SMS is optional. The home lookup uses email only (no phone field). You can use RegGuard
+            and receive results by email without providing a mobile number or checking this box.
+            Consent to texts is never required to sign up or run a lookup.
           </p>
         </div>
 

@@ -5706,9 +5706,11 @@ async def cron_zip_watch(
                     f"RegGuard: local diligence changed for ZIP {z}. "
                     f"Your stamp is outdated — re-run for PASS/CAUTION/FAIL: {app}/jobs"
                 )
-                msg = notice if len(str(notice)) < 320 else (
+                msg = notice if len(str(notice)) < 280 else (
                     f"RegGuard: stamp outdated for ZIP {z}. Re-run: {app}/jobs"
                 )
+                if "STOP" not in str(msg).upper():
+                    msg = f"{str(msg).rstrip()} Reply STOP to cancel, HELP for help."
                 normalized = sms._validate_phone_number(str(phone))  # noqa: SLF001
                 message = await asyncio.to_thread(
                     sms.twilio_client.messages.create,
