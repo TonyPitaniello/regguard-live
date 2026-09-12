@@ -232,7 +232,10 @@ def room_meta(research_id: str) -> Dict[str, Any]:
 
 
 def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[str, Any]:
-    """Persist stamp fingerprint/grade at war-room open for refund/dispute proof."""
+    """Persist stamp fingerprint/grade at war-room open (does NOT freeze comments).
+
+    Freeze is an explicit Lock stamp action via freeze_stamp /freeze.
+    """
     rid = (research_id or "").strip()
     if not rid:
         raise ValueError("research_id required")
@@ -242,8 +245,8 @@ def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[st
     data["research_id"] = rid
     data["stamp_snapshot"] = snapshot
     data["stamp_attached_at"] = _now()
-    data["stamp_frozen"] = True
-    data["stamp_frozen_at"] = data["stamp_attached_at"]
+    # Preserve an existing freeze; never auto-freeze on attach/share open
+    data.setdefault("stamp_frozen", False)
     data.setdefault("comments", [])
     data["updated_at"] = _now()
     _save(data)
@@ -252,7 +255,7 @@ def attach_stamp_snapshot(research_id: str, snapshot: Dict[str, Any]) -> Dict[st
         "stamp_grade": snapshot.get("grade"),
         "stamp_fingerprint": snapshot.get("fingerprint"),
         "stamp_attached_at": data["stamp_attached_at"],
-        "stamp_frozen": True,
+        "stamp_frozen": bool(data.get("stamp_frozen")),
     }
 
 
@@ -291,12 +294,13 @@ def freeze_or_attach(
     *,
     snapshot: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """Attach + freeze in one step (admin or share)."""
+    """Attach snapshot if needed, then freeze (explicit lock path)."""
     rid = (research_id or "").strip()
     if not rid:
         raise ValueError("research_id required")
     if isinstance(snapshot, dict) and snapshot:
-        return attach_stamp_snapshot(rid, snapshot)
+        attach_stamp_snapshot(rid, snapshot)
+        return freeze_stamp(rid, snapshot=snapshot)
     data = _load(rid)
     snap = data.get("stamp_snapshot") if isinstance(data.get("stamp_snapshot"), dict) else {}
     if snap:

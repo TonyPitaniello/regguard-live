@@ -6,8 +6,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { backendUrl } from '../env';
 import {
   hasValidPendingIcReport,
@@ -15,10 +13,6 @@ import {
   setPendingIcReport,
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLIC_KEY || 'pk_test_placeholder'
-);
-
 const TIERS = {
   partner: {
     name: 'Partner / Permit Runner',
@@ -337,14 +331,12 @@ function CheckoutFormStep({
         </div>
 
         <div className="lg:col-span-2">
-          <Elements stripe={stripePromise}>
-            <PaymentForm
-              tier={tier}
-              tierPrice={tierInfo.price}
-              onSuccess={onSuccess}
-              onError={onError}
-            />
-          </Elements>
+          <PaymentForm
+            tier={tier}
+            tierPrice={tierInfo.price}
+            onSuccess={onSuccess}
+            onError={onError}
+          />
         </div>
       </div>
     </div>
@@ -362,8 +354,6 @@ function PaymentForm({
   onSuccess: () => void;
   onError: (error: string) => void;
 }) {
-  const stripe = useStripe();
-  const elements = useElements();
   const [email, setEmail] = useState(() => {
     if (typeof window === 'undefined') return '';
     const q = new URLSearchParams(window.location.search).get('email');
@@ -525,24 +515,6 @@ function PaymentForm({
         </div>
       )}
 
-      <div>
-        <label className="block text-white font-bold mb-2">Payment Details *</label>
-        <div className="p-4 bg-slate-800 border border-purple-500/30 rounded-lg">
-          <CardElement
-            options={{
-              style: {
-                base: {
-                  fontSize: '16px',
-                  color: '#fff',
-                  '::placeholder': { color: '#9CA3AF' },
-                },
-                invalid: { color: '#EF4444' },
-              },
-            }}
-          />
-        </div>
-      </div>
-
       {cardError && (
         <div className="flex gap-3 p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
           <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
@@ -551,17 +523,17 @@ function PaymentForm({
       )}
 
       <div className="bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 text-sm text-gray-400">
-        By clicking &quot;Complete Purchase&quot;, you agree to our Terms of Service. Payment is
-        processed securely through Stripe.
+        You will complete payment on Stripe Checkout. Reg Guard does not collect or store card
+        numbers. By continuing you agree to our Terms of Service.
       </div>
 
       <button
         type="submit"
-        disabled={loading || !stripe || !elements}
+        disabled={loading}
         className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold text-lg rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading && <Loader className="w-5 h-5 animate-spin" />}
-        {loading ? 'Processing...' : `Complete Purchase — ${tierPrice}`}
+        {loading ? 'Redirecting to Stripe…' : `Continue to Stripe — ${tierPrice}`}
       </button>
     </form>
   );

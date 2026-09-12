@@ -129,39 +129,43 @@ export default function SampleReportPage() {
             <h3 className="text-xl font-bold text-white mb-4">Regulatory Landscape</h3>
             <div className="space-y-4">
               <div>
-                <p className="text-white font-bold text-sm">Federal (FERC)</p>
-                <p className="text-gray-400 text-sm">FERC Order 2023 applies. Large power plants (250+ MW) require compliance. Standard rules for utility-scale interconnection.</p>
+                <p className="text-white font-bold text-sm">Federal / ISO posture (sample)</p>
+                <p className="text-gray-400 text-sm">
+                  Large-load sites should treat utility interconnection as a parallel clock to AHJ
+                  permits. RegGuard does not run FERC / ISO studies — confirm with counsel and the
+                  serving utility.
+                </p>
               </div>
               <div>
                 <p className="text-white font-bold text-sm">State (Texas)</p>
-                <p className="text-gray-400 text-sm">No data center moratoria. Pro-development environment. Texas PUC monitors utility compliance.</p>
+                <p className="text-gray-400 text-sm">No statewide data-center moratorium flagged in public sources for this sample — confirm current.</p>
               </div>
               <div>
-                <p className="text-white font-bold text-sm">Local</p>
-                <p className="text-gray-400 text-sm">Industrial zoning typically allows large projects. Conditional use permit (CUP) may be required but standard for this parcel type.</p>
+                <p className="text-white font-bold text-sm">Local AHJ</p>
+                <p className="text-gray-400 text-sm">Zoning / CUP / trade permits are planning aids — confirm with the city portal before bid.</p>
               </div>
             </div>
           </div>
 
           {/* Preliminary Costs */}
           <div>
-            <h3 className="text-xl font-bold text-white mb-4">Preliminary Cost Estimate</h3>
+            <h3 className="text-xl font-bold text-white mb-4">What RegGuard includes (sample)</h3>
             <div className="bg-slate-700/50 rounded-lg p-4 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span>Network upgrades (estimate):</span>
-                <span className="text-white font-bold">$15M–$40M</span>
+              <div className="flex justify-between gap-4">
+                <span>Bid Risk Receipt + contingency band</span>
+                <span className="text-emerald-300 font-bold">Planning aid</span>
               </div>
-              <div className="flex justify-between">
-                <span>Utility customer contribution:</span>
-                <span className="text-white font-bold">$2M–$5M</span>
+              <div className="flex justify-between gap-4">
+                <span>City pack fees / gotchas with Source or Unverified</span>
+                <span className="text-emerald-300 font-bold">Confirm with AHJ</span>
               </div>
-              <div className="flex justify-between">
-                <span>Study costs (Phase 1–3):</span>
-                <span className="text-white font-bold">$100K–$500K</span>
+              <div className="flex justify-between gap-4">
+                <span>IC Diligence Package (paid)</span>
+                <span className="text-emerald-300 font-bold">Pre-LOI screening</span>
               </div>
               <p className="text-gray-400 text-xs pt-4 border-t border-slate-600">
-                Planning aid ranges only — not a quote. Actual costs come from utility / AHJ schedules and
-                licensed studies. This is citeable pre-bid diligence, not sealed-bid completeness.
+                Not a sealed bid, interconnection study, geotech report, or quote. Fill your own cost
+                codes, quantities, and crew rates before bidding.
               </p>
             </div>
           </div>

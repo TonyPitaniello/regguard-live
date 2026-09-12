@@ -81,11 +81,13 @@ export default function SharedReportPage() {
         const data = (await res.json()) as ReportPayload;
         if (!cancelled) setReport(data);
         try {
+          // Attach stamp snapshot for dispute proof — does NOT freeze comments.
+          // Use Lock stamp in results to freeze.
           await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room/stamp`), {
             method: 'POST',
           });
         } catch {
-          /* best-effort stamp freeze */
+          /* best-effort stamp attach */
         }
         const wr = await fetch(backendUrl(`/research/${encodeURIComponent(id)}/war-room`));
         if (wr.ok) {

@@ -297,7 +297,8 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Do you offer refunds?</h3>
             <p className="text-gray-400">
-              Yes. 7-day refund if you&apos;re unsatisfied, plus our accuracy guarantee on critical findings.
+              Refund window and honest labeling: planning aids with Source / Unverified. We do not
+              invent fees or claim sealed-bid / interconnection / geotech completeness.
             </p>
           </div>
           <div>

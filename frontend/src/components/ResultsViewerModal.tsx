@@ -926,10 +926,7 @@ export default function ResultsViewerModal({
       depthTier === 'pro_partial');
   const isIcDepth =
     !incompleteRun &&
-    (depthTier === 'ic_full' ||
-      depth === 'ic' ||
-      depth === 'ic_full' ||
-      Boolean(view.ic_pdfs_ready));
+    (depthTier === 'ic_full' || depth === 'ic' || depth === 'ic_full');
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
@@ -937,22 +934,20 @@ export default function ResultsViewerModal({
   const softLocked = !isDeep && !shareUnlocked;
   const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
   const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
-  // Never treat bare session / ic_package flag as "PDFs ready" on a free run
-  const icPdfsReady =
-    Boolean(view.ic_pdfs_ready) ||
-    (isIcDepth &&
-      typeof window !== 'undefined' &&
-      sessionStorage.getItem('icPdfsReady') === '1');
-  /** Bound $1,500 package download — IC-depth results only (matches API gate) */
-  const allowIcPackageDownload = isIcDepth || Boolean(view.ic_pdfs_ready);
-
   const ownedTierSet = new Set(
     (entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
-  const ownsIc =
+  const ownsIcEntitlement =
     icReportPending ||
-    ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => ownedTierSet.has(t)) ||
-    isIcDepth;
+    ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => ownedTierSet.has(t));
+  // Never treat bare client ic_pdfs_ready as paid — only after real IC-depth run
+  const icPdfsReady =
+    isIcDepth &&
+    (Boolean(view.ic_pdfs_ready) ||
+      (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1'));
+  /** Soft UI gate — API requires IC entitlement email (client flags alone never unlock) */
+  const allowIcPackageDownload = ownsIcEntitlement || (isIcDepth && Boolean(emailForCheckout));
+  const ownsIc = ownsIcEntitlement || isIcDepth;
   const ownsPro =
     ownsIc || ownedTierSet.has('contractor_pro') || (isDeep && !incompleteRun && depthTier !== 'free');
   const ownsPartner = ownsPro || ownedTierSet.has('partner');
@@ -1625,10 +1620,12 @@ export default function ResultsViewerModal({
         body: JSON.stringify({
           analysis_data: view,
           generated_for: emailForCheckout || undefined,
+          email: emailForCheckout || undefined,
         }),
       });
-      const data = await res.json().catch(() => ({}));
+      const ctype = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         const detail =
           typeof data.detail === 'string'
             ? data.detail
@@ -1637,18 +1634,39 @@ export default function ResultsViewerModal({
               : 'IC package failed';
         throw new Error(detail);
       }
-      const qa = data.boardroom_qa || {};
-      const rawUrl = String(data.download_url || '');
-      const pathStart = rawUrl.search(/\/ic-package\//);
-      const fetchUrl =
-        pathStart >= 0
-          ? backendUrl(rawUrl.slice(pathStart))
-          : rawUrl.startsWith('http')
-            ? rawUrl
-            : backendUrl(rawUrl);
-      const fileRes = await fetch(fetchUrl);
-      if (!fileRes.ok) throw new Error(`Download failed (${fileRes.status})`);
-      const blob = await fileRes.blob();
+      let blob: Blob;
+      let qa: {
+        pass?: boolean;
+        pct?: number;
+        failed_gc?: string[];
+        gaps?: string[];
+      } = {};
+      const qaHeader = res.headers.get('X-RegGuard-Boardroom-Qa') || '';
+      if (qaHeader) {
+        try {
+          qa = JSON.parse(atob(qaHeader)) as typeof qa;
+        } catch {
+          qa = {};
+        }
+      }
+      if (ctype.includes('application/pdf')) {
+        blob = await res.blob();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        qa = data.boardroom_qa || qa;
+        const rawUrl = String(data.download_url || '');
+        if (!rawUrl) throw new Error('IC package generated but no PDF returned');
+        const pathStart = rawUrl.search(/\/ic-package\//);
+        const fetchUrl =
+          pathStart >= 0
+            ? backendUrl(rawUrl.slice(pathStart))
+            : rawUrl.startsWith('http')
+              ? rawUrl
+              : backendUrl(rawUrl);
+        const fileRes = await fetch(fetchUrl);
+        if (!fileRes.ok) throw new Error(`Download failed (${fileRes.status})`);
+        blob = await fileRes.blob();
+      }
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
@@ -1664,7 +1682,9 @@ export default function ResultsViewerModal({
       } else {
         const failed = (qa.failed_gc || []).join(', ') || (qa.gaps || []).slice(0, 2).join('; ');
         showToast(
-          `IC package downloaded — Boardroom QA blocked (${failed || 'gaps'}). Fix before GC forward.`
+          failed
+            ? `IC package downloaded — Boardroom QA gaps (${failed}). Fix before GC forward.`
+            : 'IC package downloaded — citeable pre-bid diligence, not a sealed bid'
         );
       }
     } catch (e) {
@@ -1685,7 +1705,13 @@ export default function ResultsViewerModal({
       const ctype = (res.headers.get('content-type') || '').toLowerCase();
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'Bid packet failed');
+        const detail =
+          typeof data.detail === 'string'
+            ? data.detail
+            : Array.isArray(data.detail)
+              ? data.detail.map((d: { msg?: string }) => d.msg || String(d)).join('; ')
+              : 'Bid packet failed';
+        throw new Error(detail);
       }
       let blob: Blob;
       if (ctype.includes('application/pdf')) {

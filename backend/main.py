@@ -508,6 +508,9 @@ app.add_middleware(
         "Transfer-Encoding",
         "X-Accel-Buffering",
         "X-Reg-Guard-Regulatory-Shield",
+        "X-RegGuard-Artifact",
+        "X-RegGuard-Boardroom-Qa",
+        "Content-Disposition",
     ],
 )
 
@@ -1571,43 +1574,32 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
     body = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
     
-    # Verify webhook signature
+    # Verify webhook signature with Stripe's construct_event (handles whsec_ secrets)
     webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    event: Any
     if webhook_secret and sig_header:
         try:
-            # Parse signature header: t=timestamp,v1=signature
-            sig_parts = {}
-            for part in sig_header.split(','):
-                if '=' in part:
-                    key, value = part.split('=', 1)
-                    sig_parts[key] = value
-            
-            if 't' in sig_parts and 'v1' in sig_parts:
-                timestamp = sig_parts['t']
-                signature = sig_parts['v1']
-                signed_content = f"{timestamp}.{body.decode('utf-8')}"
-                
-                expected_signature = hmac.new(
-                    webhook_secret.encode('utf-8'),
-                    signed_content.encode('utf-8'),
-                    hashlib.sha256
-                ).hexdigest()
-                
-                if not hmac.compare_digest(signature, expected_signature):
-                    logger.error("❌ Webhook signature mismatch")
-                    raise HTTPException(status_code=401, detail="Invalid signature")
-                
-                logger.info("✅ Webhook signature verified")
+            import stripe
+
+            stripe.api_key = os.getenv("STRIPE_SECRET_KEY") or ""
+            event_obj = stripe.Webhook.construct_event(body, sig_header, webhook_secret)
+            # Normalize to plain dict for downstream .get() usage
+            if hasattr(event_obj, "to_dict"):
+                event = event_obj.to_dict()
+            elif isinstance(event_obj, dict):
+                event = event_obj
+            else:
+                event = json.loads(body)
+            logger.info("✅ Webhook signature verified via Stripe construct_event")
         except Exception as e:
             logger.error(f"❌ Webhook verification error: {e}")
-            raise HTTPException(status_code=401, detail="Webhook verification failed")
+            raise HTTPException(status_code=401, detail="Webhook verification failed") from e
     else:
         logger.warning("⚠️  No webhook secret or signature header - skipping verification")
-    
-    try:
-        event = json.loads(body)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        try:
+            event = json.loads(body)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid JSON body")
     
     # Handle checkout.session.completed event
     if event.get("type") == "checkout.session.completed":
@@ -4763,7 +4755,7 @@ async def get_war_room(research_id: str) -> Dict[str, Any]:
 
 @app.post("/research/{research_id}/war-room/stamp", tags=["Results"])
 async def post_war_room_stamp(research_id: str) -> Dict[str, Any]:
-    """Freeze stamp grade+fingerprint onto the war room for dispute proof."""
+    """Attach stamp grade+fingerprint onto the war room (does not freeze comments)."""
     from research_store import get_research
     from stamp_snapshot import stamp_snapshot
     from war_room_store import attach_stamp_snapshot
@@ -5366,57 +5358,39 @@ def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
 
 
 @app.post("/ic-package/pdf", tags=["Samples"])
-async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> Dict[str, Any]:
+async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)):
     """
-    Generate the bound IC Project Diligence Package (boardroom PDF):
-    cover, executive summary, Bid Risk Receipt, findings, punch, sources.
+    Generate the bound IC Project Diligence Package (boardroom PDF).
 
-    Paywall: free / instant preview payloads cannot mint the $1,500 IC package.
+    Paywall: requires server-side IC entitlement for the email. Client flags
+    (ic_pdfs_ready, depth_tier, research_depth) never grant access alone.
+    Returns PDF bytes (multi-instance safe).
     """
+    import base64
+    import json as _json
+
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
     from entitlement import access_summary
-    from ic_boardroom_pdf import render_boardroom_pdf
-    from ic_package_composer import compose_ic_package
-    from ic_project_fulfillment import api_public_base, is_ic_tier
+    from ic_project_fulfillment import is_ic_tier
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     email_l = str(generated_for or body.get("email") or "").strip().lower()
-    depth_tier = str(data.get("depth_tier") or "").strip().lower()
-    research_depth = str(data.get("research_depth") or "").strip().lower()
-    depth_badge = str(data.get("depth_badge") or "").strip().lower()
-    incomplete = bool(
-        data.get("research_incomplete")
-        or data.get("depth_claim_honest") is False
-        or "instant" in depth_badge
-        or "preview" in depth_badge
-        or research_depth in ("free", "instant", "preview")
-        or depth_tier in ("free", "federal_state", "portal_seed", "")
-    )
-    ic_run = bool(
-        data.get("ic_pdfs_ready")
-        or depth_tier == "ic_full"
-        or research_depth in ("ic", "ic_full")
-    )
-    if not ic_run:
-        # Entitlement alone is not enough — this site must have been run as IC.
-        # Allow only when caller has IC order PDFs ready AND payload is not free/instant.
-        ent = access_summary(email_l) if email_l else {}
-        tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
-        has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
-        if incomplete or not has_ic_entitlement:
-            raise HTTPException(
-                status_code=403,
-                detail=(
-                    "IC Diligence Package requires an IC Project Report run for this site. "
-                    "Free preview / Contractor Pro results cannot download the $1,500 boardroom package. "
-                    "Open Pricing → IC Project, then re-run with Generate IC Report."
-                ),
-            )
+    if not email_l or "@" not in email_l:
+        raise HTTPException(
+            status_code=403,
+            detail="IC Diligence Package requires the purchase email on the request.",
+        )
+
+    ent = access_summary(email_l)
+    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
+    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
+    if not has_ic_entitlement:
         raise HTTPException(
             status_code=403,
             detail=(
-                "Your email has IC access, but this results set is not an IC-depth run. "
-                "Re-run the site with Generate IC Report enabled."
+                "IC Diligence Package requires an IC Project purchase for this email. "
+                "Free preview / Contractor Pro results cannot download the $1,500 boardroom package. "
+                "Open Pricing → IC Project, then re-run with Generate IC Report."
             ),
         )
 
@@ -5429,6 +5403,7 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> D
         or band.get("pct_high") is None
     ):
         data = enrich_analysis_with_arbitrage(data)
+    resolved = share_url
     try:
         from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
 
@@ -5441,35 +5416,39 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)) -> D
     except Exception:
         resolved = share_url
 
-    package = compose_ic_package(
-        data,
-        generated_for=str(generated_for or ""),
-        share_url=str(resolved or ""),
-    )
-    token = hashlib.sha256(
-        (str(package.get("generated_at")) + str(time.time())).encode()
-    ).hexdigest()[:24]
-    path = os.path.join(tempfile.gettempdir(), f"rg_ic_package_{token}.pdf")
-    render_boardroom_pdf(package, path)
-    raw = Path(path).read_bytes()
-    _BID_RECEIPT_CACHE[token] = path
-    api = api_public_base()
-    qa = package.get("boardroom_qa") or {}
-    return {
-        "status": "ok",
-        "download_url": f"{api}/ic-package/pdf/{token}",
-        "filename": "RegGuard_IC_Diligence_Package.pdf",
-        "artifact": "ic_package",
-        "bytes": len(raw),
-        "boardroom_qa": {
+    try:
+        from ic_boardroom_pdf import generate_ic_boardroom_pdf_with_qa
+
+        pdf_bytes, qa = generate_ic_boardroom_pdf_with_qa(
+            data,
+            generated_for=str(generated_for or ""),
+            share_url=str(resolved or ""),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"IC package failed: {e}") from e
+
+    qa_header = ""
+    try:
+        qa_payload = {
             "pass": bool(qa.get("pass")),
             "pct": qa.get("pct"),
             "gc_forward_pass": bool(qa.get("gc_forward_pass")),
-            "gaps": qa.get("gaps") or [],
-            "failed_gc": (qa.get("gc_forward") or {}).get("failed") or [],
-            "human_remaining": qa.get("human_remaining") or [],
-        },
+            "gaps": (qa.get("gaps") or [])[:6],
+            "failed_gc": ((qa.get("gc_forward") or {}).get("failed") or [])[:6],
+            "human_remaining": (qa.get("human_remaining") or [])[:4],
+        }
+        qa_header = base64.b64encode(_json.dumps(qa_payload).encode("utf-8")).decode("ascii")
+    except Exception:
+        qa_header = ""
+
+    headers = {
+        "Content-Disposition": 'attachment; filename="RegGuard_IC_Diligence_Package.pdf"',
+        "X-RegGuard-Artifact": "ic_package",
+        "Access-Control-Expose-Headers": "X-RegGuard-Artifact, X-RegGuard-Boardroom-Qa",
     }
+    if qa_header:
+        headers["X-RegGuard-Boardroom-Qa"] = qa_header
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 
 @app.get("/ic-package/pdf/{token}", tags=["Samples"])
@@ -5492,26 +5471,25 @@ async def download_ic_boardroom_package_pdf(token: str):
 async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)):
     """
     Generate the 1-page Bid Risk Receipt and return PDF bytes (multi-instance safe).
-    Also caches a token download_url for legacy clients.
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from bid_risk_receipt_pdf import (
-        generate_bid_risk_receipt_pdf,
-        generate_bid_risk_receipt_pdf_bytes,
-    )
+    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf_bytes
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     if not data.get("fee_card") or not data.get("margin_killers"):
         data = enrich_analysis_with_arbitrage(data)
-    from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+    resolved = share_url
+    try:
+        from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
 
-    data = stamp_depth_badge(data)
-    # Persist so PDF CTA can always point at /r/{id}
-    if not resolve_forward_share_url(data, share_url=share_url):
-        meta = save_research(data, research_id=data.get("research_id"))
-        data["research_id"] = meta["research_id"]
-        data["share_url"] = meta["share_url"]
-    resolved = resolve_forward_share_url(data, share_url=share_url)
+        data = stamp_depth_badge(data)
+        if not resolve_forward_share_url(data, share_url=share_url):
+            meta = save_research(data, research_id=data.get("research_id"))
+            data["research_id"] = meta["research_id"]
+            data["share_url"] = meta["share_url"]
+        resolved = resolve_forward_share_url(data, share_url=share_url)
+    except Exception:
+        resolved = share_url
     try:
         pdf_bytes = generate_bid_risk_receipt_pdf_bytes(
             data,
@@ -5520,25 +5498,14 @@ async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bid Risk Receipt failed: {e}") from e
-    # Best-effort disk + token for email / legacy GET (may 404 across instances)
-    try:
-        path = generate_bid_risk_receipt_pdf(
-            data,
-            generated_for=str(generated_for) if generated_for else None,
-            share_url=resolved or None,
-        )
-        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-        _BID_RECEIPT_CACHE[token] = path
-    except Exception:
-        token = ""
-    headers = {
-        "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
-        "X-RegGuard-Artifact": "bid_risk_receipt",
-    }
-    if token:
-        api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
-        headers["X-RegGuard-Download-Url"] = f"{api}/bid-receipt/pdf/{token}"
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
+            "X-RegGuard-Artifact": "bid_risk_receipt",
+        },
+    )
 
 
 @app.get("/bid-receipt/pdf/{token}", tags=["Samples"])
@@ -5565,11 +5532,8 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
     Returns PDF bytes directly (multi-instance safe).
     """
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from bid_packet_pdf import generate_bid_packet_pdf, generate_bid_packet_pdf_bytes
-    from bid_risk_receipt_pdf import (
-        generate_bid_risk_receipt_pdf,
-        generate_bid_risk_receipt_pdf_bytes,
-    )
+    from bid_packet_pdf import generate_bid_packet_pdf_bytes
+    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf_bytes
 
     data, generated_for, share_url, mode = _unwrap_analysis_body(analysis_data)
     band = data.get("contingency_band") or {}
@@ -5582,34 +5546,32 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
     ):
         data = enrich_analysis_with_arbitrage(data)
 
-    api = os.getenv("BACKEND_URL", "https://regguard-api.onrender.com").rstrip("/")
     if mode in ("full", "packet", "bid_packet"):
         try:
             pdf_bytes = generate_bid_packet_pdf_bytes(data)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Bid packet failed: {e}") from e
-        try:
-            path = generate_bid_packet_pdf(data)
-            token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-            _BID_PACKET_CACHE[token] = path
-        except Exception:
-            token = ""
-        headers = {
-            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Packet.pdf"',
-            "X-RegGuard-Artifact": "bid_packet",
-        }
-        if token:
-            headers["X-RegGuard-Download-Url"] = f"{api}/bid-packet/pdf/{token}"
-        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'attachment; filename="RegGuard_Bid_Packet.pdf"',
+                "X-RegGuard-Artifact": "bid_packet",
+            },
+        )
 
-    from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+    resolved = share_url
+    try:
+        from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
 
-    data = stamp_depth_badge(data)
-    if not resolve_forward_share_url(data, share_url=share_url):
-        meta = save_research(data, research_id=data.get("research_id"))
-        data["research_id"] = meta["research_id"]
-        data["share_url"] = meta["share_url"]
-    resolved = resolve_forward_share_url(data, share_url=share_url)
+        data = stamp_depth_badge(data)
+        if not resolve_forward_share_url(data, share_url=share_url):
+            meta = save_research(data, research_id=data.get("research_id"))
+            data["research_id"] = meta["research_id"]
+            data["share_url"] = meta["share_url"]
+        resolved = resolve_forward_share_url(data, share_url=share_url)
+    except Exception:
+        resolved = share_url
     try:
         pdf_bytes = generate_bid_risk_receipt_pdf_bytes(
             data,
@@ -5618,23 +5580,14 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bid Risk Receipt failed: {e}") from e
-    try:
-        path = generate_bid_risk_receipt_pdf(
-            data,
-            generated_for=str(generated_for) if generated_for else None,
-            share_url=resolved or None,
-        )
-        token = hashlib.sha256(path.encode("utf-8")).hexdigest()[:24]
-        _BID_RECEIPT_CACHE[token] = path
-    except Exception:
-        token = ""
-    headers = {
-        "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
-        "X-RegGuard-Artifact": "bid_risk_receipt",
-    }
-    if token:
-        headers["X-RegGuard-Download-Url"] = f"{api}/bid-receipt/pdf/{token}"
-    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
+            "X-RegGuard-Artifact": "bid_risk_receipt",
+        },
+    )
 
 
 @app.get("/bid-packet/pdf/{token}", tags=["Samples"])

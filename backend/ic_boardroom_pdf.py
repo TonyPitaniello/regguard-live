@@ -705,6 +705,21 @@ def generate_ic_boardroom_pdf_bytes(
     generated_for: str = "",
     share_url: str = "",
 ) -> bytes:
+    raw, _qa = generate_ic_boardroom_pdf_with_qa(
+        analysis,
+        generated_for=generated_for,
+        share_url=share_url,
+    )
+    return raw
+
+
+def generate_ic_boardroom_pdf_with_qa(
+    analysis: Dict[str, Any],
+    *,
+    generated_for: str = "",
+    share_url: str = "",
+) -> tuple:
+    """Return (pdf_bytes, boardroom_qa dict)."""
     from ic_package_composer import compose_ic_package
 
     package = compose_ic_package(
@@ -718,4 +733,4 @@ def generate_ic_boardroom_pdf_bytes(
         raw = Path(path).read_bytes()
     if raw[:4] != b"%PDF":
         raise RuntimeError("Boardroom PDF generation failed")
-    return raw
+    return raw, (package.get("boardroom_qa") or {})
