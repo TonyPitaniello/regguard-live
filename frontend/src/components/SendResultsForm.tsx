@@ -434,13 +434,17 @@ export default function SendResultsForm({
       )}
 
       <div className="space-y-2 rounded-lg border border-emerald-500/50 bg-slate-900/60 p-4">
-        <label htmlFor="send-phone" className="flex items-center gap-2 text-base font-bold text-emerald-300">
+        <p className="text-xs font-semibold text-emerald-200/90">
+          SMS opt-in form — mobile number and consent checkbox are on this same form
+        </p>
+        <label htmlFor="phone_number" className="flex items-center gap-2 text-base font-bold text-emerald-300">
           <Phone className="w-4 h-4" />
-          Text results (SMS)
+          Mobile phone number
         </label>
         <div className="flex flex-col sm:flex-row gap-2">
           <input
-            id="send-phone"
+            id="phone_number"
+            name="phone_number"
             type="tel"
             inputMode="tel"
             autoComplete="tel"
@@ -448,6 +452,7 @@ export default function SendResultsForm({
             onChange={(e) => setPhone(e.target.value)}
             placeholder="(555) 123-4567"
             disabled={loadingSms}
+            aria-label="Mobile phone number for SMS"
             className="flex-1 px-4 py-3 bg-slate-800 border border-emerald-500/40 rounded-lg text-white text-base placeholder-gray-500 focus:outline-none focus:border-emerald-400"
           />
           <button
@@ -463,17 +468,21 @@ export default function SendResultsForm({
         <label className="flex items-start gap-3 text-xs text-gray-300 cursor-pointer leading-relaxed">
           <input
             type="checkbox"
+            id="sms_consent"
+            name="sms_consent"
+            value="yes"
             className="mt-0.5 h-4 w-4 shrink-0"
             checked={smsConsent}
             onChange={(e) => setSmsConsent(e.target.checked)}
+            aria-label="SMS consent for the mobile number entered above"
           />
           <span>
-            I agree to receive transactional SMS from RegGuard / Pitaniello Perkins LLC about this
-            research request, Bid Risk Receipt or share links, and related order/PDF notices (and
-            ZIP-watch alerts if I enable them). Message frequency varies. Message and data rates may
-            apply. Reply STOP to opt out; HELP for help. Consent is not a condition of purchase. We do
-            not share mobile numbers or messaging consent with third parties or affiliates for
-            marketing.{' '}
+            I agree to receive transactional SMS from RegGuard / Pitaniello Perkins LLC at the mobile
+            phone number I enter above about this research request, Bid Risk Receipt or share links,
+            and related order/PDF notices (and ZIP-watch alerts if I enable them). Message frequency
+            varies. Message and data rates may apply. Reply STOP to opt out; HELP for help. Consent is
+            not a condition of purchase. We do not share mobile numbers or messaging consent with third
+            parties or affiliates for marketing.{' '}
             <a
               href="https://app.regguardagent.com/privacy"
               target="_blank"

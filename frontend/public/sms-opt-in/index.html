@@ -6,7 +6,7 @@
     <title>RegGuard SMS Opt-In — Pitaniello Perkins LLC</title>
     <meta
       name="description"
-      content="Public SMS opt-in evidence for RegGuard transactional texts. Privacy and Terms linked."
+      content="Public SMS opt-in form for RegGuard. Mobile phone number and SMS consent checkbox on the same form."
     />
   </head>
   <body style="font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #111">
@@ -19,40 +19,78 @@
       Use case: transactional account notifications (research results, Bid Risk Receipt / share links,
       order or PDF-ready notices, optional ZIP-watch / Saved Job alerts).
     </p>
+    <p style="background:#ecfdf5;border:1px solid #059669;padding:12px;border-radius:8px;font-weight:600">
+      This page is the SMS opt-in form. The mobile number field and SMS consent checkbox are on the
+      <em>same form</em> below. Home lookup at app.regguardagent.com uses email only and does not
+      collect SMS consent.
+    </p>
 
-    <h2>Consent form (same as in-app)</h2>
-    <form onsubmit="return false;" style="border: 2px solid #059669; border-radius: 12px; padding: 16px">
-      <label for="phone"><strong>Mobile number</strong></label><br />
-      <input id="phone" type="tel" placeholder="(555) 123-4567" style="width: 100%; padding: 10px; margin: 8px 0" />
-      <label style="display: flex; gap: 10px; align-items: flex-start; margin: 12px 0">
-        <input type="checkbox" id="consent" />
-        <span>
-          I agree to receive transactional text messages from RegGuard / Pitaniello Perkins LLC about my
-          research request, Bid Risk Receipt or shareable report links, related order or PDF-ready
-          notices, and (if I enable them) Saved Job / ZIP-watch alerts. Message frequency varies. Message
-          and data rates may apply. Reply STOP to opt out; HELP for help. Consent is not a condition of
-          purchase. We do not share, sell, or provide mobile numbers or messaging consent to third
-          parties or affiliates for marketing.
-          <a href="https://app.regguardagent.com/privacy">Privacy Policy</a>
-          ·
-          <a href="https://app.regguardagent.com/terms">Terms of Service</a>.
-        </span>
-      </label>
-      <button type="button" style="padding: 10px 16px; background: #059669; color: #fff; border: 0; border-radius: 8px; font-weight: 700">
-        Text me
-      </button>
+    <h2>SMS consent form (phone + checkbox together)</h2>
+    <form
+      id="regguard-sms-opt-in"
+      name="regguard_sms_opt_in"
+      action="#"
+      method="post"
+      onsubmit="return false;"
+      style="border: 2px solid #059669; border-radius: 12px; padding: 16px"
+    >
+      <fieldset style="border:0;margin:0;padding:0">
+        <legend style="font-weight:800;margin-bottom:8px">SMS opt-in — RegGuard / Pitaniello Perkins LLC</legend>
+
+        <label for="phone_number"><strong>Mobile phone number</strong> (required to receive texts)</label><br />
+        <input
+          id="phone_number"
+          name="phone_number"
+          type="tel"
+          inputmode="tel"
+          autocomplete="tel"
+          required
+          placeholder="(555) 123-4567"
+          aria-label="Mobile phone number for SMS"
+          style="width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box"
+        />
+
+        <label style="display: flex; gap: 10px; align-items: flex-start; margin: 12px 0">
+          <input
+            type="checkbox"
+            id="sms_consent"
+            name="sms_consent"
+            value="yes"
+            required
+            aria-label="SMS consent for the mobile number entered above"
+          />
+          <span>
+            I agree to receive transactional text messages from RegGuard / Pitaniello Perkins LLC
+            <strong>at the mobile phone number I enter above</strong> about my research request,
+            Bid Risk Receipt or shareable report links, related order or PDF-ready notices, and
+            (if I enable them) Saved Job / ZIP-watch alerts. Message frequency varies. Message and
+            data rates may apply. Reply STOP to opt out; HELP for help. Consent is not a condition of
+            purchase. We do not share, sell, or provide mobile numbers or messaging consent to third
+            parties or affiliates for marketing.
+            <a href="https://app.regguardagent.com/privacy">Privacy Policy</a>
+            ·
+            <a href="https://app.regguardagent.com/terms">Terms of Service</a>.
+          </span>
+        </label>
+
+        <button
+          type="submit"
+          style="padding: 10px 16px; background: #059669; color: #fff; border: 0; border-radius: 8px; font-weight: 700"
+        >
+          Text me
+        </button>
+      </fieldset>
     </form>
     <p style="font-size: 13px; color: #555">
-      Checkbox is unchecked by default. Interactive SPA:
-      <a href="https://app.regguardagent.com/sms-opt-in">https://app.regguardagent.com/sms-opt-in</a>
-      · Full evidence packet:
+      Checkbox is unchecked by default. Phone number and SMS consent are on this same form.
+      Full evidence packet:
       <a href="https://app.regguardagent.com/a2p-evidence">https://app.regguardagent.com/a2p-evidence</a>
     </p>
 
     <h2>How opt-in works (website only — no keyword)</h2>
     <ol>
       <li>User visits https://app.regguardagent.com/ and completes a site lookup with <strong>email only</strong> (no phone on the home form).</li>
-      <li>On Results they may open Text results (SMS), enter a US mobile number, check the unchecked-by-default consent box, and tap Text me — or skip SMS entirely.</li>
+      <li>On Results (or this public page) they enter a US mobile number, check the unchecked-by-default consent box on the <strong>same form</strong>, and tap Text me — or skip SMS entirely.</li>
       <li>Message frequency varies. Message and data rates may apply. Reply STOP to cancel; HELP for help.</li>
     </ol>
     <p>

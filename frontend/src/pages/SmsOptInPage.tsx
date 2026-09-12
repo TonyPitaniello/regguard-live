@@ -59,56 +59,71 @@ export default function SmsOptInPage() {
         </div>
 
         <form
+          id="regguard-sms-opt-in"
+          name="regguard_sms_opt_in"
           onSubmit={onSubmit}
           className="rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-5 space-y-4"
         >
-          <label htmlFor="sms-phone" className="flex items-center gap-2 text-base font-bold text-emerald-300">
-            <Phone className="w-4 h-4" />
-            Mobile number
-          </label>
-          <input
-            id="sms-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="(555) 123-4567"
-            className="w-full px-4 py-3 bg-slate-900 border border-emerald-500/40 rounded-lg text-white"
-          />
-
-          <label className="flex items-start gap-3 text-sm text-gray-200 cursor-pointer">
+          <fieldset className="border-0 p-0 m-0 space-y-4">
+            <legend className="text-base font-black text-emerald-200 mb-1">
+              SMS opt-in — phone number + consent on this form
+            </legend>
+            <label htmlFor="phone_number" className="flex items-center gap-2 text-base font-bold text-emerald-300">
+              <Phone className="w-4 h-4" />
+              Mobile phone number
+            </label>
             <input
-              type="checkbox"
-              className="mt-1 h-4 w-4"
-              checked={consented}
-              onChange={(e) => setConsented(e.target.checked)}
+              id="phone_number"
+              name="phone_number"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(555) 123-4567"
+              aria-label="Mobile phone number for SMS"
+              className="w-full px-4 py-3 bg-slate-900 border border-emerald-500/40 rounded-lg text-white"
             />
-            <span>
-              I agree to receive transactional text messages from RegGuard / Pitaniello Perkins LLC about
-              my research request, Bid Risk Receipt or shareable report links, related order or
-              PDF-ready notices, and (if I enable them) Saved Job / ZIP-watch alerts. Message frequency
-              varies. Message and data rates may apply. Reply STOP to opt out; HELP for help. Consent is
-              not a condition of purchase. We do not share, sell, or provide mobile numbers or messaging
-              consent to third parties or affiliates for marketing.{' '}
-              <a href={PRIVACY} className="text-emerald-300 underline" target="_blank" rel="noreferrer">
-                Privacy Policy
-              </a>
-              {' · '}
-              <a href={TERMS} className="text-emerald-300 underline" target="_blank" rel="noreferrer">
-                Terms of Service
-              </a>
-              .
-            </span>
-          </label>
 
-          <button
-            type="submit"
-            disabled={!consented}
-            className="w-full sm:w-auto px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-900 font-black rounded-lg"
-          >
-            Text me
-          </button>
+            <label className="flex items-start gap-3 text-sm text-gray-200 cursor-pointer">
+              <input
+                type="checkbox"
+                id="sms_consent"
+                name="sms_consent"
+                value="yes"
+                className="mt-1 h-4 w-4"
+                checked={consented}
+                onChange={(e) => setConsented(e.target.checked)}
+                aria-label="SMS consent for the mobile number entered above"
+              />
+              <span>
+                I agree to receive transactional text messages from RegGuard / Pitaniello Perkins LLC
+                at the mobile phone number I enter above about my research request, Bid Risk Receipt
+                or shareable report links, related order or PDF-ready notices, and (if I enable them)
+                Saved Job / ZIP-watch alerts. Message frequency varies. Message and data rates may
+                apply. Reply STOP to opt out; HELP for help. Consent is not a condition of purchase.
+                We do not share, sell, or provide mobile numbers or messaging consent to third
+                parties or affiliates for marketing.{' '}
+                <a href={PRIVACY} className="text-emerald-300 underline" target="_blank" rel="noreferrer">
+                  Privacy Policy
+                </a>
+                {' · '}
+                <a href={TERMS} className="text-emerald-300 underline" target="_blank" rel="noreferrer">
+                  Terms of Service
+                </a>
+                .
+              </span>
+            </label>
+
+            <button
+              type="submit"
+              disabled={!consented}
+              className="w-full sm:w-auto px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-900 font-black rounded-lg"
+            >
+              Text me
+            </button>
+          </fieldset>
 
           {note ? <p className="text-sm text-amber-100">{note}</p> : null}
         </form>

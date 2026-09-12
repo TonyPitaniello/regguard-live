@@ -19,11 +19,11 @@ export const A2P_MESSAGE_FLOW = `Opt-in method: WEBSITE ONLY. RegGuard does not 
 
 Who opts in: US contractors / users of RegGuard (Pitaniello Perkins LLC) who choose optional SMS after a site lookup.
 
-Where opt-in happens:
+Where opt-in happens (phone number + SMS consent checkbox are on the SAME form):
 (1) User visits https://app.regguardagent.com/ and completes a free site lookup with EMAIL ONLY (phone is not collected on the home form). Email-only proof: https://app.regguardagent.com/signup-without-sms
 (2) After Results load, the user may open “Text results (SMS)” OR skip SMS and use Email me / the web report.
-(3) To opt in they enter a US mobile number on the Results panel, check a SEPARATE unchecked-by-default consent checkbox naming RegGuard / Pitaniello Perkins LLC, and tap Text me. Leaving the box unchecked does not block the service.
-(4) Public screenshotable consent UI (same language): https://app.regguardagent.com/sms-opt-in
+(3) To opt in they enter a US mobile number and check a SEPARATE unchecked-by-default consent checkbox on that SAME form naming RegGuard / Pitaniello Perkins LLC (consent text says texts go to the mobile number entered above), then tap Text me. Leaving the box unchecked does not block the service.
+(4) Public screenshotable SMS opt-in form (phone field + consent checkbox together): https://app.regguardagent.com/sms-opt-in
 (5) Full evidence packet: https://app.regguardagent.com/a2p-evidence
 
 Consent disclosures shown before Text me: transactional SMS about this research request, Bid Risk Receipt / share links, order or PDF-ready notices, and ZIP-watch alerts if enabled; message frequency varies; message and data rates may apply; Reply STOP to opt out; HELP for help; consent is not a condition of purchase; mobile numbers and messaging consent are not shared with third parties or affiliates for marketing. Links: Privacy https://app.regguardagent.com/privacy · Terms https://app.regguardagent.com/terms
