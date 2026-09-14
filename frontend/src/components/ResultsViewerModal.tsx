@@ -721,6 +721,8 @@ export default function ResultsViewerModal({
   const [gotchaText, setGotchaText] = useState('');
   const [gotchaBusy, setGotchaBusy] = useState(false);
   const [gotchaMsg, setGotchaMsg] = useState('');
+  const [demandFeedbackSent, setDemandFeedbackSent] = useState(false);
+  const [showDemandFeedback, setShowDemandFeedback] = useState(false);
   const [icOrderPdfs, setIcOrderPdfs] = useState<
     Array<{ type: string; name: string; url: string }>
   >([]);
@@ -1505,11 +1507,27 @@ export default function ResultsViewerModal({
         channel: 'receipt_pdf',
       });
       showToast('Bid Risk Receipt downloaded');
+      if (!demandFeedbackSent) setShowDemandFeedback(true);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Receipt download failed');
     } finally {
       setPacketLoading(false);
     }
+  };
+
+  const sendDemandFeedback = (answer: string) => {
+    if (demandFeedbackSent) return;
+    trackStampEvent('demand_feedback', {
+      researchId: effectiveResearchId,
+      zip: view.project_info?.zip,
+      stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+      stampFingerprint: view.regguard_stamp?.fingerprint,
+      channel: 'post_receipt',
+      meta: { answer },
+    });
+    setDemandFeedbackSent(true);
+    setShowDemandFeedback(false);
+    showToast('Thanks — that helps us measure what contractors need');
   };
 
   const downloadBidSheetCsv = async () => {
@@ -2549,6 +2567,29 @@ export default function ResultsViewerModal({
                   );
                 })}
               </ol>
+              {showDemandFeedback && !demandFeedbackSent ? (
+                <div className="mt-4 pt-3 border-t border-emerald-500/25 space-y-2">
+                  <p className="text-xs text-gray-300 font-medium">
+                    One-tap: would you forward this receipt into a real bid file?
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      ['would_forward', 'Yes — I’d forward it'],
+                      ['missing_fees', 'Missing fees / gotchas'],
+                      ['dont_trust', 'Don’t trust it yet'],
+                    ].map(([ans, label]) => (
+                      <button
+                        key={ans}
+                        type="button"
+                        onClick={() => sendDemandFeedback(ans)}
+                        className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-slate-950/40 text-xs text-emerald-100 hover:bg-emerald-500/20"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
                 Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
                 <button

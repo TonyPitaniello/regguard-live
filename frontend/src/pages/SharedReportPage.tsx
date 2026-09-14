@@ -10,6 +10,7 @@ import { backendUrl } from '../env';
 import { areEstimatesUnverified, isRiskScoreHidden } from '../components/honesty';
 import CitationBadge from '../components/CitationBadge';
 import type { AnalysisData } from '../components/ResultsViewerModal';
+import { trackStampEvent } from '../lib/trackStampEvent';
 
 type ReportPayload = {
   research_id: string;
@@ -80,6 +81,14 @@ export default function SharedReportPage() {
         }
         const data = (await res.json()) as ReportPayload;
         if (!cancelled) setReport(data);
+        trackStampEvent('shared_report_open', {
+          researchId: data.research_id || id,
+          zip: data.analysis?.project_info?.zip,
+          stampGrade: data.analysis?.regguard_stamp?.grade || data.analysis?.stamp_grade,
+          stampFingerprint: data.analysis?.regguard_stamp?.fingerprint,
+          channel: 'shared_report',
+          meta: { preview: Boolean(data.preview) },
+        });
         try {
           // Attach stamp snapshot for dispute proof — does NOT freeze comments.
           // Use Lock stamp in results to freeze.

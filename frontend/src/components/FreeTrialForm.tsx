@@ -28,6 +28,7 @@ import {
   readLastResearchForm,
   setPendingIcReport,
 } from '../icSiteBind';
+import { trackStampEvent } from '../lib/trackStampEvent';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -259,6 +260,18 @@ export default function FreeTrialForm({
     } catch {
       /* ignore */
     }
+    // Blank demand funnel: count successful runs (ephemeral/client fallbacks still count as runs)
+    trackStampEvent('research_run', {
+      researchId: rid || id,
+      zip: analysisWithId.project_info?.zip || formDataRef.current.zip,
+      stampGrade: analysisWithId.regguard_stamp?.grade || analysisWithId.stamp_grade,
+      stampFingerprint: analysisWithId.regguard_stamp?.fingerprint,
+      channel: 'free_trial',
+      meta: {
+        depth: depth || 'instant',
+        project_type: formDataRef.current.projectType || '',
+      },
+    });
   }, []);
 
   const runResearch = useCallback(async () => {

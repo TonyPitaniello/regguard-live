@@ -167,7 +167,10 @@ export function AdminStampFunnelDashboard() {
       ) : null}
       <p className="text-xs text-gray-400">
         Measure: zip-watch alerts → re-run within 72h (product_events + stamp_funnel_stats).
-        Planning metrics only — not billing evidence.
+        Planning metrics only — not billing evidence.{' '}
+        <a className="text-emerald-300 underline" href="/admin/demand">
+          Demand scoreboard + pain-scout →
+        </a>
       </p>
       <div className="overflow-x-auto rounded-xl border border-slate-700">
         <table className="min-w-full text-sm">

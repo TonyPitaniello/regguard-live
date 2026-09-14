@@ -9,6 +9,7 @@ import { AdminLocalPacksDashboard } from './AdminLocalPacksDashboard';
 import { AdminSmsDeliveryDashboard } from './AdminSmsDeliveryDashboard';
 import { AdminGotchaCreditsDashboard } from './AdminGotchaCreditsDashboard';
 import { AdminStampFunnelDashboard } from './AdminStampFunnelDashboard';
+import { AdminDemandDashboard } from './AdminDemandDashboard';
 import { AdminPartnerMandateDashboard } from './AdminPartnerMandateDashboard';
 import { AdminRefundFreezeDashboard } from './AdminRefundFreezeDashboard';
 import { AdminZipWatchDashboard } from './AdminZipWatchDashboard';
@@ -192,6 +193,7 @@ export function AppRouter() {
           <Route path="/admin/sms" element={<AdminSmsPage />} />
           <Route path="/admin/gotcha-credits" element={<AdminGotchaCreditsPage />} />
           <Route path="/admin/stamp-funnel" element={<AdminStampFunnelPage />} />
+          <Route path="/admin/demand" element={<AdminDemandPage />} />
           <Route path="/admin/partner-mandate" element={<AdminPartnerMandatePage />} />
           <Route path="/admin/refund-freeze" element={<AdminRefundFreezePage />} />
           <Route path="/admin/zip-watch" element={<AdminZipWatchPage />} />
@@ -379,6 +381,20 @@ function AdminStampFunnelPage() {
         </div>
       </div>
       <AdminStampFunnelDashboard />
+    </div>
+  );
+}
+
+function AdminDemandPage() {
+  return (
+    <div>
+      <div className="page-header">
+        <div className="page-title">
+          <h1>Demand scoreboard</h1>
+          <p>Blank question · run → share → pay + weekly pain-scout</p>
+        </div>
+      </div>
+      <AdminDemandDashboard />
     </div>
   );
 }

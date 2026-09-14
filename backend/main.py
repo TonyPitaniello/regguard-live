@@ -2588,6 +2588,17 @@ def post_community_gotcha(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     z = normalize_us_zip(zip_code)
+    try:
+        from product_events import track_event
+
+        track_event(
+            "gotcha_submitted",
+            zip_code=z or "",
+            channel=source,
+            meta={"status": status, "partner_tier": partner_tier or "none"},
+        )
+    except Exception:
+        pass
     credit = None
     if partner_tier and email_l:
         try:
@@ -4545,9 +4556,66 @@ async def admin_stamp_funnel(
     x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
 ) -> Dict[str, Any]:
     _require_admin_secret(x_admin_secret)
-    from product_events import recent, stamp_funnel_stats
+    from product_events import demand_scoreboard, recent, stamp_funnel_stats
 
-    return {"stats": stamp_funnel_stats(hours=hours), "recent": recent(40)}
+    return {
+        "stats": stamp_funnel_stats(hours=hours),
+        "demand": demand_scoreboard(hours=hours),
+        "recent": recent(40),
+    }
+
+
+@app.get("/admin/demand-scoreboard", tags=["Admin"])
+async def admin_demand_scoreboard(
+    hours: int = 168,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Blank question scoreboard: run → receipt → share → /r/ open → pay."""
+    _require_admin_secret(x_admin_secret)
+    from pain_scout_digest import latest_digest
+    from product_events import demand_scoreboard, recent
+
+    return {
+        "demand": demand_scoreboard(hours=hours),
+        "latest_pain_scout": latest_digest(),
+        "recent": recent(50),
+    }
+
+
+@app.get("/admin/pain-scout", tags=["Admin"])
+async def admin_pain_scout(
+    hours: int = 168,
+    refresh: bool = False,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Latest weekly pain-scout digest (optionally rebuild now)."""
+    _require_admin_secret(x_admin_secret)
+    from pain_scout_digest import build_weekly_digest, latest_digest, list_digests
+
+    digest = build_weekly_digest(hours=hours, persist=True) if refresh else (latest_digest() or build_weekly_digest(hours=hours, persist=True))
+    return {"digest": digest, "history": list_digests(8)}
+
+
+@app.post("/cron/weekly-pain-scout", tags=["Cron"])
+async def cron_weekly_pain_scout(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+    hours: int = 168,
+) -> Dict[str, Any]:
+    """
+    Schedule weekly (e.g. cron-job.org → Render):
+      POST /cron/weekly-pain-scout
+      Header: X-Cron-Secret: $CRON_SECRET
+    """
+    _require_cron_secret(x_cron_secret)
+    from pain_scout_digest import build_weekly_digest
+
+    digest = build_weekly_digest(hours=hours, persist=True)
+    return {
+        "status": "ok",
+        "verdict": digest.get("verdict"),
+        "generated_at": digest.get("generated_at"),
+        "actions": digest.get("recommended_actions") or [],
+    }
 
 
 @app.get("/partner/mandate", tags=["Partner"])

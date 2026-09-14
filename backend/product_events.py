@@ -39,6 +39,12 @@ ALLOWED_EVENTS = frozenset(
         "checkout_start",
         "checkout_complete",
         "pricing_view",
+        # Blank demand funnel
+        "research_run",
+        "shared_report_open",
+        "demand_feedback",
+        "gotcha_submitted",
+        "pain_scout_note",
     }
 )
 
@@ -230,4 +236,167 @@ def stamp_funnel_stats(*, hours: int = 168) -> Dict[str, Any]:
             "contractor_pro_completes": pro_completes,
         },
         "disclaimer": "Planning metrics only — not billing or legal evidence.",
+    }
+
+
+def _parse_ts(s: str) -> Optional[datetime]:
+    try:
+        return datetime.strptime(str(s).replace("Z", ""), "%Y-%m-%dT%H:%M:%S").replace(
+            tzinfo=timezone.utc
+        )
+    except Exception:
+        return None
+
+
+def demand_scoreboard(*, hours: int = 168) -> Dict[str, Any]:
+    """
+    Blank question, automated:
+      research_run → receipt_download → share → shared_report_open → return/paid
+
+    Verdicts are heuristics for a passive operator — not proof of PMF.
+    """
+    cutoff = _utcnow() - timedelta(hours=max(1, hours))
+    rows: List[Dict[str, Any]] = []
+    for r in _read_rows(12000):
+        ts = _parse_ts(r.get("ts") or "")
+        if ts and ts >= cutoff:
+            rows.append(r)
+
+    def count(ev: str) -> int:
+        return sum(1 for r in rows if r.get("event") == ev)
+
+    runs = count("research_run")
+    receipts = count("stamp_receipt_download")
+    shares = (
+        count("stamp_share_copy")
+        + count("stamp_share_whatsapp")
+        + count("stamp_share_facebook")
+        + count("forward_receipt_credit")
+    )
+    opens = count("shared_report_open")
+    returns = count("research_rerun_same_zip") + count("job_saved_with_phone")
+    paid = count("checkout_complete")
+    feedback = [r for r in rows if r.get("event") == "demand_feedback"]
+    gotchas = count("gotcha_submitted")
+
+    # Unique research ids progressing through funnel (soft)
+    rid_runs = {str(r.get("research_id") or "") for r in rows if r.get("event") == "research_run" and r.get("research_id")}
+    rid_receipt = {
+        str(r.get("research_id") or "")
+        for r in rows
+        if r.get("event") == "stamp_receipt_download" and r.get("research_id")
+    }
+    rid_share = {
+        str(r.get("research_id") or "")
+        for r in rows
+        if r.get("event")
+        in (
+            "stamp_share_copy",
+            "stamp_share_whatsapp",
+            "stamp_share_facebook",
+            "forward_receipt_credit",
+        )
+        and r.get("research_id")
+    }
+    rid_open = {
+        str(r.get("research_id") or "")
+        for r in rows
+        if r.get("event") == "shared_report_open" and r.get("research_id")
+    }
+
+    def rate(num: int, den: int) -> Optional[float]:
+        return round(num / den, 3) if den else None
+
+    zip_counts: Dict[str, Dict[str, int]] = {}
+    for r in rows:
+        z = str(r.get("zip") or "").strip()[:5]
+        if len(z) < 5:
+            continue
+        bucket = zip_counts.setdefault(z, {"runs": 0, "receipts": 0, "shares": 0, "opens": 0})
+        ev = r.get("event") or ""
+        if ev == "research_run":
+            bucket["runs"] += 1
+        elif ev == "stamp_receipt_download":
+            bucket["receipts"] += 1
+        elif ev in (
+            "stamp_share_copy",
+            "stamp_share_whatsapp",
+            "stamp_share_facebook",
+            "forward_receipt_credit",
+        ):
+            bucket["shares"] += 1
+        elif ev == "shared_report_open":
+            bucket["opens"] += 1
+
+    top_zips = sorted(
+        (
+            {
+                "zip": z,
+                **v,
+                "share_rate": rate(v["shares"], v["receipts"] or v["runs"]),
+            }
+            for z, v in zip_counts.items()
+        ),
+        key=lambda x: (x["shares"], x["receipts"], x["runs"]),
+        reverse=True,
+    )[:12]
+
+    feedback_counts: Dict[str, int] = {}
+    for r in feedback:
+        meta = r.get("meta") if isinstance(r.get("meta"), dict) else {}
+        ans = str(meta.get("answer") or meta.get("choice") or "unknown")[:40]
+        feedback_counts[ans] = feedback_counts.get(ans, 0) + 1
+
+    # Passive operator verdict
+    share_rate = rate(shares, receipts or runs)
+    open_rate = rate(opens, shares)
+    pay_rate = rate(paid, runs)
+    if runs == 0:
+        verdict = "NO_SIGNAL"
+        verdict_plain = "No research runs yet — Blank’s question is unanswered."
+    elif (share_rate or 0) >= 0.15 and (pay_rate or 0) > 0:
+        verdict = "EARLY_DEMAND"
+        verdict_plain = "People run sites, share receipts, and some pay — keep narrowing the winning ZIPs."
+    elif (share_rate or 0) >= 0.1:
+        verdict = "VIRAL_WEAK_PAY"
+        verdict_plain = "Receipts get shared but pay is weak — fix upgrade CTA / price / pack depth."
+    elif (receipts or 0) >= max(5, runs // 5) and (share_rate or 0) < 0.05:
+        verdict = "USEFUL_NOT_FORWARDABLE"
+        verdict_plain = "People download but don’t forward — improve receipt usefulness / share friction."
+    else:
+        verdict = "HYPOTHESIS_ONLY"
+        verdict_plain = "Activity without clear share→pay loop — treat demand as unproven."
+
+    return {
+        "window_hours": hours,
+        "blank_question": "Who are the customers and what do they want — proven by behavior, not AI research?",
+        "funnel": {
+            "research_runs": runs,
+            "receipt_downloads": receipts,
+            "shares": shares,
+            "shared_report_opens": opens,
+            "returns_or_saves": returns,
+            "checkout_completes": paid,
+            "gotcha_submits": gotchas,
+            "demand_feedback_n": len(feedback),
+        },
+        "rates": {
+            "receipt_per_run": rate(receipts, runs),
+            "share_per_receipt": rate(shares, receipts),
+            "share_per_run": share_rate,
+            "open_per_share": open_rate,
+            "pay_per_run": pay_rate,
+        },
+        "unique_research_ids": {
+            "runs": len(rid_runs),
+            "receipts": len(rid_receipt & rid_runs) if rid_runs else len(rid_receipt),
+            "shares": len(rid_share),
+            "opens": len(rid_open),
+        },
+        "top_zips": top_zips,
+        "demand_feedback": feedback_counts,
+        "verdict": verdict,
+        "verdict_plain": verdict_plain,
+        "stamp_funnel": stamp_funnel_stats(hours=hours),
+        "disclaimer": "Planning metrics for a passive operator — not billing proof or PMF certificate.",
     }
