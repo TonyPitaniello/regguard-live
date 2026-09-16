@@ -229,11 +229,17 @@ export default function PricingPage() {
       <section className="px-4 py-16 sm:px-6 lg:px-8 border-t border-purple-500/10">
         <div className="max-w-3xl mx-auto">
           <div className="bg-gradient-to-br from-emerald-600/20 to-green-600/20 border-2 border-emerald-500/30 rounded-xl p-8">
-            <h3 className="text-lg font-bold text-white mb-4">Honesty before a refund slogan</h3>
+            <h3 className="text-lg font-bold text-white mb-4">
+              Due diligence aid — independent verification required
+            </h3>
             <p className="text-gray-300">
-              Source or Unverified on every line. If a Critical SOURCE fee is wrong vs the official
-              schedule that day, email support@regguardagent.com. Public cases will appear on
-              /guarantee as they happen — that page is empty until the first payout.
+              This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ
+              approval. Confirm every item with the Authority Having Jurisdiction before you bid or
+              file. Findings are labeled Source or Unverified. Questions:{' '}
+              <a href="mailto:support@regguardagent.com" className="text-purple-300 underline">
+                support@regguardagent.com
+              </a>
+              .
             </p>
           </div>
         </div>

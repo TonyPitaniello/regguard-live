@@ -154,18 +154,17 @@ export function PlatformDashboard() {
             <div className="flex items-start gap-4">
               <CheckCircle className="w-7 h-7 text-emerald-400 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="text-lg font-bold text-white mb-2">Honesty, not a blanket refund</h3>
+                <h3 className="text-lg font-bold text-white mb-2">
+                  Due diligence aid — independent verification required
+                </h3>
                 <p className="text-gray-300 text-sm sm:text-base">
-                  Every line is Source or Unverified. If a Critical SOURCE fee is wrong vs the official
-                  schedule that day, email{' '}
+                  This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ
+                  approval. Confirm every item with the Authority Having Jurisdiction before you bid
+                  or file. Findings are labeled Source or Unverified. Questions:{' '}
                   <a href="mailto:support@regguardagent.com" className="text-emerald-300 underline">
                     support@regguardagent.com
                   </a>
-                  . We do not advertise a 100% refund while{' '}
-                  <button type="button" className="text-emerald-300 underline" onClick={() => navigate('/guarantee')}>
-                    /guarantee
-                  </button>{' '}
-                  has no published cases.
+                  .
                 </p>
               </div>
             </div>
