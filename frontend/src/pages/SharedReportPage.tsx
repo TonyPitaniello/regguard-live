@@ -15,6 +15,21 @@ import { SeoHead } from '../SeoHead';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 
+function punchPriorityChipClass(priority: string) {
+  switch ((priority || '').toUpperCase()) {
+    case 'CRITICAL':
+      return 'bg-red-100 text-red-800 border border-red-300';
+    case 'HIGH':
+      return 'bg-orange-100 text-orange-800 border border-orange-300';
+    case 'MEDIUM':
+      return 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+    case 'LOW':
+      return 'bg-blue-100 text-blue-800 border border-blue-300';
+    default:
+      return 'bg-gray-100 text-gray-800 border border-gray-300';
+  }
+}
+
 type ReportPayload = {
   research_id: string;
   share_url: string;
@@ -587,11 +602,15 @@ export default function SharedReportPage() {
           ) : (
             punch.map((item, idx) => (
               <div key={idx} className="rounded-lg border border-slate-700 bg-slate-900/50 p-4">
-                <div className="flex justify-between gap-3">
-                  <p className="font-semibold text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="font-semibold text-white min-w-0 flex-1">
                     {idx + 1}. {item.task}
                   </p>
-                  <span className="text-xs font-bold text-orange-200 shrink-0">{item.priority}</span>
+                  <span
+                    className={`inline-flex items-center justify-center self-start shrink-0 w-[5.5rem] h-6 rounded text-[10px] font-bold uppercase tracking-wide ${punchPriorityChipClass(item.priority)}`}
+                  >
+                    {item.priority}
+                  </span>
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   {item.timeline} · {item.responsible_party}

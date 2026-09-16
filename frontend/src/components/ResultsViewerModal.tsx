@@ -565,10 +565,30 @@ function isInstantPreviewDepth(analysis: AnalysisData): boolean {
   return false;
 }
 
-/** SMS/chat-forwardable receipt — short, CYA, not an ad. */
+/** SMS/chat-forwardable receipt — bid-file memo, not a slogan. */
+function formatShareDate(iso?: string): string {
+  const raw = (iso || '').slice(0, 10);
+  if (!raw) return '';
+  const d = new Date(`${raw}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function stampShareLabel(grade: string): string {
+  const g = grade.toUpperCase();
+  if (g === 'FAIL') return 'Hold';
+  if (g === 'PASS') return 'Clear';
+  if (g === 'CAUTION') return 'Caution';
+  return grade;
+}
+
+function cleanAhjName(name: string): string {
+  return name.replace(/\s+AHJ\s*$/i, '').trim() || name;
+}
+
 function buildShareText(analysis: AnalysisData, generatedFor?: string, researchId?: string | null): string {
   const p = analysis.project_info;
-  const ahj = analysis.ahj_card?.name || 'Local AHJ';
+  const ahj = cleanAhjName(analysis.ahj_card?.name || 'Local AHJ');
   const band = analysis.contingency_band;
   const killers =
     analysis.margin_killers && analysis.margin_killers.length > 0
@@ -582,8 +602,8 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
 
   const bandLine =
     band?.pct_low != null && band?.pct_high != null
-      ? `Contingency: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%) — planning aid, NOT a quote`
-      : `Confirm contingency with AHJ before bid`;
+      ? `Suggested contingency: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%). Planning aid; not a bid quote.`
+      : 'Confirm contingency with the AHJ before bid.';
 
   const killerLines = killers
     .slice(0, 3)
@@ -593,11 +613,11 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
         tier === 'verified' || (k.verified && k.source_url)
           ? 'Source'
           : k.source_url
-            ? 'Link'
+            ? 'linked source'
             : 'Unverified';
-      const pri = (k.priority || 'NOTE').toUpperCase();
+      const pri = (k.priority || 'Note').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
       const title = (k.title || 'Item').slice(0, 90);
-      return `${i + 1}. [${pri}] [${ver}] ${title}`;
+      return `${i + 1}. ${title} — ${pri} · ${ver}`;
     })
     .join('\n');
 
@@ -611,28 +631,33 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const link = reportShareUrl(analysis, researchId);
   const stamp = analysis.regguard_stamp;
   const stampGrade = (stamp?.grade || analysis.stamp_grade || '').toUpperCase();
-  const stampLine =
-    stampGrade && ['PASS', 'CAUTION', 'FAIL'].includes(stampGrade)
-      ? stamp?.is_stale
-        ? `RegGuard stamp: ${stampGrade} (STALE — re-run before bid)`
-        : `RegGuard stamp: ${stampGrade}${
-            stamp?.valid_until ? ` · valid until ${stamp.valid_until.slice(0, 10)}` : ''
-          }`
-      : '';
+  const until = formatShareDate(stamp?.valid_until || analysis.stamp_valid_until);
+  let stampLine = '';
+  if (stampGrade && ['PASS', 'CAUTION', 'FAIL'].includes(stampGrade)) {
+    const label = stampShareLabel(stampGrade);
+    if (stamp?.is_stale) {
+      stampLine = `Pre-bid stamp: ${label} — stale; re-run before bid submittal.`;
+    } else {
+      stampLine = `Pre-bid stamp: ${label}${until ? ` (valid through ${until})` : ''}. Re-run before bid submittal.`;
+    }
+  }
 
   const siteLine = [p?.address, p?.city, p?.state, p?.zip].filter(Boolean).join(', ') || 'Site TBD';
 
   return [
-    `FLAGGED BEFORE BID — ${siteLine}`,
-    stampLine,
+    'Bid Risk Receipt',
+    siteLine,
+    `Authority Having Jurisdiction: ${ahj}`,
     `Coverage: ${cov.badge}`,
-    `AHJ: ${ahj}`,
+    stampLine,
     bandLine,
-    killerLines ? `Top 3 risk flags:\n${killerLines}` : '',
-    isDc ? 'Note: AHJ + utility often run parallel (not an interconnect study).' : '',
-    `— ${who} · Reg Guard Bid Risk Receipt`,
-    `Planning aid only. Confirm with AHJ. Not a filing.`,
-    link ? `Report: ${link}` : 'Report: open your Reg Guard results (share link missing)',
+    killerLines ? `Items to resolve before bid:\n${killerLines}` : '',
+    isDc
+      ? 'Municipal permits and utility interconnection often run on parallel clocks. This is not an interconnection study.'
+      : '',
+    `Prepared for ${who}`,
+    'Reg Guard — planning aid only. Confirm with the AHJ before bid or filing. Not a sealed bid or official filing.',
+    link || 'Open your Reg Guard results to copy the receipt link.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -666,6 +691,18 @@ function getPriorityBadge(priority: string) {
     default:
       return 'bg-gray-100 text-gray-800 border border-gray-300';
   }
+}
+
+/** Same box for CRITICAL / HIGH / MEDIUM / LOW — sized to the longest label, never stretched by the title. */
+const PRIORITY_CHIP_LAYOUT =
+  'inline-flex items-center justify-center self-start shrink-0 w-[5.5rem] h-6 rounded text-[10px] font-bold uppercase tracking-wide';
+
+function PriorityChip({ priority }: { priority: string }) {
+  return (
+    <span className={`${PRIORITY_CHIP_LAYOUT} ${getPriorityBadge(priority)}`}>
+      {priority}
+    </span>
+  );
 }
 
 const PRIORITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
@@ -2831,13 +2868,9 @@ export default function ResultsViewerModal({
                               : 'bg-slate-800/50 border-slate-700/50'
                           }`}
                         >
-                          <div className="flex justify-between gap-2 mb-1">
-                            <p className="text-white text-sm font-semibold">{item.task}</p>
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap ${getPriorityBadge(item.priority)}`}
-                            >
-                              {item.priority}
-                            </span>
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className="text-white text-sm font-semibold min-w-0 flex-1">{item.task}</p>
+                            <PriorityChip priority={item.priority} />
                           </div>
                           <p className="text-xs text-gray-400">
                             {item.timeline} • {item.responsible_party}
