@@ -93,7 +93,7 @@ export default function PartnerPortalPage() {
         </button>
         <h1 className="text-3xl font-black tracking-tight">Partner portal</h1>
         <p className="text-gray-400 text-sm">
-          Mandate kit, referral link, forward credits, and unpaid commissions — managed by email.
+          Mandate kit and share link. No cash affiliate commissions at launch.
         </p>
 
         <form onSubmit={load} className="flex flex-col sm:flex-row gap-2">
@@ -129,10 +129,8 @@ export default function PartnerPortalPage() {
                 <p className="text-xl font-bold">${(data.account_credit_usd ?? 0).toFixed(2)}</p>
               </div>
               <div className="rounded-lg border border-slate-700 p-3">
-                <p className="text-xs text-gray-400">Unpaid commission</p>
-                <p className="text-xl font-bold">
-                  ${((data.unpaid_cents ?? 0) / 100).toFixed(2)}
-                </p>
+                <p className="text-xs text-gray-400">Cash affiliate program</p>
+                <p className="text-sm font-bold text-gray-300">Paused at launch</p>
               </div>
               <div className="rounded-lg border border-slate-700 p-3">
                 <p className="text-xs text-gray-400">Partner forward credits</p>
@@ -177,11 +175,11 @@ export default function PartnerPortalPage() {
               </div>
             ) : (
               <p className="text-sm text-amber-200">
-                No affiliate yet —{' '}
+                No share code yet —{' '}
                 <Link to="/affiliate" className="underline text-emerald-300">
-                  register a referral code
-                </Link>{' '}
-                to earn 20% of first paid checkout + $10 per unique receipt forward.
+                  get a tracking link
+                </Link>
+                . Not a cash commission.
               </p>
             )}
 

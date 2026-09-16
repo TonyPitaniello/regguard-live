@@ -1,5 +1,5 @@
 /**
- * Affiliate / referral signup — get a ?ref= link, track unpaid commissions via API.
+ * Share-link signup — tracking only. No cash affiliate program at launch.
  */
 
 import { useState } from 'react';
@@ -67,14 +67,14 @@ export default function AffiliatePage() {
       </header>
 
       <section className="px-4 py-14 max-w-xl mx-auto">
-        <h1 className="text-4xl font-black text-white mb-3">Affiliate referrals</h1>
+        <h1 className="text-4xl font-black text-white mb-3">Share links</h1>
         <p className="text-gray-300 mb-8">
-          Share Reg Guard. Earn 20% of each referred customer&apos;s <strong>first</strong> paid
-          checkout (Partner, Pro, or IC) — not recurring renewals. Forward Bid Risk Receipts with your
-          link for <strong>$10 account credit</strong> per unique receipt. Payouts are marked paid
-          manually — email support@regguardagent.com when ready. After signup, open your{' '}
-          <a href="/partner/portal" className="text-emerald-400 underline">
-            Partner portal
+          We are not running a paid affiliate program at launch — no 20% cash commission, no
+          Stripe Connect payouts. Forward a Bid Risk Receipt. That is how the product spreads. A{' '}
+          <code className="text-purple-300">?ref=</code> link only helps us see which shares were
+          opened. Questions:{' '}
+          <a href="mailto:support@regguardagent.com" className="text-emerald-300 underline">
+            support@regguardagent.com
           </a>
           .
         </p>
@@ -116,12 +116,12 @@ export default function AffiliatePage() {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold disabled:opacity-50 min-h-[44px]"
             >
-              {loading ? 'Creating…' : 'Get my referral link'}
+              {loading ? 'Creating…' : 'Get a share link'}
             </button>
           </form>
         ) : (
           <div className="space-y-4">
-            <p className="text-emerald-400 font-semibold">Your link is ready</p>
+            <p className="text-emerald-400 font-semibold">Your share link is ready</p>
             <div className="flex gap-2">
               <input
                 readOnly
@@ -137,8 +137,8 @@ export default function AffiliatePage() {
               </button>
             </div>
             <p className="text-gray-400 text-sm">
-              Anyone who lands with your <code className="text-purple-300">?ref=</code> and later
-              pays is attributed to you at checkout.
+              Tracking only — not a cash payout. Forward the receipt; do not promise anyone a
+              commission.
             </p>
           </div>
         )}

@@ -308,8 +308,8 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
-      WhatsApp / copy the link. You earn account credit when it is forwarded.
-      Recipients who later pay credit your <code>?ref=</code> (20% of first paid order).
+      WhatsApp / copy the link. Recipients who later pay are tracked on your
+      <code>?ref=</code> for demand — not a cash commission.
     </p>
 """
         return subject, wrap("Send this to your GC", body)

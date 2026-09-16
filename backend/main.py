@@ -6207,7 +6207,7 @@ async def partner_portal(email: str = "") -> Dict[str, Any]:
             "partner_forward_credit_usd": 10,
             "pitch": (
                 "Forward Bid Risk Receipts with your ?ref= link. "
-                "You earn $10 account credit per unique receipt forward + 20% of first paid checkout."
+                "No cash affiliate commission at launch — sharing is how the product spreads."
             ),
         },
     }

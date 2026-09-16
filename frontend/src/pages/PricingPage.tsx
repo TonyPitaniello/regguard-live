@@ -39,7 +39,7 @@ const TIERS = [
       'Deep research lookups for client sites',
       'Forwardable punch lists with your workflow',
       'Saved Jobs + weekly email reminders',
-      'Affiliate referral link (20% commission)',
+      'Forwardable Bid Risk Receipt for client sites',
     ],
     cta: 'Start Partner — $79/mo',
     highlight: false,
@@ -223,15 +223,6 @@ export default function PricingPage() {
             <Download className="w-4 h-4" />
             Download SAMPLE Plano PDF
           </a>
-          <p className="mt-4">
-            <button
-              type="button"
-              onClick={() => navigate('/affiliate')}
-              className="text-purple-300 hover:text-white text-sm font-semibold min-h-[44px]"
-            >
-              Earn 20% with a referral link →
-            </button>
-          </p>
         </div>
       </section>
 

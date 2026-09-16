@@ -206,13 +206,6 @@ export function PlatformDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/affiliate')}
-              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
-            >
-              Affiliates
-            </button>
-            <button
-              type="button"
               onClick={() => navigate('/jobs')}
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >
