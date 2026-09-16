@@ -758,6 +758,12 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
             svc = get_email_service()
             if svc and hasattr(svc, "send_plan_win_email"):
                 await svc.send_plan_win_email(email, tier_n, day7=False)
+            try:
+                from nurture_store import cancel_free_run_for_email
+
+                cancel_free_run_for_email(email)
+            except Exception:
+                pass
             schedule_day7_win(
                 email=email,
                 tier=tier_n,

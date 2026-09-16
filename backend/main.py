@@ -46,7 +46,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from fastapi import Body, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from geocode import google_reverse_geocode_us_latlng, us_zip_from_lat_lon
 from jurisdiction import JurisdictionProfile, geocode_profile_from_address
@@ -1777,6 +1777,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         allowed, free_quota = consume_free_scan(getattr(request_body, "email", None) or "")
         if not allowed:
             usage = free_quota or get_free_scan_usage(getattr(request_body, "email", None) or "")
+            try:
+                from nurture_store import schedule_quota_paywall
+
+                schedule_quota_paywall(email=str(getattr(request_body, "email", "") or ""))
+            except Exception:
+                pass
             raise HTTPException(
                 status_code=429,
                 detail=(
@@ -2081,6 +2087,39 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             analysis["job_id"] = job_id
     except Exception as job_err:
         logger.warning(f"Free-trial auto-save job failed (non-blocking): {job_err}")
+
+    # Passive campaign: self-ref on share URL + free-run drip (skip paid emails)
+    if not paid:
+        try:
+            from affiliate_store import register_affiliate
+            from nurture_store import schedule_free_run_drip
+            from passive_campaign import with_share_params
+
+            em = str(getattr(request_body, "email", "") or "").strip().lower()
+            if em and "@" in em:
+                aff = register_affiliate(email=em)
+                code = str(aff.get("code") or "")
+                analysis["referral_code"] = code
+                share = str(analysis.get("share_url") or "")
+                if share:
+                    analysis["share_url"] = with_share_params(share, ref=code)
+                    try:
+                        from research_store import save_research as _save_share
+
+                        _save_share(analysis, research_id=str(analysis.get("research_id") or research_id))
+                    except Exception:
+                        pass
+                schedule_free_run_drip(
+                    email=em,
+                    research_id=str(analysis.get("research_id") or research_id or ""),
+                    share_url=str(analysis.get("share_url") or ""),
+                    zip_code=str((analysis.get("project_info") or {}).get("zip") or getattr(request_body, "zip", "") or ""),
+                    city=str((analysis.get("project_info") or {}).get("city") or getattr(request_body, "city", "") or ""),
+                    address=str((analysis.get("project_info") or {}).get("address") or getattr(request_body, "address", "") or ""),
+                    referral_code=code,
+                )
+        except Exception as drip_err:
+            logger.warning("Free-run drip schedule failed (non-blocking): %s", drip_err)
 
     # IC Project: only after deep research + explicit generate_ic_report opt-in
     ic_pdfs_ready = False
@@ -5883,6 +5922,87 @@ async def admin_reject_gotcha_credit(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     return {"status": "ok", "credit": row}
+
+
+@app.get("/sitemap.xml", tags=["SEO"], include_in_schema=False)
+async def sitemap_xml() -> Response:
+    from passive_campaign import sitemap_xml as build_sitemap
+
+    return Response(content=build_sitemap(), media_type="application/xml")
+
+
+@app.get("/robots.txt", tags=["SEO"], include_in_schema=False)
+async def robots_txt() -> Response:
+    from passive_campaign import robots_txt as build_robots
+
+    return Response(content=build_robots(), media_type="text/plain")
+
+
+@app.get("/seo/metros", tags=["SEO"])
+async def seo_metros() -> Dict[str, Any]:
+    from passive_campaign import architecture_brief, metro_pages
+
+    return {"campaign": architecture_brief(), "metros": metro_pages()}
+
+
+@app.get("/seo/metros/{slug}", tags=["SEO"])
+async def seo_metro_slug(slug: str) -> Dict[str, Any]:
+    from passive_campaign import metro_by_slug
+
+    row = metro_by_slug(slug)
+    if not row:
+        raise HTTPException(status_code=404, detail="Unknown metro")
+    return row
+
+
+@app.get("/share/{research_id}", tags=["Results"], include_in_schema=False)
+async def public_share_html(
+    research_id: str,
+    ref: str = "",
+) -> HTMLResponse:
+    """Crawlable Bid Risk Receipt sales page (OG for WhatsApp / iMessage)."""
+    from share_html import share_html_for_id
+
+    html = share_html_for_id(research_id, ref=ref)
+    if not html:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return HTMLResponse(content=html)
+
+
+@app.post("/cron/nurture-drip", tags=["Cron"])
+async def cron_nurture_drip(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+) -> Dict[str, Any]:
+    """
+    Send due free-run drip + quota-paywall emails.
+    Schedule daily (or hourly): POST /cron/nurture-drip with X-Cron-Secret.
+    """
+    _require_cron_secret(x_cron_secret)
+    from email_service import get_email_service
+    from nurture_store import due_nurture, mark_sent
+    from passive_campaign import DRIP_KINDS
+
+    svc = get_email_service()
+    if not svc or not hasattr(svc, "send_campaign_drip"):
+        raise HTTPException(status_code=503, detail="Email service not configured")
+
+    due = due_nurture(kinds=list(DRIP_KINDS))
+    sent = 0
+    failed = 0
+    for item in due:
+        try:
+            payload = dict(item.get("payload") or {})
+            payload.setdefault("email", item.get("email"))
+            ok = await svc.send_campaign_drip(item["email"], item.get("kind") or "", payload)
+            if ok:
+                mark_sent(item["id"])
+                sent += 1
+            else:
+                failed += 1
+        except Exception as e:
+            logger.warning("Nurture drip failed for %s: %s", item.get("email"), e)
+            failed += 1
+    return {"status": "ok", "due": len(due), "sent": sent, "failed": failed}
 
 
 @app.post("/cron/day7-win-emails", tags=["Cron"])

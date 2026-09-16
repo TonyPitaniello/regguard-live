@@ -1,0 +1,69 @@
+# Hourly caller for Reg Guard cron endpoints.
+# Render Cron Jobs are a paid extra service — this is the free stand-in.
+#
+# One-time setup: GitHub repo Settings → Secrets → Actions → New
+#   Name: CRON_SECRET
+#   Value: the same CRON_SECRET already on Render regguard-api
+
+name: Cron callers
+
+on:
+  schedule:
+    - cron: "8 * * * *" # hourly — nurture drip (day-2 / day-5 / quota emails)
+    - cron: "0 14 * * *" # daily 14:00 UTC — ZIP watch
+    - cron: "20 14 * * *" # daily — Partner/Pro day-7 emails
+    - cron: "0 15 * * 1" # Mondays — pain-scout digest
+  workflow_dispatch:
+    inputs:
+      path:
+        description: "Cron path to POST (no host)"
+        default: "/cron/nurture-drip"
+        type: choice
+        options:
+          - /cron/nurture-drip
+          - /cron/zip-watch
+          - /cron/day7-win-emails
+          - /cron/weekly-pain-scout
+          - /cron/weekly-job-reminders
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve path
+        id: dest
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "path=${{ inputs.path }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
+            echo "path=/cron/zip-watch" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "20 14 * * *" ]; then
+            echo "path=/cron/day7-win-emails" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "0 15 * * 1" ]; then
+            echo "path=/cron/weekly-pain-scout" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/cron/nurture-drip" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: POST cron endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CRON_PATH: ${{ steps.dest.outputs.path }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "Missing GitHub Actions secret CRON_SECRET."
+            echo "Add it: repo Settings → Secrets and variables → Actions → New repository secret"
+            echo "Name CRON_SECRET, value = the same string already on Render regguard-api."
+            exit 1
+          fi
+          URL="https://regguard-api.onrender.com${CRON_PATH}"
+          echo "POST $URL"
+          code=$(curl -sS -o /tmp/cron-out -w "%{http_code}" -X POST "$URL" \
+            -H "X-Cron-Secret: ${CRON_SECRET}" \
+            --max-time 120)
+          echo "HTTP $code"
+          head -c 500 /tmp/cron-out; echo
+          if [ "$code" != "200" ]; then
+            exit 1
+          fi

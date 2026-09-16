@@ -299,6 +299,15 @@ class EmailService:
         """Welcome (day 0) or Day-7 win email for Partner / Pro."""
         raise NotImplementedError
 
+    async def send_campaign_drip(
+        self,
+        to_email: str,
+        kind: str,
+        payload: Optional[dict] = None,
+    ) -> bool:
+        """Free-run day-2 / day-5 / quota-paywall emails."""
+        raise NotImplementedError
+
     def _build_plan_win_html(self, tier: str, *, day7: bool = False) -> str:
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         tier_l = (tier or "").strip().lower()
@@ -874,6 +883,27 @@ RegGuard © 2026
             logger.error("SendGrid plan win email failed: %s", e)
             return False
 
+    async def send_campaign_drip(
+        self, to_email: str, kind: str, payload: Optional[dict] = None
+    ) -> bool:
+        if not self.sg or not self.Mail:
+            return False
+        from passive_campaign import drip_email
+
+        subject, html = drip_email(kind, payload or {})
+        try:
+            message = self.Mail(
+                from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                to_emails=to_email,
+                subject=subject,
+                html_content=html,
+            )
+            response = self.sg.send(message)
+            return 200 <= response.status_code < 300
+        except Exception as e:
+            logger.error("SendGrid campaign drip failed kind=%s: %s", kind, e)
+            return False
+
 
 class ResendEmailService(EmailService):
     """Resend email service (alternative to SendGrid)"""
@@ -1152,6 +1182,26 @@ class ResendEmailService(EmailService):
             return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
         except Exception as e:
             logger.error("Resend plan win email failed: %s", e)
+            return False
+
+    async def send_campaign_drip(
+        self, to_email: str, kind: str, payload: Optional[dict] = None
+    ) -> bool:
+        if not self.resend:
+            return False
+        from passive_campaign import drip_email
+
+        subject, html = drip_email(kind, payload or {})
+        try:
+            response = self.resend.Emails.send({
+                "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
+                "to": to_email,
+                "subject": subject,
+                "html": html,
+            })
+            return bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))
+        except Exception as e:
+            logger.error("Resend campaign drip failed kind=%s: %s", kind, e)
             return False
 
     async def send_research_result(
