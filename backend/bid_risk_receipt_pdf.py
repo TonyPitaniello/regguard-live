@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from fpdf import FPDF
 
-from arbitrage_enrichment import build_margin_killers, enrich_analysis_with_arbitrage
+from fee_kind import classify_fee_kind
 
 logger = logging.getLogger(__name__)
 
@@ -329,6 +329,44 @@ def generate_bid_risk_receipt_pdf(
         )
     pdf.set_y(y1 + 26)
 
+    fee_rows = []
+    fc = data.get("fee_card") or {}
+    if isinstance(fc.get("fees"), list) and fc.get("fees"):
+        fee_rows = fc["fees"]
+    else:
+        lp_fees = (data.get("local_pack") or {}).get("fees")
+        if isinstance(lp_fees, list):
+            fee_rows = lp_fees
+    if fee_rows:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*AMBER)
+        pdf.cell(CONTENT_W, 5, "FEE TYPES (permit vs tap vs impact)", ln=1)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.2,
+            _ascii("Do not mix these. Impact and tap fees are often larger than the building permit."),
+        )
+        for row in fee_rows[:8]:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("label") or row.get("name") or "Fee")
+            kind = classify_fee_kind(
+                label,
+                str(row.get("detail") or ""),
+                str(row.get("trade") or ""),
+            )
+            amt = row.get("amount_usd")
+            amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm schedule"
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*WHITE)
+            pdf.multi_cell(CONTENT_W, 3.5, _ascii(f"[{kind}] {label} — {amt_s}"))
+        pdf.ln(1)
+
     # Top 3 killers
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 9)
@@ -468,10 +506,16 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*WHITE)
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
+    valid = str(rg.get("valid_until") or "")[:10]
     stamp_lines = [
         f"Flagged by: {who}",
         f"Date: {stamp_date} UTC",
-        "Re-check before bid - fees and portal asks move.",
+        (
+            f"Re-run before you submit the bid. Stamp valid until {valid}. "
+            "Fees and portal asks move."
+            if valid
+            else "Re-run before you submit the bid. Fees and portal asks move."
+        ),
     ]
     if data.get("procurement_stamp") or data.get("lender_stamp") or data.get("surety_stamp"):
         stamp_lines.append(

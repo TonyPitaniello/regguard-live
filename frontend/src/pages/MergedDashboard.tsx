@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import FreeTrialForm from '../components/FreeTrialForm';
 import { backendUrl } from '../env';
+import { SeoHead } from '../SeoHead';
 import { isIosDevice, isStandaloneApp } from '../pwaInstall';
 import { showIosInstallInstructions } from '../components/IosInstantInstall';
 
@@ -38,6 +39,11 @@ export function PlatformDashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <SeoHead
+        title="Reg Guard — Bid Risk Receipt for contractors"
+        description="Pre-bid diligence for DFW and Austin. Forward the receipt to your GC. Planning aid — not a quote or sealed bid."
+        canonical="https://app.regguardagent.com/"
+      />
       <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">RegGuard</h1>
@@ -48,6 +54,13 @@ export function PlatformDashboard() {
               className="sm:hidden text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
             >
               Download
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/permit-fees')}
+              className="hidden md:inline text-gray-300 hover:text-white transition text-sm font-semibold"
+            >
+              Cities
             </button>
             <button
               type="button"
@@ -141,10 +154,18 @@ export function PlatformDashboard() {
             <div className="flex items-start gap-4">
               <CheckCircle className="w-7 h-7 text-emerald-400 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="text-lg font-bold text-white mb-2">Guarantee</h3>
+                <h3 className="text-lg font-bold text-white mb-2">Honesty, not a blanket refund</h3>
                 <p className="text-gray-300 text-sm sm:text-base">
-                  If a critical paid finding is wrong, we refund 100%. Free lookups always show an in-app
-                  preview so you can text or share immediately.
+                  Every line is Source or Unverified. If a Critical SOURCE fee is wrong vs the official
+                  schedule that day, email{' '}
+                  <a href="mailto:support@regguardagent.com" className="text-emerald-300 underline">
+                    support@regguardagent.com
+                  </a>
+                  . We do not advertise a 100% refund while{' '}
+                  <button type="button" className="text-emerald-300 underline" onClick={() => navigate('/guarantee')}>
+                    /guarantee
+                  </button>{' '}
+                  has no published cases.
                 </p>
               </div>
             </div>
@@ -155,6 +176,13 @@ export function PlatformDashboard() {
       <footer className="px-4 py-10 sm:px-6 lg:px-8 bg-slate-900/50 border-t border-purple-500/10 text-center text-gray-400 text-sm">
         <div className="max-w-6xl mx-auto space-y-3">
           <div className="flex justify-center gap-6 flex-wrap">
+            <button
+              type="button"
+              onClick={() => navigate('/permit-fees')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              City permit pages
+            </button>
             <button
               type="button"
               onClick={() => navigate('/how-it-works')}
@@ -203,7 +231,7 @@ export function PlatformDashboard() {
               Terms
             </a>
             <a
-              href="mailto:hello@regguard.com"
+              href="mailto:support@regguardagent.com"
               className="text-purple-400 hover:text-purple-300 transition inline-flex items-center min-h-[44px]"
             >
               Contact

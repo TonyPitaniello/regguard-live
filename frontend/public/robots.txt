@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /orders
+Disallow: /checkout
+Disallow: /jobs
+Disallow: /my-jobs
+Disallow: /queue
+Disallow: /signup
+Sitemap: https://app.regguardagent.com/sitemap.xml

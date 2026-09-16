@@ -11,6 +11,9 @@ import { areEstimatesUnverified, isRiskScoreHidden } from '../components/honesty
 import CitationBadge from '../components/CitationBadge';
 import type { AnalysisData } from '../components/ResultsViewerModal';
 import { trackStampEvent } from '../lib/trackStampEvent';
+import { SeoHead } from '../SeoHead';
+import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
+import { classifyFeeKind, feeKindHint } from '../feeKind';
 
 type ReportPayload = {
   research_id: string;
@@ -64,6 +67,11 @@ export default function SharedReportPage() {
     stamp_grade?: string;
     stamp_fingerprint?: string;
   }>({});
+
+  useEffect(() => {
+    const ref = (searchParams.get('ref') || '').trim();
+    if (ref) rememberReferralCode(ref);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!id) {
@@ -143,9 +151,10 @@ export default function SharedReportPage() {
 
   const copyLink = async () => {
     const base = report?.share_url || window.location.href.split('?')[0];
+    const withRef = withShareParams(base, searchParams.get('ref') || storedReferralCode());
     const url = wrToken
-      ? `${base}${base.includes('?') ? '&' : '?'}wr=${encodeURIComponent(wrToken)}`
-      : report?.share_url || window.location.href;
+      ? `${withRef}${withRef.includes('?') ? '&' : '?'}wr=${encodeURIComponent(wrToken)}`
+      : withRef || report?.share_url || window.location.href;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2000);
@@ -227,7 +236,42 @@ export default function SharedReportPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+      <SeoHead
+        title={`Bid Risk Receipt — ${[street, place].filter(Boolean).join(', ') || 'Reg Guard'}`}
+        description="Forwardable contractor pre-bid diligence. Planning aid — not a quote or sealed bid. Confirm with the AHJ."
+        canonical={`https://app.regguardagent.com/r/${id}`}
+      />
       <div className="max-w-3xl mx-auto px-4 py-10 sm:px-6 space-y-8">
+        <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 sm:p-5 space-y-3">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
+            Run your address
+          </p>
+          <p className="text-sm text-gray-200">
+            This receipt is a planning aid — not a quote. Estimators attach it to a bid. GCs open it
+            on a phone. Your next site takes 60 seconds.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={`/?utm_source=sharepage&utm_medium=cta&utm_campaign=bid_risk_receipt${storedReferralCode() ? `&ref=${encodeURIComponent(storedReferralCode())}` : ''}#free-trial-form`}
+              className="inline-flex items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white"
+            >
+              Run my address
+            </Link>
+            <Link
+              to={`/checkout/partner${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
+              className="inline-flex items-center rounded-lg border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-100"
+            >
+              Partner $79/mo
+            </Link>
+            <Link
+              to={`/checkout/contractor_pro${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
+              className="inline-flex items-center rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-gray-200"
+            >
+              Contractor Pro $149/mo
+            </Link>
+          </div>
+        </section>
+
         <header className="space-y-3 border-b border-slate-800 pb-6">
           <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
             RegGuard Bid Risk Receipt
@@ -259,24 +303,21 @@ export default function SharedReportPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => void copyLink()}
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/20"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Link copied' : 'Copy share link'}
-            </button>
-            <a
-              href={report.share_url}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-sm text-gray-200"
-            >
-              <ExternalLink className="w-4 h-4" />
-              {report.share_url.replace(/^https?:\/\//, '')}
-            </a>
-          </div>
         </header>
+
+        <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
+          Re-run before you submit the bid. Stamp valid until{' '}
+          {(analysis.regguard_stamp?.valid_until || analysis.stamp_valid_until || 'this run')
+            .toString()
+            .slice(0, 10)}
+          . Fees and portal asks move.
+        </p>
+        {(!localPack?.citeable || unverified) && (
+          <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
+            This site is not a full DFW/Austin pack (or is Unverified). Confirm every line with the
+            AHJ before you treat this as bid-ready.
+          </p>
+        )}
 
         {(analysis.preview || hideRisk || unverified) && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -429,6 +470,33 @@ export default function SharedReportPage() {
           </section>
         )}
 
+        {(analysis.fee_card?.fees || []).length > 0 && (
+          <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
+            <h2 className="text-xl font-bold">Fee types — permit vs tap vs impact</h2>
+            <p className="text-xs text-amber-100/90">
+              Mixing these is the estimator landmine. Impact and tap fees are often larger than the
+              building permit.
+            </p>
+            <ul className="space-y-2">
+              {(analysis.fee_card?.fees || []).slice(0, 10).map((f, i) => {
+                const kind = classifyFeeKind(f.label, f.detail, f.trade);
+                return (
+                  <li key={`fee-${i}`} className="text-sm text-gray-200">
+                    <span
+                      title={feeKindHint(kind)}
+                      className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/30"
+                    >
+                      {kind}
+                    </span>
+                    <span className="text-white font-medium">{f.label}</span>
+                    {typeof f.amount_usd === 'number' ? ` — $${f.amount_usd.toLocaleString()}` : ''}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {clocks.length > 0 && (
           <section className="space-y-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-5">
             <h2 className="text-xl font-bold">Parallel clocks</h2>
@@ -545,8 +613,26 @@ export default function SharedReportPage() {
           )}
         </section>
 
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void copyLink()}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-sm text-gray-200 hover:bg-slate-800"
+          >
+            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {copied ? 'Link copied' : 'Copy share link'}
+          </button>
+          <a
+            href={report.share_url}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-2 text-sm text-gray-200"
+          >
+            <ExternalLink className="w-4 h-4" />
+            {report.share_url.replace(/^https?:\/\//, '')}
+          </a>
+        </div>
+
         <section className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/40 p-5">
-          <h2 className="text-xl font-bold">Deal war room</h2>
+          <h2 className="text-xl font-bold">Bid-file notes</h2>
           <p className="text-xs text-gray-400">
             Owner / IC / GC / utility / counsel can leave notes on this shared receipt. Not a chat
             product — keep comments bid-file useful.

@@ -10,7 +10,9 @@ import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
 import { trackStampEvent } from '../lib/trackStampEvent';
+import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
+import { classifyFeeKind, feeKindHint } from '../feeKind';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -514,6 +516,7 @@ interface ResultsViewerModalProps {
 /** Canonical shareable report link for social + clipboard + PDF/email CTAs. Never homepage. */
 function reportShareUrl(analysis: AnalysisData, researchId?: string | null): string {
   const fromAnalysis = (analysis.share_url || '').trim();
+  let raw = '';
   if (
     fromAnalysis &&
     fromAnalysis.includes('/r/') &&
@@ -521,14 +524,15 @@ function reportShareUrl(analysis: AnalysisData, researchId?: string | null): str
     !fromAnalysis.endsWith('/r') &&
     !fromAnalysis.includes('utm_source=bid_receipt')
   ) {
-    return fromAnalysis;
+    raw = fromAnalysis;
+  } else {
+    const rid = (researchId || analysis.research_id || '').trim();
+    if (rid && !rid.startsWith('ephemeral-')) {
+      raw = `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`;
+    }
   }
-  const rid = (researchId || analysis.research_id || '').trim();
-  if (rid && !rid.startsWith('ephemeral-')) {
-    return `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`;
-  }
-  // Do not fall back to marketing homepage — callers should persist first
-  return '';
+  if (!raw) return '';
+  return withShareParams(raw, storedReferralCode() || (analysis as { referral_code?: string }).referral_code);
 }
 
 function hasUsableCoords(analysis: AnalysisData): boolean {
@@ -728,6 +732,11 @@ export default function ResultsViewerModal({
   >([]);
   const rootRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const code = String((analysis as { referral_code?: string })?.referral_code || '').trim();
+    if (code) rememberReferralCode(code);
+  }, [analysis]);
+
   // Scroll the real app scroller (.platform-content), not window — otherwise the
   // executive summary can sit off-screen while the stamp looks like the top of results.
   useEffect(() => {
@@ -834,6 +843,7 @@ export default function ResultsViewerModal({
   const packFees: Array<{
     trade?: string;
     label?: string;
+    detail?: string;
     amount_usd?: number | null;
     amount_requires_schedule?: boolean;
     verified?: boolean;
@@ -852,6 +862,7 @@ export default function ResultsViewerModal({
         return {
           trade: typeof r.trade === 'string' ? r.trade : undefined,
           label: String(r.label || r.name || 'Fee line'),
+          detail: typeof r.detail === 'string' ? r.detail : undefined,
           amount_usd: typeof r.amount_usd === 'number' ? r.amount_usd : null,
           amount_requires_schedule: Boolean(r.amount_requires_schedule),
           verified: Boolean(r.verified),
@@ -2521,6 +2532,19 @@ export default function ResultsViewerModal({
                   AHJ fees, timeline slip, and local risk — planning aid, not a quote.
                 </p>
               )}
+              <p className="text-xs text-amber-100/95 mb-3 border border-amber-500/35 rounded-md px-2.5 py-2 bg-amber-500/10">
+                Re-run before you submit the bid. Stamp valid until{' '}
+                {(view.regguard_stamp?.valid_until || view.stamp_valid_until || 'this run')
+                  .toString()
+                  .slice(0, 10)}
+                . Fees and portal asks move.
+              </p>
+              {!coverage.feesAllowed ? (
+                <p className="text-xs text-amber-100/95 mb-3 border border-amber-500/35 rounded-md px-2.5 py-2 bg-amber-500/10">
+                  This ZIP is not a full DFW/Austin pack — expect Unverified. Confirm every line with
+                  the AHJ before you treat this as bid-ready.
+                </p>
+              ) : null}
               <ol className="space-y-2 list-decimal pl-5">
                 {(view.margin_killers || []).slice(0, 3).map((k, i) => {
                   const href =
@@ -2971,6 +2995,9 @@ export default function ResultsViewerModal({
                         <span className="ml-2 text-xs font-semibold text-amber-300">Planning aid</span>
                       )}
                     </h4>
+                    <p className="text-[11px] text-amber-200/90 mb-2">
+                      Permit ≠ tap ≠ impact. Mixing these is how bids get blown — each line is labeled.
+                    </p>
                     <p className="text-white text-sm mb-2">
                       Timeline: {view.fee_card?.timeline || view.summary?.estimated_timeline || 'Confirm with AHJ'}
                     </p>
@@ -2995,6 +3022,17 @@ export default function ResultsViewerModal({
                       <ul className="space-y-2">
                         {packFees.slice(0, 10).map((f, i) => (
                           <li key={i} className="text-sm text-gray-300">
+                            {(() => {
+                              const kind = classifyFeeKind(f.label, f.detail, f.trade);
+                              return (
+                                <span
+                                  title={feeKindHint(kind)}
+                                  className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/30"
+                                >
+                                  {kind}
+                                </span>
+                              );
+                            })()}
                             {f.trade && (
                               <span className="mr-2 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-slate-700 text-blue-200">
                                 {f.trade}

@@ -20,7 +20,6 @@ import StudyTranslator from './Queue/StudyTranslator';
 import TimelinePredictor from './Queue/TimelinePredictor';
 import { PlatformLayout, PlatformUser } from './PlatformLayout';
 import PlatformDashboard from './pages/MergedDashboard';
-import SignupPage from './pages/SignupPage';
 import PricingPage from './pages/PricingPage';
 import MethodologyPage from './pages/MethodologyPage';
 import FreeTrialPage from './pages/FreeTrialPage';
@@ -121,6 +120,16 @@ export function AppRouter() {
           <Route path="/plano-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/dallas-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/austin-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/frisco-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/fort-worth-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/round-rock-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/arlington-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/irving-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/garland-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/mckinney-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/richardson-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/carrollton-permit-fees" element={<GeoPermitLandingPage />} />
 
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />
@@ -161,8 +170,8 @@ export function AppRouter() {
           <Route path="/partner/portal" element={<PartnerPortalPage />} />
           <Route path="/portal" element={<PartnerPortalPage />} />
 
-          {/* Signup/Stripe Payment Page */}
-          <Route path="/signup" element={<SignupPage />} />
+          {/* Retired on-site card form — Stripe Checkout only */}
+          <Route path="/signup" element={<Navigate to="/pricing" replace />} />
 
           {/* RegGuard Queue Routes — gated; demo data only when explicitly enabled */}
           <Route

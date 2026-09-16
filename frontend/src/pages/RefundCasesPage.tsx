@@ -61,9 +61,12 @@ export default function RefundCasesPage() {
           </p>
           <h1 className="text-3xl font-black">Refund cases</h1>
           <p className="text-gray-300 text-sm">
-            If a Critical fee or gotcha we labeled SOURCE is wrong against the official schedule on
-            that date, we refund 100% of that paid run. Publish real cases here as they happen —
-            templates stay until the first payout.
+            This page lists published refund payouts only. If a Critical SOURCE fee we labeled is
+            wrong against the official schedule that day, email{' '}
+            <a className="text-emerald-300 underline" href="mailto:support@regguardagent.com">
+              support@regguardagent.com
+            </a>
+            . We do not advertise a blanket 100% refund while this list is empty.
           </p>
           {data?.updated ? (
             <p className="text-xs text-gray-500">Updated {data.updated}</p>
@@ -85,6 +88,12 @@ export default function RefundCasesPage() {
         ) : null}
 
         <div className="space-y-4">
+          {(data?.cases || []).length === 0 && data && !error ? (
+            <p className="text-sm text-amber-100/90 border border-amber-500/30 rounded-lg p-4 bg-amber-500/10">
+              No published cases yet. Until the first payout, treat this page as empty — not as a
+              marketing guarantee.
+            </p>
+          ) : null}
           {(data?.cases || []).map((c) => (
             <article
               key={c.id}

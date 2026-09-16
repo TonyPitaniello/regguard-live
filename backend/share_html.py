@@ -93,6 +93,29 @@ def render_share_html(
         if preview or analysis.get("preview")
         else ""
     )
+    valid_until = str(stamp.get("valid_until") or analysis.get("stamp_valid_until") or "")[:10]
+    bid_due_html = (
+        f"<p class='warn'><strong>Re-run before you submit the bid.</strong> Stamp valid until "
+        f"{_esc(valid_until or 'this run')}. Fees and portal asks move.</p>"
+    )
+    fee_html = ""
+    fees = ((analysis.get("fee_card") or {}).get("fees")) or []
+    if isinstance(fees, list) and fees:
+        from fee_kind import classify_fee_kind
+
+        lis = ""
+        for row in fees[:8]:
+            if not isinstance(row, dict):
+                continue
+            label = str(row.get("label") or row.get("name") or "Fee")
+            kind = classify_fee_kind(label, str(row.get("detail") or ""), str(row.get("trade") or ""))
+            lis += f"<li><strong>{_esc(kind)}</strong> {_esc(label)}</li>"
+        if lis:
+            fee_html = (
+                "<h2>Fee types — permit vs tap vs impact</h2>"
+                "<p class='fine'>Do not mix these. Impact and tap fees are often larger than the permit.</p>"
+                f"<ol>{lis}</ol>"
+            )
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -131,8 +154,10 @@ def render_share_html(
     <h1>{_esc(site)}</h1>
     <p class="fine">Stamp { _esc(grade or '—') } · AHJ { _esc(ahj) } · planning aid, not a quote or sealed bid.</p>
     {preview_note}
+    {bid_due_html}
     {band_html}
     {killer_html}
+    {fee_html}
     <p>
       <a class="btn primary" href="{_esc(run_url)}">Run my address</a>
       <a class="btn ghost" href="{_esc(spa_url)}">Open full receipt</a>

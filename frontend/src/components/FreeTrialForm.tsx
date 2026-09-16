@@ -29,6 +29,7 @@ import {
   setPendingIcReport,
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
+import { rememberReferralCode } from '../shareLinks';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -153,6 +154,35 @@ export default function FreeTrialForm({
   formDataRef.current = formData;
   const navigate = useNavigate();
 
+  useEffect(() => {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      const city = (q.get('city') || '').trim();
+      const state = (q.get('state') || '').trim();
+      const zip = (q.get('zip') || '').trim();
+      const address = (q.get('address') || '').trim();
+      if (city || state || zip || address) {
+        setFormData((prev) => ({
+          ...prev,
+          ...(address ? { address } : {}),
+          ...(city ? { city } : {}),
+          ...(state ? { state } : {}),
+          ...(zip ? { zip } : {}),
+        }));
+        if (city || address) {
+          setExternalLocation({
+            ...(address ? { address } : {}),
+            ...(city ? { city } : {}),
+            ...(state ? { state } : {}),
+            ...(zip ? { zip } : {}),
+          });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -234,6 +264,8 @@ export default function FreeTrialForm({
       research_id: rid || analysisPayload.research_id,
       ...(share ? { share_url: share } : {}),
     };
+    const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();
+    if (refCode) rememberReferralCode(refCode);
     sessionStorage.setItem('analysisResults', JSON.stringify(analysisWithId));
     sessionStorage.setItem('researchId', id);
     const mail = (email || formDataRef.current.email || '').trim().toLowerCase();

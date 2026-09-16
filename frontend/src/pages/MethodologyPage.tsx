@@ -183,7 +183,10 @@ export default function MethodologyPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-green-400 font-bold">✓</span>
-                  <span>100% refund if a critical paid finding is wrong</span>
+                  <span>
+                    Email support if a Critical SOURCE fee is wrong vs the official schedule that day
+                    — we do not advertise a blanket 100% refund while /guarantee is empty
+                  </span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-green-400 font-bold">✓</span>

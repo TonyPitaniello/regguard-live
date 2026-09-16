@@ -5121,7 +5121,7 @@ async def get_attach_receipts(research_id: str) -> Dict[str, Any]:
 
 @app.get("/refund-cases", tags=["Trust"])
 async def get_refund_cases() -> Dict[str, Any]:
-    """Public guarantee case templates / published refund narratives."""
+    """Published refund narratives only — templates stay off the public page."""
     from refund_cases_store import list_cases
 
     return list_cases()
@@ -5924,14 +5924,14 @@ async def admin_reject_gotcha_credit(
     return {"status": "ok", "credit": row}
 
 
-@app.get("/sitemap.xml", tags=["SEO"], include_in_schema=False)
+@app.api_route("/sitemap.xml", methods=["GET", "HEAD"], tags=["SEO"], include_in_schema=False)
 async def sitemap_xml() -> Response:
     from passive_campaign import sitemap_xml as build_sitemap
 
     return Response(content=build_sitemap(), media_type="application/xml")
 
 
-@app.get("/robots.txt", tags=["SEO"], include_in_schema=False)
+@app.api_route("/robots.txt", methods=["GET", "HEAD"], tags=["SEO"], include_in_schema=False)
 async def robots_txt() -> Response:
     from passive_campaign import robots_txt as build_robots
 

@@ -124,7 +124,7 @@ export function DataCenterHub() {
         '✓ Full research memo (PDF)',
         '✓ Punch list + permit package',
         '✓ Same-day delivery',
-        '✓ Accuracy guarantee',
+        '✓ SOURCE or Unverified labeling',
       ],
     },
   ];

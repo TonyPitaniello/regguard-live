@@ -3,11 +3,37 @@
   "outputDirectory": "frontend/dist",
   "rewrites": [
     {
-      "source": "/((?!assets/|icons/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|a2p-evidence(?:/)?|signup-without-sms(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-).*)",
+      "source": "/sitemap.xml",
+      "destination": "https://regguard-api.onrender.com/sitemap.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "destination": "https://regguard-api.onrender.com/robots.txt"
+    },
+    {
+      "source": "/share/:id",
+      "destination": "https://regguard-api.onrender.com/share/:id"
+    },
+    {
+      "source": "/((?!assets/|icons/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|a2p-evidence(?:/)?|signup-without-sms(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-|sitemap\\.xml|robots\\.txt).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/robots.txt",
+      "headers": [
+        { "key": "Content-Type", "value": "text/plain; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    },
     {
       "source": "/index.html",
       "headers": [

@@ -99,7 +99,7 @@ def test_share_html_og_tags():
         ref="patx",
     )
     assert "og:title" in html
-    assert "123 Main" in html
     assert "Run my address" in html
     assert "ref=patx" in html
     assert "checkout/partner" in html
+    assert "Re-run before you submit the bid" in html

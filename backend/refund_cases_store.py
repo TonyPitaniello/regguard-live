@@ -31,8 +31,19 @@ def _save(data: Dict[str, Any]) -> None:
     _PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def list_cases() -> Dict[str, Any]:
-    return _load()
+def list_cases(*, include_templates: bool = False) -> Dict[str, Any]:
+    data = _load()
+    cases = [c for c in (data.get("cases") or []) if isinstance(c, dict)]
+    if not include_templates:
+        cases = [c for c in cases if str(c.get("status") or "").lower() != "template"]
+    out = dict(data)
+    out["cases"] = cases
+    if not cases:
+        out["disclaimer"] = (
+            "No published refund cases yet. Email support@regguardagent.com if a Critical "
+            "SOURCE fee was wrong vs the official schedule that day."
+        )
+    return out
 
 
 def record_case_with_stamp(
