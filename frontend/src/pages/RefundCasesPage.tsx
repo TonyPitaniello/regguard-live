@@ -88,13 +88,19 @@ export default function RefundCasesPage() {
         ) : null}
 
         <div className="space-y-4">
-          {(data?.cases || []).length === 0 && data && !error ? (
-            <p className="text-sm text-amber-100/90 border border-amber-500/30 rounded-lg p-4 bg-amber-500/10">
-              No published cases yet. Until the first payout, treat this page as empty — not as a
-              marketing guarantee.
-            </p>
-          ) : null}
-          {(data?.cases || []).map((c) => (
+          {(() => {
+            const published = (data?.cases || []).filter(
+              (c) => (c.status || '').toLowerCase() !== 'template'
+            );
+            if (published.length === 0 && data && !error) {
+              return (
+                <p className="text-sm text-amber-100/90 border border-amber-500/30 rounded-lg p-4 bg-amber-500/10">
+                  No published cases yet. Until the first payout, treat this page as empty — not as a
+                  marketing guarantee.
+                </p>
+              );
+            }
+            return published.map((c) => (
             <article
               key={c.id}
               className="rounded-xl border border-slate-700 bg-slate-900/50 p-5 space-y-2"
@@ -116,7 +122,8 @@ export default function RefundCasesPage() {
                 </ul>
               ) : null}
             </article>
-          ))}
+          ));
+          })()}
         </div>
       </div>
     </div>
