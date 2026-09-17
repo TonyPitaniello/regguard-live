@@ -172,18 +172,51 @@ def static_seo_paths() -> List[str]:
         "/guarantee",
         "/data-center",
         "/install",
+        "/privacy",
+        "/terms",
     ]
+
+
+def _sitemap_paths() -> List[str]:
+    urls = list(static_seo_paths())
+    try:
+        urls.extend(m["path"] for m in metro_pages())
+    except Exception:
+        # Never 500 the public sitemap if city packs fail to import.
+        urls.extend(
+            [
+                "/plano-permit-fees",
+                "/dallas-permit-fees",
+                "/austin-permit-fees",
+                "/frisco-permit-fees",
+                "/fort-worth-permit-fees",
+                "/round-rock-permit-fees",
+                "/arlington-permit-fees",
+                "/irving-permit-fees",
+                "/garland-permit-fees",
+                "/mckinney-permit-fees",
+                "/richardson-permit-fees",
+                "/carrollton-permit-fees",
+            ]
+        )
+    seen = set()
+    out: List[str] = []
+    for path in urls:
+        if path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
 
 
 def sitemap_xml(*, base: Optional[str] = None) -> str:
     host = (base or app_base_url()).rstrip("/")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    urls = list(static_seo_paths()) + [m["path"] for m in metro_pages()]
     chunks = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
     ]
-    for path in urls:
+    for path in _sitemap_paths():
         loc = f"{host}{path}"
         pri = "1.0" if path == "/" else ("0.9" if path.endswith("-permit-fees") else "0.7")
         chunks.append("  <url>")

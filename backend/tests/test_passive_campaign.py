@@ -41,9 +41,29 @@ def test_metros_cover_city_packs():
     xml = sitemap_xml(base="https://app.regguardagent.com")
     assert "/frisco-permit-fees" in xml
     assert "/permit-fees" in xml
+    assert "/how-it-works" in xml
+    assert "/install" in xml
+    assert "/privacy" in xml
     robots = robots_txt()
     assert "Sitemap:" in robots
     assert "Disallow: /admin" in robots
+    from pathlib import Path
+
+    public = Path(__file__).resolve().parents[2] / "frontend" / "public" / "sitemap.xml"
+    static_xml = public.read_text(encoding="utf-8")
+    for path in (
+        "/",
+        "/pricing",
+        "/how-it-works",
+        "/install",
+        "/fort-worth-permit-fees",
+        "/austin-permit-fees",
+        "/privacy",
+        "/terms",
+    ):
+        assert f"https://app.regguardagent.com{path}<" in static_xml.replace("\n", "") or (
+            f"https://app.regguardagent.com{path}</loc>" in static_xml
+        )
 
 
 def test_share_params_add_ref_and_utm():

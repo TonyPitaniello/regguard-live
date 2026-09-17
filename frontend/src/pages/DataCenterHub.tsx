@@ -85,10 +85,10 @@ export function DataCenterHub() {
 
   // === SECONDARY: Other Capabilities ===
   const otherCapabilities = [
-    { icon: <Users className="w-5 h-5" />, title: 'Contractor Queue Management', desc: 'Manage 10x faster project queues' },
-    { icon: <BookOpen className="w-5 h-5" />, title: 'Regulatory Research', desc: 'Federal, state, county regulations' },
-    { icon: <Gauge className="w-5 h-5" />, title: 'Project Analytics', desc: '1,000+ projects tracked' },
-    { icon: <Workflow className="w-5 h-5" />, title: 'Form Auto-Fill', desc: 'FERC, PJM, MISO forms pre-populated' },
+    { icon: <Users className="w-5 h-5" />, title: 'Saved jobs', desc: 'Jobs and orders stay in your account so you can reopen a site' },
+    { icon: <BookOpen className="w-5 h-5" />, title: 'Regulatory research', desc: 'AHJ and utility screening with Source or Unverified on each line' },
+    { icon: <Gauge className="w-5 h-5" />, title: 'Bid Risk Receipt', desc: 'Forwardable planning aid — confirm fees and clocks with the AHJ' },
+    { icon: <Workflow className="w-5 h-5" />, title: 'Permit worksheets', desc: 'Draft forms you fill and file — not a sealed bid or interconnection study' },
   ];
 
   const pricingPlans = [
@@ -350,18 +350,18 @@ export function DataCenterHub() {
         <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8 text-center">
           <div>
             <Lock className="w-8 h-8 text-indigo-400 mx-auto mb-4" />
-            <h4 className="font-semibold text-white mb-2">Enterprise Security</h4>
-            <p className="text-gray-400 text-sm">SOC 2 Type II certified. Bank-grade encryption.</p>
+            <h4 className="font-semibold text-white mb-2">Card handling</h4>
+            <p className="text-gray-400 text-sm">Paid upgrades go through Stripe. Reg Guard does not store cards.</p>
           </div>
           <div>
             <Shield className="w-8 h-8 text-indigo-400 mx-auto mb-4" />
-            <h4 className="font-semibold text-white mb-2">Compliance Guaranteed</h4>
-            <p className="text-gray-400 text-sm">90%+ pass rate on all jurisdiction audits.</p>
+            <h4 className="font-semibold text-white mb-2">Planning aid</h4>
+            <p className="text-gray-400 text-sm">Not a quote, sealed bid, or interconnection study. Confirm every line with the AHJ.</p>
           </div>
           <div>
             <Users className="w-8 h-8 text-indigo-400 mx-auto mb-4" />
-            <h4 className="font-semibold text-white mb-2">24/7 Support</h4>
-            <p className="text-gray-400 text-sm">Dedicated compliance experts on your team.</p>
+            <h4 className="font-semibold text-white mb-2">Support</h4>
+            <p className="text-gray-400 text-sm">Email support@regguardagent.com — we do not staff 24/7 compliance experts.</p>
           </div>
         </div>
       </section>

@@ -5950,7 +5950,18 @@ async def admin_reject_gotcha_credit(
 async def sitemap_xml() -> Response:
     from passive_campaign import sitemap_xml as build_sitemap
 
-    return Response(content=build_sitemap(), media_type="application/xml")
+    try:
+        body = build_sitemap()
+    except Exception:
+        # Public crawlers must never see a 500 here.
+        body = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            "  <url><loc>https://app.regguardagent.com/</loc>"
+            "<changefreq>weekly</changefreq><priority>1.0</priority></url>\n"
+            "</urlset>\n"
+        )
+    return Response(content=body, media_type="application/xml")
 
 
 @app.api_route("/robots.txt", methods=["GET", "HEAD"], tags=["SEO"], include_in_schema=False)
