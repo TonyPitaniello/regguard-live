@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from ic_boardroom_pdf import generate_ic_boardroom_pdf_bytes
 from ic_package_composer import PACKAGE_SCHEMA, compose_ic_package
 from ic_project_fulfillment import generate_ic_pdf_bytes, pdfs_are_ready, build_pdf_meta
@@ -90,9 +92,19 @@ def test_compose_ic_package_hold_stamp():
 
 
 def test_boardroom_pdf_bytes():
+    fitz = pytest.importorskip("fitz")
+
     raw = generate_ic_boardroom_pdf_bytes(RICH, generated_for="buyer@example.com")
     assert raw[:4] == b"%PDF"
     assert len(raw) > 4000
+    doc = fitz.open(stream=raw, filetype="pdf")
+    text = "".join(page.get_text() for page in doc)
+    assert "REG GUARD" in text
+    assert "IC DILIGENCE" in text
+    assert "CONFIDENTIAL - Planning aid only - confirm with AHJ Page" not in text
+    pix = doc[0].get_pixmap()
+    r, g, b = pix.pixel(pix.width // 2, pix.height // 2)
+    assert r + g + b < 200  # dark slate canvas, not white letterhead
 
 
 def test_generate_ic_pdf_bytes_includes_package():
