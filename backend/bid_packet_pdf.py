@@ -82,6 +82,7 @@ class BidPacketPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(format="Letter", unit="mm")
         self.set_auto_page_break(auto=True, margin=20)
+        self._footer_label = "Reg Guard Bid Packet"
 
     def header(self) -> None:
         # Paint full page background on every page
@@ -96,7 +97,7 @@ class BidPacketPDF(FPDF):
             0,
             5,
             _ascii(
-                "Reg Guard Bid Packet  |  Planning aid only - confirm with AHJ  |  "
+                f"{self._footer_label}  |  Planning aid only - confirm with AHJ  |  "
                 f"Page {self.page_no()}"
             ),
             align="C",

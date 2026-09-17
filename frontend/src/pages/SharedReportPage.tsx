@@ -237,6 +237,15 @@ export default function SharedReportPage() {
   const killers = analysis.margin_killers || [];
   const sources = report.sources || [];
   const { street, place } = siteLines(analysis);
+  const stampGrade = (analysis.regguard_stamp?.grade || analysis.stamp_grade || '').toUpperCase();
+  const riskTitle =
+    stampGrade === 'FAIL' || stampGrade === 'HOLD'
+      ? 'High pre-bid risk'
+      : stampGrade === 'CAUTION'
+        ? 'Caution — material bid risk'
+        : stampGrade === 'PASS' || stampGrade === 'CLEAR'
+          ? 'Clear'
+          : '';
   const coverageBadge = analysis.coverage?.badge || analysis.coverage?.badge_short;
   const depthBadge = analysis.depth_badge;
   const band = analysis.contingency_band;
@@ -252,7 +261,7 @@ export default function SharedReportPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <SeoHead
-        title={`Bid Risk Receipt — ${[street, place].filter(Boolean).join(', ') || 'Reg Guard'}`}
+        title={`${riskTitle ? `${riskTitle} — ` : ''}Bid Risk Receipt — ${[street, place].filter(Boolean).join(', ') || 'Reg Guard'}`}
         description="Forwardable contractor pre-bid diligence. Planning aid — not a quote or sealed bid. Confirm with the AHJ."
         canonical={`https://app.regguardagent.com/r/${id}`}
       />

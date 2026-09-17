@@ -66,8 +66,15 @@ def render_share_html(
         utm={"utm_source": "sharepage", "utm_medium": "cta", "utm_campaign": "bid_risk_receipt"},
     )
     title = f"Bid Risk Receipt — {site}"
-    if grade in ("PASS", "CAUTION", "FAIL"):
-        title = f"{grade} · {title}"
+    risk_label = {
+        "FAIL": "High pre-bid risk",
+        "HOLD": "High pre-bid risk",
+        "CAUTION": "Caution — material bid risk",
+        "PASS": "Clear — no Critical bid-risk flags",
+        "CLEAR": "Clear — no Critical bid-risk flags",
+    }.get(grade)
+    if risk_label:
+        title = f"{risk_label} — Bid Risk Receipt — {site}"
     desc_bits = [f"AHJ: {ahj}"]
     if band.get("pct_low") is not None and band.get("pct_high") is not None:
         desc_bits.append(f"Contingency +{band.get('pct_low')}% to +{band.get('pct_high')}% (planning aid, not a quote)")
@@ -152,7 +159,7 @@ def render_share_html(
   <div class="wrap">
     <p class="kicker">Reg Guard Bid Risk Receipt</p>
     <h1>{_esc(site)}</h1>
-    <p class="fine">Stamp { _esc(grade or '—') } · AHJ { _esc(ahj) } · planning aid, not a quote or sealed bid.</p>
+    <p class="fine">{_esc(risk_label or 'Pre-bid risk stamp')} · AHJ {_esc(ahj)} · planning aid, not a quote or sealed bid.</p>
     {preview_note}
     {bid_due_html}
     {band_html}

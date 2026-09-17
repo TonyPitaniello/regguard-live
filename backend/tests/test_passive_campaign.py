@@ -99,6 +99,21 @@ def test_share_html_og_tags():
         ref="patx",
     )
     assert "og:title" in html
+    assert "material bid risk" in html
+    assert "FAIL" not in html
+    html_fail = render_share_html(
+        {
+            "project_info": {"address": "123 Main", "city": "Plano", "state": "TX", "zip": "75074"},
+            "regguard_stamp": {"grade": "FAIL"},
+            "contingency_band": {"pct_low": 8, "pct_high": 15, "pct_mid": 11},
+            "margin_killers": [{"title": "Plano grounding rods", "priority": "CRITICAL"}],
+            "ahj_card": {"name": "City of Plano Building Inspections"},
+        },
+        research_id="rg-testshare-fail",
+    )
+    assert "High pre-bid risk" in html_fail
+    assert "FAIL" not in html_fail
+    assert 'content="High pre-bid risk' in html_fail
     assert "Run my address" in html
     assert "ref=patx" in html
     assert "checkout/partner" in html

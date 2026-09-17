@@ -576,9 +576,9 @@ function formatShareDate(iso?: string): string {
 
 function stampShareLabel(grade: string): string {
   const g = grade.toUpperCase();
-  if (g === 'FAIL') return 'Hold';
-  if (g === 'PASS') return 'Clear';
-  if (g === 'CAUTION') return 'Caution';
+  if (g === 'FAIL' || g === 'HOLD') return 'High pre-bid risk';
+  if (g === 'PASS' || g === 'CLEAR') return 'Clear';
+  if (g === 'CAUTION') return 'Caution — material bid risk';
   return grade;
 }
 
@@ -1636,6 +1636,35 @@ export default function ResultsViewerModal({
     }
   };
 
+  const downloadCityPackPdf = async () => {
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/research/city-pack.pdf'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: view }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `City pack PDF failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_Full_City_Pack.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('Full city pack PDF downloaded — fees, gotchas, and AHJ links.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'City pack PDF failed');
+    } finally {
+      setPacketLoading(false);
+    }
+  };
+
   const downloadIcPdf = async (pdf: { type: string; name: string; url: string }) => {
     try {
       const raw = (pdf.url || '').trim();
@@ -2678,17 +2707,17 @@ export default function ResultsViewerModal({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={jumpToCityPack}
-                className={`inline-flex items-center px-3 py-2 min-h-[40px] rounded-lg text-xs font-bold tracking-wide border ${
+                onClick={() => void downloadCityPackPdf()}
+                disabled={packetLoading}
+                className={`inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg text-xs font-bold tracking-wide border disabled:opacity-60 ${
                   coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
                     : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
                 }`}
-                title="Open Full city pack — contingency, fees, gotchas, AHJ links, and bid downloads"
+                title="Download Full city pack PDF — contingency, fees, gotchas, AHJ links"
               >
-                {(coverage.badge || '').toLowerCase().includes('city pack')
-                  ? 'Open Full city pack →'
-                  : `Open Full city pack (${coverage.badge || 'local'}) →`}
+                <Download className="w-3.5 h-3.5" />
+                {packetLoading ? 'Building city pack…' : 'Download Full city pack PDF'}
               </button>
               <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
               <button
@@ -2980,7 +3009,8 @@ export default function ResultsViewerModal({
             id="rg-city-pack"
             className="scroll-mt-6 rounded-xl border border-emerald-500/35 bg-emerald-500/[0.07] overflow-hidden"
           >
-            <div className="px-4 py-3 border-b border-emerald-500/25 bg-emerald-500/10">
+            <div className="px-4 py-3 border-b border-emerald-500/25 bg-emerald-500/10 flex flex-wrap items-start justify-between gap-2">
+              <div>
               <p className="text-sm font-bold text-emerald-200">
                 Full city pack
                 {view.ahj_card?.name || view.project_info?.city || view.local_pack?.city
@@ -2992,9 +3022,19 @@ export default function ResultsViewerModal({
               </p>
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
                 {packFees.length || packGotchas.length || view.contingency_band
-                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. This whole block is the city pack: contingency, fees, gotchas, AHJ links, and bid downloads.`
-                  : 'This whole block is the Full city pack: curated fees, gotchas, contingency, AHJ links, and bid downloads (planning aids — confirm dollars on the official schedule before bid).'}
+                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Download this pack as a PDF, or use the bid downloads below.`
+                  : 'Download the Full city pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
               </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void downloadCityPackPdf()}
+                disabled={packetLoading}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px] shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                {packetLoading ? 'Building…' : 'Download PDF'}
+              </button>
             </div>
 
             {cityPackHasBody ? (
@@ -3210,9 +3250,18 @@ export default function ResultsViewerModal({
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      onClick={() => void downloadBidReceipt()}
+                      onClick={() => void downloadCityPackPdf()}
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
+                    >
+                      <Download className="w-4 h-4" />
+                      {packetLoading ? 'Building…' : 'Full city pack PDF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadBidReceipt()}
+                      disabled={packetLoading}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
                     >
                       <Download className="w-4 h-4" />
                       {packetLoading ? 'Building…' : 'Download Receipt PDF'}

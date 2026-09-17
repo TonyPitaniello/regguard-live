@@ -140,3 +140,29 @@ def test_bid_packet_uses_ranked_punch(tmp_path):
     path = generate_bid_packet_pdf(analysis, output_path=str(tmp_path / "packet.pdf"))
     assert os.path.exists(path)
     assert os.path.getsize(path) > 2000
+
+
+def test_city_pack_pdf_bytes():
+    from city_pack_pdf import generate_city_pack_pdf_bytes
+
+    raw = generate_city_pack_pdf_bytes(
+        {
+            "project_info": {"address": "100 Main", "city": "Plano", "state": "TX", "zip": "75074"},
+            "coverage": {"badge": "Full city pack", "tier": "full_pack"},
+            "contingency_band": {"pct_low": 8, "pct_high": 15, "pct_mid": 11},
+            "ahj_card": {
+                "name": "City of Plano Building Inspections",
+                "portal_url": "https://www.plano.gov/350/Building-Inspections-Permits",
+            },
+            "fee_card": {
+                "timeline": "8-12 weeks",
+                "fees": [{"label": "Building permit", "amount_usd": 500, "verified": True}],
+            },
+            "gotcha_watchlist": {
+                "items": [{"priority": "HIGH", "title": "Two grounding rods", "detail": "Confirm ordinance"}]
+            },
+            "inspection_sequence_card": {"steps": ["Foundation", "Framing", "Final"]},
+        }
+    )
+    assert raw[:4] == b"%PDF"
+    assert len(raw) > 2000

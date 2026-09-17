@@ -4558,6 +4558,28 @@ async def post_bid_sheet_pdf(body: BidSheetRequest):
     )
 
 
+@app.post("/research/city-pack.pdf", tags=["Results"])
+async def post_city_pack_pdf(body: BidSheetRequest):
+    """Downloadable Full city pack PDF (AHJ, fees, gotchas, inspections)."""
+    from fastapi.responses import Response
+
+    from city_pack_pdf import generate_city_pack_pdf_bytes
+
+    if not body.analysis or not isinstance(body.analysis, dict):
+        raise HTTPException(status_code=400, detail="analysis required")
+    try:
+        data = generate_city_pack_pdf_bytes(body.analysis)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"City pack PDF failed: {e}") from e
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Full_City_Pack.pdf"',
+            "X-RegGuard-Artifact": "city_pack",
+        },
+    )
+
 
 class ProductEventRequest(BaseModel):
     event: str
