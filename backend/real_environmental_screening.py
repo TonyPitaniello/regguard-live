@@ -340,81 +340,138 @@ class EnvironmentalScreeningEngine:
         return zone, sfha
 
     async def _nwi_point_intersect(self, lat: float, lng: float):
-        """True/False if NWI wetlands intersect; None on failure."""
-        import json
-        import urllib.parse
-        import urllib.request
+        """
+        True/False if NWI wetlands intersect; None on total failure.
 
-        base = (
-            "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/"
-            "Wetlands/MapServer/0/query"
+        Free hosts rotate: USGS WIM layer 1 is the richest wetlands layer;
+        fws.gov and layer 0 are fallbacks when one host is flaky/down.
+        """
+        endpoints = [
+            # Prefer layer 1 — layer 0 often under-reports vs the full NWI stack
+            "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/1/query",
+            "https://www.fws.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query",
+            "https://fwspublicservices.wim.usgs.gov/wetlandsmapservice/rest/services/Wetlands/MapServer/0/query",
+        ]
+        return await self._arcgis_any_intersect(
+            lat,
+            lng,
+            endpoints,
+            out_fields="*",
+            pad=0.00035,
+            label="NWI",
         )
-        pad = 0.0003
-        params = urllib.parse.urlencode(
-            {
-                "geometry": f"{lng-pad},{lat-pad},{lng+pad},{lat+pad}",
-                "geometryType": "esriGeometryEnvelope",
-                "inSR": "4326",
-                "spatialRel": "esriSpatialRelIntersects",
-                "outFields": "WETLAND_TYPE,ATTRIBUTE",
-                "returnGeometry": "false",
-                "f": "json",
-            }
-        )
-        url = f"{base}?{params}"
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"}
-        )
-
-        def _fetch():
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                return json.load(resp)
-
-        try:
-            data = await asyncio.to_thread(_fetch)
-        except Exception:
-            return None
-        if data.get("error"):
-            return None
-        return len(data.get("features") or []) > 0
 
     async def _fws_critical_habitat_intersect(self, lat: float, lng: float):
-        """True/False if FWS critical habitat intersects; None on failure."""
+        """
+        True/False if critical habitat intersects; None on total failure.
+
+        Primary FWS MapServer often 502s; free ArcGIS Online mirror is the fallback.
+        Full IPaC species lists still require the IPaC website (not automatable free).
+        """
+        endpoints = [
+            "https://gis.fws.gov/arcgis/rest/services/FWSEcos/FWSCriticalHabitat/MapServer/0/query",
+            "https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/0/query",
+        ]
+        return await self._arcgis_any_intersect(
+            lat,
+            lng,
+            endpoints,
+            out_fields="*",
+            pad=0.00045,
+            label="FWS-CH",
+        )
+
+    async def _arcgis_any_intersect(
+        self,
+        lat: float,
+        lng: float,
+        endpoints: List[str],
+        *,
+        out_fields: str,
+        pad: float,
+        label: str,
+    ):
+        """Try free ArcGIS query hosts until one returns a usable JSON answer."""
         import json
+        import urllib.error
         import urllib.parse
         import urllib.request
 
-        base = (
-            "https://gis.fws.gov/arcgis/rest/services/FWSEcos/FWSCriticalHabitat/MapServer/0/query"
-        )
-        pad = 0.0004
-        params = urllib.parse.urlencode(
-            {
-                "geometry": f"{lng-pad},{lat-pad},{lng+pad},{lat+pad}",
-                "geometryType": "esriGeometryEnvelope",
-                "inSR": "4326",
-                "spatialRel": "esriSpatialRelIntersects",
-                "outFields": "COMNAME,SCINAME",
-                "returnGeometry": "false",
-                "f": "json",
-            }
-        )
-        url = f"{base}?{params}"
-        req = urllib.request.Request(
-            url, headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"}
-        )
+        geometries = [
+            (
+                f"{lng - pad},{lat - pad},{lng + pad},{lat + pad}",
+                "esriGeometryEnvelope",
+                {},
+            ),
+            (
+                f"{lng},{lat}",
+                "esriGeometryPoint",
+                {"distance": "120", "units": "esriSRUnit_Meter"},
+            ),
+        ]
 
-        def _fetch():
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                return json.load(resp)
+        last_err: Optional[str] = None
+        for base in endpoints:
+            for geom, gtype, extra in geometries:
+                params = {
+                    "geometry": geom,
+                    "geometryType": gtype,
+                    "inSR": "4326",
+                    "spatialRel": "esriSpatialRelIntersects",
+                    "outFields": out_fields if out_fields else "*",
+                    "returnGeometry": "false",
+                    "f": "json",
+                    "resultRecordCount": "5",
+                }
+                params.update(extra)
+                url = f"{base}?{urllib.parse.urlencode(params)}"
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"},
+                )
 
-        try:
-            data = await asyncio.to_thread(_fetch)
-        except Exception:
-            return None
-        if not isinstance(data, dict) or data.get("error"):
-            return None
-        return len(data.get("features") or []) > 0
+                def _fetch(request=req):
+                    with urllib.request.urlopen(request, timeout=10) as resp:
+                        return json.load(resp)
+
+                for attempt in range(2):
+                    try:
+                        data = await asyncio.to_thread(_fetch)
+                    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as e:
+                        last_err = str(e)
+                        if attempt == 0:
+                            await asyncio.sleep(0.35)
+                            continue
+                        logger.info("%s GIS miss on %s: %s", label, base.split("/")[2], e)
+                        break
+                    except Exception as e:
+                        last_err = str(e)
+                        logger.info("%s GIS error on %s: %s", label, base.split("/")[2], e)
+                        break
+
+                    if not isinstance(data, dict):
+                        break
+                    if data.get("error"):
+                        last_err = str(data.get("error"))
+                        break
+                    feats = data.get("features")
+                    if feats is None and "features" not in data:
+                        # Unexpected payload — try next host
+                        last_err = "no features key"
+                        break
+                    hit = len(feats or []) > 0
+                    logger.info(
+                        "%s GIS ok via %s (%s) hit=%s",
+                        label,
+                        base.split("/")[2],
+                        gtype,
+                        hit,
+                    )
+                    return hit
+
+        if last_err:
+            logger.warning("%s GIS all hosts failed: %s", label, last_err)
+        return None
 
     async def _check_noise_ordinances(self, city: str, state: str) -> EnvironmentalRisk:
         """Check municipal noise ordinances and zoning"""
