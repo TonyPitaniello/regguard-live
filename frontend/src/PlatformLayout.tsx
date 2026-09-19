@@ -31,6 +31,20 @@ export interface PlatformUser {
   tier?: 'free' | 'pro' | 'enterprise';
 }
 
+/** Public support inbox — never use placeholder domains like contractor@regguard.com */
+export const SUPPORT_EMAIL = 'support@regguardagent.com';
+
+const PLACEHOLDER_EMAILS = new Set([
+  'contractor@regguard.com',
+  'contractor@regguardagent.com',
+  'support@regguard.com', // wrong domain; real inbox is @regguardagent.com
+]);
+
+function isRealUserEmail(email?: string): boolean {
+  const e = (email || '').trim().toLowerCase();
+  return Boolean(e) && !PLACEHOLDER_EMAILS.has(e);
+}
+
 interface PlatformLayoutProps {
   children: React.ReactNode;
   user?: PlatformUser;
@@ -102,7 +116,7 @@ export function PlatformLayout({
   // Hide desktop sidebar on public marketing home for unauthenticated users —
   // but always allow the mobile three-bar drawer (Launch app lives there).
   const isPublicPage = location.pathname === '/';
-  const isAuthenticated = user?.email && user.email !== 'contractor@regguard.com';
+  const isAuthenticated = isRealUserEmail(user?.email);
   const shouldShowDesktopSidebar = !isPublicPage || Boolean(isAuthenticated);
   const showSidebar = shouldShowDesktopSidebar || mobileMenuOpen;
 
@@ -264,16 +278,30 @@ export function PlatformLayout({
           </nav>
 
           <div className="sidebar-footer">
-            {user?.email && (sidebarOpen || mobileMenuOpen) && (
+            {isAuthenticated && (sidebarOpen || mobileMenuOpen) && (
               <div className="user-info">
                 <div className="user-avatar">
-                  {user.name?.charAt(0).toUpperCase() || '?'}
+                  {user?.name?.charAt(0).toUpperCase() || '?'}
                 </div>
                 <div>
-                  <p className="user-name">{user.name || 'User'}</p>
-                  <p className="user-email">{user.email}</p>
+                  <p className="user-name">{user?.name || 'User'}</p>
+                  <p className="user-email">{user?.email}</p>
                 </div>
               </div>
+            )}
+            {(sidebarOpen || mobileMenuOpen) && (
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="user-info"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+                title="Email Reg Guard support"
+              >
+                <div className="user-avatar">S</div>
+                <div>
+                  <p className="user-name">Support</p>
+                  <p className="user-email">{SUPPORT_EMAIL}</p>
+                </div>
+              </a>
             )}
             {isAuthenticated && (
               <button type="button" onClick={handleLogout} className="logout-btn">

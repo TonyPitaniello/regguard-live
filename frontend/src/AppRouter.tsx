@@ -89,11 +89,11 @@ export function AppRouter() {
   // Force rebuild - v4 with all critical UI/UX fixes
   console.log('✅ AppRouter rendering - Clean landing page, no sidebar on /');
   
-  // Simulated user (in production, this comes from auth context)
+  // No fake logged-in user — guest until real auth. Contact is support@regguardagent.com.
   const [user] = useState<PlatformUser>({
-    name: 'Contractor',
-    email: 'contractor@regguard.com',
-    tier: 'pro',
+    name: '',
+    email: '',
+    tier: 'free',
   });
 
   const handleLogout = () => {
