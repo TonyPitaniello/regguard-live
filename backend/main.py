@@ -5523,6 +5523,71 @@ def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
     return data, generated_for, share_url, mode
 
 
+@app.post("/ic-package/docx", tags=["Samples"])
+async def create_ic_boardroom_package_docx(body: Dict[str, Any] = Body(...)):
+    """
+    Editable IC Diligence Package (DOCX) with clickable source hyperlinks.
+    Same paywall as /ic-package/pdf.
+    """
+    from entitlement import access_summary
+    from ic_project_fulfillment import is_ic_tier
+
+    data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    email_l = str(generated_for or body.get("email") or "").strip().lower()
+    if not email_l or "@" not in email_l:
+        raise HTTPException(
+            status_code=403,
+            detail="IC Diligence Package requires the purchase email on the request.",
+        )
+
+    ent = access_summary(email_l)
+    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
+    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
+    if not has_ic_entitlement:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "IC Diligence DOCX requires an IC Project purchase for this email. "
+                "Open Pricing → IC Project, then re-run with Generate IC Report."
+            ),
+        )
+
+    resolved = share_url
+    try:
+        from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+
+        data = stamp_depth_badge(data)
+        if not resolve_forward_share_url(data, share_url=share_url):
+            meta = save_research(data, research_id=data.get("research_id"))
+            data["research_id"] = meta["research_id"]
+            data["share_url"] = meta["share_url"]
+        resolved = resolve_forward_share_url(data, share_url=share_url) or share_url
+    except Exception:
+        resolved = share_url
+
+    try:
+        from ic_boardroom_docx import generate_ic_boardroom_docx_bytes
+
+        raw = generate_ic_boardroom_docx_bytes(
+            data,
+            generated_for=str(generated_for or ""),
+            share_url=str(resolved or ""),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"IC DOCX failed: {e}") from e
+
+    from fastapi.responses import Response
+
+    return Response(
+        content=raw,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_IC_Diligence_Package.docx"',
+            "X-RegGuard-Artifact": "ic_package_docx",
+        },
+    )
+
+
 @app.post("/ic-package/pdf", tags=["Samples"])
 async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)):
     """

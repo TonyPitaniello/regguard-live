@@ -72,6 +72,7 @@ const TIERS = [
       'Research memo (PDF)',
       'Contractor punch list (PDF)',
       'Permit package worksheet (PDF)',
+      'Editable IC Diligence DOCX for counsel redlines',
       'Bid Risk Receipt–ready killers + planning exposure (heuristic)',
       'Strongest citeable coverage: Dallas / Plano / Austin TX',
       'Generated after a confirmed site lookup',
@@ -96,22 +97,6 @@ const TIERS = [
     cta: 'Subscribe Annually',
     highlight: false,
   },
-  {
-    key: 'sponsor',
-    segment: 'Sponsor',
-    name: 'Sponsor',
-    price: '$1,500',
-    billing: 'per month',
-    description: 'Brand sponsorship for utilities, platforms, and partners.',
-    features: [
-      'Sponsored placement & co-branding',
-      'Lead sharing options',
-      'Monthly reporting',
-      'Partner success manager',
-    ],
-    cta: 'Become a Sponsor',
-    highlight: false,
-  },
 ] as const;
 
 export default function PricingPage() {
@@ -130,6 +115,10 @@ export default function PricingPage() {
           block: 'start',
         });
       }, 100);
+      return;
+    }
+    if (tierKey === 'sponsor') {
+      window.location.href = 'mailto:support@regguardagent.com?subject=Reg%20Guard%20Partner%20sponsorship';
       return;
     }
     trackStampEvent('checkout_view', { channel: tierKey, meta: { tier: tierKey } });

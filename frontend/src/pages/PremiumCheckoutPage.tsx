@@ -59,6 +59,7 @@ const TIERS = {
       'Research memo (PDF)',
       'Contractor punch list (PDF)',
       'Permit package worksheet (PDF) — planning aid, not official filing',
+      'Editable IC Diligence DOCX (hyperlinked sources)',
       'Strongest citeable coverage: Dallas / Plano / Austin TX',
       'Generated after you run a site lookup with this email',
     ],
@@ -82,27 +83,15 @@ const TIERS = {
     delivery_time: 'After each confirmed site lookup',
     color: 'from-indigo-600 to-blue-600',
   },
-  sponsor: {
-    name: 'Sponsor',
-    segment: 'Sponsor',
-    price: '$1,500/month',
-    price_cents: 150000,
-    mode: 'subscription' as const,
-    description: 'Monthly sponsorship for utilities and partners',
-    features: [
-      'Sponsored placement & co-branding',
-      'Lead sharing options',
-      'Monthly reporting',
-      'Partner success manager',
-    ],
-    delivery_time: 'Onboarding within 48 hours',
-    color: 'from-amber-600 to-orange-600',
-  },
 };
+
+/** Public checkout cards — Sponsor is sales-only (mailto), not self-serve. */
+const PUBLIC_TIER_KEYS = ['partner', 'contractor_pro', 'ic_project', 'ic_annual'] as const;
 
 type TierKey = keyof typeof TIERS;
 
 function resolveTierKey(raw?: string | null): TierKey {
+  if (raw === 'sponsor') return 'ic_project'; // never land self-serve on Sponsor
   if (raw && raw in TIERS) return raw as TierKey;
   // Legacy aliases
   if (raw === 'premium' || raw === 'enterprise') return 'ic_project';
@@ -242,7 +231,9 @@ function TierSelectionStep({ onSelect }: { onSelect: (tier: string) => void }) {
       <p className="text-gray-400 mb-12">Select the tier that fits your segment</p>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {Object.entries(TIERS).map(([key, tier]) => (
+        {PUBLIC_TIER_KEYS.map((key) => {
+          const tier = TIERS[key];
+          return (
           <div
             key={key}
             className={`bg-gradient-to-br ${tier.color} rounded-lg p-1 hover:scale-[1.02] transition transform`}
@@ -273,8 +264,15 @@ function TierSelectionStep({ onSelect }: { onSelect: (tier: string) => void }) {
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
+      <p className="text-center text-sm text-gray-500 mt-8">
+        Utility / platform sponsorship:{' '}
+        <a href="mailto:support@regguardagent.com?subject=Reg%20Guard%20sponsorship" className="text-emerald-300 underline">
+          support@regguardagent.com
+        </a>
+      </p>
     </div>
   );
 }

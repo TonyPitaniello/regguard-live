@@ -1747,7 +1747,7 @@ export default function ResultsViewerModal({
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-      showToast('Bid sheet CSV downloaded — paste into your estimate (cost_code / qty / rates are yours).');
+      showToast('Bid sheet CSV downloaded — paste into Excel (trade / owner / due_window / source_url hyperlinks).');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'CSV export failed');
     } finally {
@@ -1858,6 +1858,53 @@ export default function ResultsViewerModal({
       showToast('IC Diligence Package downloaded — planning aid, not a sealed bid');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC package download failed');
+    } finally {
+      setPacketLoading(false);
+    }
+  };
+
+  const downloadIcBoardroomDocx = async () => {
+    if (!allowIcPackageDownload) {
+      showToast(
+        'IC Diligence DOCX requires an IC Project run for this site — free preview cannot download it.'
+      );
+      return;
+    }
+    setPacketLoading(true);
+    try {
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      const res = await fetch(backendUrl('/ic-package/docx'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify({
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
+          generated_for: emailForCheckout || undefined,
+          email: emailForCheckout || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          typeof (data as { detail?: string }).detail === 'string'
+            ? (data as { detail: string }).detail
+            : `IC DOCX failed (${res.status})`
+        );
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = 'RegGuard_IC_Diligence_Package.docx';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      showToast('IC Diligence DOCX downloaded — editable for counsel redlines; sources are hyperlinks');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'IC DOCX download failed');
     } finally {
       setPacketLoading(false);
     }
@@ -2339,6 +2386,15 @@ export default function ResultsViewerModal({
                 </button>
                 <button
                   type="button"
+                  disabled={packetLoading}
+                  onClick={() => void downloadIcBoardroomDocx()}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                  Download IC Diligence DOCX (editable)
+                </button>
+                <button
+                  type="button"
                   onClick={() => void forwardArtifact('IC Diligence Package PDF')}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold"
                 >
@@ -2496,9 +2552,13 @@ export default function ResultsViewerModal({
           />
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-2 flex items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-1 flex items-center gap-2">
               <Share2 className="w-3.5 h-3.5" />
-              Share Bid Risk Receipt
+              Bid Risk Receipt — default bid-file forward
+            </p>
+            <p className="text-sm text-gray-300 mb-3">
+              This one-page receipt is what GCs forward. Full packs (city pack, bid packet, IC) are
+              attachments — download them below, then text the share link.
             </p>
             {(view.regguard_stamp?.grade || view.stamp_grade) && (
               <div
@@ -2592,10 +2652,26 @@ export default function ResultsViewerModal({
                 type="button"
                 onClick={() => void downloadBidReceipt()}
                 disabled={packetLoading}
-                className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black disabled:opacity-50"
               >
                 <Download className="w-4 h-4" />
                 {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void forwardArtifact('Bid Risk Receipt')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/50 bg-emerald-500/15 text-emerald-100 text-sm font-bold"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Text receipt
+              </button>
+              <button
+                type="button"
+                onClick={() => void copyShareText('text')}
+                className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-200 text-sm font-semibold hover:bg-purple-500/20 transition"
+              >
+                {copied === 'text' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                {copied === 'text' ? 'Copied receipt' : 'Copy forward text'}
               </button>
               <button
                 type="button"
@@ -2626,14 +2702,6 @@ export default function ResultsViewerModal({
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-pink-500/40 bg-pink-500/10 text-pink-200 text-sm font-semibold hover:bg-pink-500/20 transition"
               >
                 Instagram
-              </button>
-              <button
-                type="button"
-                onClick={() => void copyShareText('text')}
-                className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-purple-500/40 bg-purple-500/10 text-purple-200 text-sm font-semibold hover:bg-purple-500/20 transition"
-              >
-                {copied === 'text' ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                {copied === 'text' ? 'Copied receipt' : 'Copy receipt'}
               </button>
               <button
                 type="button"
@@ -2688,11 +2756,36 @@ export default function ResultsViewerModal({
                 <div className="flex flex-col gap-2 shrink-0">
                   <button
                     type="button"
+                    onClick={() => void downloadBidReceipt()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" />
+                    {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void forwardArtifact('Bid Risk Receipt')}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/50 text-emerald-100 text-sm font-bold"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Text receipt
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => void copyShareText('text')}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-white/10 border border-white/20 text-white text-sm font-semibold"
                   >
                     <Copy className="w-4 h-4" />
                     Copy forward text
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadBidSheetCsv()}
+                    disabled={packetLoading}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50"
+                  >
+                    Punch / fees CSV
                   </button>
                 </div>
               </div>

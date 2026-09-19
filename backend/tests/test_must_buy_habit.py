@@ -10,13 +10,17 @@ def test_bid_sheet_csv_has_punch_and_fee():
     csv = analysis_to_bid_csv(
         {
             "project_info": {"address": "1 Main", "city": "Dallas", "state": "TX", "zip": "75201"},
+            "share_url": "https://app.regguardagent.com/r/rg-test",
             "punch_list": {
                 "punch_list": [
                     {
                         "priority": "CRITICAL",
+                        "trade": "electrical",
                         "task": "Confirm electrical fee",
                         "estimated_cost": 167,
-                        "source_url": "https://example.com",
+                        "responsible_party": "Estimator",
+                        "timeline": "Week 1",
+                        "source_url": "https://example.com/fee",
                         "verified": True,
                     }
                 ]
@@ -27,7 +31,7 @@ def test_bid_sheet_csv_has_punch_and_fee():
                         "trade": "electrical",
                         "label": "Min trade",
                         "amount_usd": 167,
-                        "source_url": "https://example.com",
+                        "source_url": "https://example.com/fee",
                         "verified": True,
                     }
                 ]
@@ -38,7 +42,39 @@ def test_bid_sheet_csv_has_punch_and_fee():
     assert "fee" in csv
     assert "167" in csv
     assert "cost_code" in csv
+    assert "trade" in csv
+    assert "owner" in csv
+    assert "due_window" in csv
+    assert "ELECTRICAL" in csv
+    assert "Estimator" in csv
+    assert "https://example.com/fee" in csv
+    assert "https://app.regguardagent.com/r/rg-test" in csv
     assert "estimator_fill" in csv
+
+
+def test_ic_docx_contains_hyperlink_and_hold():
+    pytest = __import__("pytest")
+    pytest.importorskip("docx")
+    from io import BytesIO
+
+    from docx import Document
+    from ic_boardroom_docx import generate_ic_boardroom_docx_bytes
+    from tests.test_ic_package_composer import RICH
+
+    raw = generate_ic_boardroom_docx_bytes(
+        RICH,
+        generated_for="buyer@example.com",
+        share_url="https://app.regguardagent.com/r/rg-docx",
+    )
+    assert raw[:2] == b"PK"
+    doc = Document(BytesIO(raw))
+    text = "\n".join(p.text for p in doc.paragraphs)
+    assert "IC Diligence" in text or "REG GUARD" in text.upper() or "Reg Guard" in text
+    assert "HOLD" in text or "CLEAR" in text or "CAUTION" in text
+    # Hyperlink relationships present when share URL set
+    rels = list(doc.part.rels.values())
+    assert any("rg-docx" in (r.target_ref or "") for r in rels) or "app.regguardagent.com" in text
+
 
 
 def test_share_unlock_roundtrip():
