@@ -44,6 +44,49 @@ def test_receipt_pdf_prints_hold_not_fail():
     assert "FAIL" not in text
 
 
+def test_receipt_pdf_data_center_section_accepts_em_dash_inputs():
+    """DC parallel-clocks path used to crash Helvetica on a raw em-dash heading."""
+    payload = {
+        **SAMPLE,
+        "project_info": {
+            **SAMPLE["project_info"],
+            "type": "data-center",
+            "city": "Fort Worth",
+            "state": "TX",
+            "zip": "76102",
+        },
+        "dc_positioning": {"headline": "Large-load / ERCOT path"},
+        "parallel_clocks": {
+            "clocks": [
+                {
+                    "label": "Municipal permits",
+                    "owner": "City of Fort Worth",
+                    "status": "Open — confirm portal",
+                }
+            ]
+        },
+        "regguard_stamp": {
+            "grade": "FAIL",
+            "headline": "REGGUARD STAMP: HOLD — high pre-bid risk",
+            "label": "REGGUARD STAMP: HOLD — high pre-bid risk",
+            "drivers": [
+                {
+                    "severity": "Caution",
+                    "label": "Moratorium radar stale — Radar last verified ages ago",
+                    "detail": "Re-check before bid — fees move",
+                }
+            ],
+            "valid_until": "2026-09-26",
+        },
+    }
+    raw = generate_bid_risk_receipt_pdf_bytes(payload)
+    assert raw[:4] == b"%PDF"
+    text = _pdf_text(raw)
+    assert "PARALLEL CLOCKS" in text
+    assert "HOLD" in text
+    assert "—" not in text
+
+
 def test_city_pack_pdf_bytes_nonempty():
     raw = generate_city_pack_pdf_bytes(SAMPLE)
     assert raw[:4] == b"%PDF"

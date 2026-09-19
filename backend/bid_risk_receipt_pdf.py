@@ -247,7 +247,7 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*EMERALD)
-        pdf.cell(CONTENT_W, 4, "DATA CENTER — PARALLEL CLOCKS", ln=1)
+        pdf.cell(CONTENT_W, 4, _ascii("DATA CENTER - PARALLEL CLOCKS"), ln=1)
         clocks = (data.get("parallel_clocks") or {}).get("clocks") or []
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
