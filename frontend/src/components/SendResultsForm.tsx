@@ -403,10 +403,12 @@ export default function SendResultsForm({
         <h3 className="text-lg font-black text-white">Text or email these results</h3>
       </div>
       <p className="text-sm text-gray-300">
-        Email works without SMS. Texting is optional — leave the phone blank and skip the SMS box if
-        you only want email or the web report. Email includes the full punch list + sources + a
-        shareable link. Texts send a short plain-text summary with the same link. &ldquo;Sent&rdquo;
-        means Twilio accepted the message — not that your phone already got it.
+        Text a GC, owner, or estimator: enter their mobile (or yours), check SMS consent, then Text
+        me — or use Text summary / Text receipt buttons on each PDF for a one-tap Messages compose.
+        Email works without SMS. Texts send a short plain-text summary plus the shareable report link
+        (recipients open the link to download PDFs — carriers block arbitrary PDF attachments from
+        the browser). &ldquo;Sent&rdquo; means Twilio accepted the message — not that the phone already
+        got it.
       </p>
 
       {error && (

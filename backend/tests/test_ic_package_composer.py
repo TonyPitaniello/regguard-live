@@ -106,6 +106,8 @@ def test_boardroom_pdf_bytes():
     assert "BLOCKED" not in text
     assert "Boardroom QA" not in text
     assert "CONFIDENTIAL - Planning aid only - confirm with AHJ Page" not in text
+    # Continuous flow: short packages should not waste a page per section
+    assert doc.page_count <= 6
     pix = doc[0].get_pixmap()
     r, g, b = pix.pixel(pix.width // 2, pix.height // 2)
     assert r + g + b < 200  # dark slate canvas, not white letterhead

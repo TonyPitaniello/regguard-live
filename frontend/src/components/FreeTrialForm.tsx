@@ -289,11 +289,22 @@ export default function FreeTrialForm({
       project_type: analysisWithId.project_info?.type || d.projectType,
       last_research_id: rid || id,
       share_url: analysisWithId.share_url,
-      job_id: analysisWithId.job_id,
+      // Never pass prior job_id — stale ids were overwriting other sites
       phone: d.phone,
       last_stamp_grade: analysisWithId.regguard_stamp?.grade || analysisWithId.stamp_grade,
       punch_count: analysisWithId.punch_list?.punch_list?.length,
       preview: Boolean(analysisWithId.preview),
+    }).then((result) => {
+      if (result.id) {
+        analysisWithId.job_id = result.id;
+        try {
+          sessionStorage.setItem('lastJobId', result.id);
+        } catch {
+          /* ignore */
+        }
+      } else if (result.error && mail) {
+        console.warn('[RegGuard] Saved Jobs persist failed:', result.error);
+      }
     });
     const depth = String(analysisWithId.research_depth || '').toLowerCase();
     if (depth === 'pro' || depth === 'pro_partial') {

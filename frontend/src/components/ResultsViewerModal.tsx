@@ -5,7 +5,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, RefreshCw } from 'lucide-react';
+import { X, ChevronDown, ChevronUp, Copy, Check, Share2, Sparkles, Download, RefreshCw, MessageSquare } from 'lucide-react';
 import SendResultsForm, { ResultsSummaryPayload } from './SendResultsForm';
 import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
@@ -14,6 +14,12 @@ import { rememberReferralCode, storedReferralCode, withShareParams } from '../sh
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 import { analysisForPdfExport, postPdfDownload } from '../pdfExport';
+import {
+  buildArtifactTextMessage,
+  copyText,
+  downloadTextFile,
+  textResultsToOthers,
+} from '../forwardArtifacts';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -1303,6 +1309,81 @@ export default function ResultsViewerModal({
     return raw || 'Note';
   };
 
+  /** Plain-text executive summary for download / SMS / copy */
+  const buildExecutiveSummaryText = (): string => {
+    const site =
+      view.project_info?.address ||
+      [view.project_info?.city, view.project_info?.state, view.project_info?.zip]
+        .filter(Boolean)
+        .join(', ') ||
+      'This site';
+    const ahjName =
+      view.ahj_card?.name ||
+      (view.project_info?.city ? `City of ${view.project_info.city}` : 'the local AHJ');
+    const stampGrade = (view.regguard_stamp?.grade || view.stamp_grade || '').toUpperCase();
+    const stampDisplay =
+      stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || '—';
+    const band = view.contingency_band;
+    const killers = (view.margin_killers || []).slice(0, 4);
+    const share = reportShareUrl(view, effectiveResearchId);
+    const lines = [
+      'Reg Guard — Executive Summary',
+      `Site: ${site}`,
+      `AHJ: ${ahjName}`,
+      `Stamp: ${stampDisplay}`,
+      band
+        ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
+        : '',
+      '',
+      'Top items before bid:',
+      ...killers.map(
+        (k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}${k.detail ? ` — ${k.detail}` : ''}`
+      ),
+      '',
+      share ? `Full report / PDFs: ${share}` : '',
+      'Planning aid only — confirm with AHJ before bid.',
+    ].filter(Boolean);
+    return lines.join('\n');
+  };
+
+  const forwardArtifact = async (artifactName: string, opts?: { downloadText?: boolean }) => {
+    const site = view.project_info?.address || 'Site';
+    const share = reportShareUrl(view, effectiveResearchId);
+    const body = buildArtifactTextMessage({
+      artifactName,
+      site,
+      shareUrl: share,
+      extraLines:
+        artifactName === 'Executive Summary'
+          ? buildExecutiveSummaryText().split('\n').slice(3, 12)
+          : [
+              'Download the PDF from the share link (or from Results in Reg Guard).',
+            ],
+    });
+    if (opts?.downloadText) {
+      downloadTextFile(
+        `RegGuard_${artifactName.replace(/\s+/g, '_')}.txt`,
+        artifactName === 'Executive Summary' ? buildExecutiveSummaryText() : body
+      );
+      showToast(`${artifactName} downloaded`);
+      return;
+    }
+    const ok = await copyText(body);
+    textResultsToOthers(body);
+    showToast(
+      ok
+        ? `${artifactName}: copied — Messages opened so you can text it`
+        : `${artifactName}: Messages opened — paste if the body is empty`
+    );
+    trackStampEvent('artifact_forward', {
+      researchId: effectiveResearchId,
+      zip: view.project_info?.zip,
+      stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+      channel: 'sms_text',
+      meta: { artifact: artifactName },
+    });
+  };
+
   /** Boardroom brief — never throw; always return visible markup */
   const renderExecutiveSummary = () => {
     try {
@@ -2202,6 +2283,35 @@ export default function ResultsViewerModal({
           >
             <div id="executive-summary" className="scroll-mt-4">
               {renderExecutiveSummary()}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void forwardArtifact('Executive Summary', { downloadText: true })}
+                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-100 text-sm font-semibold hover:bg-amber-500/30"
+                >
+                  <Download className="w-4 h-4" />
+                  Download summary
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void forwardArtifact('Executive Summary')}
+                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  Text summary
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await copyText(buildExecutiveSummaryText());
+                    showToast(ok ? 'Executive summary copied' : 'Could not copy — try Download');
+                  }}
+                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-white/20 bg-white/5 text-gray-200 text-sm font-semibold"
+                >
+                  <Copy className="w-4 h-4" />
+                  Copy summary
+                </button>
+              </div>
             </div>
 
             {renderProDelta()}
@@ -2226,6 +2336,14 @@ export default function ResultsViewerModal({
                 >
                   <Download className="w-5 h-5 shrink-0" />
                   {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void forwardArtifact('IC Diligence Package PDF')}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold"
+                >
+                  <MessageSquare className="w-4 h-4 shrink-0" />
+                  Text IC package link
                 </button>
                 {icPdfsReady ? (
                   (() => {
@@ -3232,8 +3350,16 @@ export default function ResultsViewerModal({
                     </div>
                   )}
 
-                <div className="px-4 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <h3 className="text-base font-bold text-white">Bid-time downloads</h3>
+                <div className="px-4 py-4 flex flex-col gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-bold text-white">Bid-time downloads</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Download PDFs here, or Text a share link — recipients open the link to view /
+                        download. SMS cannot attach PDF files from the browser.
+                      </p>
+                    </div>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -3246,6 +3372,14 @@ export default function ResultsViewerModal({
                     </button>
                     <button
                       type="button"
+                      onClick={() => void forwardArtifact('Full city pack PDF')}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Text city pack
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void downloadBidReceipt()}
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
@@ -3255,12 +3389,28 @@ export default function ResultsViewerModal({
                     </button>
                     <button
                       type="button"
+                      onClick={() => void forwardArtifact('Bid Risk Receipt PDF')}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Text receipt
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void downloadBidSheetPdf()}
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
                     >
                       <Download className="w-4 h-4" />
                       Bid sheet PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void forwardArtifact('Bid Sheet PDF')}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-400/40 text-blue-100 text-sm font-semibold min-h-[44px]"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Text bid sheet
                     </button>
                     <button
                       type="button"
@@ -3277,6 +3427,14 @@ export default function ResultsViewerModal({
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
                     >
                       Full Bid Packet PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void forwardArtifact('Full Bid Packet PDF')}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Text bid packet
                     </button>
                     <button
                       type="button"

@@ -34,6 +34,12 @@ export function setJobsEmail(email: string) {
   localStorage.setItem('regguard_jobs_email', norm);
 }
 
+export type PersistSavedJobResult = { id: string | null; error?: string };
+
+/**
+ * Upsert a saved job. Do NOT pass job_id unless you are intentionally updating
+ * that same site — a stale job_id from a prior address overwrote other sites.
+ */
 export async function persistSavedJob(input: {
   owner_email: string;
   address?: string;
@@ -48,10 +54,11 @@ export async function persistSavedJob(input: {
   last_stamp_grade?: string;
   punch_count?: number;
   preview?: boolean;
-}): Promise<string | null> {
+}): Promise<PersistSavedJobResult> {
   const owner_email = (input.owner_email || '').trim().toLowerCase();
   const address = (input.address || '').trim();
-  if (!owner_email || !address) return null;
+  if (!owner_email) return { id: null, error: 'Email required to save jobs' };
+  if (!address) return { id: null, error: 'Address required to save jobs' };
   setJobsEmail(owner_email);
   try {
     const res = await fetch(backendUrl('/jobs'), {
@@ -67,7 +74,8 @@ export async function persistSavedJob(input: {
         project_type: input.project_type || 'general',
         last_research_id: input.last_research_id || '',
         share_url: input.share_url || '',
-        job_id: input.job_id || undefined,
+        // Only send job_id when caller explicitly opts in (same-site update)
+        ...(input.job_id ? { job_id: input.job_id } : {}),
         phone: input.phone || '',
         summary_snapshot: {
           last_stamp_grade: input.last_stamp_grade || '',
@@ -78,8 +86,14 @@ export async function persistSavedJob(input: {
       }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) return null;
-    const id = String((data.job && data.job.id) || '');
+    if (!res.ok) {
+      const detail =
+        typeof (data as { detail?: unknown }).detail === 'string'
+          ? String((data as { detail: string }).detail)
+          : `Save failed (${res.status})`;
+      return { id: null, error: detail };
+    }
+    const id = String(((data as { job?: { id?: string } }).job && (data as { job: { id?: string } }).job.id) || '');
     if (id) {
       try {
         sessionStorage.setItem('lastJobId', id);
@@ -87,9 +101,12 @@ export async function persistSavedJob(input: {
         /* ignore */
       }
     }
-    return id || null;
-  } catch {
-    return null;
+    return { id: id || null };
+  } catch (err) {
+    return {
+      id: null,
+      error: err instanceof Error ? err.message : 'Could not reach jobs service',
+    };
   }
 }
 

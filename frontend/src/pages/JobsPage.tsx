@@ -91,10 +91,11 @@ export default function JobsPage() {
       <section className="px-4 py-12 max-w-2xl mx-auto">
         <h1 className="text-3xl font-black text-white mb-2">Saved Jobs</h1>
         <p className="text-gray-400 text-sm mb-6">
-          Sites auto-save when you run a lookup. Weekly reminder emails use this list. If a job shows
-          STALE, re-check before bid (Day-7 preferred for LOI). Stamp / ZIP SMS only goes to numbers
-          that opted in on Results → Text me (consent checkbox) — this page does not collect SMS
-          consent. Evidence:{' '}
+          Sites auto-save when you run a lookup with your email. Enter that same email below and tap
+          Load jobs — every site should appear, not just today. Weekly reminder emails use this list.
+          If a job shows STALE, re-check before bid (Day-7 preferred for LOI). Stamp / ZIP SMS only
+          goes to numbers that opted in on Results → Text me (consent checkbox) — this page does not
+          collect SMS consent. Evidence:{' '}
           <a href="/sms-opt-in" className="text-emerald-300 underline">
             /sms-opt-in
           </a>

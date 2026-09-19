@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _LOCK = threading.RLock()
 _MEMORY: Dict[str, Dict[str, Any]] = {}  # id -> job
 _INDEX: Dict[str, List[str]] = {}  # email_lower -> [job ids]
+_INDEX_MTIME: float = -1.0  # disk mtime of _email_index.json when last loaded
 
 
 def _store_dir() -> Path:
@@ -92,11 +93,23 @@ def _rebuild_index_from_files_locked() -> None:
             ids.append(jid)
 
 
-def _load_index() -> None:
+def _load_index(*, force: bool = False) -> None:
+    """
+    Load email→job-id index from disk.
+
+    Multi-instance: always re-read when the index file mtime advances so one
+    Render worker does not serve a stale in-memory list while another wrote jobs.
+    """
+    global _INDEX_MTIME
+    path = _index_path()
+    try:
+        mtime = path.stat().st_mtime if path.exists() else 0.0
+    except OSError:
+        mtime = 0.0
     with _LOCK:
-        if _INDEX:
+        if not force and _INDEX and mtime <= _INDEX_MTIME:
             return
-        path = _index_path()
+        _INDEX.clear()
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
@@ -109,14 +122,62 @@ def _load_index() -> None:
         if not _INDEX:
             _rebuild_index_from_files_locked()
             if _INDEX:
-                _save_index()
+                try:
+                    path.write_text(json.dumps(_INDEX, ensure_ascii=False), encoding="utf-8")
+                except Exception as e:
+                    logger.warning(f"Failed writing jobs index: {e}")
+        try:
+            _INDEX_MTIME = path.stat().st_mtime if path.exists() else mtime
+        except OSError:
+            _INDEX_MTIME = mtime
 
 
 def _save_index() -> None:
+    global _INDEX_MTIME
     try:
-        _index_path().write_text(json.dumps(_INDEX, ensure_ascii=False), encoding="utf-8")
+        path = _index_path()
+        path.write_text(json.dumps(_INDEX, ensure_ascii=False), encoding="utf-8")
+        try:
+            _INDEX_MTIME = path.stat().st_mtime
+        except OSError:
+            pass
     except Exception as e:
         logger.warning(f"Failed writing jobs index: {e}")
+
+
+def _scan_job_ids_for_email(email_n: str) -> List[str]:
+    """Reconcile from job files — index alone is not reliable across workers."""
+    found: List[str] = []
+    if not email_n:
+        return found
+    for path in _store_dir().glob("*.json"):
+        if path.name.startswith("_"):
+            continue
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(job, dict):
+            continue
+        if _norm_email(job.get("owner_email")) != email_n:
+            continue
+        jid = str(job.get("id") or "").strip()
+        if jid and jid not in found:
+            found.append(jid)
+    return found
+
+
+def _addrs_match(a: str, b: str) -> bool:
+    return (a or "").strip().lower() == (b or "").strip().lower()
+
+
+def _zips_compatible(existing_zip: str, new_zip: str) -> bool:
+    """Same ZIP, or one side blank (legacy rows). Never match different ZIPs."""
+    ez = (existing_zip or "").strip()
+    nz = (new_zip or "").strip()
+    if not ez or not nz:
+        return True
+    return ez == nz
 
 
 def _index_add(email: str, job_id: str) -> None:
@@ -287,16 +348,28 @@ def upsert_job(
         existing = _read_job(job_id)
         if existing and not _can_access(existing, email, owner_key):
             raise PermissionError("Not allowed to update this job")
+        # Stale job_id from a prior site must not overwrite a different address
+        if existing and not (
+            _addrs_match(str(existing.get("address") or ""), address)
+            and _zips_compatible(str(existing.get("zip") or ""), zip_code or "")
+        ):
+            logger.info(
+                "Ignoring stale job_id %s (address changed %r → %r)",
+                job_id,
+                existing.get("address"),
+                address,
+            )
+            existing = None
     else:
-        # Dedupe: same email + normalized address + zip
+        # Dedupe: same email + normalized address + compatible zip
         for j in list_jobs(email=email, owner_key=owner_key):
-            same_addr = (j.get("address") or "").strip().lower() == address.strip().lower()
-            same_zip = (j.get("zip") or "").strip() == (zip_code or "").strip()
-            if same_addr and (same_zip or not zip_code):
+            if _addrs_match(str(j.get("address") or ""), address) and _zips_compatible(
+                str(j.get("zip") or ""), zip_code or ""
+            ):
                 existing = j
                 break
 
-    jid = (existing or {}).get("id") or _safe_id(job_id)
+    jid = (existing or {}).get("id") or _safe_id(None if not existing else job_id)
     job = {
         "id": jid,
         "owner_email": email,
@@ -347,40 +420,40 @@ def list_jobs(
     if email_n:
         _load_index()
         ids = list(_INDEX.get(email_n) or [])
-        if not ids:
-            # Index miss (new worker / empty index file) — scan job files for this email
-            for path in _store_dir().glob("*.json"):
-                if path.name.startswith("_"):
-                    continue
-                try:
-                    job = json.loads(path.read_text(encoding="utf-8"))
-                except Exception:
-                    continue
-                if _norm_email(job.get("owner_email")) == email_n and job.get("id"):
-                    ids.append(str(job["id"]))
-                    _index_add(email_n, str(job["id"]))
+        # Always reconcile from job files (index can lag across Render workers)
+        for jid in _scan_job_ids_for_email(email_n):
+            if jid not in ids:
+                ids.append(jid)
+                _index_add(email_n, jid)
         for jid in ids:
             job = _read_job(jid)
             if job and job["id"] not in seen:
                 jobs.append(job)
                 seen.add(job["id"])
         for remote in _supabase_list(email_n):
-            if remote.get("id") not in seen:
+            rid = str(remote.get("id") or "")
+            if rid and rid not in seen:
                 jobs.append(remote)
-                seen.add(remote["id"])
+                seen.add(rid)
+                # Keep local durable copy so later file scans find it
+                try:
+                    if not _file_path(rid).exists():
+                        _write_job(remote)
+                except Exception:
+                    pass
 
     if owner_key:
         # Scan local files for owner_key matches (small v1 scale)
         for path in _store_dir().glob("job-*.json"):
             try:
                 job = json.loads(path.read_text(encoding="utf-8"))
-                if (job.get("owner_key") or "") == owner_key and job.get("id") not in seen:
-                    if email_n and _norm_email(job.get("owner_email")) != email_n:
-                        # if email provided, don't leak other emails via key alone when emails differ
-                        # still allow key-only access when no email filter? allow if keys match
-                        pass
-                    jobs.append(job)
-                    seen.add(job["id"])
+                if (job.get("owner_key") or "") != owner_key:
+                    continue
+                jid = job.get("id")
+                if not jid or jid in seen:
+                    continue
+                jobs.append(job)
+                seen.add(jid)
             except Exception:
                 continue
 
