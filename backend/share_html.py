@@ -15,6 +15,27 @@ def _esc(v: Any) -> str:
     return html_lib.escape(str(v or ""), quote=True)
 
 
+def stamp_customer_display(grade: str) -> str:
+    """Internal PASS/CAUTION/FAIL → contractor-facing CLEAR/Caution/Hold."""
+    g = (grade or "").upper()
+    if g in ("FAIL", "HOLD"):
+        return "HOLD"
+    if g in ("PASS", "CLEAR"):
+        return "CLEAR"
+    if g == "CAUTION":
+        return "CAUTION"
+    return g
+
+
+def stamp_og_label(grade: str) -> str:
+    display = stamp_customer_display(grade)
+    return {
+        "HOLD": "Hold",
+        "CAUTION": "Caution — material bid risk",
+        "CLEAR": "Clear",
+    }.get(display, "")
+
+
 def _site_label(analysis: Dict[str, Any]) -> str:
     pi = analysis.get("project_info") or {}
     parts = [pi.get("address"), pi.get("city"), pi.get("state"), pi.get("zip")]
@@ -66,15 +87,18 @@ def render_share_html(
         utm={"utm_source": "sharepage", "utm_medium": "cta", "utm_campaign": "bid_risk_receipt"},
     )
     title = f"Bid Risk Receipt — {site}"
-    risk_label = {
-        "FAIL": "High pre-bid risk",
-        "HOLD": "High pre-bid risk",
-        "CAUTION": "Caution — material bid risk",
-        "PASS": "Clear — no Critical bid-risk flags",
-        "CLEAR": "Clear — no Critical bid-risk flags",
-    }.get(grade)
+    display = stamp_customer_display(grade)
+    risk_label = stamp_og_label(grade)
     if risk_label:
         title = f"{risk_label} — Bid Risk Receipt — {site}"
+    stamp_line = ""
+    if display:
+        headline = {
+            "HOLD": "High pre-bid risk. Resolve the drivers below before treating the bid as clear.",
+            "CAUTION": "Material pre-bid risk — review drivers before locking a number.",
+            "CLEAR": "No Critical local killers on the current pack — still confirm with the AHJ before bid.",
+        }.get(display, "")
+        stamp_line = f"<p class='stamp'>REGGUARD STAMP: { _esc(display) }</p><p class='fine'>{_esc(headline)}</p>"
     desc_bits = [f"AHJ: {ahj}"]
     if band.get("pct_low") is not None and band.get("pct_high") is not None:
         desc_bits.append(f"Contingency +{band.get('pct_low')}% to +{band.get('pct_high')}% (planning aid, not a quote)")
@@ -145,6 +169,7 @@ def render_share_html(
     .wrap {{ max-width:640px; margin:0 auto; padding:28px 20px 64px; }}
     .kicker {{ color:#34d399; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }}
     h1 {{ font-size:28px; margin:8px 0 12px; color:#fff; }}
+    .stamp {{ font-size:20px; font-weight:800; color:#fbbf24; margin:16px 0 4px; letter-spacing:.04em; }}
     h2 {{ font-size:16px; color:#fcd34d; }}
     a.btn {{ display:inline-block; margin:6px 8px 6px 0; padding:12px 18px; border-radius:10px; font-weight:700; text-decoration:none; }}
     a.primary {{ background:#059669; color:#fff; }}
@@ -159,6 +184,7 @@ def render_share_html(
   <div class="wrap">
     <p class="kicker">Reg Guard Bid Risk Receipt</p>
     <h1>{_esc(site)}</h1>
+    {stamp_line}
     <p class="fine">{_esc(risk_label or 'Pre-bid risk stamp')} · AHJ {_esc(ahj)} · planning aid, not a quote or sealed bid.</p>
     {preview_note}
     {bid_due_html}

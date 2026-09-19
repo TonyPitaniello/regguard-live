@@ -92,8 +92,10 @@ def _need_space(pdf: BoardroomPDF, h: float) -> None:
 
 def _pri_colors(label: str) -> Tuple[Tuple[int, int, int], Tuple[int, int, int]]:
     u = str(label or "").upper()
-    if any(x in u for x in ("CRIT", "FAIL", "HOLD")):
+    if any(x in u for x in ("CRIT", "FAIL")):
         return BG, ROSE
+    if "HOLD" in u:
+        return BG, AMBER
     if any(x in u for x in ("HIGH", "WARN", "CAUTION")):
         return BG, AMBER
     if any(x in u for x in ("MED", "MODERATE")):
@@ -168,11 +170,14 @@ def _hero_metric(pdf: BoardroomPDF, label: str, value: str, note: str = "") -> N
 
 
 def _flag_card(pdf: BoardroomPDF, priority: str, title: str, detail: str = "") -> None:
+    pri = str(priority or "NOTE").upper()
+    if pri == "FAIL":
+        pri = "HOLD"
     box_h = 16 + (8 if detail else 0)
     _need_space(pdf, box_h + 3)
     bx, by = _card_box(pdf, box_h)
-    fg, bg = _pri_colors(priority)
-    tag = _ascii(str(priority or "NOTE").upper())[:12]
+    fg, bg = _pri_colors(pri)
+    tag = _ascii(pri)[:12]
     _badge(pdf, tag, fg=fg, bg=bg, x=bx, y=by)
     pdf.set_xy(bx, by + 6.5)
     pdf.set_font("Helvetica", "B", 9)
@@ -211,14 +216,12 @@ def _site_card(pdf: BoardroomPDF, site: str, lines: List[str]) -> None:
 def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf = BoardroomPDF()
     cover = package.get("cover") or {}
-    qa = package.get("boardroom_qa") or {}
     site = _ascii(cover.get("site") or "Project site")
     title_line = _ascii(f"IC Diligence Package — {site}")[:95]
     pdf._doc_subtitle = title_line[:78]
     pdf._control_line = _ascii(
-        f"Generated {package.get('generated_at') or '-'}  |  "
-        f"Research {cover.get('research_id') or '-'}  |  "
-        f"Boardroom QA {qa.get('pct', '—')}%"
+        f"{site}  |  Generated {package.get('generated_at') or '-'}  |  "
+        f"Planning aid - confirm with AHJ"
     )
     try:
         pdf.set_title(title_line)
@@ -228,11 +231,15 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     ex = package.get("executive_summary") or {}
     stamp = ex.get("stamp") or {}
-    display = str(stamp.get("display") or stamp.get("grade") or "-")
-    hold = display.upper() in ("HOLD", "CAUTION", "FAIL", "HIGH RISK")
+    raw_display = str(stamp.get("display") or stamp.get("grade") or "-")
+    display = {"FAIL": "HOLD", "PASS": "CLEAR", "HOLD": "HOLD", "CLEAR": "CLEAR", "CAUTION": "CAUTION"}.get(
+        raw_display.upper(), raw_display.upper()
+    )
+    hold = display in ("HOLD", "CAUTION")
+    stamp_color = AMBER if hold else EMERALD_SOFT
     band = ex.get("contingency") if isinstance(ex.get("contingency"), dict) else {}
 
-    # ---- Cover (Bid Packet brand bar + hero) ----
+    # ---- Cover (dark slate + emerald rail, contractor-facing) ----
     pdf.add_page()
     pdf.set_margins(MARGIN, MARGIN, MARGIN)
     pdf.set_y(8)
@@ -242,10 +249,10 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.cell(CONTENT_W * 0.55, 8, "REG GUARD", ln=0)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(CONTENT_W * 0.45, 8, "IC DILIGENCE", align="R", ln=1)
+    pdf.cell(CONTENT_W * 0.45, 8, "IC DILIGENCE PACKAGE", align="R", ln=1)
     _muted(
         pdf,
-        "$1,500 boardroom deliverable  |  Bound site diligence  |  Planning aid - not a quote, not a filing",
+        "Bound site diligence  |  Planning aid - not a quote, not a filing",
         8,
     )
     _muted(
@@ -260,21 +267,14 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.ln(1)
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 16)
-    if hold:
-        pdf.set_text_color(*ROSE)
-    else:
-        pdf.set_text_color(*EMERALD_SOFT)
-    stamp_label = _ascii(stamp.get("label") or f"REGGUARD STAMP: {display}")
-    pdf.multi_cell(CONTENT_W, 7, stamp_label)
+    pdf.set_text_color(*stamp_color)
+    stamp_label = str(stamp.get("label") or f"REGGUARD STAMP: {display}")
+    stamp_label = stamp_label.replace("FAIL", "HOLD")
+    pdf.multi_cell(CONTENT_W, 7, _ascii(stamp_label))
     if stamp.get("plain") or stamp.get("headline"):
-        _muted(pdf, str(stamp.get("plain") or stamp.get("headline"))[:220], 8)
+        _muted(pdf, str(stamp.get("plain") or stamp.get("headline")).replace("FAIL", "HOLD")[:220], 8)
     if stamp.get("valid_until"):
-        _muted(
-            pdf,
-            f"Valid until {stamp.get('valid_until')}"
-            + (f"  |  fp {stamp.get('fingerprint')}" if stamp.get("fingerprint") else ""),
-            7,
-        )
+        _muted(pdf, f"Valid until {str(stamp.get('valid_until'))[:10]}  |  Re-run before bid submittal.", 7)
 
     pdf.ln(1)
     _site_card(
@@ -307,30 +307,19 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
                 str(k.get("detail") or ""),
             )
 
-    if qa:
-        tone = EMERALD if qa.get("pass") else AMBER
-        gc = qa.get("gc_forward") or {}
-        gc_lines = []
-        for item in gc.get("items") or []:
-            if item.get("agentic"):
-                mark = "PASS" if item.get("ok") else "FAIL"
-                gc_lines.append(f"{item.get('id')} [{mark}] {item.get('question')}")
-            else:
-                gc_lines.append(f"{item.get('id')} [HUMAN] {item.get('question')}")
-        _accent_card(
-            pdf,
-            f"Boardroom QA  {qa.get('pct', 0)}%  |  "
-            f"{'PASS' if qa.get('pass') else 'GAPS'}  |  "
-            f"GC forward {'OK' if qa.get('gc_forward_pass') else 'BLOCKED'}",
-            [
-                "Automated Q2-Q5 gate. Q1 (forward without apology) remains a human spot-audit.",
-                ("Gaps: " + "; ".join(qa.get("gaps") or []))
-                if qa.get("gaps")
-                else "Structural + GC Q2-Q5 passed.",
-                *gc_lines[:6],
-            ],
-            accent=tone,
-        )
+    _accent_card(
+        pdf,
+        "What this package includes",
+        [
+            "1. Executive recommendation",
+            "2. Risk stamp and contingency band",
+            "3. Parallel path schedule and jurisdiction",
+            "4. Site findings and environmental screening",
+            "5. Pre-bid punch list",
+            "6. Sources to confirm with the AHJ",
+        ],
+        accent=EMERALD,
+    )
 
     _accent_card(
         pdf,
@@ -400,11 +389,16 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.ln(1)
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(
-        *ROSE if st_display.upper() in ("HOLD", "CAUTION", "FAIL", "HIGH RISK") else EMERALD_SOFT
+    st_face = {"FAIL": "HOLD", "PASS": "CLEAR", "HOLD": "HOLD", "CLEAR": "CLEAR", "CAUTION": "CAUTION"}.get(
+        st_display.upper(), st_display.upper()
     )
-    pdf.multi_cell(CONTENT_W, 7, _ascii(st.get("label") or f"REGGUARD STAMP: {st_display}"))
-    _muted(pdf, str(st.get("plain") or st.get("headline") or ""), 8)
+    pdf.set_text_color(*AMBER if st_face in ("HOLD", "CAUTION") else EMERALD_SOFT)
+    pdf.multi_cell(
+        CONTENT_W,
+        7,
+        _ascii((st.get("label") or f"REGGUARD STAMP: {st_face}").replace("FAIL", "HOLD")),
+    )
+    _muted(pdf, str(st.get("plain") or st.get("headline") or "").replace("FAIL", "HOLD"), 8)
 
     rband = receipt.get("contingency") or band
     if isinstance(rband, dict) and rband.get("pct_low") is not None:

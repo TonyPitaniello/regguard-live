@@ -3,6 +3,8 @@
  * Matches the Orders page pattern (email in sessionStorage).
  */
 
+import { backendUrl } from './env';
+
 const OWNER_KEY = 'regguard_owner_key';
 const EMAIL_KEY = 'userEmail';
 
@@ -26,8 +28,69 @@ export function getJobsEmail(): string {
 
 export function setJobsEmail(email: string) {
   if (typeof window === 'undefined' || !email) return;
-  sessionStorage.setItem(EMAIL_KEY, email);
-  localStorage.setItem('regguard_jobs_email', email);
+  const norm = email.trim().toLowerCase();
+  if (!norm) return;
+  sessionStorage.setItem(EMAIL_KEY, norm);
+  localStorage.setItem('regguard_jobs_email', norm);
+}
+
+export async function persistSavedJob(input: {
+  owner_email: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  project_type?: string;
+  last_research_id?: string;
+  share_url?: string;
+  job_id?: string;
+  phone?: string;
+  last_stamp_grade?: string;
+  punch_count?: number;
+  preview?: boolean;
+}): Promise<string | null> {
+  const owner_email = (input.owner_email || '').trim().toLowerCase();
+  const address = (input.address || '').trim();
+  if (!owner_email || !address) return null;
+  setJobsEmail(owner_email);
+  try {
+    const res = await fetch(backendUrl('/jobs'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        owner_email,
+        owner_key: getOwnerKey(),
+        address,
+        city: input.city || '',
+        state: input.state || '',
+        zip: input.zip || '',
+        project_type: input.project_type || 'general',
+        last_research_id: input.last_research_id || '',
+        share_url: input.share_url || '',
+        job_id: input.job_id || undefined,
+        phone: input.phone || '',
+        summary_snapshot: {
+          last_stamp_grade: input.last_stamp_grade || '',
+          punch_count: input.punch_count ?? null,
+          preview: Boolean(input.preview),
+          regguard_stamp: input.last_stamp_grade ? { grade: input.last_stamp_grade } : undefined,
+        },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return null;
+    const id = String((data.job && data.job.id) || '');
+    if (id) {
+      try {
+        sessionStorage.setItem('lastJobId', id);
+      } catch {
+        /* ignore */
+      }
+    }
+    return id || null;
+  } catch {
+    return null;
+  }
 }
 
 export type SavedJob = {
@@ -43,6 +106,7 @@ export type SavedJob = {
   last_research_id?: string;
   share_url?: string;
   last_run_at?: string;
+  last_stamp_grade?: string;
   summary_snapshot?: {
     estimated_timeline?: string;
     estimated_total_cost?: number;

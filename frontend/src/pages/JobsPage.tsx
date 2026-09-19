@@ -1,11 +1,12 @@
 /**
- * Saved Jobs list — email lookup against GET /jobs
+ * Saved Jobs list — email + device key lookup against GET /jobs
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { backendUrl } from '../env';
+import { getJobsEmail, getOwnerKey, setJobsEmail } from '../jobsOwner';
 
 type Job = {
   id: string;
@@ -21,14 +22,20 @@ type Job = {
   last_stamp_grade?: string;
 };
 
+function stampLabel(raw?: string): string {
+  const g = (raw || '').toUpperCase();
+  if (g === 'FAIL' || g === 'HOLD') return 'Hold';
+  if (g === 'PASS' || g === 'CLEAR') return 'Clear';
+  if (g === 'CAUTION') return 'Caution';
+  return raw || '';
+}
+
 export default function JobsPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState(
-    () => (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || ''
-  );
+  const [email, setEmail] = useState(() => getJobsEmail());
   const [jobs, setJobs] = useState<Job[]>([]);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [recheckId, setRecheckId] = useState('');
   const [recheckMsg, setRecheckMsg] = useState('');
 
@@ -38,10 +45,17 @@ export default function JobsPage() {
     setError('');
     try {
       const emailNorm = email.trim().toLowerCase();
-      sessionStorage.setItem('userEmail', emailNorm);
-      const res = await fetch(
-        `${backendUrl('/jobs')}?email=${encodeURIComponent(emailNorm)}`
-      );
+      if (emailNorm) setJobsEmail(emailNorm);
+      const ownerKey = getOwnerKey();
+      const qs = new URLSearchParams();
+      if (emailNorm) qs.set('email', emailNorm);
+      if (ownerKey) qs.set('owner_key', ownerKey);
+      if (!emailNorm && !ownerKey) {
+        setError('Enter the email used on the lookup.');
+        setJobs([]);
+        return;
+      }
+      const res = await fetch(`${backendUrl('/jobs')}?${qs.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Could not load jobs');
       setJobs(data.jobs || []);
@@ -52,6 +66,12 @@ export default function JobsPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    void load();
+    // Initial fetch from stored email / device key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -84,7 +104,6 @@ export default function JobsPage() {
         <form onSubmit={load} className="flex flex-col sm:flex-row gap-3 mb-8">
           <input
             type="email"
-            required
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
             placeholder="your@email.com"
@@ -113,6 +132,11 @@ export default function JobsPage() {
               <p className="text-gray-400 text-sm">
                 {[j.city, j.state, j.zip].filter(Boolean).join(', ')}
               </p>
+              {stampLabel(j.last_stamp_grade) ? (
+                <p className="text-amber-200 text-xs mt-1 font-semibold">
+                  Stamp: {stampLabel(j.last_stamp_grade)}
+                </p>
+              ) : null}
               {j.last_run_at && (
                 <p className="text-gray-500 text-xs mt-1">Last run: {j.last_run_at}</p>
               )}

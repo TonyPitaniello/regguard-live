@@ -31,6 +31,20 @@ class EnvironmentalRisk:
     source_label: Optional[str] = None
 
 
+def pin_mapper_urls(latitude: float, longitude: float) -> Dict[str, str]:
+    """Official mappers a contractor can open at this pin (LINK, not a parcel stamp)."""
+    return {
+        "nwi": "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
+        "fema": f"https://msc.fema.gov/portal/search?addressAscii={latitude}%2C{longitude}",
+        "ipac": "https://ipac.ecosphere.fws.gov/",
+        "nepa": "https://www.epa.gov/nepa",
+    }
+
+
+def _pin_hint(lat: float, lng: float) -> str:
+    return f"Map pin {lat:.5f}, {lng:.5f} — paste these coordinates into the mapper."
+
+
 class EnvironmentalScreeningEngine:
     """
     Real environmental screening using actual API data sources
@@ -89,13 +103,19 @@ class EnvironmentalScreeningEngine:
         overall_risk = self._calculate_overall_risk([f.risk_level for f in findings])
         
         logger.info(f"✅ Environmental screening complete: {overall_risk} risk ({total_cost} research cost)")
-        
+        mappers = pin_mapper_urls(latitude, longitude)
         return {
             "risk_level": overall_risk,
             "findings": [asdict(f) for f in findings],
             "total_research_cost": total_cost,
             "action_plan": self._generate_action_plan(findings),
             "timestamp": self._get_timestamp(),
+            "pin": {"lat": latitude, "lng": longitude},
+            "mapper_urls": mappers,
+            "gis_note": (
+                "FEMA NFHL and NWI are point-GIS at this pin. Species / noise / NEPA still need IPaC "
+                "or the AHJ — those layers are linked, not parcel-stamped."
+            ),
         }
     
     async def _check_wetlands(
@@ -108,6 +128,7 @@ class EnvironmentalScreeningEngine:
     ) -> EnvironmentalRisk:
         """NWI point intersect (free GIS)."""
         nwi_url = "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper"
+        pin = _pin_hint(latitude, longitude)
         try:
             hit = await self._nwi_point_intersect(latitude, longitude)
             if hit is True:
@@ -147,10 +168,13 @@ class EnvironmentalScreeningEngine:
             category="wetlands",
             risk_level="UNKNOWN",
             description=(
-                f"Wetlands not GIS-verified for {city}, {state}. "
-                "Open NWI mapper — do not assume presence or absence."
+                f"Wetlands not GIS-verified for {city}, {state} (NWI service did not return a hit). "
+                f"{pin} Open NWI mapper — do not assume presence or absence."
             ),
-            action_items=["Check NWI Wetlands Mapper at the site pin"],
+            action_items=[
+                f"Open NWI Wetlands Mapper and jump to {latitude:.5f}, {longitude:.5f}",
+                "If grading near water, request Corps jurisdictional determination",
+            ],
             data_sources=["USFWS National Wetlands Inventory"],
             research_cost_usd=0.0,
             verified=False,
@@ -159,53 +183,66 @@ class EnvironmentalScreeningEngine:
         )
 
     async def _check_endangered_species(self, latitude: float, longitude: float, state: str) -> EnvironmentalRisk:
-        """Check USFWS Threatened & Endangered Species Database"""
+        """FWS critical-habitat GIS at the pin, plus IPaC as the species-list confirm page."""
+        ipac = "https://ipac.ecosphere.fws.gov/"
+        pin = _pin_hint(latitude, longitude)
         try:
-            logger.info(f"🔍 Checking endangered species for lat {latitude}, lng {longitude}")
-            
-            search_result = await self._firecrawl_search(
-                query=f"USFWS endangered species threatened {state} latitude {latitude} longitude {longitude}",
-                location=f"{latitude},{longitude}"
-            )
-            
-            species_present = self._parse_species_result(search_result)
-            
-            if species_present:
+            ch = await self._fws_critical_habitat_intersect(latitude, longitude)
+            if ch is True:
                 return EnvironmentalRisk(
                     category="endangered_species",
-                    risk_level="MEDIUM",
-                    description=f"Threatened or endangered species habitat detected: {species_present}. May require ESA consultation.",
+                    risk_level="HIGH",
+                    description=(
+                        "USFWS critical-habitat polygon intersects this map pin. "
+                        f"{pin} Generate an IPaC resource list before assuming take or consultation."
+                    ),
                     action_items=[
-                        "Obtain USFWS Endangered Species List for project area",
-                        "If species present, hire biologist for habitat assessment ($3K-8K)",
-                        "Determine if Biological Opinion needed (30+ day process)",
-                        "Budget for habitat mitigation if necessary",
+                        "Open IPaC and generate a resource list for this footprint",
+                        "If habitat may be affected, budget a biologist / ESA consult",
                     ],
-                    data_sources=["USFWS Information Resource Center", "State Wildlife Agency"],
-                    research_cost_usd=150.0,
+                    data_sources=["USFWS critical habitat GIS", "USFWS IPaC"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=ipac,
+                    source_label="USFWS IPaC",
                 )
-            else:
+            if ch is False:
                 return EnvironmentalRisk(
                     category="endangered_species",
-                    risk_level="UNKNOWN",
-                    description="Species habitat not GIS-verified — run USFWS IPaC at this pin.",
-                    action_items=["Generate an IPaC resource list for the project footprint"],
-                    data_sources=["USFWS IPaC"],
+                    risk_level="LOW",
+                    description=(
+                        "No USFWS critical-habitat polygon at this pin. "
+                        f"{pin} IPaC is still required for the listed-species list — absence of CH ≠ no species."
+                    ),
+                    action_items=[
+                        "Generate an IPaC resource list for the project footprint",
+                        "Do not treat this as a cleared ESA review",
+                    ],
+                    data_sources=["USFWS critical habitat GIS", "USFWS IPaC"],
                     research_cost_usd=0.0,
-                    verified=False,
-                    source_url="https://ipac.ecosphere.fws.gov/",
+                    verified=True,
+                    source_url=ipac,
                     source_label="USFWS IPaC",
                 )
         except Exception as e:
-            logger.error(f"Species check failed: {e}")
-            return EnvironmentalRisk(
-                category="endangered_species",
-                risk_level="UNKNOWN",
-                description="Unable to determine species status.",
-                action_items=["Contact USFWS directly"],
-                data_sources=["Manual inquiry required"],
-                research_cost_usd=0.0,
-            )
+            logger.warning("Critical habitat GIS failed: %s", e)
+        return EnvironmentalRisk(
+            category="endangered_species",
+            risk_level="UNKNOWN",
+            description=(
+                f"Species / critical habitat not GIS-verified. {pin} "
+                "Open IPaC and generate a resource list — do not assume presence or absence."
+            ),
+            action_items=[
+                f"Open IPaC and enter pin {latitude:.5f}, {longitude:.5f}",
+                "Save the IPaC official species list in the bid file",
+            ],
+            data_sources=["USFWS IPaC"],
+            research_cost_usd=0.0,
+            verified=False,
+            source_url=ipac,
+            source_label="USFWS IPaC",
+        )
     
     async def _check_flood_zones(self, latitude: float, longitude: float) -> EnvironmentalRisk:
         """FEMA NFHL point query (free)."""
@@ -250,12 +287,18 @@ class EnvironmentalScreeningEngine:
             return EnvironmentalRisk(
                 category="flood_zones",
                 risk_level="UNKNOWN",
-                description="Unable to query FEMA NFHL for this pin — open MSC manually.",
-                action_items=["Check FEMA Map Service Center at the site coordinates"],
+                description=(
+                    f"FEMA NFHL did not return a zone for this pin. {_pin_hint(latitude, longitude)} "
+                    "Open MSC and download the FIRMette — do not assume Zone X."
+                ),
+                action_items=[
+                    f"Open FEMA MSC search for {latitude:.5f}, {longitude:.5f}",
+                    "Download the FIRMette into the bid file",
+                ],
                 data_sources=["FEMA MSC"],
                 research_cost_usd=0.0,
                 verified=False,
-                source_url="https://msc.fema.gov/portal/home",
+                source_url=msc,
                 source_label="FEMA MSC",
             )
 
@@ -332,6 +375,44 @@ class EnvironmentalScreeningEngine:
         except Exception:
             return None
         if data.get("error"):
+            return None
+        return len(data.get("features") or []) > 0
+
+    async def _fws_critical_habitat_intersect(self, lat: float, lng: float):
+        """True/False if FWS critical habitat intersects; None on failure."""
+        import json
+        import urllib.parse
+        import urllib.request
+
+        base = (
+            "https://gis.fws.gov/arcgis/rest/services/FWSEcos/FWSCriticalHabitat/MapServer/0/query"
+        )
+        pad = 0.0004
+        params = urllib.parse.urlencode(
+            {
+                "geometry": f"{lng-pad},{lat-pad},{lng+pad},{lat+pad}",
+                "geometryType": "esriGeometryEnvelope",
+                "inSR": "4326",
+                "spatialRel": "esriSpatialRelIntersects",
+                "outFields": "COMNAME,SCINAME",
+                "returnGeometry": "false",
+                "f": "json",
+            }
+        )
+        url = f"{base}?{params}"
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "RegGuard/1.0", "Accept": "application/json"}
+        )
+
+        def _fetch():
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                return json.load(resp)
+
+        try:
+            data = await asyncio.to_thread(_fetch)
+        except Exception:
+            return None
+        if not isinstance(data, dict) or data.get("error"):
             return None
         return len(data.get("features") or []) > 0
 

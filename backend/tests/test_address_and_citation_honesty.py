@@ -62,3 +62,23 @@ def test_apply_citation_honesty_demotes_federal_punch():
     assert item["citation_tier"] == "link"
     assert item["verified"] is False
     assert out["margin_killers"][0]["citation_tier"] == "link"
+
+
+def test_unverified_fast41_gets_confirm_link():
+    out = apply_citation_honesty(
+        {
+            "punch_list": {
+                "punch_list": [
+                    {
+                        "task": "Confirm FAST-41 covered-project gate",
+                        "verified": False,
+                        "source_label": "Confirm",
+                    }
+                ]
+            }
+        }
+    )
+    item = out["punch_list"]["punch_list"][0]
+    assert item["citation_tier"] == "link"
+    assert str(item.get("source_url") or "").startswith("https://www.permits.performance.gov")
+    assert item["verified"] is False

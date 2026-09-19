@@ -240,7 +240,7 @@ export default function SharedReportPage() {
   const stampGrade = (analysis.regguard_stamp?.grade || analysis.stamp_grade || '').toUpperCase();
   const riskTitle =
     stampGrade === 'FAIL' || stampGrade === 'HOLD'
-      ? 'High pre-bid risk'
+      ? 'Hold'
       : stampGrade === 'CAUTION'
         ? 'Caution — material bid risk'
         : stampGrade === 'PASS' || stampGrade === 'CLEAR'

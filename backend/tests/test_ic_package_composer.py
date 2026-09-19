@@ -101,6 +101,10 @@ def test_boardroom_pdf_bytes():
     text = "".join(page.get_text() for page in doc)
     assert "REG GUARD" in text
     assert "IC DILIGENCE" in text
+    assert "HOLD" in text
+    assert "FAIL" not in text
+    assert "BLOCKED" not in text
+    assert "Boardroom QA" not in text
     assert "CONFIDENTIAL - Planning aid only - confirm with AHJ Page" not in text
     pix = doc[0].get_pixmap()
     r, g, b = pix.pixel(pix.width // 2, pix.height // 2)

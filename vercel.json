@@ -20,7 +20,7 @@
         {
           "type": "header",
           "key": "user-agent",
-          "value": ".*(Googlebot|bingbot|BingPreview|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot|Discordbot).*"
+          "value": ".*(Googlebot|bingbot|BingPreview|facebookexternalhit|Facebot|Twitterbot|LinkedInBot|Slackbot|WhatsApp|Applebot|Discordbot|TelegramBot|SkypeUriPreview|Iframely|Slack-ImgProxy|iMessage|MessagesViewService).*"
         }
       ],
       "destination": "https://regguard-api.onrender.com/share/:id"

@@ -457,20 +457,25 @@ def generate_bid_risk_receipt_pdf(
 
     rg = data.get("regguard_stamp") or {}
     grade = str(rg.get("grade") or data.get("stamp_grade") or "").upper()
-    if grade in ("PASS", "CAUTION", "FAIL"):
-        if grade == "PASS":
+    display = {"FAIL": "HOLD", "PASS": "CLEAR", "CAUTION": "CAUTION", "HOLD": "HOLD", "CLEAR": "CLEAR"}.get(
+        grade, grade
+    )
+    if display in ("CLEAR", "CAUTION", "HOLD"):
+        if display == "CLEAR":
             pdf.set_text_color(*EMERALD_SOFT)
-        elif grade == "CAUTION":
+        elif display == "CAUTION":
             pdf.set_text_color(*AMBER_SOFT)
         else:
-            pdf.set_text_color(239, 68, 68)
+            pdf.set_text_color(*AMBER)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 22)
-        pdf.cell(CONTENT_W, 10, _ascii(f"{grade}"), ln=1)
+        pdf.cell(CONTENT_W, 10, _ascii(f"{display}"), ln=1)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*DIM)
-        pdf.multi_cell(CONTENT_W, 3.5, _ascii(str(rg.get("headline") or "")[:200]))
+        headline = str(rg.get("headline") or rg.get("label") or "")
+        headline = headline.replace("FAIL", "HOLD")
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(headline[:200]))
         for d in (rg.get("drivers") or [])[:3]:
             if not isinstance(d, dict):
                 continue

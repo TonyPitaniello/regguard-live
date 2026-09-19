@@ -29,10 +29,12 @@ _INDEX: Dict[str, List[str]] = {}  # email_lower -> [job ids]
 
 
 def _store_dir() -> Path:
-    base = Path(
-        os.getenv("REG_GUARD_JOBS_DIR")
-        or (Path(__file__).resolve().parent / "data" / "saved_jobs")
-    )
+    env_jobs = (os.getenv("REG_GUARD_JOBS_DIR") or "").strip()
+    if env_jobs:
+        base = Path(env_jobs)
+    else:
+        data = (os.getenv("REGGUARD_DATA_DIR") or "").strip()
+        base = Path(data) / "saved_jobs" if data else Path(__file__).resolve().parent / "data" / "saved_jobs"
     base.mkdir(parents=True, exist_ok=True)
     return base
 
@@ -70,6 +72,26 @@ def _supabase_ok() -> bool:
     return bool((os.getenv("SUPABASE_URL") or "").strip() and (os.getenv("SUPABASE_KEY") or "").strip())
 
 
+def _rebuild_index_from_files_locked() -> None:
+    """Recover the email index from job files when disk outlives the in-memory map."""
+    for path in _store_dir().glob("*.json"):
+        if path.name.startswith("_"):
+            continue
+        try:
+            job = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(job, dict):
+            continue
+        email = _norm_email(job.get("owner_email"))
+        jid = str(job.get("id") or "").strip()
+        if not email or not jid:
+            continue
+        ids = _INDEX.setdefault(email, [])
+        if jid not in ids:
+            ids.append(jid)
+
+
 def _load_index() -> None:
     with _LOCK:
         if _INDEX:
@@ -84,6 +106,10 @@ def _load_index() -> None:
                             _INDEX[k] = [str(x) for x in v]
             except Exception as e:
                 logger.warning(f"Failed loading jobs index: {e}")
+        if not _INDEX:
+            _rebuild_index_from_files_locked()
+            if _INDEX:
+                _save_index()
 
 
 def _save_index() -> None:
@@ -298,6 +324,11 @@ def upsert_job(
     }
     if last_research_id:
         job["last_run_at"] = now
+    snap = job.get("summary_snapshot") if isinstance(job.get("summary_snapshot"), dict) else {}
+    stamp = snap.get("regguard_stamp") if isinstance(snap.get("regguard_stamp"), dict) else {}
+    job["last_stamp_grade"] = str(
+        stamp.get("grade") or snap.get("last_stamp_grade") or (existing or {}).get("last_stamp_grade") or ""
+    )
     _write_job(job)
     logger.info(f"Saved job {jid} for {email}")
     return deepcopy(job)
@@ -316,6 +347,18 @@ def list_jobs(
     if email_n:
         _load_index()
         ids = list(_INDEX.get(email_n) or [])
+        if not ids:
+            # Index miss (new worker / empty index file) — scan job files for this email
+            for path in _store_dir().glob("*.json"):
+                if path.name.startswith("_"):
+                    continue
+                try:
+                    job = json.loads(path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if _norm_email(job.get("owner_email")) == email_n and job.get("id"):
+                    ids.append(str(job["id"]))
+                    _index_add(email_n, str(job["id"]))
         for jid in ids:
             job = _read_job(jid)
             if job and job["id"] not in seen:

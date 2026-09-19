@@ -30,6 +30,7 @@ import {
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode } from '../shareLinks';
+import { getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -269,7 +270,7 @@ export default function FreeTrialForm({
     sessionStorage.setItem('analysisResults', JSON.stringify(analysisWithId));
     sessionStorage.setItem('researchId', id);
     const mail = (email || formDataRef.current.email || '').trim().toLowerCase();
-    if (mail) sessionStorage.setItem('userEmail', mail);
+    if (mail) setJobsEmail(mail);
     const d = formDataRef.current;
     persistLastResearchForm({
       address: d.address,
@@ -278,6 +279,21 @@ export default function FreeTrialForm({
       zip: d.zip,
       projectType: d.projectType,
       email: mail || d.email,
+    });
+    void persistSavedJob({
+      owner_email: mail,
+      address: analysisWithId.project_info?.address || d.address,
+      city: analysisWithId.project_info?.city || d.city,
+      state: analysisWithId.project_info?.state || d.state,
+      zip: analysisWithId.project_info?.zip || d.zip,
+      project_type: analysisWithId.project_info?.type || d.projectType,
+      last_research_id: rid || id,
+      share_url: analysisWithId.share_url,
+      job_id: analysisWithId.job_id,
+      phone: d.phone,
+      last_stamp_grade: analysisWithId.regguard_stamp?.grade || analysisWithId.stamp_grade,
+      punch_count: analysisWithId.punch_list?.punch_list?.length,
+      preview: Boolean(analysisWithId.preview),
     });
     const depth = String(analysisWithId.research_depth || '').toLowerCase();
     if (depth === 'pro' || depth === 'pro_partial') {
@@ -348,7 +364,7 @@ export default function FreeTrialForm({
     // Re-read after any ZIP/city correction above
     const fixed = formDataRef.current;
     const emailNorm = fixed.email.trim().toLowerCase();
-    sessionStorage.setItem('userEmail', emailNorm);
+    setJobsEmail(emailNorm);
 
     // Paid users get deeper research — allow longer wait
     let paid = sessionStorage.getItem('regguardPaid') === '1';
@@ -471,6 +487,7 @@ export default function FreeTrialForm({
           phone: dataForApi.phone || undefined,
           generate_ic_report: generateIcReport,
           ic_idempotency_key: icKey,
+          owner_key: getOwnerKey() || undefined,
           ...(dataForApi.lat != null && dataForApi.lng != null
             ? { latitude: dataForApi.lat, longitude: dataForApi.lng }
             : {}),
@@ -610,19 +627,12 @@ export default function FreeTrialForm({
 
     // Soft client-side remount or first paint after soft nav: keep sticky results
     if (alreadyInitThisDocument || !isHardReload) {
-      try {
-        sessionStorage.removeItem('userEmail');
-        localStorage.removeItem('regguard_jobs_email');
-      } catch {
-        /* ignore */
-      }
       setContactFieldsReady(true);
       return;
     }
 
     try {
       sessionStorage.removeItem('userEmail');
-      localStorage.removeItem('regguard_jobs_email');
       sessionStorage.removeItem('analysisResults');
       sessionStorage.removeItem('researchId');
       sessionStorage.removeItem('lastResearchForm');

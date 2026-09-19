@@ -41,6 +41,7 @@ export function citationStatus(fields: CitationFields): {
     return { kind: url ? 'link' : 'unverified', url, label: label || 'Portal link' };
   }
   if (tier === 'unverified') {
+    if (url) return { kind: 'link', url, label: label || 'Confirm' };
     return { kind: 'unverified', url, label };
   }
 

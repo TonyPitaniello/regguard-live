@@ -131,9 +131,10 @@ def test_share_html_og_tags():
         },
         research_id="rg-testshare-fail",
     )
-    assert "High pre-bid risk" in html_fail
+    assert "Hold — Bid Risk Receipt" in html_fail
+    assert "REGGUARD STAMP: HOLD" in html_fail
     assert "FAIL" not in html_fail
-    assert 'content="High pre-bid risk' in html_fail
+    assert 'content="Hold — Bid Risk Receipt' in html_fail
     assert "Run my address" in html
     assert "ref=patx" in html
     assert "checkout/partner" in html

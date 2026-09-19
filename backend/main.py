@@ -2064,6 +2064,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         summary = analysis.get("summary") or {}
         email = getattr(request_body, "email", None) or ""
         if email and (project.get("address") or request_body.address):
+            stamp = analysis.get("regguard_stamp") or {}
             job = upsert_job(
                 owner_email=str(email),
                 address=str(project.get("address") or request_body.address),
@@ -2074,6 +2075,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 last_research_id=str(research_id),
                 share_url=analysis.get("share_url"),
                 phone=str(getattr(request_body, "phone", "") or ""),
+                owner_key=str(getattr(request_body, "owner_key", "") or "") or None,
                 summary_snapshot={
                     "estimated_timeline": summary.get("estimated_timeline"),
                     "estimated_total_cost": summary.get("estimated_total_cost"),
@@ -2081,6 +2083,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     "preview": bool(analysis.get("preview")),
                     "punch_count": summary.get("total_punch_list_items"),
                     "arbitrage_snapshot": (analysis.get("arbitrage_snapshot") if analysis else None) or {},
+                    "last_stamp_grade": stamp.get("grade") or analysis.get("stamp_grade"),
+                    "regguard_stamp": stamp or None,
                 },
             )
             job_id = job.get("id")
@@ -4514,7 +4518,28 @@ async def get_share_unlock(
 
 
 class BidSheetRequest(BaseModel):
-    analysis: Dict[str, Any]
+    analysis: Optional[Dict[str, Any]] = None
+    analysis_data: Optional[Dict[str, Any]] = None
+    research_id: Optional[str] = None
+
+
+def _resolve_export_analysis(body: BidSheetRequest) -> Dict[str, Any]:
+    data = body.analysis or body.analysis_data or {}
+    if not isinstance(data, dict):
+        data = {}
+    rid = str(body.research_id or data.get("research_id") or "").strip()
+    if (not data.get("project_info") and not data.get("fee_card")) and rid:
+        try:
+            from research_store import get_analysis
+
+            stored = get_analysis(rid)
+            if isinstance(stored, dict) and stored:
+                data = stored
+        except Exception:
+            pass
+    if not data:
+        raise HTTPException(status_code=400, detail="analysis required")
+    return data
 
 
 @app.post("/research/bid-sheet.csv", tags=["Results"])
@@ -4524,9 +4549,8 @@ async def post_bid_sheet_csv(body: BidSheetRequest):
 
     from bid_sheet_export import analysis_to_bid_csv
 
-    if not body.analysis or not isinstance(body.analysis, dict):
-        raise HTTPException(status_code=400, detail="analysis required")
-    csv_text = analysis_to_bid_csv(body.analysis)
+    analysis = _resolve_export_analysis(body)
+    csv_text = analysis_to_bid_csv(analysis)
     return Response(
         content=csv_text,
         media_type="text/csv; charset=utf-8",
@@ -4543,10 +4567,9 @@ async def post_bid_sheet_pdf(body: BidSheetRequest):
 
     from bid_sheet_pdf import analysis_to_bid_sheet_pdf
 
-    if not body.analysis or not isinstance(body.analysis, dict):
-        raise HTTPException(status_code=400, detail="analysis required")
+    analysis = _resolve_export_analysis(body)
     try:
-        data = analysis_to_bid_sheet_pdf(body.analysis)
+        data = analysis_to_bid_sheet_pdf(analysis)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Bid sheet PDF failed: {e}") from e
     return Response(
@@ -4559,16 +4582,16 @@ async def post_bid_sheet_pdf(body: BidSheetRequest):
 
 
 @app.post("/research/city-pack.pdf", tags=["Results"])
+@app.post("/research/city-pack-pdf", tags=["Results"])
 async def post_city_pack_pdf(body: BidSheetRequest):
     """Downloadable Full city pack PDF (AHJ, fees, gotchas, inspections)."""
     from fastapi.responses import Response
 
     from city_pack_pdf import generate_city_pack_pdf_bytes
 
-    if not body.analysis or not isinstance(body.analysis, dict):
-        raise HTTPException(status_code=400, detail="analysis required")
+    analysis = _resolve_export_analysis(body)
     try:
-        data = generate_city_pack_pdf_bytes(body.analysis)
+        data = generate_city_pack_pdf_bytes(analysis)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"City pack PDF failed: {e}") from e
     return Response(
@@ -5481,8 +5504,22 @@ def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
     generated_for = data.get("generated_for") or data.get("email") or None
     share_url = data.get("share_url") or None
     mode = str(data.get("mode") or "receipt").lower().strip()
+    rid = str(data.get("research_id") or "").strip()
     if "analysis_data" in data and isinstance(data["analysis_data"], dict):
         data = data["analysis_data"]
+        rid = rid or str(data.get("research_id") or "").strip()
+    elif "analysis" in data and isinstance(data["analysis"], dict):
+        data = data["analysis"]
+        rid = rid or str(data.get("research_id") or "").strip()
+    if (not data.get("project_info") and not data.get("fee_card")) and rid:
+        try:
+            from research_store import get_analysis
+
+            stored = get_analysis(rid)
+            if isinstance(stored, dict) and stored:
+                data = stored
+        except Exception:
+            pass
     return data, generated_for, share_url, mode
 
 

@@ -13,6 +13,7 @@ import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
+import { analysisForPdfExport, postPdfDownload } from '../pdfExport';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -574,12 +575,102 @@ function formatShareDate(iso?: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function stampCustomerDisplay(grade: string): string {
+  const g = (grade || '').toUpperCase();
+  if (g === 'FAIL' || g === 'HOLD') return 'HOLD';
+  if (g === 'PASS' || g === 'CLEAR') return 'CLEAR';
+  if (g === 'CAUTION') return 'CAUTION';
+  return g;
+}
+
 function stampShareLabel(grade: string): string {
-  const g = grade.toUpperCase();
-  if (g === 'FAIL' || g === 'HOLD') return 'High pre-bid risk';
-  if (g === 'PASS' || g === 'CLEAR') return 'Clear';
-  if (g === 'CAUTION') return 'Caution — material bid risk';
+  const display = stampCustomerDisplay(grade);
+  if (display === 'HOLD') return 'Hold';
+  if (display === 'CLEAR') return 'Clear';
+  if (display === 'CAUTION') return 'Caution';
   return grade;
+}
+
+function stampShareHeadline(grade: string, headline?: string): string {
+  const display = stampCustomerDisplay(grade);
+  const raw = (headline || '').replace(/\bFAIL\b/gi, 'HOLD').trim();
+  if (raw) return raw;
+  if (display === 'HOLD') return 'High pre-bid risk. Resolve the drivers below before treating the bid as clear.';
+  if (display === 'CAUTION') return 'Material pre-bid risk — review drivers before locking a number.';
+  if (display === 'CLEAR') return 'No Critical local killers on the current pack — still confirm with the AHJ before bid.';
+  return '';
+}
+
+function stripMarkdownLite(text: string): string {
+  return (text || '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '$1')
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^[-*]\s+(\[[ xX]\]\s*)?/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Unique briefing from the action-plan memo. Checklist lines already live on the punch list. */
+function extractScoutBriefing(md?: string | null): {
+  watchdog: string;
+  hits: string[];
+  bottomLine: string;
+  note: string;
+} | null {
+  const raw = (md || '').trim();
+  if (!raw) return null;
+  const chunks = raw.split(/\n(?=#{1,6}\s+)/);
+  let watchdog = '';
+  const hits: string[] = [];
+  let bottomLine = '';
+  const notes: string[] = [];
+
+  for (const chunk of chunks) {
+    const heading = (chunk.match(/^#{1,6}\s+(.+)/) || [])[1] || '';
+    const body = chunk.replace(/^#{1,6}\s+.+/, '').trim();
+    const head = heading.toUpperCase();
+    const lines = body.split('\n').map((l) => l.trim()).filter(Boolean);
+    const prose = lines
+      .filter((l) => !/^[-*]\s+\[[ xX]?\]/.test(l) && !/^[-*]\s+/.test(l))
+      .map(stripMarkdownLite)
+      .filter((l) => l.length > 20);
+
+    if (/FUTURE RISK|WATCHDOG|CODE-CHANGE/.test(head) || /Watchdog —/.test(body)) {
+      watchdog = prose[0] || stripMarkdownLite(body).slice(0, 420);
+      for (const l of lines) {
+        const url = (l.match(/https?:\/\/\S+/) || [])[0];
+        const label = stripMarkdownLite(l.replace(/https?:\/\/\S+/g, '')).slice(0, 90);
+        if (url && !/^Mandatory/i.test(label)) hits.push(label ? `${label} — ${url}` : url);
+      }
+      continue;
+    }
+    if (/BOTTOM LINE/.test(head)) {
+      bottomLine = prose.join(' ') || stripMarkdownLite(body);
+      continue;
+    }
+    if (/PERMIT COST|TECHNICAL PUNCH|INSPECTION|REFERENCE LINK|CONTRACTOR ACTION/.test(head)) {
+      continue;
+    }
+    if (prose.length && !lines.some((l) => /^[-*]\s+\[[ xX]?\]/.test(l))) {
+      notes.push(...prose.slice(0, 2));
+    }
+  }
+
+  if (!watchdog && /Watchdog — Code-change/i.test(raw)) {
+    watchdog = stripMarkdownLite(
+      (raw.match(/Watchdog[^\n]+(?:\n[^\n#][^\n]*)?/) || [''])[0]
+    ).slice(0, 420);
+  }
+  if (!watchdog && !bottomLine && !notes.length) return null;
+  return {
+    watchdog,
+    hits: hits.slice(0, 4),
+    bottomLine,
+    note: notes[0] || '',
+  };
 }
 
 function cleanAhjName(name: string): string {
@@ -599,11 +690,6 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
           priority: 'HIGH',
           verified: false,
         }));
-
-  const bandLine =
-    band?.pct_low != null && band?.pct_high != null
-      ? `Suggested contingency: +${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%). Planning aid; not a bid quote.`
-      : 'Confirm contingency with the AHJ before bid.';
 
   const killerLines = killers
     .slice(0, 3)
@@ -631,36 +717,53 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const link = reportShareUrl(analysis, researchId);
   const stamp = analysis.regguard_stamp;
   const stampGrade = (stamp?.grade || analysis.stamp_grade || '').toUpperCase();
+  const display = stampCustomerDisplay(stampGrade);
   const until = formatShareDate(stamp?.valid_until || analysis.stamp_valid_until);
-  let stampLine = '';
-  if (stampGrade && ['PASS', 'CAUTION', 'FAIL'].includes(stampGrade)) {
-    const label = stampShareLabel(stampGrade);
-    if (stamp?.is_stale) {
-      stampLine = `Pre-bid stamp: ${label} — stale; re-run before bid submittal.`;
-    } else {
-      stampLine = `Pre-bid stamp: ${label}${until ? ` (valid through ${until})` : ''}. Re-run before bid submittal.`;
-    }
+  const headline = stampShareHeadline(stampGrade, stamp?.headline || stamp?.label);
+  let stampBlock = '';
+  if (display) {
+    const validity = stamp?.is_stale
+      ? 'STALE — re-run before bid submittal.'
+      : until
+        ? `Re-run before bid submittal (valid through ${until}).`
+        : 'Re-run before bid submittal.';
+    stampBlock = [`REGGUARD STAMP: ${display}`, headline, validity].filter(Boolean).join('\n');
   }
 
-  const siteLine = [p?.address, p?.city, p?.state, p?.zip].filter(Boolean).join(', ') || 'Site TBD';
+  const cityLine = [p?.city, p?.state, p?.zip].filter(Boolean).join(', ');
+  const bandBlock =
+    band?.pct_low != null && band?.pct_high != null
+      ? [
+          'SUGGESTED CONTINGENCY',
+          `+${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%)`,
+          'Planning aid — not a bid quote.',
+        ].join('\n')
+      : 'Confirm contingency with the AHJ before bid.';
 
   return [
-    'Bid Risk Receipt',
-    siteLine,
-    `Authority Having Jurisdiction: ${ahj}`,
+    'REG GUARD — BID RISK RECEIPT',
+    '',
+    p?.address || 'Site TBD',
+    cityLine || null,
+    '',
+    `AHJ: ${ahj}`,
     `Coverage: ${cov.badge}`,
-    stampLine,
-    bandLine,
-    killerLines ? `Items to resolve before bid:\n${killerLines}` : '',
+    '',
+    stampBlock,
+    '',
+    bandBlock,
+    killerLines ? `\nITEMS TO RESOLVE BEFORE BID\n${killerLines}` : null,
     isDc
-      ? 'Municipal permits and utility interconnection often run on parallel clocks. This is not an interconnection study.'
-      : '',
+      ? '\nMunicipal permits and utility interconnection often run on parallel clocks. This is not an interconnection study.'
+      : null,
+    '',
     `Prepared for ${who}`,
-    'Reg Guard — planning aid only. Confirm with the AHJ before bid or filing. Not a sealed bid or official filing.',
+    'Confirm with the AHJ before bid or filing. Not a sealed bid or official filing.',
     link || 'Open your Reg Guard results to copy the receipt link.',
   ]
-    .filter(Boolean)
-    .join('\n');
+    .filter((line) => line != null)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
 }
 
 function getRiskColor(level: string) {
@@ -956,6 +1059,10 @@ export default function ResultsViewerModal({
     .toLowerCase();
   const shareLink = reportShareUrl(view, effectiveResearchId);
   const shareText = buildShareText(view, emailForCheckout, effectiveResearchId);
+  const shareTitle = `${stampShareLabel(view.regguard_stamp?.grade || view.stamp_grade || '')} — Bid Risk Receipt`.replace(
+    /^ — /,
+    ''
+  );
   const depth = (view.research_depth || '').toLowerCase();
   const depthTier = (view.depth_tier || '').toLowerCase();
   const scoutMode = (view.scout_mode || '').toLowerCase();
@@ -1495,57 +1602,17 @@ export default function ResultsViewerModal({
     setPacketLoading(true);
     try {
       const share = reportShareUrl(view, effectiveResearchId);
-      const res = await fetch(backendUrl('/bid-receipt/pdf'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          analysis_data: view,
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      await postPdfDownload(
+        backendUrl('/bid-receipt/pdf'),
+        {
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
           generated_for: emailForCheckout || undefined,
           ...(share ? { share_url: share } : {}),
-        }),
-      });
-      const ctype = (res.headers.get('content-type') || '').toLowerCase();
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const detail =
-          typeof data.detail === 'string'
-            ? data.detail
-            : Array.isArray(data.detail)
-              ? data.detail.map((d: { msg?: string }) => d.msg || String(d)).join('; ')
-              : 'Bid Risk Receipt failed';
-        throw new Error(detail);
-      }
-      // Prefer inline PDF bytes (multi-instance safe). Fall back to token URL for legacy APIs.
-      let blob: Blob;
-      if (ctype.includes('application/pdf')) {
-        blob = await res.blob();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        const rawUrl = String(data.download_url || '');
-        if (!rawUrl) throw new Error('Receipt generated but no PDF returned');
-        const pathStart = rawUrl.search(/\/bid-receipt\//);
-        const fetchUrl =
-          pathStart >= 0
-            ? backendUrl(rawUrl.slice(pathStart))
-            : rawUrl.startsWith('http')
-              ? rawUrl
-              : backendUrl(rawUrl);
-        const fileRes = await fetch(fetchUrl, { credentials: 'omit' });
-        if (!fileRes.ok) {
-          throw new Error(
-            `Receipt download failed (${fileRes.status}). Try again — if it keeps failing, use Share link.`
-          );
-        }
-        blob = await fileRes.blob();
-      }
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = 'RegGuard_Bid_Risk_Receipt.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        },
+        'RegGuard_Bid_Risk_Receipt.pdf'
+      );
       grantShareUnlock('bid_receipt_pdf');
       trackStampEvent('stamp_receipt_download', {
         researchId: effectiveResearchId,
@@ -1639,24 +1706,16 @@ export default function ResultsViewerModal({
   const downloadCityPackPdf = async () => {
     setPacketLoading(true);
     try {
-      const res = await fetch(backendUrl('/research/city-pack.pdf'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analysis: view }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || `City pack PDF failed (${res.status})`);
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = 'RegGuard_Full_City_Pack.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      await postPdfDownload(
+        backendUrl('/research/city-pack-pdf'),
+        {
+          analysis: slim,
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
+        },
+        'RegGuard_Full_City_Pack.pdf'
+      );
       showToast('Full city pack PDF downloaded — fees, gotchas, and AHJ links.');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'City pack PDF failed');
@@ -1704,84 +1763,18 @@ export default function ResultsViewerModal({
     }
     setPacketLoading(true);
     try {
-      const fromOrder = icOrderPdfs.find((p) => p.type === 'ic_package');
-      if (fromOrder?.url) {
-        await downloadIcPdf(fromOrder);
-        return;
-      }
-      const res = await fetch(backendUrl('/ic-package/pdf'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          analysis_data: view,
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      await postPdfDownload(
+        backendUrl('/ic-package/pdf'),
+        {
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
           generated_for: emailForCheckout || undefined,
           email: emailForCheckout || undefined,
-        }),
-      });
-      const ctype = (res.headers.get('content-type') || '').toLowerCase();
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const detail =
-          typeof data.detail === 'string'
-            ? data.detail
-            : Array.isArray(data.detail)
-              ? data.detail.map((d: { msg?: string }) => d.msg || String(d)).join('; ')
-              : 'IC package failed';
-        throw new Error(detail);
-      }
-      let blob: Blob;
-      let qa: {
-        pass?: boolean;
-        pct?: number;
-        failed_gc?: string[];
-        gaps?: string[];
-      } = {};
-      const qaHeader = res.headers.get('X-RegGuard-Boardroom-Qa') || '';
-      if (qaHeader) {
-        try {
-          qa = JSON.parse(atob(qaHeader)) as typeof qa;
-        } catch {
-          qa = {};
-        }
-      }
-      if (ctype.includes('application/pdf')) {
-        blob = await res.blob();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        qa = data.boardroom_qa || qa;
-        const rawUrl = String(data.download_url || '');
-        if (!rawUrl) throw new Error('IC package generated but no PDF returned');
-        const pathStart = rawUrl.search(/\/ic-package\//);
-        const fetchUrl =
-          pathStart >= 0
-            ? backendUrl(rawUrl.slice(pathStart))
-            : rawUrl.startsWith('http')
-              ? rawUrl
-              : backendUrl(rawUrl);
-        const fileRes = await fetch(fetchUrl);
-        if (!fileRes.ok) throw new Error(`Download failed (${fileRes.status})`);
-        blob = await fileRes.blob();
-      }
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = 'RegGuard_IC_Diligence_Package.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
-      if (qa.pass) {
-        showToast(
-          `IC package downloaded — Boardroom QA ${qa.pct ?? ''}% PASS (Q1 human spot-audit remains)`
-        );
-      } else {
-        const failed = (qa.failed_gc || []).join(', ') || (qa.gaps || []).slice(0, 2).join('; ');
-        showToast(
-          failed
-            ? `IC package downloaded — Boardroom QA gaps (${failed}). Fix before GC forward.`
-            : 'IC package downloaded — citeable pre-bid diligence, not a sealed bid'
-        );
-      }
+        },
+        'RegGuard_IC_Diligence_Package.pdf'
+      );
+      showToast('IC Diligence Package downloaded — planning aid, not a sealed bid');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC package download failed');
     } finally {
@@ -2211,6 +2204,8 @@ export default function ResultsViewerModal({
               {renderExecutiveSummary()}
             </div>
 
+            {renderProDelta()}
+
             {allowIcPackageDownload ? (
               <>
                 <div>
@@ -2536,7 +2531,7 @@ export default function ResultsViewerModal({
                 value={shareText}
                 onFocus={(e) => e.currentTarget.select()}
                 className="mt-3 w-full min-h-[140px] rounded-lg border border-slate-600 bg-slate-900 text-gray-200 text-xs p-3 font-mono"
-                aria-label="Share text for Instagram Facebook or copy"
+                aria-label={shareTitle || 'Share text for Instagram Facebook or copy'}
               />
             )}
             {toast && (
@@ -2798,60 +2793,52 @@ export default function ResultsViewerModal({
 
           {/* Local gotchas render inside Full city pack (#rg-city-pack) so Jump lands on them */}
 
-          {/* F2: prove Pro/IC uniqueness once when deep */}
-          {renderProDelta()}
-
           {/* F1: exactly one primary paid CTA for this results view */}
           {renderPrimaryUpgrade()}
 
-          {/* Deep research memo — optional narrative; punch list is the operational checklist */}
-          {isDeep && view.pro_summary_markdown ? (
-            <section className="rounded-xl border border-slate-600/70 bg-slate-900/70 p-4 sm:p-5">
-              <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
-                <div>
-                  <h3 className="text-base font-bold text-white">Research memo</h3>
-                  <p className="text-xs text-gray-400 mt-1 max-w-xl leading-relaxed">
-                    Narrative scout notes for this site. The pre-bid punch list below is the
-                    operational checklist — use this memo for context, not as a second punch list.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 underline"
-                  onClick={() =>
-                    setExpanded((prev) => ({ ...prev, deepPlan: !prev.deepPlan }))
-                  }
-                >
-                  {expanded.deepPlan ? 'Collapse memo' : 'Expand memo'}
-                </button>
-              </div>
-              <div
-                className={`text-sm text-gray-200 leading-relaxed whitespace-pre-wrap ${
-                  expanded.deepPlan ? '' : 'max-h-48 overflow-hidden relative'
-                }`}
-              >
-                {view.pro_summary_markdown.slice(0, expanded.deepPlan ? 20000 : 1800)}
-                {!expanded.deepPlan && view.pro_summary_markdown.length > 1800 ? (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-slate-900 to-transparent" />
+          {(() => {
+            const brief = extractScoutBriefing(view.pro_summary_markdown);
+            if (!isDeep || !brief) return null;
+            return (
+              <section className="rounded-xl border border-amber-500/35 bg-slate-950/80 p-4 sm:p-5">
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-200">
+                  Scout briefing
+                </p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  Action items are on the pre-bid punch list below. This card is only the watchdog
+                  and close-out — not a second punch list.
+                </p>
+                {brief.watchdog ? (
+                  <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-amber-100">
+                      Code-change watchdog
+                    </p>
+                    <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{brief.watchdog}</p>
+                    {brief.hits.length > 0 ? (
+                      <ul className="mt-2 space-y-1">
+                        {brief.hits.map((hit) => (
+                          <li key={hit} className="text-xs text-gray-300 leading-relaxed">
+                            {hit}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
                 ) : null}
-              </div>
-              {(view.pro_source_urls || []).length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(view.pro_source_urls || []).slice(0, 6).map((url) => (
-                    <a
-                      key={url}
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] text-emerald-300 underline truncate max-w-[240px]"
-                    >
-                      {url.replace(/^https?:\/\//, '').slice(0, 48)}
-                    </a>
-                  ))}
-                </div>
-              )}
-            </section>
-          ) : null}
+                {brief.bottomLine ? (
+                  <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">
+                      Bottom line
+                    </p>
+                    <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{brief.bottomLine}</p>
+                  </div>
+                ) : null}
+                {brief.note && !brief.watchdog && !brief.bottomLine ? (
+                  <p className="text-sm text-gray-200 mt-3 leading-relaxed">{brief.note}</p>
+                ) : null}
+              </section>
+            );
+          })()}
 
           {/* Critical path / punch list highlights */}
           <section>
@@ -3884,6 +3871,9 @@ export default function ResultsViewerModal({
                       source_url={finding.source_url}
                       source_label={finding.source_label || (finding.data_sources || [])[0]}
                       verified={verified}
+                      citation_tier={
+                        verified ? 'source' : finding.source_url ? 'link' : 'unverified'
+                      }
                     />
                     )}
                   </div>

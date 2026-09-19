@@ -82,6 +82,9 @@ DATA_CENTER_PLAYBOOK: Dict[str, Any] = {
                     "priority": "HIGH",
                     "task": "Confirm utility interconnection materials match this site address",
                     "fill": "confirm_only",
+                    "confirm_url": "https://www.ercot.com/services/informational/ercot-ic-queue/",
+                    "confirm_label": "ERCOT interconnection queue",
+                    "confirm_detail": "Match interconnection materials to this site address on the serving utility / ERCOT queue — not an interconnection study.",
                 },
             ],
         },
@@ -95,6 +98,9 @@ DATA_CENTER_PLAYBOOK: Dict[str, Any] = {
                     "priority": "HIGH",
                     "task": "Confirm design load MW and whether >100 MW / FAST-41 gate applies",
                     "fill": "confirm_only",
+                    "confirm_url": "https://www.permits.performance.gov/projects/fast-41-covered",
+                    "confirm_label": "FAST-41 covered projects",
+                    "confirm_detail": "If design load may exceed 100 MW, open Permitting Council FAST-41 covered projects and confirm with counsel whether this site is a candidate — not a designation.",
                 },
                 {
                     "id": "sld_submittal",
@@ -152,6 +158,9 @@ DATA_CENTER_PLAYBOOK: Dict[str, Any] = {
                     "priority": "HIGH",
                     "task": "FAST-41 / Permitting Council diligence when load/cost gates may apply",
                     "fill": "confirm_only",
+                    "confirm_url": "https://www.permits.performance.gov/projects/transparency-projects",
+                    "confirm_label": "Permitting Council Transparency Projects",
+                    "confirm_detail": "Counsel-led FAST-41 / Transparency Project screen. Open the Permitting Council page; Reg Guard does not designate projects.",
                 },
             ],
         },
@@ -297,12 +306,14 @@ def _fill_item(
         st = (state or "").strip().upper()
         if st in ("TX", "TEXAS"):
             status = "cited"
-            detail = "Texas: confirm ERCOT + serving TDSP large-load / interconnection path"
-            source_label = "ERCOT / TDSP"
+            detail = "Texas: confirm ERCOT + serving TDSP large-load / interconnection path on the official page. Not an interconnection study."
+            source_url = "https://www.ercot.com/mktrules/guides/loadinterconnection"
+            source_label = "ERCOT large-load interconnection"
         else:
             status = "confirm"
             detail = "Confirm ISO / serving utility large-load path for this state"
-            source_label = "Utility region"
+            source_url = "https://www.permits.performance.gov/"
+            source_label = "Permitting Council (federal screen)"
         verified = False
     elif fill == "docs" and bits.get("documents"):
         status = "cited"
@@ -319,8 +330,16 @@ def _fill_item(
         verified = False
     else:
         status = "confirm"
-        detail = "Confirm with AHJ / utility / counsel — no automatic cite"
-        source_label = "Confirm"
+        source_url = str(item.get("confirm_url") or "")
+        source_label = str(item.get("confirm_label") or "") or ("Official confirm page" if source_url else "Confirm with AHJ")
+        detail = str(
+            item.get("confirm_detail")
+            or (
+                "Open the official page and confirm for this site — linked, not parcel-verified."
+                if source_url
+                else "Confirm with AHJ / utility / counsel — no automatic cite"
+            )
+        )
 
     # IC-only items stay Confirm on Pro depth unless already cited
     if item.get("_tier") == "ic" and depth != "ic" and status == "confirm":
