@@ -41,6 +41,8 @@ function generateClientResearchId(): string {
 
 /** Once per document load — remount after Moratorium→Home must not re-wipe session results. */
 let homeSessionInitDone = false;
+/** Prevents useEffect from wiping the form a second time after useLayoutEffect on hard reload. */
+let homeHardReloadWiped = false;
 
 type ProgressStep = 'geocode' | 'screen' | 'punch';
 
@@ -118,9 +120,12 @@ export default function FreeTrialForm({
   /** Delay mounting contact inputs so Chrome cannot autofill a pre-painted email field */
   const [contactFieldsReady, setContactFieldsReady] = useState(false);
   const contactAutofillPurgeUntilRef = useRef(0);
+  /** Once the user touches email/phone, never run contact autofill wipe again. */
+  const userEditedContactRef = useRef(false);
   const unlockFields = () => {
     setFieldsUnlocked(true);
     contactAutofillPurgeUntilRef.current = 0;
+    userEditedContactRef.current = true;
   };
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -642,6 +647,7 @@ export default function FreeTrialForm({
       return;
     }
 
+    homeHardReloadWiped = true;
     try {
       sessionStorage.removeItem('userEmail');
       sessionStorage.removeItem('analysisResults');
@@ -659,6 +665,7 @@ export default function FreeTrialForm({
     setResultsOpen(false);
     setExternalLocation(null);
     setFieldsUnlocked(false);
+    userEditedContactRef.current = false;
     setFormData((prev) => ({
       ...prev,
       address: '',
@@ -671,44 +678,12 @@ export default function FreeTrialForm({
       lng: null,
     }));
     setLocationResetKey((k) => k + 1);
+    // Contact fields mount after a short delay so Chrome cannot paint-autofill into them.
+    // Do NOT keep wiping email/phone after mount — that was clearing user input mid-typing.
     setContactFieldsReady(false);
-    contactAutofillPurgeUntilRef.current = Date.now() + 2500;
-
-    const wipeDomInputs = () => {
-      try {
-        document.querySelectorAll('#free-trial-form input').forEach((node) => {
-          const el = node as HTMLInputElement;
-          if (el.readOnly && document.activeElement === el) return;
-          if (el.name && /rg_contact|rg_jobsite/.test(el.name)) {
-            el.value = '';
-            el.defaultValue = '';
-          }
-        });
-      } catch {
-        /* ignore */
-      }
-    };
-
-    const purgeContact = () => {
-      if (Date.now() > contactAutofillPurgeUntilRef.current) return;
-      setFormData((prev) =>
-        prev.email || prev.phone ? { ...prev, email: '', phone: '' } : prev
-      );
-      wipeDomInputs();
-    };
     const tReady = window.setTimeout(() => setContactFieldsReady(true), 120);
-    const t1 = window.setTimeout(purgeContact, 50);
-    const t2 = window.setTimeout(purgeContact, 350);
-    const t3 = window.setTimeout(purgeContact, 700);
-    const t4 = window.setTimeout(purgeContact, 1500);
-    const t5 = window.setTimeout(purgeContact, 2500);
     return () => {
       window.clearTimeout(tReady);
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.clearTimeout(t3);
-      window.clearTimeout(t4);
-      window.clearTimeout(t5);
     };
   }, []);
 
@@ -722,9 +697,12 @@ export default function FreeTrialForm({
       | PerformanceNavigationTiming
       | undefined;
     const isHardReload = nav?.type === 'reload';
-    // Only blank-slate on the first hard-reload mount of this document
+    // Only blank-slate on the first hard-reload mount — layout effect already wiped once.
     const wipeHardReloadSession =
-      isHardReload && !sessionStorage.getItem('analysisResults') && !sessionStorage.getItem('researchId');
+      isHardReload &&
+      !homeHardReloadWiped &&
+      !sessionStorage.getItem('analysisResults') &&
+      !sessionStorage.getItem('researchId');
 
     // Soft nav / resume: restore last results and re-open the panel
     try {
@@ -734,7 +712,7 @@ export default function FreeTrialForm({
         resume ||
         sessionStorage.getItem('resultsOpen') === '1' ||
         Boolean(stored);
-      if (stored && !wipeHardReloadSession) {
+      if (stored && !wipeHardReloadSession && !homeHardReloadWiped) {
         const parsed = JSON.parse(stored) as AnalysisData;
         setAnalysis(parsed);
         setResearchId(rid || parsed.research_id || null);
@@ -758,6 +736,7 @@ export default function FreeTrialForm({
 
     if (!explicitRestore) {
       if (wipeHardReloadSession) {
+        homeHardReloadWiped = true;
         clearLastResearchForm();
         clearPendingIcReport();
         try {
@@ -1108,9 +1087,11 @@ export default function FreeTrialForm({
               inputMode="email"
               name={`rg_contact_email_${locationResetKey}`}
               value={formData.email}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, email: e.target.value }))
-              }
+              onChange={(e) => {
+                userEditedContactRef.current = true;
+                contactAutofillPurgeUntilRef.current = 0;
+                setFormData((prev) => ({ ...prev, email: e.target.value }));
+              }}
               onFocus={unlockFields}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -1132,8 +1113,8 @@ export default function FreeTrialForm({
             />
             <p className="text-xs text-gray-400 mt-2">
               Email is required to run a lookup. SMS is never required — after results you may
-              optionally tap Text me (separate consent checkbox). Hard refresh clears fields;
-              email is only restored after checkout.
+              optionally tap Text me (separate consent checkbox). Hard refresh starts a clean form;
+              typing email will not clear your address.
             </p>
           </div>
             </>

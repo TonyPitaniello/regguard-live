@@ -209,10 +209,19 @@ export function LocationPicker({
     setSiteFieldsUnlocked(false);
     destroyMap();
     setMapEpoch((e) => e + 1);
-    autofillPurgeUntilRef.current = Date.now() + 700;
+    // Brief autofill purge — cancel immediately if user focuses site OR contact fields.
+    // (Chrome often autofills home address when the user types email; wiping then was
+    // blanking the jobsite the user had already entered.)
+    autofillPurgeUntilRef.current = Date.now() + 400;
     const purge = () => {
       if (Date.now() > autofillPurgeUntilRef.current) return;
       if (siteFieldFocusedRef.current) return;
+      const ae = document.activeElement;
+      if (ae instanceof HTMLElement) {
+        if (ae.closest('[data-rg-contact-fields]')) return;
+        if (ae.closest('[data-rg-site-fields]')) return;
+        if (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') return;
+      }
       setAddress('');
       setCity('');
       setState('');
@@ -220,11 +229,9 @@ export function LocationPicker({
     };
     const t1 = window.setTimeout(purge, 50);
     const t2 = window.setTimeout(purge, 350);
-    const t3 = window.setTimeout(purge, 700);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
-      window.clearTimeout(t3);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetKey]);
