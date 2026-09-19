@@ -97,17 +97,15 @@ export function PlatformDashboard() {
             Pre-bid punch lists you can defend
           </h2>
           <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
-            Enter a US address — get a forwardable Bid Risk Receipt. Strongest citeable local
-            depth today: Dallas, Plano, Austin, Frisco, and Fort Worth (Round Rock corridor too).
-            Source on every line, or an honest Unverified.
-            No credit card.
+            Enter a US address — get a forwardable Bid Risk Receipt. Source on every line, or an
+            honest Unverified. No credit card required to try it free.
           </p>
         </div>
 
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
-            Built for commercial, industrial, and data-center-adjacent bids — DFW / Austin first.
+            Built for commercial, industrial, and data-center-adjacent bids.
             {forwards != null && forwards > 0 ? (
               <>
                 {' '}
