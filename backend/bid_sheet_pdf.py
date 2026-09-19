@@ -91,7 +91,7 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
             label = fee.get("label") or "Fee"
             amt = fee.get("amount_usd")
             amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
-            trade = fee.get("trade") or "general"
+            trade = str(fee.get("trade") or "general").strip().upper() or "GENERAL"
             pdf.write_wrapped(f"[{trade}] {label}: {amt_s}", size=9, bold=True, h=5)
             if fee.get("detail"):
                 pdf.write_wrapped(str(fee.get("detail")), size=8, color=_MUTED, h=4)
