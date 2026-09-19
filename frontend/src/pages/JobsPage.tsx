@@ -169,7 +169,10 @@ export default function JobsPage() {
                       const res = await fetch(backendUrl(`/jobs/${j.id}/recheck`), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ owner_email: emailNorm }),
+                        body: JSON.stringify({
+                          owner_email: emailNorm,
+                          owner_key: getOwnerKey() || undefined,
+                        }),
                       });
                       const data = await res.json().catch(() => ({}));
                       if (!res.ok) throw new Error(data.detail || 'Recheck failed');
