@@ -208,7 +208,7 @@ export default function PartnerPortalPage() {
                 Affiliate signup
               </Link>
               <Link to="/pricing" className="text-emerald-300 underline">
-                Pricing (IC $1,500)
+                Pricing (IC Diligence Bundle $1,500)
               </Link>
             </div>
 

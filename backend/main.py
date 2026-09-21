@@ -510,6 +510,7 @@ app.add_middleware(
         "X-Reg-Guard-Regulatory-Shield",
         "X-RegGuard-Artifact",
         "X-RegGuard-Boardroom-Qa",
+        "X-RegGuard-Filename",
         "Content-Disposition",
     ],
 )
@@ -4554,9 +4555,7 @@ async def post_bid_sheet_csv(body: BidSheetRequest):
     return Response(
         content=csv_text,
         media_type="text/csv; charset=utf-8",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Sheet.csv"',
-        },
+        headers=_attachment_headers(analysis, "BID SHEET", "csv", artifact="bid_sheet_csv"),
     )
 
 
@@ -4575,9 +4574,7 @@ async def post_bid_sheet_pdf(body: BidSheetRequest):
     return Response(
         content=data,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Sheet.pdf"',
-        },
+        headers=_attachment_headers(analysis, "BID SHEET", "pdf", artifact="bid_sheet_pdf"),
     )
 
 
@@ -4597,10 +4594,7 @@ async def post_city_pack_pdf(body: BidSheetRequest):
     return Response(
         content=data,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_Full_City_Pack.pdf"',
-            "X-RegGuard-Artifact": "city_pack",
-        },
+        headers=_attachment_headers(analysis, "FULL CITY PACK", "pdf", artifact="city_pack"),
     )
 
 
@@ -5523,6 +5517,22 @@ def _unwrap_analysis_body(body: Dict[str, Any]) -> tuple:
     return data, generated_for, share_url, mode
 
 
+def _artifact_attachment_filename(analysis: Dict[str, Any], doc_kind: str, ext: str) -> str:
+    from artifact_naming import title_and_filename
+
+    _site, _title, filename = title_and_filename(analysis, doc_kind, ext=ext)
+    return filename
+
+
+def _attachment_headers(analysis: Dict[str, Any], doc_kind: str, ext: str, *, artifact: str) -> Dict[str, str]:
+    name = _artifact_attachment_filename(analysis, doc_kind, ext)
+    return {
+        "Content-Disposition": f'attachment; filename="{name}"',
+        "X-RegGuard-Artifact": artifact,
+        "X-RegGuard-Filename": name,
+    }
+
+
 @app.post("/ic-package/docx", tags=["Samples"])
 async def create_ic_boardroom_package_docx(body: Dict[str, Any] = Body(...)):
     """
@@ -5581,11 +5591,76 @@ async def create_ic_boardroom_package_docx(body: Dict[str, Any] = Body(...)):
     return Response(
         content=raw,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_IC_Diligence_Package.docx"',
-            "X-RegGuard-Artifact": "ic_package_docx",
-        },
+        headers=_attachment_headers(data, "IC DILIGENCE PACKAGE", "docx", artifact="ic_package_docx"),
     )
+
+
+@app.post("/ic-package/bundle", tags=["Samples"])
+async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
+    """
+    $1,500 IC Diligence Bundle (ZIP) for IC / sponsor / lender buyers.
+
+    Contents: decision memo PDF + counsel DOCX + fee/punch CSV + evidence index CSV.
+    Same paywall as /ic-package/pdf.
+    """
+    from entitlement import access_summary
+    from ic_project_fulfillment import is_ic_tier
+
+    data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    email_l = str(generated_for or body.get("email") or "").strip().lower()
+    if not email_l or "@" not in email_l:
+        raise HTTPException(
+            status_code=403,
+            detail="IC Diligence Bundle requires the purchase email on the request.",
+        )
+
+    ent = access_summary(email_l)
+    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
+    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
+    if not has_ic_entitlement:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "IC Diligence Bundle requires an IC Project purchase for this email. "
+                "Open Pricing → IC Project, then re-run with Generate IC Report."
+            ),
+        )
+
+    resolved = share_url
+    try:
+        from research_store import resolve_forward_share_url, save_research, stamp_depth_badge
+
+        data = stamp_depth_badge(data)
+        if not resolve_forward_share_url(data, share_url=share_url):
+            meta = save_research(data, research_id=data.get("research_id"))
+            data["research_id"] = meta["research_id"]
+            data["share_url"] = meta["share_url"]
+        resolved = resolve_forward_share_url(data, share_url=share_url) or share_url
+    except Exception:
+        resolved = share_url
+
+    try:
+        from ic_diligence_bundle import build_ic_diligence_bundle_zip
+
+        raw, filename = build_ic_diligence_bundle_zip(
+            data,
+            generated_for=str(generated_for or ""),
+            share_url=str(resolved or ""),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"IC Diligence Bundle failed: {e}") from e
+
+    from fastapi.responses import Response
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "X-RegGuard-Artifact": "ic_diligence_bundle",
+        "X-RegGuard-Filename": filename,
+        "Access-Control-Expose-Headers": (
+            "X-RegGuard-Artifact, X-RegGuard-Filename, Content-Disposition"
+        ),
+    }
+    return Response(content=raw, media_type="application/zip", headers=headers)
 
 
 @app.post("/ic-package/pdf", tags=["Samples"])
@@ -5672,11 +5747,10 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)):
     except Exception:
         qa_header = ""
 
-    headers = {
-        "Content-Disposition": 'attachment; filename="RegGuard_IC_Diligence_Package.pdf"',
-        "X-RegGuard-Artifact": "ic_package",
-        "Access-Control-Expose-Headers": "X-RegGuard-Artifact, X-RegGuard-Boardroom-Qa",
-    }
+    headers = _attachment_headers(data, "IC DILIGENCE PACKAGE", "pdf", artifact="ic_package")
+    headers["Access-Control-Expose-Headers"] = (
+        "X-RegGuard-Artifact, X-RegGuard-Boardroom-Qa, X-RegGuard-Filename, Content-Disposition"
+    )
     if qa_header:
         headers["X-RegGuard-Boardroom-Qa"] = qa_header
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
@@ -5732,10 +5806,7 @@ async def create_bid_receipt_pdf(body: Dict[str, Any] = Body(...)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
-            "X-RegGuard-Artifact": "bid_risk_receipt",
-        },
+        headers=_attachment_headers(data, "BID RISK RECEIPT", "pdf", artifact="bid_risk_receipt"),
     )
 
 
@@ -5785,10 +5856,7 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": 'attachment; filename="RegGuard_Bid_Packet.pdf"',
-                "X-RegGuard-Artifact": "bid_packet",
-            },
+            headers=_attachment_headers(data, "BID PACKET", "pdf", artifact="bid_packet"),
         )
 
     resolved = share_url
@@ -5814,10 +5882,7 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={
-            "Content-Disposition": 'attachment; filename="RegGuard_Bid_Risk_Receipt.pdf"',
-            "X-RegGuard-Artifact": "bid_risk_receipt",
-        },
+        headers=_attachment_headers(data, "BID RISK RECEIPT", "pdf", artifact="bid_risk_receipt"),
     )
 
 

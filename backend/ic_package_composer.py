@@ -10,8 +10,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-PACKAGE_SCHEMA = "regguard.ic_package.v1"
-PACKAGE_VERSION = 1
+PACKAGE_SCHEMA = "regguard.ic_package.v2"
+PACKAGE_VERSION = 2
 
 
 def _s(v: Any, limit: int = 2000) -> str:
@@ -525,7 +525,7 @@ def _parallel_clock_rows(
     pi: Dict[str, Any],
     killers: List[Dict[str, str]],
 ) -> List[Dict[str, str]]:
-    """AHJ + utility clocks — synthesize for large-load / data-center sites when missing."""
+    """AHJ + interconnect + water/NPDES clocks for large-load / data-center sites."""
     clocks = analysis.get("parallel_clocks") if isinstance(analysis.get("parallel_clocks"), dict) else {}
     rows: List[Dict[str, str]] = []
     for c in clocks.get("clocks") or []:
@@ -535,6 +535,8 @@ def _parallel_clock_rows(
             {
                 "name": _s(c.get("name") or c.get("label"), 80),
                 "detail": _s(c.get("detail") or c.get("note") or c.get("status"), 240),
+                "owner": _s(c.get("owner") or c.get("responsible") or "PM", 40),
+                "track": _s(c.get("track") or "", 40),
             }
         )
     blob = " ".join(
@@ -542,6 +544,7 @@ def _parallel_clock_rows(
             _s(pi.get("type")),
             _s(analysis.get("project_type")),
             " ".join(_s(k.get("title")) + " " + _s(k.get("detail")) for k in killers),
+            _s((analysis.get("dc_positioning") or {}).get("headline") if isinstance(analysis.get("dc_positioning"), dict) else ""),
         ]
     ).lower()
     large = any(
@@ -554,30 +557,263 @@ def _parallel_clock_rows(
             "interconnect",
             "mission-critical",
             "colo",
+            "hyperscale",
         )
     )
-    if large and len(rows) < 2:
+    if large:
         city = _s(pi.get("city") or "Local", 40)
+        st = _s(pi.get("state"), 8).upper()
         have = " ".join(r["name"].lower() + " " + r["detail"].lower() for r in rows)
+
+        def _ensure(name: str, detail: str, track: str, owner: str) -> None:
+            key = name.lower().split()[0]
+            if any(key in (r.get("name") or "").lower() or key in (r.get("detail") or "").lower() for r in rows):
+                return
+            if any(t in have for t in track.lower().split("/") if len(t) > 3):
+                # still add if track keyword missing from names
+                pass
+            rows.append({"name": name, "detail": detail, "owner": owner, "track": track})
+
         if "ahj" not in have and "permit" not in have and "municipal" not in have:
-            rows.insert(
-                0,
-                {
-                    "name": f"{city} AHJ permits",
-                    "detail": "Municipal plan review / trade permits run on the city clock.",
-                },
+            _ensure(
+                f"{city} AHJ permits",
+                "Municipal plan review / trade permits run on the city clock — independent of utility.",
+                "AHJ",
+                "Permit runner / Estimator",
             )
-        if "utility" not in have and "interconnect" not in have:
-            rows.append(
-                {
-                    "name": "Utility interconnection",
-                    "detail": (
-                        "Serving utility / TDSP interconnection often runs parallel to AHJ "
-                        "permits — build contingency for both clocks."
-                    ),
-                }
+        if "utility" not in have and "interconnect" not in have and "tdsp" not in have and "ercot" not in have:
+            util = (
+                "ERCOT / TDSP large-load interconnection (Texas)"
+                if st in ("TX", "TEXAS")
+                else "Serving utility / ISO interconnection"
             )
-    return rows[:6]
+            _ensure(
+                util,
+                "Interconnection / large-load study often runs parallel to AHJ permits — slip stacks.",
+                "INTERCONNECT",
+                "Owner / Utility lead",
+            )
+        if "npdes" not in have and "water" not in have and "cooling" not in have and "stormwater" not in have:
+            _ensure(
+                "Water / NPDES / cooling path",
+                "Consumptive use, discharge, and construction stormwater (NPDES/CGP) can gate schedule "
+                "independently of building permits — confirm early for cooling-heavy loads.",
+                "WATER_NPDES",
+                "Env / Civil",
+            )
+    # Normalize missing fields on existing rows
+    for r in rows:
+        r.setdefault("owner", "PM")
+        r.setdefault("track", "")
+    return rows[:8]
+
+
+def build_evidence_binder(
+    *,
+    killers: List[Dict[str, str]],
+    fees: List[Dict[str, str]],
+    punch: List[Dict[str, Any]],
+    gotchas: List[Dict[str, str]],
+    sources: List[Dict[str, str]],
+    ahj: Dict[str, Any],
+    clocks: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """
+    Numbered exhibits mapped to HOLD / fee / punch claims.
+
+    Exhibit IDs are stable for this package generation (EX-001…). Claims without a
+    URL are listed as Unverified and do not receive an exhibit number.
+    """
+    exhibits: List[Dict[str, Any]] = []
+    by_url: Dict[str, str] = {}
+    claims: List[Dict[str, Any]] = []
+
+    def _exhibit_for(url: str, title: str, kind: str) -> Optional[str]:
+        u = _s(url, 400)
+        if not u.startswith("http"):
+            return None
+        if u in by_url:
+            return by_url[u]
+        eid = f"EX-{len(exhibits) + 1:03d}"
+        by_url[u] = eid
+        exhibits.append(
+            {
+                "id": eid,
+                "title": _s(title, 160) or f"Exhibit {eid}",
+                "kind": kind,
+                "url": u,
+            }
+        )
+        return eid
+
+    def _claim(
+        *,
+        claim_type: str,
+        label: str,
+        detail: str = "",
+        url: str = "",
+        priority: str = "",
+        trade: str = "",
+        owner: str = "",
+    ) -> None:
+        eid = _exhibit_for(url, label, claim_type)
+        claims.append(
+            {
+                "claim_type": claim_type,
+                "label": _s(label, 200),
+                "detail": _s(detail, 400),
+                "priority": _s(priority, 20).upper(),
+                "trade": _s(trade, 40).upper(),
+                "owner": _s(owner, 60),
+                "exhibit_id": eid or "",
+                "source_url": _s(url, 400),
+                "status": "EXHIBITED" if eid else "UNVERIFIED",
+            }
+        )
+
+    # AHJ portals first (foundation exhibits)
+    if ahj.get("portal_url"):
+        _claim(
+            claim_type="ahj",
+            label=f"AHJ portal — {_s(ahj.get('name') or 'Local AHJ', 80)}",
+            url=_s(ahj.get("portal_url"), 400),
+            owner="Permit runner",
+        )
+    if ahj.get("fees_url") and _s(ahj.get("fees_url")) != _s(ahj.get("portal_url")):
+        _claim(
+            claim_type="ahj_fees",
+            label="AHJ fee schedule",
+            url=_s(ahj.get("fees_url"), 400),
+            owner="Estimator",
+        )
+
+    for k in killers:
+        _claim(
+            claim_type="hold_driver",
+            label=_s(k.get("title"), 160),
+            detail=_s(k.get("detail"), 400),
+            url=_s(k.get("source_url"), 400),
+            priority=_s(k.get("priority"), 20),
+            owner="IC / Estimator",
+        )
+
+    for g in gotchas:
+        _claim(
+            claim_type="gotcha",
+            label=_s(g.get("title"), 160),
+            detail=_s(g.get("detail"), 400),
+            url=_s(g.get("source_url"), 400),
+            priority=_s(g.get("priority"), 20),
+            owner=_s(g.get("owner") or "Estimator / PM", 60),
+        )
+
+    for f in fees:
+        _claim(
+            claim_type="fee",
+            label=_s(f.get("name"), 120),
+            detail=_s(f.get("note") or f.get("amount"), 200),
+            url=_s(f.get("source_url"), 400),
+            trade=_s(f.get("trade"), 40),
+            owner="Estimator / Permit runner",
+        )
+
+    for item in punch:
+        _claim(
+            claim_type="punch",
+            label=_s(item.get("task"), 200),
+            detail=_s(item.get("timeline"), 80),
+            url=_s(item.get("source_url"), 400),
+            priority=_s(item.get("priority"), 20),
+            trade=_s(item.get("trade"), 40),
+            owner=_s(item.get("owner") or item.get("responsible_party") or "Estimator / PM", 60),
+        )
+
+    for c in clocks:
+        # Clocks rarely have URLs; still list as claims for the track
+        _claim(
+            claim_type="parallel_clock",
+            label=_s(c.get("name"), 80),
+            detail=_s(c.get("detail"), 240),
+            url="",
+            owner=_s(c.get("owner") or "PM", 60),
+        )
+
+    # Orphan scout sources not yet claimed
+    claimed_urls = {e["url"] for e in exhibits}
+    for src in sources:
+        u = _s(src.get("url"), 400)
+        if u.startswith("http") and u not in claimed_urls:
+            _exhibit_for(u, _s(src.get("label") or "Scout source", 120), "source")
+
+    exhibited = sum(1 for c in claims if c.get("exhibit_id"))
+    unverified = sum(1 for c in claims if not c.get("exhibit_id"))
+    return {
+        "exhibits": exhibits,
+        "claims": claims,
+        "summary": {
+            "exhibit_count": len(exhibits),
+            "claim_count": len(claims),
+            "exhibited_claims": exhibited,
+            "unverified_claims": unverified,
+        },
+    }
+
+
+def evidence_index_to_csv(binder: Dict[str, Any], *, site: str = "") -> str:
+    """CSV index of exhibits + claim→exhibit map for Excel."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(
+        [
+            "row_type",
+            "exhibit_id",
+            "claim_type",
+            "priority",
+            "trade",
+            "owner",
+            "label",
+            "detail",
+            "status",
+            "source_url",
+            "site",
+        ]
+    )
+    for ex in binder.get("exhibits") or []:
+        w.writerow(
+            [
+                "exhibit",
+                ex.get("id"),
+                ex.get("kind"),
+                "",
+                "",
+                "",
+                ex.get("title"),
+                "",
+                "EXHIBIT",
+                ex.get("url"),
+                site,
+            ]
+        )
+    for c in binder.get("claims") or []:
+        w.writerow(
+            [
+                "claim",
+                c.get("exhibit_id") or "",
+                c.get("claim_type"),
+                c.get("priority"),
+                c.get("trade"),
+                c.get("owner"),
+                c.get("label"),
+                c.get("detail"),
+                c.get("status"),
+                c.get("source_url"),
+                site,
+            ]
+        )
+    return buf.getvalue()
 
 
 def compose_ic_package(
@@ -640,6 +876,29 @@ def compose_ic_package(
     clock_rows = _parallel_clock_rows(data, pi, killers)
     inspection_steps = _inspection_steps(data, 15)
     doc_checklist = _document_checklist(data, 20)
+    binder = build_evidence_binder(
+        killers=killers,
+        fees=fees,
+        punch=punch,
+        gotchas=gotchas,
+        sources=sources,
+        ahj=ahj,
+        clocks=clock_rows,
+    )
+    # Stamp exhibit IDs onto punch / fee / killer rows for DOCX + CSV consumers
+    url_to_ex = {e["url"]: e["id"] for e in binder.get("exhibits") or [] if e.get("url")}
+    for k in killers:
+        u = _s(k.get("source_url"), 400)
+        if u in url_to_ex:
+            k["exhibit_id"] = url_to_ex[u]
+    for f in fees:
+        u = _s(f.get("source_url"), 400)
+        if u in url_to_ex:
+            f["exhibit_id"] = url_to_ex[u]
+    for item in punch:
+        u = _s(item.get("source_url"), 400)
+        if u in url_to_ex:
+            item["exhibit_id"] = url_to_ex[u]
 
     depth = _s(
         data.get("depth_badge")
@@ -671,15 +930,48 @@ def compose_ic_package(
             f"then confirm dollars on the {ahj_name} fee schedule before bid."
         )
 
+    top3 = killers[:3]
+    decision_memo = {
+        "title": "One-page decision memo",
+        "stamp": stamp,
+        "contingency": contingency,
+        "top_drivers": [
+            {
+                **k,
+                "exhibit_id": k.get("exhibit_id") or "",
+            }
+            for k in top3
+        ],
+        "headline": headline,
+        "recommendation": (
+            f"REGGUARD STAMP: {stamp.get('display') or grade or 'UNKNOWN'} — "
+            + (
+                f"carry +{contingency.get('pct_low')}% to +{contingency.get('pct_high')}% contingency"
+                if contingency and contingency.get("pct_low") is not None
+                else "confirm contingency with estimator"
+            )
+        ),
+    }
+
+    is_dc = any(
+        x in " ".join([_s(pi.get("type")), _s(data.get("project_type"))]).lower()
+        for x in ("data-center", "data center", "colo", "large-load", "large load", "hyperscale")
+    ) or bool(data.get("dc_positioning")) or len(clock_rows) >= 2
+
     pkg = {
         "schema": PACKAGE_SCHEMA,
         "version": PACKAGE_VERSION,
         "generated_at": now,
         "generated_for": _s(generated_for, 120).lower(),
         "share_url": share,
+        "deliverable": {
+            "primary": "IC Diligence Bundle (DOCX + CSV schedule + evidence index + decision memo PDF)",
+            "forward_artifact": "Bid Risk Receipt PDF (1-page stamp / contingency / top drivers)",
+            "price_positioning": "$1,500 IC Project — counsel-ready diligence package for one site",
+        },
         "cover": {
             "product": f"RegGuard IC Diligence Package — {site_line}",
-            "price_positioning": "$1,500 IC Project Report — bound site diligence",
+            "price_positioning": "$1,500 IC Project — decision memo + counsel DOCX + fee/punch CSV + evidence binder",
             "site": site_line,
             "address": pi.get("address"),
             "city": pi.get("city"),
@@ -690,12 +982,14 @@ def compose_ic_package(
             "depth_badge": depth,
             "coverage_badge": _s(coverage.get("badge") or coverage.get("badge_short"), 80),
             "research_id": _s(data.get("research_id"), 80),
+            "is_data_center_track": is_dc,
         },
+        "decision_memo": decision_memo,
         "executive_summary": {
             "headline": headline,
             "stamp": stamp,
             "contingency": contingency,
-            "top_risks": killers[:3],
+            "top_risks": top3,
             "local_gotchas": gotchas[:3],
             "next_actions": actions[:3],
             "env_risk": _s(env.get("risk_level"), 40),
@@ -704,7 +998,7 @@ def compose_ic_package(
             "title": "Bid Risk Receipt - forward to GC / owner",
             "stamp": stamp,
             "contingency": contingency,
-            "killers": killers[:3],
+            "killers": top3,
             "share_url": share,
             "disclaimer": (
                 "Planning aid for citeable pre-bid / pre-LOI screening only. "
@@ -733,16 +1027,28 @@ def compose_ic_package(
                 {
                     "category": _s(f.get("category"), 80),
                     "description": _s(f.get("description"), 400),
+                    "source_url": _s(f.get("source_url"), 400),
+                    "risk_level": _s(f.get("risk_level"), 20),
                 }
-                for f in (env.get("findings") or [])[:6]
+                for f in (env.get("findings") or [])[:8]
                 if isinstance(f, dict)
             ],
             "parallel_clocks": clock_rows,
+        },
+        "parallel_clocks_track": {
+            "enabled": is_dc or len(clock_rows) >= 2,
+            "title": "Data-center / large-load parallel clocks",
+            "headline": (
+                "AHJ permits, interconnection, and water/NPDES run as independent clocks — "
+                "schedule risk stacks when any one slips."
+            ),
+            "clocks": clock_rows,
         },
         "punch_list": {
             "timeline_summary": _s(punch_obj.get("timeline_summary"), 80),
             "items": punch,
         },
+        "evidence_binder": binder,
         "action_plan_summary": actions,
         "action_plan_excerpt": _s((data.get("pro_summary_markdown") or "")[:2500], 2500),
         "sources": sources,
@@ -752,6 +1058,7 @@ def compose_ic_package(
             "NOT an interconnection study, geotech report, power study, or AHJ approval.",
             "Stamp CLEAR / CAUTION / HOLD is a pre-bid risk signal, not a credit rating or AHJ rejection.",
             "Dollar and day figures are planning aids unless marked citeable and still require live confirm.",
+            "Evidence exhibits are hyperlinks to official sources — counsel should verify currency before reliance.",
             "Payments are handled by Stripe Checkout — Reg Guard does not store card numbers.",
             "Package bound to the site address shown on the cover at generation time.",
         ],

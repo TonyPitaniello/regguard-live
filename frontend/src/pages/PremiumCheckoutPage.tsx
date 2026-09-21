@@ -13,74 +13,53 @@ import {
   setPendingIcReport,
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
+import { HABIT_TIERS } from '../habitDeliverableLadder';
+
 const TIERS = {
   partner: {
-    name: 'Partner / Permit Runner',
-    segment: 'Partner',
+    name: HABIT_TIERS.partner.name,
+    segment: 'Estimator / Permit Runner',
     price: '$79/month',
     price_cents: 7900,
     mode: 'subscription' as const,
-    description:
-      'For permit runners and partners screening DFW / Austin sites for clients',
-    features: [
-      'Deeper scout research on paid email',
-      'Forwardable punch lists with Source / Unverified',
-      'Saved Jobs + weekly reminders',
-      'Email support',
-    ],
+    description: HABIT_TIERS.partner.oneLiner,
+    features: [...HABIT_TIERS.partner.features],
     delivery_time: 'Instant access',
     color: 'from-teal-600 to-emerald-600',
   },
   contractor_pro: {
-    name: 'Contractor Pro',
+    name: HABIT_TIERS.contractor_pro.name,
     segment: 'Contractor',
     price: '$149/month',
     price_cents: 14900,
     mode: 'subscription' as const,
-    description: 'Unlimited lookups and punch lists for active contractors',
-    features: [
-      'Unlimited free lookups',
-      'Full punch lists & timelines',
-      'Saved project history',
-      'Priority email support',
-    ],
+    description: HABIT_TIERS.contractor_pro.oneLiner,
+    features: [...HABIT_TIERS.contractor_pro.features],
     delivery_time: 'Instant access',
     color: 'from-emerald-600 to-green-600',
   },
   ic_project: {
-    name: 'IC Project Report',
-    segment: 'IC Consultant',
-    price: '$1,500',
+    name: IC_BUNDLE.tierName,
+    segment: IC_BUNDLE.segment,
+    price: IC_BUNDLE.priceLabel,
     price_cents: 150000,
     mode: 'payment' as const,
-    description:
-      'One-time planning diligence PDF package (memo + punch list + permit worksheet). Not an official AHJ filing.',
-    features: [
-      'Research memo (PDF)',
-      'Contractor punch list (PDF)',
-      'Permit package worksheet (PDF) — planning aid, not official filing',
-      'Editable IC Diligence DOCX (hyperlinked sources)',
-      'Strongest citeable coverage: Dallas / Plano / Austin TX',
-      'Generated after you run a site lookup with this email',
-    ],
-    delivery_time: 'After your first paid site lookup',
+    description: IC_BUNDLE.cardDescription,
+    features: [...IC_BUNDLE.featureBullets],
+    delivery_time: 'ZIP after your IC-depth site lookup',
     color: 'from-blue-600 to-indigo-600',
   },
   ic_annual: {
     name: 'IC Annual',
-    segment: 'IC Consultant',
+    segment: IC_BUNDLE.segment,
     price: '$15,000/year',
     price_cents: 1500000,
     mode: 'subscription' as const,
-    description:
-      'After at least one IC Project: regenerate PDF packages for more sites (planning worksheets, not official AHJ filings)',
-    features: [
-      'Requires a prior IC Project Report purchase',
-      'Regenerate Project Report PDFs for new site addresses',
-      'Same research memo + punch list + permit worksheet package',
-      'Strongest citeable coverage: Dallas / Plano / Austin TX',
-    ],
-    delivery_time: 'After each confirmed site lookup',
+    description: IC_BUNDLE.annualDescription,
+    features: [...IC_BUNDLE.annualFeatures],
+    delivery_time: 'ZIP after each confirmed IC site lookup',
     color: 'from-indigo-600 to-blue-600',
   },
 };
@@ -228,7 +207,13 @@ function TierSelectionStep({ onSelect }: { onSelect: (tier: string) => void }) {
   return (
     <div>
       <h2 className="text-3xl font-black text-white mb-2">Choose Your Plan</h2>
-      <p className="text-gray-400 mb-12">Select the tier that fits your segment</p>
+      <p className="text-gray-400 mb-8">
+        Select the tier that fits your segment. IC buyers: you&apos;re purchasing the{' '}
+        <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> — a
+        counsel-ready ZIP, not a longer PDF stack.
+      </p>
+
+      <IcDiligenceBundlePitch className="mb-10" />
 
       <div className="grid md:grid-cols-2 gap-6">
         {PUBLIC_TIER_KEYS.map((key) => {
@@ -316,12 +301,12 @@ function CheckoutFormStep({
               <p>✓ {tierInfo.mode === 'payment' ? 'One-time payment' : 'Recurring billing'}</p>
               <p>✓ {tierInfo.delivery_time}</p>
               {(tier === 'ic_project' || tier === 'ic_annual') && (
-                <p className="mt-2 text-purple-100/90">
-                  After payment, run a site lookup with this email — your Project Report PDFs
-                  appear in My Orders.
-                </p>
+                <p className="mt-2 text-purple-100/90">{IC_BUNDLE.deliveryHint}</p>
               )}
             </div>
+            {(tier === 'ic_project' || tier === 'ic_annual') && (
+              <IcDiligenceBundlePitch variant="compact" className="mt-4" showWhy={false} />
+            )}
             <button onClick={onBack} className="mt-4 text-sm text-gray-400 hover:text-white">
               Change plan
             </button>
@@ -505,8 +490,8 @@ function PaymentForm({
             <>
               <p className="font-bold">No site bound yet</p>
               <p className="mt-1 text-xs text-amber-200/90">
-                Run a free site lookup first, then open Get IC Project Report from results — or enter
-                the address on My Orders after payment.
+                Run a free site lookup first, then open Get IC Diligence Bundle from results — or
+                enter the address on My Orders after payment.
               </p>
             </>
           )}
@@ -548,9 +533,13 @@ function SuccessStep({ tier }: { tier: TierKey }) {
       <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-6" />
       <h2 className="text-3xl font-black text-white mb-4">Payment Successful!</h2>
       <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
-        Thank you! Your {tierInfo.name} purchase has been processed. Re-run your site lookup with
-        this same email to unlock deeper research results.
+        {tier === 'ic_project' || tier === 'ic_annual'
+          ? IC_BUNDLE.successBody
+          : `Thank you! Your ${tierInfo.name} purchase has been processed. Re-run your site lookup with this same email to unlock deeper research results.`}
       </p>
+      {(tier === 'ic_project' || tier === 'ic_annual') && (
+        <IcDiligenceBundlePitch variant="compact" className="mb-8 text-left max-w-2xl mx-auto" />
+      )}
       <div className="flex flex-col sm:flex-row gap-3 justify-center">
         <button
           onClick={() => {

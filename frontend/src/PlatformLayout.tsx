@@ -82,14 +82,14 @@ const PLATFORM_ROUTES = [
     path: '/orders',
     icon: Package,
     category: 'Main',
-    description: 'Purchases and IC PDFs',
+    description: 'Purchases and IC Diligence Bundle',
   },
   {
     name: 'Pricing',
     path: '/pricing',
     icon: DollarSign,
     category: 'Main',
-    description: 'Plans and IC Project Report',
+    description: 'Plans and IC Diligence Bundle',
   },
   {
     name: 'How it works',

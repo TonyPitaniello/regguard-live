@@ -243,7 +243,7 @@ function DataCenterPage() {
           </h2>
           <p className="text-gray-400 text-sm text-center mb-6">
             Lead form for larger colo / large-load diligence conversations ($1,500 IC
-            Project path).
+            Diligence Bundle path).
           </p>
           <DataCenterRequestForm />
         </div>

@@ -224,7 +224,17 @@ def generate_bid_packet_pdf(
     mid_s = _fmt_pct(band.get("pct_mid"))
     high_s = _fmt_pct(band.get("pct_high"))
 
+    from artifact_naming import document_display_title, site_line_from_analysis
+
+    site_line = site_line_from_analysis(analysis_data)
+    doc_title = document_display_title(site_line, "BID PACKET")
+
     pdf = BidPacketPDF()
+    try:
+        pdf.set_title(_ascii(doc_title)[:120])
+        pdf.set_author("Reg Guard")
+    except Exception:
+        pass
     pdf.add_page()
     pdf.set_margins(MARGIN, MARGIN, MARGIN)
     pdf.set_y(MARGIN)
@@ -236,10 +246,11 @@ def generate_bid_packet_pdf(
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_text_color(*WHITE)
-    pdf.cell(CONTENT_W * 0.55, 8, "REG GUARD", ln=0)
+    pdf.cell(CONTENT_W, 8, "REG GUARD", ln=1)
+    pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(CONTENT_W * 0.45, 8, "BID PACKET", align="R", ln=1)
+    pdf.multi_cell(CONTENT_W, 4.5, _ascii(doc_title))
     _muted(
         pdf,
         "Forwardable pre-bid diligence  |  Site-specific CYA stamp  |  Not a quote, not a filing",

@@ -127,15 +127,15 @@ export const QueueLanding: React.FC = () => {
       <section className="cta">
         <h2>Try the interconnection form draft demo</h2>
         <p>
-          Preview only — not a live RTO filing product. For citeable site diligence PDFs,
-          use Reg Guard IC Project Report or Contractor Pro.
+          Preview only — not a live RTO filing product. For citeable site diligence, use the Reg
+          Guard IC Diligence Bundle (counsel ZIP) or Contractor Pro.
         </p>
         <Link to="/queue/upload" className="btn-cta">
           Open demo auto-fill
         </Link>
         <p style={{ marginTop: '1rem' }}>
           <Link to="/checkout/ic_project" style={{ color: 'inherit', textDecoration: 'underline' }}>
-            View IC Project Report
+            View IC Diligence Bundle — $1,500
           </Link>
         </p>
       </section>
@@ -163,7 +163,7 @@ export const QueueLanding: React.FC = () => {
           <details className="faq-item">
             <summary>Where do I get a paid diligence report?</summary>
             <p>
-              Use Contractor Pro or IC Project Report for citeable site diligence PDFs
+              Use Contractor Pro or the IC Diligence Bundle for citeable site diligence
               (planning worksheets — confirm fees and filings with the local AHJ).
             </p>
           </details>

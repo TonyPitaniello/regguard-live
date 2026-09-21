@@ -14,6 +14,9 @@ FEMA_MSC_HOME = "https://msc.fema.gov/portal/home"
 EPA_NEPA = "https://www.epa.gov/nepa"
 EPA_NPDES = "https://www.epa.gov/npdes"
 TCEQ = "https://www.tceq.texas.gov/"
+EPA_STATE_AGENCIES = (
+    "https://www.epa.gov/environmental-topics/state-and-tribal-environmental-agencies"
+)
 
 
 def _http(url: Optional[str]) -> str:
@@ -54,9 +57,65 @@ def fema_msc_pin_url(lat: Optional[float], lng: Optional[float]) -> str:
 def _ahj_portal(analysis: Dict[str, Any]) -> Tuple[str, str]:
     card = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
     ahj = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
-    url = _http(card.get("portal_url") or ahj.get("ahj_portal_url") or (analysis.get("paid_local") or {}).get("portal_url"))
+    url = _http(
+        card.get("portal_url")
+        or ahj.get("ahj_portal_url")
+        or (analysis.get("paid_local") or {}).get("portal_url")
+    )
     name = str(card.get("name") or ahj.get("name") or "AHJ portal").strip() or "AHJ portal"
     return url, name
+
+
+def _project_place(analysis: Dict[str, Any]) -> Tuple[str, str]:
+    pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+    city = str(pi.get("city") or "").strip()
+    state = str(pi.get("state") or "").strip()
+    if not city:
+        site = analysis.get("site") if isinstance(analysis.get("site"), dict) else {}
+        city = str(site.get("city") or "").strip()
+        state = state or str(site.get("state") or "").strip()
+    return city, state
+
+
+def confirm_link_for_env_category(
+    category: str,
+    *,
+    analysis: Dict[str, Any],
+    existing_url: str = "",
+) -> Optional[Tuple[str, str]]:
+    """Official confirm page for env finding categories that are not parcel-GIS stamped."""
+    if _http(existing_url):
+        return None
+    cat = (category or "").strip().lower()
+    city, state = _project_place(analysis)
+    portal, portal_name = _ahj_portal(analysis)
+
+    if cat in ("noise_ordinances", "noise"):
+        try:
+            from real_environmental_screening import municode_library_url
+
+            if city and state:
+                return municode_library_url(city, state), (
+                    f"{city} Municipal Code" if city else "Municipal Code"
+                )
+        except Exception:
+            pass
+        if portal:
+            return portal, portal_name
+        return None
+
+    if cat in ("nepa",):
+        return EPA_NEPA, "EPA NEPA"
+
+    if cat in ("state_requirements", "state"):
+        try:
+            from real_environmental_screening import state_env_confirm
+
+            return state_env_confirm(state)
+        except Exception:
+            return EPA_STATE_AGENCIES, "EPA state agencies"
+
+    return None
 
 
 def confirm_link_for_task(
@@ -73,15 +132,21 @@ def confirm_link_for_task(
     st = str(pi.get("state") or "").strip().upper()
     lat, lng = _pi_coords(analysis)
     portal, portal_name = _ahj_portal(analysis)
+    city, state = _project_place(analysis)
+    st = st or state.upper()
 
     if "fast-41" in t or "fast 41" in t or "permitting council" in t:
         return FAST41_COVERED if "100 mw" in t or "gate" in t else FAST41_TRANSPARENCY, (
-            "FAST-41 covered projects" if "100 mw" in t or "gate" in t else "Permitting Council Transparency Projects"
+            "FAST-41 covered projects"
+            if "100 mw" in t or "gate" in t
+            else "Permitting Council Transparency Projects"
         )
     if any(k in t for k in ("interconnection", "tdsp", "ercot", "large-load", "large load", "iso")):
         if st in ("TX", "TEXAS"):
             return ERCOT_LOAD if "large" in t or "tdsp" in t or "iso" in t else ERCOT_QUEUE, (
-                "ERCOT large-load interconnection" if "large" in t or "tdsp" in t else "ERCOT interconnection queue"
+                "ERCOT large-load interconnection"
+                if "large" in t or "tdsp" in t
+                else "ERCOT interconnection queue"
             )
         return FAST41_TRANSPARENCY, "Permitting Council (federal screen)"
     if any(k in t for k in ("wetland", "nwi")):
@@ -94,15 +159,65 @@ def confirm_link_for_task(
         return EPA_NEPA, "EPA NEPA"
     if "npdes" in t or "stormwater" in t:
         return EPA_NPDES, "EPA NPDES"
-    if any(k in t for k in ("water withdrawal", "consumptive", "tceq")) and st in ("TX", "TEXAS"):
-        return TCEQ, "TCEQ"
-    if portal and any(k in t for k in ("permit", "ahj", "municipal", "inspection", "fee", "application")):
+    if any(k in t for k in ("noise", "ordinance", "municipal code")):
+        if portal:
+            return portal, portal_name
+        try:
+            from real_environmental_screening import municode_library_url
+
+            return municode_library_url(city, state), (
+                f"{city} Municipal Code" if city else "Municipal Code"
+            )
+        except Exception:
+            pass
+    if any(
+        k in t
+        for k in (
+            "water withdrawal",
+            "consumptive",
+            "tceq",
+            "state environmental",
+            "state requirement",
+        )
+    ):
+        if st in ("TX", "TEXAS") or "tceq" in t:
+            return TCEQ, "TCEQ"
+        try:
+            from real_environmental_screening import state_env_confirm
+
+            return state_env_confirm(st or state)
+        except Exception:
+            return EPA_STATE_AGENCIES, "EPA state agencies"
+    if portal and any(
+        k in t
+        for k in (
+            "permit",
+            "ahj",
+            "municipal",
+            "inspection",
+            "fee",
+            "application",
+            "setback",
+            "moratorium",
+        )
+    ):
         return portal, portal_name
     return None
 
 
+def _stamp_confirm_row(row: Dict[str, Any], hit: Tuple[str, str]) -> Dict[str, Any]:
+    url, label = hit
+    out = dict(row)
+    out["source_url"] = url
+    if str(out.get("source_label") or "").lower() in ("", "confirm", "unverified"):
+        out["source_label"] = label
+    out["citation_tier"] = "link"
+    out["verified"] = False
+    return out
+
+
 def attach_confirm_links(analysis: Dict[str, Any]) -> Dict[str, Any]:
-    """Give Unverified punch/killer rows an official confirm URL when we have one."""
+    """Give Unverified punch/killer/env rows an official confirm URL when we have one."""
     if not isinstance(analysis, dict):
         return analysis
     punch = dict(analysis.get("punch_list") or {})
@@ -113,16 +228,18 @@ def attach_confirm_links(analysis: Dict[str, Any]) -> Dict[str, Any]:
             out_items.append(it)
             continue
         row = dict(it)
-        hit = confirm_link_for_task(str(row.get("task") or row.get("title") or ""), analysis=analysis, existing_url=str(row.get("source_url") or ""))
+        hit = confirm_link_for_task(
+            str(row.get("task") or row.get("title") or ""),
+            analysis=analysis,
+            existing_url=str(row.get("source_url") or ""),
+        )
         if hit:
-            url, label = hit
-            row["source_url"] = url
-            if str(row.get("source_label") or "").lower() in ("", "confirm", "unverified"):
-                row["source_label"] = label
-            row["citation_tier"] = "link"
-            row["verified"] = False
+            row = _stamp_confirm_row(row, hit)
             note = str(row.get("notes") or "")
-            hint = "Open the official page and confirm for this site — linked, not GIS/parcel verified."
+            hint = (
+                "Open the official page and confirm for this site — "
+                "linked, not GIS/parcel verified."
+            )
             if hint.lower() not in note.lower():
                 row["notes"] = f"{note} {hint}".strip() if note else hint
         out_items.append(row)
@@ -137,16 +254,56 @@ def attach_confirm_links(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 out_k.append(k)
                 continue
             row = dict(k)
-            hit = confirm_link_for_task(str(row.get("title") or row.get("task") or ""), analysis=analysis, existing_url=str(row.get("source_url") or ""))
+            hit = confirm_link_for_task(
+                str(row.get("title") or row.get("task") or ""),
+                analysis=analysis,
+                existing_url=str(row.get("source_url") or ""),
+            )
             if hit:
-                url, label = hit
-                row["source_url"] = url
-                if str(row.get("source_label") or "").lower() in ("", "confirm", "unverified"):
-                    row["source_label"] = label
-                row["citation_tier"] = "link"
-                row["verified"] = False
+                row = _stamp_confirm_row(row, hit)
             out_k.append(row)
         analysis["margin_killers"] = out_k
+
+    env = analysis.get("environmental_screening")
+    if isinstance(env, dict):
+        findings = env.get("findings") or []
+        if isinstance(findings, list):
+            out_f = []
+            for f in findings:
+                if not isinstance(f, dict):
+                    out_f.append(f)
+                    continue
+                row = dict(f)
+                # Never overwrite GIS SOURCE findings that already have a URL.
+                if _http(row.get("source_url")) and row.get("verified") is True:
+                    out_f.append(row)
+                    continue
+                cat = str(row.get("category") or "")
+                hit = confirm_link_for_env_category(
+                    cat,
+                    analysis=analysis,
+                    existing_url=str(row.get("source_url") or ""),
+                )
+                if not hit:
+                    blob = " ".join(
+                        [
+                            cat,
+                            str(row.get("description") or ""),
+                            " ".join(str(s) for s in (row.get("data_sources") or [])),
+                        ]
+                    )
+                    hit = confirm_link_for_task(
+                        blob,
+                        analysis=analysis,
+                        existing_url=str(row.get("source_url") or ""),
+                    )
+                if hit:
+                    row = _stamp_confirm_row(row, hit)
+                out_f.append(row)
+            env = dict(env)
+            env["findings"] = out_f
+            analysis["environmental_screening"] = env
+
     return analysis
 
 
@@ -174,6 +331,10 @@ def citation_tier_for(item: Optional[Dict[str, Any]]) -> str:
     if task.startswith("[Federal]") or task.startswith("[State]"):
         return "link"
 
+    cat = str(item.get("category") or "").lower()
+    if cat in ("noise_ordinances", "noise", "nepa", "state_requirements", "state"):
+        return "link"
+
     if item.get("verified") is True:
         return "verified"
     return "link"
@@ -189,7 +350,7 @@ def citation_badge_label(tier: str) -> str:
 
 
 def apply_citation_honesty(analysis: Dict[str, Any]) -> Dict[str, Any]:
-    """Stamp citation_tier on punch + margin killers; demote portal 'verified' theater."""
+    """Stamp citation_tier on punch + margin killers + env findings; demote portal theater."""
     if not isinstance(analysis, dict):
         return analysis
 
@@ -243,5 +404,32 @@ def apply_citation_honesty(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 row["source_label"] = "Unverified"
             out_k.append(row)
         analysis["margin_killers"] = out_k
+
+    env = analysis.get("environmental_screening")
+    if isinstance(env, dict):
+        findings = env.get("findings") or []
+        if isinstance(findings, list):
+            out_f = []
+            for f in findings:
+                if not isinstance(f, dict):
+                    out_f.append(f)
+                    continue
+                row = dict(f)
+                tier = citation_tier_for(row)
+                row["citation_tier"] = tier
+                if tier == "link":
+                    row["verified"] = False
+                    row["source_label"] = row.get("source_label") or "Portal link"
+                elif tier == "verified":
+                    row["verified"] = True
+                    row["source_label"] = row.get("source_label") or "Source"
+                else:
+                    row["verified"] = False
+                    if not row.get("source_label"):
+                        row["source_label"] = "Unverified"
+                out_f.append(row)
+            env = dict(env)
+            env["findings"] = out_f
+            analysis["environmental_screening"] = env
 
     return analysis

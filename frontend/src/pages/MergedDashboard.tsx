@@ -124,15 +124,15 @@ export function PlatformDashboard() {
           </div>
           <div>
             <p className="text-3xl font-black text-white mb-1">$79/mo</p>
-            <p className="text-gray-400 text-sm">Partner / permit runner</p>
+            <p className="text-gray-400 text-sm">Estimator / Permit Runner</p>
           </div>
           <div>
             <p className="text-3xl font-black text-white mb-1">$149/mo</p>
-            <p className="text-gray-400 text-sm">Contractor Pro</p>
+            <p className="text-gray-400 text-sm">Contractor Pro desk</p>
           </div>
           <div>
             <p className="text-3xl font-black text-white mb-1">$1,500</p>
-            <p className="text-gray-400 text-sm">IC Project Report</p>
+            <p className="text-gray-400 text-sm">IC Diligence Bundle ZIP</p>
           </div>
         </div>
         <div className="text-center mt-8">

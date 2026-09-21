@@ -370,6 +370,28 @@ def upsert_job(
                 break
 
     jid = (existing or {}).get("id") or _safe_id(None if not existing else job_id)
+    prev_runs = list((existing or {}).get("recent_runs") or [])
+    run_count = int((existing or {}).get("run_count") or len(prev_runs) or (1 if existing else 0))
+    if last_research_id:
+        run_count = max(run_count, 0) + 1
+        entry = {
+            "research_id": last_research_id,
+            "at": now,
+            "share_url": share_url or "",
+            "stamp_grade": "",
+        }
+        snap0 = summary_snapshot if isinstance(summary_snapshot, dict) else {}
+        st0 = snap0.get("regguard_stamp") if isinstance(snap0.get("regguard_stamp"), dict) else {}
+        entry["stamp_grade"] = str(
+            st0.get("grade") or snap0.get("last_stamp_grade") or ""
+        )
+        # Dedup same research_id at head
+        prev_runs = [r for r in prev_runs if str((r or {}).get("research_id") or "") != last_research_id]
+        prev_runs.insert(0, entry)
+        prev_runs = prev_runs[:12]
+    elif existing:
+        run_count = max(run_count, 1)
+
     job = {
         "id": jid,
         "owner_email": email,
@@ -394,6 +416,8 @@ def upsert_job(
         "notes": notes if notes is not None else (existing or {}).get("notes") or "",
         "created_at": (existing or {}).get("created_at") or now,
         "updated_at": now,
+        "run_count": run_count or 1,
+        "recent_runs": prev_runs,
     }
     if last_research_id:
         job["last_run_at"] = now

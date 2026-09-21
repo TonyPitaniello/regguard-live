@@ -41,7 +41,7 @@ export default function SampleReportPage() {
             className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition min-h-[44px]"
           >
             <Download className="w-4 h-4" />
-            Download SAMPLE Plano punch list (PDF)
+            Download SAMPLE Plano Bid Risk Receipt (PDF)
           </a>
           <p className="text-gray-500 text-sm mt-3">
             Labeled SAMPLE — fictional Plano address for buyers. Not a live diligence deliverable.
@@ -160,8 +160,8 @@ export default function SampleReportPage() {
                 <span className="text-emerald-300 font-bold">Confirm with AHJ</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span>IC Diligence Package (paid)</span>
-                <span className="text-emerald-300 font-bold">Pre-LOI screening</span>
+                <span>IC Diligence Bundle (paid) — memo + counsel DOCX + CSV + evidence</span>
+                <span className="text-emerald-300 font-bold">Counsel-ready ZIP</span>
               </div>
               <p className="text-gray-400 text-xs pt-4 border-t border-slate-600">
                 Not a sealed bid, interconnection study, geotech report, or quote. Fill your own cost

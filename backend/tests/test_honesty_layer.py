@@ -57,7 +57,22 @@ def test_apply_honesty_layer_preserves_verified_risk():
         "preview": False,
         "environmental_screening": {
             "risk_level": "HIGH",
-            "findings": [{"category": "flood", "risk_level": "HIGH", "description": "x"}],
+            "findings": [
+                {
+                    "category": "flood_zones",
+                    "risk_level": "HIGH",
+                    "description": "Zone AE",
+                    "verified": True,
+                    "source_url": "https://msc.fema.gov/",
+                },
+                {
+                    "category": "wetlands",
+                    "risk_level": "LOW",
+                    "description": "No NWI hit",
+                    "verified": True,
+                    "source_url": "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
+                },
+            ],
         },
         "summary": {"high_risk_count": 1, "estimated_timeline": "60 days", "estimated_total_cost": 1000},
         "punch_list": {"punch_list": [{"task": "a", "estimated_cost": 100}]},

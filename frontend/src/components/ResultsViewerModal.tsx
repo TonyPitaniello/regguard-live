@@ -13,13 +13,16 @@ import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
-import { analysisForPdfExport, postPdfDownload } from '../pdfExport';
+import { analysisForPdfExport, artifactDownloadFilename, postBinaryDownload, postPdfDownload } from '../pdfExport';
 import {
   buildArtifactTextMessage,
   copyText,
   downloadTextFile,
   textResultsToOthers,
 } from '../forwardArtifacts';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { IcDiligenceBundlePitch } from './IcDiligenceBundlePitch';
+import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitDeliverableLadder';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -1114,6 +1117,26 @@ export default function ResultsViewerModal({
   const ownsPro =
     ownsIc || ownedTierSet.has('contractor_pro') || (isDeep && !incompleteRun && depthTier !== 'free');
   const ownsPartner = ownsPro || ownedTierSet.has('partner');
+  /** Premortem F9: CSV / city pack / bid packet are Pro desk — not Free or $79 */
+  const sessionTier =
+    typeof window !== 'undefined'
+      ? (sessionStorage.getItem('regguardTier') || '').toLowerCase()
+      : '';
+  const allowProDeskDownloads =
+    ownsIcEntitlement ||
+    ownedTierSet.has('contractor_pro') ||
+    sessionTier.includes('contractor_pro') ||
+    depthTier === 'ic_full' ||
+    ((depthTier === 'pro_local' ||
+      depthTier === 'pro_light' ||
+      depthTier === 'pro_partial') &&
+      (ownedTierSet.has('contractor_pro') || sessionTier.includes('contractor_pro')));
+
+  const requireProDesk = (artifact: ProDeskArtifact): boolean => {
+    if (allowProDeskDownloads) return true;
+    showToast(proDeskGateMessage(artifact));
+    return false;
+  };
 
   const depthBadgeLabel = (() => {
     if (incompleteRun) {
@@ -1185,11 +1208,10 @@ export default function ResultsViewerModal({
             <Sparkles className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
               <h3 className="text-white font-bold text-sm sm:text-base">
-                IC Project paid — generate the boardroom package for this site
+                {IC_BUNDLE.generateHeadline}
               </h3>
               <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">
-                This results set is still free / Pro depth. Re-run with Generate IC Report to unlock
-                the $1,500 Diligence Package download.
+                {IC_BUNDLE.generateBody}
               </p>
               {onUnlockDeeper ? (
                 <button
@@ -1586,12 +1608,12 @@ export default function ResultsViewerModal({
             }}
           >
             {allowIcPackageDownload
-              ? 'IC Project Report PDFs are ready below. The bound package includes this boardroom brief.'
+              ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, counsel DOCX, fee/punch CSV, and evidence index. This brief is the forwardable stamp.'
               : ownsIc
-                ? 'Generate an IC Report for this site to unlock the bound Diligence Package download.'
+                ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
                 : isDeep
-                  ? 'Upgrade to IC Project for the bound boardroom Diligence Package on this site.'
-                  : 'This is a free preview brief. Partner / Pro unlock more depth; IC Project unlocks the boardroom package.'}
+                  ? 'Upgrade to IC Project for the counsel-ready Diligence Bundle ZIP on this site.'
+                  : 'This is a free preview brief. Partner / Pro unlock more depth; IC Project unlocks the Diligence Bundle ZIP.'}
           </p>
         </section>
       );
@@ -1653,7 +1675,7 @@ export default function ResultsViewerModal({
     if (!isDeep || !proDelta?.bullets?.length) return null;
     const isIc = depthTier === 'ic_full' || Boolean(view.ic_package);
     const title = isIc
-      ? 'What this IC Project Report includes'
+      ? `What this ${IC_BUNDLE.productName} includes`
       : 'What Contractor Pro added vs Free';
     return (
       <section className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-4 sm:p-5">
@@ -1672,7 +1694,7 @@ export default function ResultsViewerModal({
         {(buyerPersona === 'dc_infra' || buyerPersona === 'ic_shop') && depthTier !== 'ic_full' && (
           <p className="text-xs text-blue-200 mt-2">
             Data-center / infra tip: Pro light skips FAST-41 / water / moratorium passes — use IC for
-            that depth + PDFs.
+            that depth + the Diligence Bundle ZIP.
           </p>
         )}
       </section>
@@ -1692,7 +1714,7 @@ export default function ResultsViewerModal({
           generated_for: emailForCheckout || undefined,
           ...(share ? { share_url: share } : {}),
         },
-        'RegGuard_Bid_Risk_Receipt.pdf'
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID RISK RECEIPT', 'pdf')
       );
       grantShareUnlock('bid_receipt_pdf');
       trackStampEvent('stamp_receipt_download', {
@@ -1727,6 +1749,7 @@ export default function ResultsViewerModal({
   };
 
   const downloadBidSheetCsv = async () => {
+    if (!requireProDesk('bid_sheet_csv')) return;
     setPacketLoading(true);
     try {
       const res = await fetch(backendUrl('/research/bid-sheet.csv'), {
@@ -1742,7 +1765,7 @@ export default function ResultsViewerModal({
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = 'RegGuard_Bid_Sheet.csv';
+      a.download = artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'csv');
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1756,6 +1779,7 @@ export default function ResultsViewerModal({
   };
 
   const downloadBidSheetPdf = async () => {
+    if (!requireProDesk('bid_sheet_pdf')) return;
     setPacketLoading(true);
     try {
       const res = await fetch(backendUrl('/research/bid-sheet.pdf'), {
@@ -1771,7 +1795,7 @@ export default function ResultsViewerModal({
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = objectUrl;
-      a.download = 'RegGuard_Bid_Sheet.pdf';
+      a.download = artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'pdf');
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1785,6 +1809,7 @@ export default function ResultsViewerModal({
   };
 
   const downloadCityPackPdf = async () => {
+    if (!requireProDesk('city_pack_pdf')) return;
     setPacketLoading(true);
     try {
       const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
@@ -1795,7 +1820,7 @@ export default function ResultsViewerModal({
           analysis_data: slim,
           research_id: effectiveResearchId || undefined,
         },
-        'RegGuard_Full_City_Pack.pdf'
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'FULL CITY PACK', 'pdf')
       );
       showToast('Full city pack PDF downloaded — fees, gotchas, and AHJ links.');
     } catch (e) {
@@ -1823,7 +1848,7 @@ export default function ResultsViewerModal({
       a.href = objectUrl;
       a.download =
         pdf.type === 'ic_package'
-          ? 'RegGuard_IC_Diligence_Package.pdf'
+          ? artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'pdf')
           : `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
       document.body.appendChild(a);
       a.click();
@@ -1832,6 +1857,37 @@ export default function ResultsViewerModal({
       showToast(`${pdf.name} downloaded`);
     } catch {
       showToast('Could not download PDF — try My Orders or refresh.');
+    }
+  };
+
+  const downloadIcDiligenceBundle = async () => {
+    if (!allowIcPackageDownload) {
+      showToast(
+        'IC Diligence Bundle requires an IC Project run for this site — free preview cannot download it.'
+      );
+      return;
+    }
+    setPacketLoading(true);
+    try {
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      await postBinaryDownload(
+        backendUrl('/ic-package/bundle'),
+        {
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
+          generated_for: emailForCheckout || undefined,
+          email: emailForCheckout || undefined,
+        },
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE BUNDLE', 'zip'),
+        ['application/zip', 'application/octet-stream']
+      );
+      showToast(
+        'IC Diligence Bundle downloaded — decision memo + counsel DOCX + fee/punch CSV + evidence index'
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'IC Diligence Bundle download failed');
+    } finally {
+      setPacketLoading(false);
     }
   };
 
@@ -1853,7 +1909,7 @@ export default function ResultsViewerModal({
           generated_for: emailForCheckout || undefined,
           email: emailForCheckout || undefined,
         },
-        'RegGuard_IC_Diligence_Package.pdf'
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'pdf')
       );
       showToast('IC Diligence Package downloaded — planning aid, not a sealed bid');
     } catch (e) {
@@ -1873,35 +1929,20 @@ export default function ResultsViewerModal({
     setPacketLoading(true);
     try {
       const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
-      const res = await fetch(backendUrl('/ic-package/docx'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'omit',
-        body: JSON.stringify({
+      await postBinaryDownload(
+        backendUrl('/ic-package/docx'),
+        {
           analysis_data: slim,
           research_id: effectiveResearchId || undefined,
           generated_for: emailForCheckout || undefined,
           email: emailForCheckout || undefined,
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(
-          typeof (data as { detail?: string }).detail === 'string'
-            ? (data as { detail: string }).detail
-            : `IC DOCX failed (${res.status})`
-        );
-      }
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = 'RegGuard_IC_Diligence_Package.docx';
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+        },
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'docx'),
+        [
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/octet-stream',
+        ]
+      );
       showToast('IC Diligence DOCX downloaded — editable for counsel redlines; sources are hyperlinks');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC DOCX download failed');
@@ -1911,6 +1952,7 @@ export default function ResultsViewerModal({
   };
 
   const downloadBidPacketFull = async () => {
+    if (!requireProDesk('bid_packet_pdf')) return;
     setPacketLoading(true);
     try {
       const res = await fetch(backendUrl('/bid-packet/pdf'), {
@@ -2367,39 +2409,64 @@ export default function ResultsViewerModal({
               <>
                 <div>
                   <p className="text-emerald-200 font-bold text-sm sm:text-base">
-                    IC Project Report PDFs are ready
+                    {IC_BUNDLE.readyHeadline}
                   </p>
-                  <p className="text-gray-300 text-sm mt-1 leading-relaxed">
-                    {icPdfsReady
-                      ? 'Primary deliverable: one bound boardroom package (cover, executive summary, Bid Risk Receipt, findings, punch list, sources). Optional worksheets below.'
-                      : 'Download the bound boardroom package for this IC-depth site. Memo / punch / permits remain available as optional parts.'}
-                  </p>
+                  <p className="text-gray-300 text-sm mt-1 leading-relaxed">{IC_BUNDLE.readyBody}</p>
+                </div>
+                <IcDiligenceBundlePitch variant="inline" className="rounded-xl border border-emerald-500/25 bg-slate-950/40 p-3.5" />
+                <button
+                  type="button"
+                  disabled={packetLoading}
+                  onClick={() => void downloadIcDiligenceBundle()}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
+                >
+                  <Download className="w-5 h-5 shrink-0" />
+                  {packetLoading ? 'Building bundle…' : IC_BUNDLE.ctaDownload}
+                </button>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={packetLoading}
+                    onClick={() => void downloadIcBoardroomDocx()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    Counsel DOCX only
+                  </button>
+                  <button
+                    type="button"
+                    disabled={packetLoading}
+                    onClick={() => void downloadBidSheetCsv()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    Fee / punch CSV
+                  </button>
                 </div>
                 <button
                   type="button"
                   disabled={packetLoading}
-                  onClick={() => void downloadIcBoardroomPackage()}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black disabled:opacity-50"
+                  onClick={() => void downloadBidReceipt()}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold disabled:opacity-50"
                 >
-                  <Download className="w-5 h-5 shrink-0" />
-                  {packetLoading ? 'Building package…' : 'Download full IC Diligence Package'}
+                  <Download className="w-4 h-4 shrink-0" />
+                  Decision memo PDF only (forwardable stamp)
                 </button>
                 <button
                   type="button"
                   disabled={packetLoading}
-                  onClick={() => void downloadIcBoardroomDocx()}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                  onClick={() => void downloadIcBoardroomPackage()}
+                  className="w-full text-xs text-gray-400 underline text-left disabled:opacity-50"
                 >
-                  <Download className="w-4 h-4 shrink-0" />
-                  Download IC Diligence DOCX (editable)
+                  Optional: longer boardroom PDF (not the primary paid deliverable)
                 </button>
                 <button
                   type="button"
-                  onClick={() => void forwardArtifact('IC Diligence Package PDF')}
+                  onClick={() => void forwardArtifact('IC Diligence Bundle')}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold"
                 >
                   <MessageSquare className="w-4 h-4 shrink-0" />
-                  Text IC package link
+                  Text IC Diligence Bundle link
                 </button>
                 {icPdfsReady ? (
                   (() => {
@@ -2445,7 +2512,7 @@ export default function ResultsViewerModal({
                   })()
                 ) : (
                   <p className="text-xs text-gray-400">
-                    Package builds on demand from this IC results set. For order history, open My
+                    Bundle builds on demand from this IC results set. For order history, open My
                     Orders.
                   </p>
                 )}
@@ -2453,12 +2520,10 @@ export default function ResultsViewerModal({
             ) : ownsIc ? (
               <div className="space-y-3">
                 <p className="text-amber-100 font-bold text-sm sm:text-base">
-                  IC access on file — this run is not IC depth yet
+                  {IC_BUNDLE.generateHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  Free / Pro previews cannot download the $1,500 Diligence Package. Generate an IC
-                  Report for this site to unlock the boardroom PDF.
-                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.generateBody}</p>
+                <IcDiligenceBundlePitch variant="compact" />
                 {onUnlockDeeper ? (
                   <button
                     type="button"
@@ -2466,45 +2531,41 @@ export default function ResultsViewerModal({
                     disabled={unlockLoading}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold disabled:opacity-50"
                   >
-                    {unlockLoading ? 'Generating…' : 'Generate IC Report for this site'}
+                    {unlockLoading ? 'Generating…' : IC_BUNDLE.ctaGenerate}
                   </button>
                 ) : (
                   <a
                     href="/?run_ic=1"
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-base font-bold"
                   >
-                    Generate IC Report for this site
+                    {IC_BUNDLE.ctaGenerate}
                   </a>
                 )}
               </div>
             ) : isDeep ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  IC Project Report — next product tier
+                  {IC_BUNDLE.upsellHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  Contractor Pro covers local confirm + light scout. IC Project adds the bound
-                  boardroom Diligence Package for this site.
-                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.upsellBody}</p>
+                <IcDiligenceBundlePitch variant="compact" />
                 {!alreadyOwnsCheckout('ic_project') && (
                   <button
                     type="button"
                     onClick={() => goCheckout('ic_project')}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-base font-bold"
                   >
-                    Unlock IC Project Diligence Package
+                    {IC_BUNDLE.ctaUnlock}
                   </button>
                 )}
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  Free preview — Diligence Package locked
+                  {IC_BUNDLE.lockedHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  You are viewing the free report. Partner or Contractor Pro deepen monthly
-                  lookups; only an IC Project run unlocks the full boardroom PDF download.
-                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.lockedBody}</p>
+                <IcDiligenceBundlePitch variant="compact" showWhy={false} />
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                   {!alreadyOwnsCheckout('partner') && (
                     <button
@@ -2512,7 +2573,7 @@ export default function ResultsViewerModal({
                       onClick={() => goCheckout('partner')}
                       className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
                     >
-                      Start Partner — $79/mo
+                      Start Estimator / Permit Runner — $79/mo
                     </button>
                   )}
                   {!alreadyOwnsCheckout('contractor_pro') && (
@@ -2521,7 +2582,16 @@ export default function ResultsViewerModal({
                       onClick={() => goCheckout('contractor_pro')}
                       className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
                     >
-                      Contractor Pro — $149/mo
+                      {HABIT_TIERS.contractor_pro.name} — $149/mo
+                    </button>
+                  )}
+                  {!alreadyOwnsCheckout('ic_project') && (
+                    <button
+                      type="button"
+                      onClick={() => goCheckout('ic_project')}
+                      className="px-4 py-3 min-h-[48px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 font-bold text-sm"
+                    >
+                      {IC_BUNDLE.ctaBuy}
                     </button>
                   )}
                 </div>
@@ -2781,11 +2851,18 @@ export default function ResultsViewerModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void downloadBidSheetCsv()}
+                    onClick={() => {
+                      if (!allowProDeskDownloads) {
+                        showToast(proDeskGateMessage('bid_sheet_csv'));
+                        goCheckout('contractor_pro');
+                        return;
+                      }
+                      void downloadBidSheetCsv();
+                    }}
                     disabled={packetLoading}
                     className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50"
                   >
-                    Punch / fees CSV
+                    {allowProDeskDownloads ? 'Punch / fees CSV' : 'CSV — Pro $149'}
                   </button>
                 </div>
               </div>
@@ -2993,7 +3070,7 @@ export default function ResultsViewerModal({
                         onClick={() => goCheckout('partner')}
                         className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
                       >
-                        Start Partner — $79/mo
+                        Start Estimator / Permit Runner — $79/mo
                       </button>
                     )}
                   </>
@@ -3151,7 +3228,7 @@ export default function ResultsViewerModal({
                           onClick={() => goCheckout('partner')}
                           className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
                         >
-                          Partner — $79/mo
+                          Estimator / Permit Runner — $79/mo
                         </button>
                       )}
                     </div>
@@ -3454,14 +3531,31 @@ export default function ResultsViewerModal({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {!allowProDeskDownloads && (
+                      <p className="w-full text-xs text-amber-100/90 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
+                        Estimator / Permit Runner ($79): Receipt + punch + Saved Jobs. City pack PDF,
+                        bid sheet CSV/PDF, and bid packet unlock on Contractor Pro ($149).
+                      </p>
+                    )}
                     <button
                       type="button"
-                      onClick={() => void downloadCityPackPdf()}
+                      onClick={() => {
+                        if (!allowProDeskDownloads) {
+                          showToast(proDeskGateMessage('city_pack_pdf'));
+                          goCheckout('contractor_pro');
+                          return;
+                        }
+                        void downloadCityPackPdf();
+                      }}
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
                     >
                       <Download className="w-4 h-4" />
-                      {packetLoading ? 'Building…' : 'Full city pack PDF'}
+                      {packetLoading
+                        ? 'Building…'
+                        : allowProDeskDownloads
+                          ? 'Full city pack PDF'
+                          : 'City pack — Pro $149'}
                     </button>
                     <button
                       type="button"
@@ -4027,12 +4121,46 @@ export default function ResultsViewerModal({
             </button>
             {expanded.environmental && (
               <div className="space-y-3">
+                <div className="rounded-lg border border-slate-600/60 bg-slate-800/40 p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-bold text-white">Overall parcel GIS risk</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs font-semibold ${
+                        ['HIGH', 'CRITICAL'].includes(
+                          String(view.environmental_screening?.risk_level || '').toUpperCase()
+                        )
+                          ? 'bg-red-500/20 text-red-200'
+                          : ['MEDIUM', 'CAUTION'].includes(
+                                String(view.environmental_screening?.risk_level || '').toUpperCase()
+                              )
+                            ? 'bg-amber-500/20 text-amber-200'
+                            : ['LOW'].includes(
+                                  String(view.environmental_screening?.risk_level || '').toUpperCase()
+                                )
+                              ? 'bg-emerald-500/20 text-emerald-200'
+                              : 'bg-slate-600/40 text-gray-300'
+                      }`}
+                    >
+                      {view.environmental_screening?.risk_score_hidden ||
+                      ['UNKNOWN', 'UNAVAILABLE', 'PRELIMINARY', ''].includes(
+                        String(view.environmental_screening?.risk_level || '').toUpperCase()
+                      )
+                        ? 'UNAVAILABLE — incomplete GIS'
+                        : String(view.environmental_screening?.risk_level || 'UNKNOWN')}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    {view.environmental_screening?.risk_honesty_note ||
+                      view.honesty?.labels?.risk ||
+                      'Score uses verified FEMA flood + NWI wetlands only. Noise / NEPA / state do not set the overall score.'}
+                  </p>
+                </div>
                 <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-50">
                   <p className="font-bold text-cyan-100 mb-1">Sites we scan for this section</p>
                   <p className="text-xs text-cyan-100/90 leading-relaxed mb-2">
                     Wetlands / species stay UNKNOWN when the pin GIS call fails or returns no
                     parcel hit — use the mapper links on each card, then re-check after confirming
-                    lat/lng.
+                    lat/lng. Overall LOW requires both flood and wetlands to resolve.
                   </p>
                   <ul className="text-xs text-cyan-100/85 space-y-1 list-disc pl-4">
                     <li>

@@ -95,7 +95,7 @@ def test_metro_seeds_include_gulf_tx():
 
 
 def test_gis_risk_verified_when_flood_verified(monkeypatch):
-    """Pin + verified flood/wetlands → risk_verified True."""
+    """Pin + verified flood AND wetlands → risk_verified True."""
     import asyncio
 
     from option_a_integration import run_option_a_analysis
@@ -113,7 +113,17 @@ def test_gis_risk_verified_when_flood_verified(monkeypatch):
                     "action_items": [],
                     "data_sources": ["FEMA"],
                     "research_cost_usd": 0,
-                }
+                },
+                {
+                    "category": "wetlands",
+                    "risk_level": "LOW",
+                    "description": "No NWI hit",
+                    "verified": True,
+                    "source_url": "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
+                    "action_items": [],
+                    "data_sources": ["NWI"],
+                    "research_cost_usd": 0,
+                },
             ],
             "total_research_cost": 0,
             "action_plan": [],
@@ -153,3 +163,4 @@ def test_gis_risk_verified_when_flood_verified(monkeypatch):
         )
     )
     assert result["honesty"]["risk_verified"] is True
+    assert result["environmental_screening"]["risk_level"] == "MEDIUM"

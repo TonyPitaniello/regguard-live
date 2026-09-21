@@ -17,9 +17,13 @@ type Job = {
   share_url?: string;
   updated_at?: string;
   last_run_at?: string;
+  created_at?: string;
   status?: string;
   stamp_stale?: boolean;
   last_stamp_grade?: string;
+  run_count?: number;
+  recent_runs?: Array<{ research_id?: string; at?: string; stamp_grade?: string }>;
+  project_type?: string;
 };
 
 function stampLabel(raw?: string): string {
@@ -91,18 +95,17 @@ export default function JobsPage() {
       <section className="px-4 py-12 max-w-2xl mx-auto">
         <h1 className="text-3xl font-black text-white mb-2">Saved Jobs</h1>
         <p className="text-gray-400 text-sm mb-6">
-          Sites auto-save when you run a lookup with your email. Enter that same email below and tap
-          Load jobs — every distinct address should appear (re-runs of the same address update one
-          row). Weekly reminder emails use this list. If a job shows STALE, re-check before bid
-          (Day-7 preferred for LOI). Stamp / ZIP SMS only goes to numbers that opted in on Results →
-          Text me (consent checkbox) — this page does not collect SMS consent. Evidence:{' '}
+          Sites auto-save when you run a lookup with your email. Enter that same email and tap Load
+          jobs. <span className="text-gray-200 font-semibold">One row per address</span> — re-runs of
+          the same site update that row (they do not create duplicates). Weekly reminders use this
+          list. STALE means re-check before bid. SMS consent is only collected on Results → Text me —{' '}
           <a href="/sms-opt-in" className="text-emerald-300 underline">
             /sms-opt-in
           </a>
           .
         </p>
 
-        <form onSubmit={load} className="flex flex-col sm:flex-row gap-3 mb-8">
+        <form onSubmit={load} className="flex flex-col sm:flex-row gap-3 mb-4">
           <input
             type="email"
             value={email}
@@ -119,6 +122,14 @@ export default function JobsPage() {
           </button>
         </form>
 
+        {!loading && !error && email.trim() && (
+          <p className="text-emerald-200/90 text-sm mb-6">
+            {jobs.length === 0
+              ? 'No saved addresses for this email on the server yet — run a lookup with this email to create the first row.'
+              : `Showing ${jobs.length} saved address${jobs.length === 1 ? '' : 'es'} for ${email.trim().toLowerCase()}.`}
+          </p>
+        )}
+
         {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
         {recheckMsg && <p className="text-emerald-300 text-sm mb-4">{recheckMsg}</p>}
@@ -132,15 +143,20 @@ export default function JobsPage() {
               <p className="text-white font-semibold">{j.address || 'Site'}</p>
               <p className="text-gray-400 text-sm">
                 {[j.city, j.state, j.zip].filter(Boolean).join(', ')}
+                {j.project_type ? ` · ${j.project_type}` : ''}
               </p>
               {stampLabel(j.last_stamp_grade) ? (
                 <p className="text-amber-200 text-xs mt-1 font-semibold">
                   Stamp: {stampLabel(j.last_stamp_grade)}
                 </p>
               ) : null}
-              {j.last_run_at && (
-                <p className="text-gray-500 text-xs mt-1">Last run: {j.last_run_at}</p>
-              )}
+              <p className="text-gray-500 text-xs mt-1">
+                {typeof j.run_count === 'number' && j.run_count > 0
+                  ? `${j.run_count} run${j.run_count === 1 ? '' : 's'} · `
+                  : ''}
+                {j.created_at ? `First saved: ${j.created_at.slice(0, 10)} · ` : ''}
+                {j.last_run_at ? `Last run: ${j.last_run_at}` : null}
+              </p>
               {(j.stamp_stale || j.status === 'stale') && (
                 <p className="text-xs text-amber-300 mt-1 border border-amber-500/40 rounded px-2 py-1">
                   STALE — re-run before bid (zip-watch / pack fingerprint changed).

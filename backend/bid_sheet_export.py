@@ -20,7 +20,6 @@ def _trade_for_punch(item: Dict[str, Any]) -> str:
     if raw:
         return str(raw).upper()
     pri = str(item.get("priority") or "").upper()
-    # Priority is not a trade — leave blank for estimator mapping
     if pri in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "HOLD", "NOTE", "WATCH"):
         return ""
     return pri
@@ -30,38 +29,61 @@ def _due_window(item: Dict[str, Any]) -> str:
     return str(item.get("due_window") or item.get("timeline") or item.get("timing") or "").strip()
 
 
+def _exhibit_map(analysis: Dict[str, Any]) -> Dict[str, str]:
+    """URL → EX-00N from evidence binder when available."""
+    try:
+        from ic_package_composer import compose_ic_package
+
+        pkg = compose_ic_package(analysis)
+        binder = pkg.get("evidence_binder") or {}
+        return {
+            str(e.get("url")): str(e.get("id"))
+            for e in (binder.get("exhibits") or [])
+            if e.get("url") and e.get("id")
+        }
+    except Exception:
+        return {}
+
+
 def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
     """
     Return CSV text for estimator paste.
 
-    Source hyperlinks live in ``source_url`` (full https URL) — keep them clickable
-    when opened in Excel / Sheets.
+    Columns include exhibit_id (Evidence Binder cross-ref) and source_url hyperlinks
+    for Excel / Sheets.
     """
     buf = io.StringIO()
     w = csv.writer(buf)
-    w.writerow(
-        [
-            "section",
-            "trade",
-            "owner",
-            "due_window",
-            "cost_code",
-            "priority",
-            "item",
-            "qty",
-            "unit",
-            "crew_rate",
-            "planning_usd",
-            "timeline",
-            "source_url",
-            "source_label",
-            "verified",
-            "notes",
-            "share_url",
-        ]
-    )
+    headers = [
+        "section",
+        "trade",
+        "owner",
+        "due_window",
+        "cost_code",
+        "priority",
+        "item",
+        "qty",
+        "unit",
+        "crew_rate",
+        "planning_usd",
+        "timeline",
+        "exhibit_id",
+        "source_url",
+        "source_label",
+        "verified",
+        "notes",
+        "share_url",
+    ]
+    w.writerow(headers)
     share = str(analysis.get("share_url") or "").strip()
+    url_to_ex = _exhibit_map(analysis)
     pi = analysis.get("project_info") or {}
+
+    def _eid(url: str, existing: Any = "") -> str:
+        if existing:
+            return str(existing)
+        return url_to_ex.get(str(url or "").strip(), "")
+
     w.writerow(
         [
             "site",
@@ -71,6 +93,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
             "",
             "",
             f"{pi.get('address') or ''} {pi.get('city') or ''} {pi.get('state') or ''} {pi.get('zip') or ''}".strip(),
+            "",
             "",
             "",
             "",
@@ -102,6 +125,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 "",
                 ahj.get("last_verified") or "",
+                _eid(portal),
                 portal,
                 "AHJ portal / fees",
                 ahj.get("last_verified") or "",
@@ -131,6 +155,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 item.get("crew_rate") or "",
                 cost if isinstance(cost, (int, float)) else "",
                 item.get("timeline") or "",
+                _eid(src, item.get("exhibit_id")),
                 src,
                 item.get("source_label") or ("Source" if src else "Unverified"),
                 "yes" if item.get("verified") else "Unverified",
@@ -163,6 +188,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 amt if isinstance(amt, (int, float)) else "",
                 (analysis.get("fee_card") or {}).get("timeline") or "",
+                _eid(src, fee.get("exhibit_id")),
                 src,
                 fee.get("source_label") or ("Source" if src else "Unverified — confirm with AHJ"),
                 "yes" if fee.get("verified") else "planning",
@@ -190,6 +216,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 "",
                 "",
+                _eid(src, g.get("exhibit_id")),
                 src,
                 g.get("source_label") or ("Source" if src else "Unverified"),
                 "yes" if src else "Unverified",
@@ -213,6 +240,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 band.get("usd_mid") if isinstance(band.get("usd_mid"), (int, float)) else "",
                 f"{band.get('pct_low')}%-{band.get('pct_high')}% (mid {band.get('pct_mid')}%)",
+                "",
                 share,
                 "Bid Risk Receipt",
                 "heuristic",
@@ -233,6 +261,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
             "qty",
             "unit",
             "crew_rate",
+            "",
             "",
             "",
             "",

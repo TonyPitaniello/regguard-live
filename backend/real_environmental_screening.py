@@ -10,12 +10,161 @@ Fetches actual environmental data from:
 
 import asyncio
 import logging
+import re
 import httpx
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 from dataclasses import dataclass, asdict
 import os
 
 logger = logging.getLogger(__name__)
+
+EPA_NEPA_URL = "https://www.epa.gov/nepa"
+EPA_STATE_AGENCIES_URL = (
+    "https://www.epa.gov/environmental-topics/state-and-tribal-environmental-agencies"
+)
+
+# Parcel GIS layers that may drive overall risk. Noise / NEPA / state are confirm-links only.
+GIS_PARCEL_CATEGORIES = frozenset(
+    {
+        "wetlands",
+        "flood_zones",
+        "flood_zone",
+        "flood",
+        "floodplain",
+        "endangered_species",
+    }
+)
+
+# Must resolve before we claim LOW/MEDIUM "all clear". Critical habitat may stay UNKNOWN
+# (IPaC confirm) without blocking a flood/wetlands-derived score.
+REQUIRED_FOR_ALL_CLEAR = frozenset({"wetlands", "flood_zones"})
+
+
+def _normalize_gis_category(category: str) -> str:
+    c = (category or "").strip().lower()
+    if c in ("flood", "flood_zone", "floodplain", "flood zones"):
+        return "flood_zones"
+    if c in ("endangered_species", "species", "critical_habitat"):
+        return "endangered_species"
+    if c in ("wetlands", "wetland"):
+        return "wetlands"
+    return c
+
+
+RISK_RANK = {
+    "CRITICAL": 4,
+    "HIGH": 3,
+    "MEDIUM": 2,
+    "LOW": 1,
+    "UNKNOWN": 0,
+    "UNAVAILABLE": 0,
+    "PRELIMINARY": 0,
+}
+RANK_TO_RISK = {v: k for k, v in RISK_RANK.items() if k in ("CRITICAL", "HIGH", "MEDIUM", "LOW")}
+
+
+def _finding_category(finding: Any) -> str:
+    if isinstance(finding, dict):
+        return _normalize_gis_category(str(finding.get("category") or ""))
+    return _normalize_gis_category(str(getattr(finding, "category", "") or ""))
+
+
+def _finding_level(finding: Any) -> str:
+    if isinstance(finding, dict):
+        return str(finding.get("risk_level") or "UNKNOWN").strip().upper()
+    return str(getattr(finding, "risk_level", "UNKNOWN") or "UNKNOWN").strip().upper()
+
+
+def _finding_verified(finding: Any) -> bool:
+    if isinstance(finding, dict):
+        return finding.get("verified") is True
+    return getattr(finding, "verified", False) is True
+
+
+def calculate_overall_env_risk(findings: List[Any]) -> Dict[str, Any]:
+    """
+    Derive overall environmental risk from parcel GIS findings only.
+
+    Noise / NEPA / state confirm-link rows never raise or lower the score (they used to
+    force LOW when NWI/FEMA failed — the Chapin LOW↔HIGH flip).
+
+    Rules:
+    - Max over *verified* GIS levels (flood / wetlands / critical habitat).
+    - LOW/MEDIUM requires flood + wetlands both verified. Unresolved critical habitat
+      alone does not block (IPaC remains a confirm link).
+    - Verified HIGH/CRITICAL always wins even if another layer failed.
+    """
+    rows = [f for f in (findings or []) if f is not None]
+    gis_rows = [f for f in rows if _finding_category(f) in GIS_PARCEL_CATEGORIES]
+    verified = [
+        f
+        for f in gis_rows
+        if _finding_verified(f) and _finding_level(f) in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+    ]
+    verified_cats = {_finding_category(f) for f in verified}
+    unknown_gis = [
+        f
+        for f in gis_rows
+        if (not _finding_verified(f))
+        or _finding_level(f) in ("UNKNOWN", "UNAVAILABLE", "PRELIMINARY", "")
+    ]
+    missing_required = sorted(REQUIRED_FOR_ALL_CLEAR - verified_cats)
+
+    if verified:
+        best = max(RISK_RANK.get(_finding_level(f), 0) for f in verified)
+        level = RANK_TO_RISK.get(best, "LOW")
+        # Incomplete flood/wetlands: do not claim all-clear while a required layer failed.
+        if missing_required and level in ("LOW", "MEDIUM"):
+            return {
+                "risk_level": "UNKNOWN",
+                "gis_complete": False,
+                "verified_count": len(verified),
+                "unknown_gis_count": len(unknown_gis),
+                "basis": "partial_gis",
+                "risk_honesty_note": (
+                    f"Verified GIS incomplete (missing {', '.join(missing_required)}). "
+                    "Overall score withheld — do not treat this pin as LOW until flood and "
+                    "wetlands both resolve."
+                ),
+            }
+        return {
+            "risk_level": level,
+            "gis_complete": not bool(missing_required),
+            "verified_count": len(verified),
+            "unknown_gis_count": len(unknown_gis),
+            "basis": "verified_gis",
+            "risk_honesty_note": (
+                None
+                if not unknown_gis
+                else (
+                    f"Overall {level} from verified flood/wetlands GIS; "
+                    f"{len(unknown_gis)} other layer(s) still unresolved (confirm on linked mapper)."
+                )
+            ),
+        }
+
+    if gis_rows:
+        return {
+            "risk_level": "UNKNOWN",
+            "gis_complete": False,
+            "verified_count": 0,
+            "unknown_gis_count": len(unknown_gis) or len(gis_rows),
+            "basis": "gis_unresolved",
+            "risk_honesty_note": (
+                "Parcel GIS did not return a verified flood/wetlands/habitat hit. "
+                "Overall risk unavailable — open FEMA MSC / NWI / IPaC for this pin."
+            ),
+        }
+
+    return {
+        "risk_level": "UNKNOWN",
+        "gis_complete": False,
+        "verified_count": 0,
+        "unknown_gis_count": 0,
+        "basis": "no_gis",
+        "risk_honesty_note": "No parcel GIS findings — overall risk unavailable.",
+    }
+
 
 @dataclass
 class EnvironmentalRisk:
@@ -37,8 +186,34 @@ def pin_mapper_urls(latitude: float, longitude: float) -> Dict[str, str]:
         "nwi": "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
         "fema": f"https://msc.fema.gov/portal/search?addressAscii={latitude}%2C{longitude}",
         "ipac": "https://ipac.ecosphere.fws.gov/",
-        "nepa": "https://www.epa.gov/nepa",
+        "nepa": EPA_NEPA_URL,
     }
+
+
+def municode_library_url(city: str, state: str) -> str:
+    """Best-effort Municode library root for the AHJ (confirm link, not a parcel stamp)."""
+    st = (state or "").strip().lower()[:2]
+    slug = re.sub(r"[^a-z0-9]+", "_", (city or "").strip().lower()).strip("_")
+    if not st or not slug:
+        return "https://library.municode.com/"
+    return f"https://library.municode.com/{st}/{slug}"
+
+
+def state_env_confirm(state: str) -> Tuple[str, str]:
+    """Official state environmental agency page when curated; else EPA state directory."""
+    try:
+        from jurisdiction_packs import get_state_pack
+
+        pack = get_state_pack(state)
+        for item in pack.get("items") or []:
+            if not isinstance(item, dict):
+                continue
+            iid = str(item.get("id") or "")
+            if iid.endswith("_env") and str(item.get("source_url") or "").startswith("http"):
+                return str(item["source_url"]), str(item.get("source_label") or "State environmental")
+    except Exception as e:
+        logger.debug("state_env_confirm pack lookup failed: %s", e)
+    return EPA_STATE_AGENCIES_URL, "EPA state agencies"
 
 
 def _pin_hint(lat: float, lng: float) -> str:
@@ -99,12 +274,20 @@ class EnvironmentalScreeningEngine:
             elif isinstance(result, Exception):
                 logger.error(f"Error in environmental check: {result}")
         
-        # Determine overall risk level
-        overall_risk = self._calculate_overall_risk([f.risk_level for f in findings])
+        # Determine overall risk from parcel GIS only (never stub noise/NEPA/state LOWs)
+        overall_meta = calculate_overall_env_risk(findings)
+        overall_risk = overall_meta["risk_level"]
         
-        logger.info(f"✅ Environmental screening complete: {overall_risk} risk ({total_cost} research cost)")
+        logger.info(
+            "✅ Environmental screening complete: %s risk (basis=%s, verified=%s, unknown_gis=%s, cost=%s)",
+            overall_risk,
+            overall_meta.get("basis"),
+            overall_meta.get("verified_count"),
+            overall_meta.get("unknown_gis_count"),
+            total_cost,
+        )
         mappers = pin_mapper_urls(latitude, longitude)
-        return {
+        out = {
             "risk_level": overall_risk,
             "findings": [asdict(f) for f in findings],
             "total_research_cost": total_cost,
@@ -112,11 +295,17 @@ class EnvironmentalScreeningEngine:
             "timestamp": self._get_timestamp(),
             "pin": {"lat": latitude, "lng": longitude},
             "mapper_urls": mappers,
+            "gis_complete": bool(overall_meta.get("gis_complete")),
+            "risk_basis": overall_meta.get("basis"),
             "gis_note": (
-                "FEMA NFHL and NWI are point-GIS at this pin. Species / noise / NEPA still need IPaC "
-                "or the AHJ — those layers are linked, not parcel-stamped."
+                "Overall risk uses verified FEMA NFHL / NWI / critical-habitat GIS only. "
+                "Noise, NEPA, and state rows are confirm links — they do not set the score. "
+                "Species lists still need IPaC when habitat GIS is unresolved."
             ),
         }
+        if overall_meta.get("risk_honesty_note"):
+            out["risk_honesty_note"] = overall_meta["risk_honesty_note"]
+        return out
     
     async def _check_wetlands(
         self,
@@ -136,7 +325,7 @@ class EnvironmentalScreeningEngine:
                     category="wetlands",
                     risk_level="HIGH",
                     description=(
-                        "NWI wetlands feature intersects this map pin. "
+                        "NWI wetlands feature intersects this map pin (or within ~120 m). "
                         "Confirm delineation with Corps before assuming impact."
                     ),
                     action_items=[
@@ -391,7 +580,17 @@ class EnvironmentalScreeningEngine:
         pad: float,
         label: str,
     ):
-        """Try free ArcGIS query hosts until one returns a usable JSON answer."""
+        """Try free ArcGIS query hosts until we can answer True / False / None.
+
+        Consensus (stability):
+        - True if *any* successful host/geometry reports an intersect
+        - False only if at least one host succeeded and *none* reported intersect
+        - None if every attempt failed (do not invent False)
+
+        Previously the first successful empty response returned False immediately, so a
+        flaky primary host falling through to a secondary layer could flip False→True
+        across runs for the same pin.
+        """
         import json
         import urllib.error
         import urllib.parse
@@ -411,6 +610,8 @@ class EnvironmentalScreeningEngine:
         ]
 
         last_err: Optional[str] = None
+        saw_success = False
+        saw_hit = False
         for base in endpoints:
             for geom, gtype, extra in geometries:
                 params = {
@@ -434,47 +635,58 @@ class EnvironmentalScreeningEngine:
                     with urllib.request.urlopen(request, timeout=10) as resp:
                         return json.load(resp)
 
+                data = None
                 for attempt in range(2):
                     try:
                         data = await asyncio.to_thread(_fetch)
+                        break
                     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as e:
                         last_err = str(e)
                         if attempt == 0:
                             await asyncio.sleep(0.35)
                             continue
                         logger.info("%s GIS miss on %s: %s", label, base.split("/")[2], e)
+                        data = None
                         break
                     except Exception as e:
                         last_err = str(e)
                         logger.info("%s GIS error on %s: %s", label, base.split("/")[2], e)
+                        data = None
                         break
 
-                    if not isinstance(data, dict):
-                        break
-                    if data.get("error"):
-                        last_err = str(data.get("error"))
-                        break
-                    feats = data.get("features")
-                    if feats is None and "features" not in data:
-                        # Unexpected payload — try next host
-                        last_err = "no features key"
-                        break
-                    hit = len(feats or []) > 0
-                    logger.info(
-                        "%s GIS ok via %s (%s) hit=%s",
-                        label,
-                        base.split("/")[2],
-                        gtype,
-                        hit,
-                    )
-                    return hit
+                if not isinstance(data, dict):
+                    continue
+                if data.get("error"):
+                    last_err = str(data.get("error"))
+                    continue
+                feats = data.get("features")
+                if feats is None and "features" not in data:
+                    last_err = "no features key"
+                    continue
+                saw_success = True
+                hit = len(feats or []) > 0
+                logger.info(
+                    "%s GIS ok via %s (%s) hit=%s",
+                    label,
+                    base.split("/")[2],
+                    gtype,
+                    hit,
+                )
+                if hit:
+                    saw_hit = True
+                    # Conservative CYA: one confirmed intersect is enough
+                    return True
 
+        if saw_success:
+            return False
         if last_err:
             logger.warning("%s GIS all hosts failed: %s", label, last_err)
         return None
 
     async def _check_noise_ordinances(self, city: str, state: str) -> EnvironmentalRisk:
         """Check municipal noise ordinances and zoning"""
+        code_url = municode_library_url(city, state)
+        code_label = f"{city} Municipal Code" if city else "Municipal Code"
         try:
             logger.info(f"🔍 Checking noise ordinances for {city}, {state}")
             
@@ -498,6 +710,9 @@ class EnvironmentalScreeningEngine:
                     ],
                     data_sources=["City Municipal Code", "Planning Department"],
                     research_cost_usd=75.0,
+                    verified=False,
+                    source_url=code_url,
+                    source_label=code_label,
                 )
             else:
                 return EnvironmentalRisk(
@@ -507,6 +722,9 @@ class EnvironmentalScreeningEngine:
                     action_items=["Review local noise limits"],
                     data_sources=["Municipal Code"],
                     research_cost_usd=25.0,
+                    verified=False,
+                    source_url=code_url,
+                    source_label=code_label,
                 )
         except Exception as e:
             logger.error(f"Noise ordinance check failed: {e}")
@@ -517,6 +735,9 @@ class EnvironmentalScreeningEngine:
                 action_items=["Contact city planning department"],
                 data_sources=["Manual inquiry required"],
                 research_cost_usd=0.0,
+                verified=False,
+                source_url=code_url,
+                source_label=code_label,
             )
     
     async def _check_nepa_requirements(self, latitude: float, longitude: float) -> EnvironmentalRisk:
@@ -544,6 +765,9 @@ class EnvironmentalScreeningEngine:
                     ],
                     data_sources=["Federal agency coordination", "40 CFR Parts 1500-1508"],
                     research_cost_usd=100.0,
+                    verified=False,
+                    source_url=EPA_NEPA_URL,
+                    source_label="EPA NEPA",
                 )
             else:
                 return EnvironmentalRisk(
@@ -553,6 +777,9 @@ class EnvironmentalScreeningEngine:
                     action_items=["Proceed with state/local environmental review only"],
                     data_sources=["Project scope analysis"],
                     research_cost_usd=0.0,
+                    verified=False,
+                    source_url=EPA_NEPA_URL,
+                    source_label="EPA NEPA",
                 )
         except Exception as e:
             logger.error(f"NEPA check failed: {e}")
@@ -563,10 +790,14 @@ class EnvironmentalScreeningEngine:
                 action_items=["Consult with federal agencies"],
                 data_sources=["Manual inquiry required"],
                 research_cost_usd=0.0,
+                verified=False,
+                source_url=EPA_NEPA_URL,
+                source_label="EPA NEPA",
             )
     
     async def _check_state_requirements(self, state: str, city: str) -> EnvironmentalRisk:
         """Check state-specific environmental requirements"""
+        env_url, env_label = state_env_confirm(state)
         try:
             logger.info(f"🔍 Checking state requirements for {state}")
             
@@ -590,6 +821,9 @@ class EnvironmentalScreeningEngine:
                     ],
                     data_sources=[f"{state} Department of Environmental Quality", f"{state} Environmental Code"],
                     research_cost_usd=75.0,
+                    verified=False,
+                    source_url=env_url,
+                    source_label=env_label,
                 )
             else:
                 return EnvironmentalRisk(
@@ -599,6 +833,9 @@ class EnvironmentalScreeningEngine:
                     action_items=["Follow state guidelines"],
                     data_sources=["State Environmental Code"],
                     research_cost_usd=25.0,
+                    verified=False,
+                    source_url=env_url,
+                    source_label=env_label,
                 )
         except Exception as e:
             logger.error(f"State requirements check failed: {e}")
@@ -609,6 +846,9 @@ class EnvironmentalScreeningEngine:
                 action_items=["Contact state environmental agency"],
                 data_sources=["Manual inquiry required"],
                 research_cost_usd=0.0,
+                verified=False,
+                source_url=env_url,
+                source_label=env_label,
             )
     
     # ===== Helper Methods =====
@@ -659,14 +899,15 @@ class EnvironmentalScreeningEngine:
         return None
     
     def _calculate_overall_risk(self, risk_levels: List[str]) -> str:
-        """Determine overall risk from individual category risks"""
-        risk_hierarchy = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "UNKNOWN": 0}
-        max_level = max([risk_hierarchy.get(r, 0) for r in risk_levels], default=0)
-        
-        for level, value in risk_hierarchy.items():
-            if value == max_level:
-                return level
-        return "UNKNOWN"
+        """Legacy helper — prefer calculate_overall_env_risk(findings)."""
+        synthetic = [
+            {"category": "flood_zones", "risk_level": lv, "verified": True}
+            for lv in risk_levels
+            if str(lv or "").upper() in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+        ]
+        if not synthetic:
+            return "UNKNOWN"
+        return str(calculate_overall_env_risk(synthetic).get("risk_level") or "UNKNOWN")
     
     def _generate_action_plan(self, findings: List[EnvironmentalRisk]) -> List[str]:
         """Generate master action plan from all findings"""

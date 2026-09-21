@@ -446,8 +446,8 @@ export default function FreeTrialForm({
       if (forceIc) {
         // Soft confirm chip — Cancel aborts IC slot consume
         generateIcReport = window.confirm(
-          `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
-            'Your email already has IC Project access. OK generates the boardroom package for this site using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without IC PDFs.'
+          `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
+            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + DOCX + CSV + evidence) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
         );
         try {
           sessionStorage.removeItem('icForceOnce');
@@ -461,10 +461,10 @@ export default function FreeTrialForm({
         const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
         const annual = tier === 'ic_annual';
         generateIcReport = window.confirm(
-          `Generate IC Project Report PDFs for:\n\n${siteChip}\n\n` +
+          `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
             (annual
-              ? 'Your email has IC Annual access. OK creates/updates PDFs for this address under that subscription. Cancel researches without updating PDFs. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
-              : 'Your email has an IC Project purchase on file. OK builds the $1,500 boardroom package for this address from that order (no new charge here). Cancel researches without generating PDFs. Reg Guard does not store your credit card.')
+              ? 'Your email has IC Annual access. OK creates/updates the Diligence Bundle ZIP for this address under that subscription. Cancel researches without the paid package. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
+              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + DOCX + CSV + evidence — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
         );
         if (!generateIcReport) {
           clearPendingIcReport();
@@ -525,7 +525,7 @@ export default function FreeTrialForm({
         setQuotaExceeded(true);
         setError(
           (payload.detail as string) ||
-            'Free monthly lookups used up for this email. Start Partner ($79/mo) or Contractor Pro ($149/mo) — no charge for this blocked run.'
+            'Free monthly lookups used up for this email. Start Estimator / Permit Runner ($79/mo) or Contractor Pro ($149/mo) — no charge for this blocked run.'
         );
         return;
       }
@@ -969,11 +969,11 @@ export default function FreeTrialForm({
             {typeof window !== 'undefined' &&
             (hasValidPendingIcReport() ||
               new URLSearchParams(window.location.search).get('run_ic') === '1')
-              ? `Payment detected — ready to generate IC Project Report for ${
+              ? `Payment detected — ready to generate IC Diligence Bundle for ${
                   formData.address
                     ? `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`
                     : 'the saved site'
-                }. Confirm the address when prompted.`
+                }. Confirm the address when prompted — you will get the counsel ZIP (memo + DOCX + CSVs).`
               : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
@@ -1146,7 +1146,7 @@ export default function FreeTrialForm({
                       onClick={() => navigate('/checkout/partner')}
                       className="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
                     >
-                      Start Partner — $79/mo
+                      Start Estimator / Permit Runner — $79/mo
                     </button>
                     <button
                       type="button"

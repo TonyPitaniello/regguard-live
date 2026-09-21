@@ -249,18 +249,21 @@ def _site_card(pdf: BoardroomPDF, site: str, lines: List[str]) -> None:
 
 
 def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
+    from artifact_naming import document_display_title
+
     pdf = BoardroomPDF()
     cover = package.get("cover") or {}
     site = _ascii(cover.get("site") or "Project site")
-    title_line = _ascii(f"IC Diligence Package — {site}")[:95]
-    pdf._doc_subtitle = title_line[:78]
+    title_line = _ascii(document_display_title(site, "IC DILIGENCE PACKAGE"))
+    pdf._doc_subtitle = title_line[:90]
+    pdf._footer_label = title_line[:90]
     pdf._control_line = _ascii(
         f"{site}  |  Generated {package.get('generated_at') or '-'}  |  "
         f"Planning aid - confirm with AHJ"
     )
     try:
-        pdf.set_title(title_line)
-        pdf.set_author("RegGuard")
+        pdf.set_title(title_line[:120])
+        pdf.set_author("Reg Guard")
     except Exception:
         pass
 
@@ -281,10 +284,11 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_text_color(*WHITE)
-    pdf.cell(CONTENT_W * 0.55, 8, "REG GUARD", ln=0)
+    pdf.cell(CONTENT_W, 8, "REG GUARD", ln=1)
+    pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(CONTENT_W * 0.45, 8, "IC DILIGENCE PACKAGE", align="R", ln=1)
+    pdf.multi_cell(CONTENT_W, 4.5, title_line)
     _muted(
         pdf,
         "Bound site diligence  |  Planning aid - not a quote, not a filing",

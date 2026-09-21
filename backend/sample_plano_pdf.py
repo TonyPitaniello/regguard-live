@@ -1,6 +1,13 @@
 """
-Labeled SAMPLE Plano punch-list PDF for pricing / landing pages.
-Fictional address - not a real site diligence deliverable.
+Labeled SAMPLE Plano PDF for pricing / landing pages.
+
+Designed for Estimator / Permit Runner + Contractor Pro buyers:
+  - Looks like the Bid Risk Receipt (dark slate + emerald), not a white office form
+  - Shows Source / Unverified honesty
+  - Owner + due window on punch lines
+  - Explicit SAMPLE / planning-aid labeling (not a quote)
+
+Fictional address — not a live site diligence deliverable.
 """
 
 from __future__ import annotations
@@ -9,159 +16,317 @@ import logging
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional, Tuple
 
 from fpdf import FPDF
 
 logger = logging.getLogger(__name__)
 
 SAMPLE_ADDRESS = "2100 Legacy Dr (SAMPLE), Plano, TX 75024"
+AHJ = "City of Plano Building Inspections"
+
+# Match bid_risk_receipt_pdf / app canvas
+BG = (15, 23, 42)  # slate-900
+CARD = (30, 41, 59)  # slate-800
+CARD_EDGE = (51, 65, 85)  # slate-700
+EMERALD = (16, 185, 129)
+EMERALD_SOFT = (52, 211, 153)
+AMBER = (245, 158, 11)
+WHITE = (248, 250, 252)
+MUTED = (148, 163, 184)
+DIM = (100, 116, 139)
+CRIT = (248, 113, 113)
+HIGH = (251, 191, 36)
+
+PAGE_W = 215.9
+PAGE_H = 279.4
+MARGIN = 12
+CONTENT_W = PAGE_W - (MARGIN * 2)
+
+PUNCH = [
+    {
+        "task": "Confirm Plano grounding: Ord. 250.50 — two 8-ft rods @ 20 ft with 2/0 bond",
+        "priority": "CRITICAL",
+        "owner": "Electrical / Permit runner",
+        "when": "Week 1",
+        "citation": "SOURCE",
+        "source": "Plano Ord. 250.50 (SAMPLE cite)",
+    },
+    {
+        "task": "Pull City of Plano electrical permit fee schedule before bid (sync / trade fees)",
+        "priority": "HIGH",
+        "owner": "Estimator",
+        "when": "Week 1",
+        "citation": "SOURCE",
+        "source": "Plano fee schedule portal (SAMPLE)",
+    },
+    {
+        "task": "Verify panel schedule vs Plano amendments — do not price base NEC alone",
+        "priority": "HIGH",
+        "owner": "Electrical estimator",
+        "when": "Week 2",
+        "citation": "UNVERIFIED",
+        "source": "Confirm with Plano plan review",
+    },
+    {
+        "task": "Book rough-in inspection window with Plano Building Inspections",
+        "priority": "MEDIUM",
+        "owner": "GC / Permit runner",
+        "when": "Week 4",
+        "citation": "SOURCE",
+        "source": "Plano Building Inspections (SAMPLE)",
+    },
+    {
+        "task": "Document AHJ contact + plan-review turnaround in the bid file",
+        "priority": "MEDIUM",
+        "owner": "Estimator / PM",
+        "when": "Week 1",
+        "citation": "UNVERIFIED",
+        "source": "Confirm current turnaround with AHJ",
+    },
+]
 
 
-class SamplePlanoPunchPDF(FPDF):
+def _ascii(text: str) -> str:
+    return (
+        (text or "")
+        .replace("\u2014", "-")
+        .replace("\u2013", "-")
+        .replace("\u2019", "'")
+        .replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2022", "-")
+        .encode("latin-1", "replace")
+        .decode("latin-1")
+    )
+
+
+class SamplePlanoPDF(FPDF):
     def header(self) -> None:
-        # Large SAMPLE watermark (compatible with fpdf / fpdf2)
-        self.set_font("Helvetica", "B", 48)
-        self.set_text_color(230, 230, 230)
+        self.set_fill_color(*BG)
+        self.rect(0, 0, PAGE_W, PAGE_H, "F")
+        # Watermark
+        self.set_font("Helvetica", "B", 54)
+        self.set_text_color(30, 41, 59)
         try:
-            self.rotate(30, x=105, y=140)
-            self.text(40, 150, "SAMPLE")
+            self.rotate(28, x=105, y=150)
+            self.text(28, 160, "SAMPLE")
             self.rotate(0)
         except Exception:
-            self.set_xy(20, 130)
-            self.cell(0, 16, "SAMPLE", align="C")
+            pass
 
     def footer(self) -> None:
-        self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(120, 120, 120)
+        self.set_y(-14)
+        self.set_font("Helvetica", "I", 7)
+        self.set_text_color(*DIM)
         self.cell(
             0,
-            10,
-            "SAMPLE ONLY - Fictional Plano example for Reg Guard marketing. Not AHJ advice.",
+            8,
+            _ascii(
+                "SAMPLE ONLY - Fictional Plano marketing example. Planning aid, not AHJ advice, "
+                "not a quote or sealed bid."
+            ),
             align="C",
         )
 
 
-def _sample_analysis() -> Dict[str, Any]:
-    return {
-        "project_info": {
-            "address": SAMPLE_ADDRESS,
-            "city": "Plano",
-            "state": "TX",
-            "zip": "75024",
-            "type": "commercial_electrical",
-        },
-        "punch_list": {
-            "timeline_summary": "6-10 weeks (illustrative)",
-            "estimated_total_cost": 18500,
-            "punch_list": [
-                {
-                    "task": "Confirm Plano Ord. 250.50 two 8-ft rods @ 20 ft with 2/0 bond",
-                    "priority": "CRITICAL",
-                    "timeline": "Week 1",
-                    "estimated_cost": 1200,
-                },
-                {
-                    "task": "Pull City of Plano 2026 electrical permit fee schedule ($75 sync)",
-                    "priority": "HIGH",
-                    "timeline": "Week 1",
-                    "estimated_cost": 75,
-                },
-                {
-                    "task": "Verify panel schedule vs Plano amendments (not base NEC alone)",
-                    "priority": "HIGH",
-                    "timeline": "Week 2",
-                    "estimated_cost": 0,
-                },
-                {
-                    "task": "Schedule rough-in inspection window with Plano Building Inspections",
-                    "priority": "MEDIUM",
-                    "timeline": "Week 4",
-                    "estimated_cost": 0,
-                },
-                {
-                    "task": "Document AHJ contact + plan review turnaround for bid file",
-                    "priority": "MEDIUM",
-                    "timeline": "Week 1",
-                    "estimated_cost": 0,
-                },
-            ],
-        },
-    }
+def _badge(
+    pdf: FPDF,
+    label: str,
+    *,
+    fg: Tuple[int, int, int],
+    bg: Tuple[int, int, int],
+    x: float,
+    y: float,
+) -> float:
+    pdf.set_font("Helvetica", "B", 7)
+    w = pdf.get_string_width(_ascii(label)) + 5
+    pdf.set_fill_color(*bg)
+    pdf.set_draw_color(*fg)
+    pdf.rect(x, y, w, 5.5, "FD")
+    pdf.set_xy(x, y + 0.6)
+    pdf.set_text_color(*fg)
+    pdf.cell(w, 4, _ascii(label), align="C")
+    return x + w + 2
 
 
 def generate_sample_plano_punch_pdf(output_path: Optional[str] = None) -> str:
-    """Write SAMPLE Plano punch list PDF; return absolute path."""
-    analysis = _sample_analysis()
-    pdf = SamplePlanoPunchPDF()
-    pdf.set_auto_page_break(auto=True, margin=18)
+    """Write SAMPLE Plano Bid Risk Receipt-style punch PDF; return absolute path."""
+    pdf = SamplePlanoPDF(format="Letter")
+    pdf.set_auto_page_break(auto=True, margin=16)
+    pdf.set_margins(MARGIN, MARGIN, MARGIN)
     pdf.add_page()
 
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 10, "Reg Guard - SAMPLE Contractor Punch List", ln=True)
+    y = MARGIN
+
+    # Brand bar
+    pdf.set_fill_color(*EMERALD)
+    pdf.rect(MARGIN, y, 3, 14, "F")
+    pdf.set_xy(MARGIN + 6, y)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(180, 40, 40)
-    pdf.cell(0, 8, "LABELED SAMPLE - Not a live site report", ln=True)
+    pdf.set_text_color(*EMERALD_SOFT)
+    pdf.cell(0, 5, "REG GUARD", ln=1)
+    pdf.set_x(MARGIN + 6)
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(0, 7, "SAMPLE Bid Risk Receipt + Punch", ln=1)
+    y = pdf.get_y() + 2
+
+    x = MARGIN
+    x = _badge(pdf, "LABELED SAMPLE", fg=AMBER, bg=(69, 26, 3), x=x, y=y)
+    x = _badge(pdf, "NOT A LIVE SITE", fg=AMBER, bg=(69, 26, 3), x=x, y=y)
+    x = _badge(pdf, "PLANO TX BEACHHEAD", fg=EMERALD, bg=(6, 78, 59), x=x, y=y)
+    pdf.set_y(y + 8)
+
+    # Site card
+    pdf.set_fill_color(*CARD)
+    pdf.set_draw_color(*CARD_EDGE)
+    card_top = pdf.get_y()
+    pdf.rect(MARGIN, card_top, CONTENT_W, 28, "FD")
+    pdf.set_xy(MARGIN + 4, card_top + 3)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(0, 4, "FICTIONAL SITE (marketing demo)", ln=1)
+    pdf.set_x(MARGIN + 4)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(0, 6, _ascii(SAMPLE_ADDRESS), ln=1)
+    pdf.set_x(MARGIN + 4)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(0, 5, _ascii(f"AHJ: {AHJ}  |  Generated: {datetime.utcnow().strftime('%Y-%m-%d')} UTC"), ln=1)
+    pdf.set_x(MARGIN + 4)
+    pdf.set_text_color(*EMERALD_SOFT)
+    pdf.cell(0, 5, "Real lookups: every line shows SOURCE or UNVERIFIED with confirm path", ln=1)
+    pdf.set_y(card_top + 30)
+
+    # Stamp strip (what $79 / Pro buyers forward)
+    pdf.set_fill_color(*CARD)
+    stamp_top = pdf.get_y()
+    pdf.rect(MARGIN, stamp_top, CONTENT_W, 22, "FD")
+    pdf.set_xy(MARGIN + 4, stamp_top + 3)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(60, 4, "STAMP (SAMPLE)", ln=0)
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_text_color(*AMBER)
+    pdf.cell(40, 6, "CAUTION", ln=0)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*EMERALD_SOFT)
+    pdf.cell(0, 6, "Contingency +2% to +5% (illustrative)", ln=1)
+    pdf.set_x(MARGIN + 4)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*MUTED)
+    pdf.multi_cell(
+        CONTENT_W - 8,
+        4,
+        _ascii(
+            "Forwardable CYA for GC / owner / client. Planning aid only — not a bid quote. "
+            "This is the habit artifact Estimator / Permit Runner ($79) and Contractor Pro ($149) live on."
+        ),
+    )
+    pdf.set_y(stamp_top + 24)
+
+    # Why this sample
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(0, 6, "Why this sample matches Plano buyers", ln=1)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*MUTED)
+    pdf.multi_cell(
+        CONTENT_W,
+        4,
+        _ascii(
+            "Beachhead AHJ (Plano), local ordinance + fee-schedule confirm, owner/due window, "
+            "and honest Unverified lines. Estimators confirm local permit rates; permit runners "
+            "need a forwardable stamp — not a white generic punch form."
+        ),
+    )
     pdf.ln(2)
 
-    pdf.set_font("Helvetica", "", 10)
-    pdf.set_text_color(50, 50, 50)
-    pdf.multi_cell(
-        0,
-        6,
-        f"Site (fictional): {SAMPLE_ADDRESS}\n"
-        "Coverage demo: Plano, TX citeable path. Real lookups show Source or Unverified.\n"
-        f"Generated: {datetime.utcnow().strftime('%Y-%m-%d')} UTC",
-    )
-    pdf.ln(4)
+    # Punch header
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(*WHITE)
+    pdf.cell(0, 6, "Punch list (SAMPLE)", ln=1)
 
-    punch = analysis["punch_list"]
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Project timeline & cost (illustrative)", ln=True)
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, f"Timeline: {punch['timeline_summary']}", ln=True)
-    pdf.cell(0, 6, f"Est. cost: ${punch['estimated_total_cost']:,.0f}", ln=True)
-    pdf.ln(4)
-
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "Action items", ln=True)
-
-    # Table header
-    pdf.set_fill_color(99, 102, 241)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(10, 8, "#", fill=True)
-    pdf.cell(95, 8, "Action item", fill=True)
-    pdf.cell(25, 8, "Priority", fill=True)
-    pdf.cell(25, 8, "When", fill=True)
-    pdf.cell(25, 8, "Est.", fill=True)
+    # Column header
+    pdf.set_fill_color(6, 78, 59)  # emerald-900
+    pdf.set_text_color(*WHITE)
+    pdf.set_font("Helvetica", "B", 7)
+    row_h = 6
+    pdf.cell(8, row_h, "#", fill=True)
+    pdf.cell(78, row_h, "Action", fill=True)
+    pdf.cell(18, row_h, "Priority", fill=True)
+    pdf.cell(28, row_h, "Owner", fill=True)
+    pdf.cell(16, row_h, "When", fill=True)
+    pdf.cell(22, row_h, "Citation", fill=True)
     pdf.ln()
 
-    pdf.set_text_color(40, 40, 40)
-    for i, item in enumerate(punch["punch_list"], 1):
-        pdf.set_font("Helvetica", "", 8)
-        y0 = pdf.get_y()
-        if y0 > 250:
+    for i, item in enumerate(PUNCH, 1):
+        if pdf.get_y() > 240:
             pdf.add_page()
-        task = (item.get("task") or "")[:72]
-        cost = item.get("estimated_cost") or 0
-        pdf.cell(10, 7, str(i))
-        pdf.cell(95, 7, task)
-        pdf.cell(25, 7, item.get("priority") or "")
-        pdf.cell(25, 7, item.get("timeline") or "")
-        pdf.cell(25, 7, f"${cost:,.0f}" if cost else "TBD")
-        pdf.ln()
+        # zebra
+        if i % 2 == 0:
+            pdf.set_fill_color(30, 41, 59)
+        else:
+            pdf.set_fill_color(22, 32, 52)
+        y0 = pdf.get_y()
+        pdf.rect(MARGIN, y0, CONTENT_W, 14, "F")
 
-    pdf.ln(8)
-    pdf.set_font("Helvetica", "I", 9)
-    pdf.set_text_color(100, 100, 100)
+        pri = item["priority"]
+        if pri == "CRITICAL":
+            pdf.set_text_color(*CRIT)
+        elif pri == "HIGH":
+            pdf.set_text_color(*HIGH)
+        else:
+            pdf.set_text_color(*MUTED)
+
+        pdf.set_xy(MARGIN, y0 + 1)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.cell(8, 4, str(i))
+        pdf.set_text_color(*WHITE)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.cell(78, 4, _ascii(item["task"][:62]))
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.cell(18, 4, pri[:8])
+        pdf.set_font("Helvetica", "", 6)
+        pdf.set_text_color(*MUTED)
+        pdf.cell(28, 4, _ascii(item["owner"][:22]))
+        pdf.cell(16, 4, item["when"])
+        cite = item["citation"]
+        if cite == "SOURCE":
+            pdf.set_text_color(*EMERALD_SOFT)
+        else:
+            pdf.set_text_color(*AMBER)
+        pdf.set_font("Helvetica", "B", 7)
+        pdf.cell(22, 4, cite)
+        pdf.ln(5)
+        pdf.set_x(MARGIN + 8)
+        pdf.set_font("Helvetica", "I", 6)
+        pdf.set_text_color(*DIM)
+        pdf.cell(0, 4, _ascii(f"Confirm: {item['source']}"), ln=1)
+        pdf.set_y(y0 + 14)
+
+    pdf.ln(3)
+    pdf.set_fill_color(*CARD)
+    note_top = pdf.get_y()
+    pdf.rect(MARGIN, note_top, CONTENT_W, 28, "FD")
+    pdf.set_xy(MARGIN + 4, note_top + 3)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(*EMERALD_SOFT)
+    pdf.cell(0, 4, "What paid tiers add on a LIVE address", ln=1)
+    pdf.set_x(MARGIN + 4)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(*MUTED)
     pdf.multi_cell(
-        0,
-        5,
-        "This PDF is a marketing sample. Purchase Contractor Pro or an IC Project Report "
-        "for a live address lookup with Source / Unverified labeling.",
+        CONTENT_W - 8,
+        3.5,
+        _ascii(
+            "Estimator / Permit Runner ($79): full forwardable Receipt + unlocked punch + Saved Jobs.\n"
+            "Contractor Pro ($149): deep scout + fee/punch CSV + full city pack PDF for your bid desk.\n"
+            "IC Diligence Bundle ($1,500): counsel DOCX + evidence binder + exhibit_id ZIP for one site.\n"
+            "This PDF is SAMPLE marketing only — run a free lookup on a real address to see live labeling."
+        ),
     )
 
     if not output_path:

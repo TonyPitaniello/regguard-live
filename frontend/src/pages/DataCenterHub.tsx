@@ -24,6 +24,8 @@ import {
   Workflow
 } from 'lucide-react';
 import { backendUrl } from '../env';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
 
 interface DataCenterCapability {
   icon: React.ReactNode;
@@ -117,13 +119,13 @@ export function DataCenterHub() {
       recommended: true,
     },
     {
-      name: 'IC Project Report',
-      price: '$1,500',
+      name: IC_BUNDLE.tierName,
+      price: IC_BUNDLE.priceLabel,
       period: 'one-time',
       features: [
-        '✓ Full research memo (PDF)',
-        '✓ Punch list + permit package',
-        '✓ Same-day delivery',
+        '✓ Counsel-ready Diligence Bundle ZIP',
+        '✓ Decision memo + DOCX + fee/punch CSV + evidence',
+        '✓ DC parallel clocks (AHJ · interconnect · water)',
         '✓ SOURCE or Unverified labeling',
       ],
     },
@@ -175,7 +177,7 @@ export function DataCenterHub() {
                 href="/checkout/ic_project"
                 className="px-8 py-3 border border-indigo-500/30 hover:border-indigo-500 text-indigo-300 font-semibold rounded-lg transition text-center"
               >
-                IC Project — $1,500
+                {IC_BUNDLE.ctaBuy}
               </a>
             </div>
           </div>
@@ -288,9 +290,15 @@ export function DataCenterHub() {
       {/* ===== PRICING WITH CREDIT CARD COLLECTION ===== */}
       <section className="px-4 py-16 sm:px-6 lg:px-8 bg-indigo-500/5 border-t border-indigo-500/10">
         <div className="max-w-6xl mx-auto">
-          <h3 className="text-3xl font-bold text-white text-center mb-12">
+          <h3 className="text-3xl font-bold text-white text-center mb-4">
             Plans for Every Stage
           </h3>
+          <p className="text-center text-gray-300 max-w-2xl mx-auto mb-10">
+            Large-load sites need more than a punch list preview. The{' '}
+            <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> is the
+            counsel-ready ZIP for one address — memo, DOCX, CSVs, parallel clocks.
+          </p>
+          <IcDiligenceBundlePitch className="mb-12 max-w-3xl mx-auto" />
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {pricingPlans.map((plan, idx) => (

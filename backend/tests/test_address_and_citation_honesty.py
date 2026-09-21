@@ -82,3 +82,50 @@ def test_unverified_fast41_gets_confirm_link():
     assert item["citation_tier"] == "link"
     assert str(item.get("source_url") or "").startswith("https://www.permits.performance.gov")
     assert item["verified"] is False
+
+
+def test_env_noise_nepa_state_get_confirm_links():
+    """Screenshot UNVERIFIED cards become LINK with official confirm URLs."""
+    out = apply_citation_honesty(
+        {
+            "project_info": {"city": "Fort Worth", "state": "TX", "zip": "76126"},
+            "environmental_screening": {
+                "findings": [
+                    {
+                        "category": "noise_ordinances",
+                        "risk_level": "LOW",
+                        "description": "Standard municipal noise ordinance applies.",
+                        "data_sources": ["Municipal Code"],
+                        "verified": False,
+                    },
+                    {
+                        "category": "nepa",
+                        "risk_level": "LOW",
+                        "description": "NEPA likely not applicable (no federal funding/permits).",
+                        "data_sources": ["Project scope analysis"],
+                        "verified": False,
+                    },
+                    {
+                        "category": "state_requirements",
+                        "risk_level": "LOW",
+                        "description": "Standard state environmental review applies.",
+                        "data_sources": ["State Environmental Code"],
+                        "verified": False,
+                    },
+                ]
+            },
+        }
+    )
+    findings = {f["category"]: f for f in out["environmental_screening"]["findings"]}
+    noise = findings["noise_ordinances"]
+    assert noise["citation_tier"] == "link"
+    assert noise["verified"] is False
+    assert "municode.com" in str(noise["source_url"]) or str(noise["source_url"]).startswith("http")
+    nepa = findings["nepa"]
+    assert nepa["citation_tier"] == "link"
+    assert "epa.gov/nepa" in str(nepa["source_url"])
+    assert nepa["verified"] is False
+    state = findings["state_requirements"]
+    assert state["citation_tier"] == "link"
+    assert "tceq.texas.gov" in str(state["source_url"])
+    assert state["verified"] is False

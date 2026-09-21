@@ -152,7 +152,17 @@ def generate_bid_risk_receipt_pdf(
     mid_s = _fmt_pct(band.get("pct_mid"))
     high_s = _fmt_pct(band.get("pct_high"))
 
+    from artifact_naming import document_display_title, site_line_from_analysis
+
+    site_line = site_line_from_analysis(data)
+    doc_title = document_display_title(site_line, "BID RISK RECEIPT")
+
     pdf = BidRiskReceiptPDF()
+    try:
+        pdf.set_title(_ascii(doc_title)[:120])
+        pdf.set_author("Reg Guard")
+    except Exception:
+        pass
     pdf.add_page()
     pdf.set_margins(MARGIN, MARGIN, MARGIN)
     pdf.set_y(8)
@@ -166,17 +176,17 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_text_color(*EMERALD_SOFT)
     pdf.cell(CONTENT_W, 6, "FLAGGED BEFORE BID DAY", ln=1)
     pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 4, _ascii(doc_title))
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*MUTED)
     pdf.multi_cell(
         CONTENT_W,
-        4,
+        3.5,
         _ascii("I flagged risk on THIS site. Forward so the GC/owner sees it before bid."),
     )
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(*MUTED)
-    pdf.cell(CONTENT_W, 4, "REG GUARD  |  Bid Risk Receipt", ln=1)
     pdf.ln(2)
 
     # Site card

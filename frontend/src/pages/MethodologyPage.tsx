@@ -1,9 +1,11 @@
 /**
- * RegGuard How It Works — freemium preview + paid IC tracks (honest)
+ * RegGuard How It Works — freemium preview + paid IC Diligence Bundle (honest)
  */
 
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Shield, CheckCircle, Clock } from 'lucide-react';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
 
 export default function MethodologyPage() {
   const navigate = useNavigate();
@@ -26,9 +28,11 @@ export default function MethodologyPage() {
         <div className="max-w-4xl mx-auto">
           <h1 className="text-5xl font-black text-white mb-6">How RegGuard Works</h1>
           <p className="text-xl text-gray-300">
-            Free: enter an address and get an instant Bid Risk Receipt preview in the app.
-            Paid: Partner / Contractor Pro for bid-week habit, or an IC Project Report with
-            downloadable PDFs. Strongest citeable local depth today is Dallas, Plano, and Austin.
+            Free: enter an address and get an instant Bid Risk Receipt preview in the app. Paid:
+            Partner / Contractor Pro for bid-week habit, or the{' '}
+            <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> — a
+            counsel-ready ZIP (memo + DOCX + CSVs), not a longer PDF stack. Strongest citeable local
+            depth today is Dallas, Plano, and Austin.
           </p>
         </div>
       </section>
@@ -78,8 +82,8 @@ export default function MethodologyPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-2">Forward or upgrade</h3>
                   <p className="text-gray-300">
-                    Share the receipt with a GC / owner, or start Partner ($79/mo) / Contractor Pro
-                    ($149/mo) for more lookups and deeper local confirm where available.
+                    Text / email the receipt, deepen with Partner or Pro for bid week, or buy the{' '}
+                    {IC_BUNDLE.productName} when counsel needs a citeable package for one site.
                   </p>
                 </div>
               </div>
@@ -90,7 +94,8 @@ export default function MethodologyPage() {
 
       <section className="px-4 py-16 sm:px-6 lg:px-8 border-t border-purple-500/10">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-black text-white mb-8">Track B — IC Project Report (PDFs)</h2>
+          <h2 className="text-3xl font-black text-white mb-8">{IC_BUNDLE.methodologyTitle}</h2>
+          <IcDiligenceBundlePitch className="mb-8" />
           <div className="space-y-6">
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-xl p-8">
               <div className="flex items-start gap-4">
@@ -100,8 +105,8 @@ export default function MethodologyPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-2">Checkout via Stripe</h3>
                   <p className="text-gray-300">
-                    IC Project Report ($1,500 one-time) for a site package you can attach. Address
-                    + project type bound to the order.
+                    {IC_BUNDLE.tierName} ({IC_BUNDLE.priceLabel} one-time) for one site&apos;s
+                    Diligence Bundle. Address + project type bound to the order.
                   </p>
                 </div>
               </div>
@@ -112,27 +117,40 @@ export default function MethodologyPage() {
                   2
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-white mb-2">Research + three PDFs</h3>
+                  <h3 className="text-lg font-bold text-white mb-2">
+                    {IC_BUNDLE.methodologyStep2Title}
+                  </h3>
+                  <p className="text-gray-300 mb-3">{IC_BUNDLE.readyBody}</p>
                   <ul className="text-gray-300 space-y-2 ml-1">
-                    <li>
-                      <strong className="text-white">Research Memo</strong> — summary, roadmap,
-                      contacts
-                    </li>
-                    <li>
-                      <strong className="text-white">Contractor Punch List</strong> — ordered
-                      actions
-                    </li>
-                    <li>
-                      <strong className="text-white">Permit Package</strong> — checklists / forms
-                      guidance
-                    </li>
+                    {IC_BUNDLE.contents.map((c) => (
+                      <li key={c.file}>
+                        <strong className="text-white">{c.label}</strong> — {c.detail}
+                      </li>
+                    ))}
                   </ul>
                   <p className="text-gray-400 text-sm mt-3">
-                    Download from My Orders (blob download — no bare Render tab opens).
+                    Download the ZIP from IC-depth results. Optional longer boardroom PDF is
+                    secondary. Parts may also appear under My Orders.
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+          <div className="mt-8 flex flex-col sm:flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => navigate('/checkout/ic_project')}
+              className="px-6 py-3.5 min-h-[48px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl"
+            >
+              {IC_BUNDLE.ctaBuy}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/pricing')}
+              className="px-6 py-3.5 min-h-[48px] border border-white/20 text-gray-200 font-semibold rounded-xl hover:bg-white/5"
+            >
+              Compare plans
+            </button>
           </div>
         </div>
       </section>
@@ -155,9 +173,9 @@ export default function MethodologyPage() {
             </div>
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-xl p-6 text-center">
               <Clock className="w-8 h-8 text-purple-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-white mb-2">IC Project PDFs</p>
+              <p className="text-sm font-bold text-white mb-2">{IC_BUNDLE.productName}</p>
               <p className="text-2xl font-black text-purple-400">Same day</p>
-              <p className="text-xs text-gray-400 mt-2">Most orders within hours</p>
+              <p className="text-xs text-gray-400 mt-2">ZIP after IC-depth lookup</p>
             </div>
           </div>
         </div>
@@ -190,7 +208,10 @@ export default function MethodologyPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-green-400 font-bold">✓</span>
-                  <span>IC PDFs available from My Orders after fulfillment</span>
+                  <span>
+                    IC Diligence Bundle ZIP structure (memo + counsel DOCX + CSVs + evidence) after
+                    an IC-depth run
+                  </span>
                 </li>
               </ul>
             </div>
@@ -215,6 +236,10 @@ export default function MethodologyPage() {
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>
                   <span>Live RTO queue positions (demo tools are not product)</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-red-400 font-bold">✕</span>
+                  <span>{IC_BUNDLE.notThis}</span>
                 </li>
               </ul>
             </div>
@@ -245,7 +270,8 @@ export default function MethodologyPage() {
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-black text-white mb-6">Ready?</h2>
           <p className="text-gray-300 mb-8">
-            Start with a free address lookup, or see Partner / Pro / IC on pricing.
+            Start with a free address lookup, or get the {IC_BUNDLE.productName} for counsel-ready
+            site packages.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -253,6 +279,12 @@ export default function MethodologyPage() {
               className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/30 cursor-pointer"
             >
               Free lookup
+            </button>
+            <button
+              onClick={() => navigate('/checkout/ic_project')}
+              className="px-10 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-lg rounded-xl transition cursor-pointer"
+            >
+              {IC_BUNDLE.ctaBuy}
             </button>
             <button
               onClick={() => navigate('/pricing')}

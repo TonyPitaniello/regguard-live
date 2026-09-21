@@ -5,6 +5,7 @@ Contract:
 - Never present stub environmental risk as LOW/MEDIUM/HIGH truth.
 - Mark costs and timelines as unverified unless explicitly verified.
 - Stamp every analysis with an ``honesty`` block consumers can trust.
+- Overall env risk uses parcel GIS only (see calculate_overall_env_risk).
 """
 
 from __future__ import annotations
@@ -64,7 +65,7 @@ def apply_honesty_layer(
 
     When risk is not verified, overall risk_level becomes UNAVAILABLE and
     per-finding LOW/MEDIUM/HIGH badges are rewritten to PRELIMINARY so UI
-    never shows a confident stub score.
+    never shows a confident stub score (GIS-verified findings keep their levels).
     """
     out = deepcopy(analysis) if analysis else {}
     out["preview"] = True if source in ("preview", "instant", "option_a", "client") else bool(
@@ -82,11 +83,26 @@ def apply_honesty_layer(
     out["honesty"] = honesty
 
     env = out.setdefault("environmental_screening", {})
+    findings = env.get("findings") or []
+
+    # Always recompute overall from GIS-only rules when findings exist
+    try:
+        from real_environmental_screening import calculate_overall_env_risk
+
+        if findings:
+            meta = calculate_overall_env_risk(findings)
+            env["risk_level"] = meta["risk_level"]
+            env["gis_complete"] = bool(meta.get("gis_complete"))
+            env["risk_basis"] = meta.get("basis")
+            if meta.get("risk_honesty_note"):
+                env["risk_honesty_note"] = meta["risk_honesty_note"]
+    except Exception:
+        pass
+
     if not risk_verified and hide_stub_risk:
         env["risk_level"] = UNAVAILABLE
         env["risk_score_hidden"] = True
-        env["risk_honesty_note"] = RISK_LABEL
-        findings = env.get("findings") or []
+        env["risk_honesty_note"] = env.get("risk_honesty_note") or RISK_LABEL
         for finding in findings:
             if isinstance(finding, dict):
                 # Preserve GIS-backed findings (FEMA NFHL / NWI) — do not strip to PRELIMINARY
@@ -99,22 +115,19 @@ def apply_honesty_layer(
                     finding["risk_level"] = PRELIMINARY
                     finding["verified"] = False
 
-        # Overall score stays UNAVAILABLE until full parcel suite is verified;
-        # partial GIS (flood/wetlands) still shows per-finding verified badges.
         verified_n = sum(
             1
             for f in findings
             if isinstance(f, dict) and f.get("verified") and f.get("source_url")
         )
         if verified_n:
-            env["risk_honesty_note"] = (
+            env["risk_honesty_note"] = env.get("risk_honesty_note") or (
                 f"{verified_n} finding(s) GIS-verified (FEMA/NWI). "
-                "Overall risk score still unavailable until remaining layers are parcel-verified."
+                "Overall risk score still unavailable until flood and wetlands both resolve."
             )
             honesty["labels"]["risk"] = env["risk_honesty_note"]
 
         summary = out.setdefault("summary", {})
-        # Count only verified HIGH/CRITICAL toward high_risk_count
         summary["high_risk_count"] = sum(
             1
             for f in findings
@@ -124,6 +137,20 @@ def apply_honesty_layer(
         )
         summary["risk_level_display"] = UNAVAILABLE
         summary["estimates_unverified"] = True
+    else:
+        summary = out.setdefault("summary", {})
+        summary["high_risk_count"] = sum(
+            1
+            for f in findings
+            if isinstance(f, dict)
+            and f.get("verified")
+            and str(f.get("risk_level") or "").upper() in ("HIGH", "CRITICAL")
+        )
+        level = str(env.get("risk_level") or "UNKNOWN").upper()
+        summary["risk_level_display"] = level
+        env["risk_score_hidden"] = level in ("UNKNOWN", "UNAVAILABLE", "PRELIMINARY", "")
+        if env.get("risk_honesty_note"):
+            honesty["labels"]["risk"] = env["risk_honesty_note"]
 
     punch = out.get("punch_list") or {}
     if isinstance(punch, dict) and not cost_verified:
@@ -142,7 +169,6 @@ def apply_honesty_layer(
     if not cost_verified or not timeline_verified:
         summary["estimates_unverified"] = True
 
-    # Prefix timeline copy so SMS/email stay honest even without UI
     timeline = summary.get("estimated_timeline")
     if timeline and not timeline_verified:
         tl = str(timeline)
@@ -157,7 +183,14 @@ def analysis_shows_risk_score(analysis: Optional[Dict[str, Any]]) -> bool:
         return False
     honesty = analysis.get("honesty") or {}
     if honesty.get("risk_verified") is True:
-        return True
+        env = analysis.get("environmental_screening") or {}
+        level = str(env.get("risk_level", "")).upper()
+        # Incomplete GIS must not display as a confident score
+        if level in (UNAVAILABLE, PRELIMINARY, "UNKNOWN", ""):
+            return False
+        if env.get("risk_score_hidden"):
+            return False
+        return level in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
     env = analysis.get("environmental_screening") or {}
     level = str(env.get("risk_level", "")).upper()
     if level in (UNAVAILABLE, PRELIMINARY, "UNKNOWN", ""):

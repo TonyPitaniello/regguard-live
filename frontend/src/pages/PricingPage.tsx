@@ -8,6 +8,9 @@ import { useEffect } from 'react';
 import { Check, ArrowLeft, Download } from 'lucide-react';
 import { backendUrl } from '../env';
 import { trackStampEvent } from '../lib/trackStampEvent';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
+import { HABIT_TIERS } from '../habitDeliverableLadder';
 
 const TIERS = [
   {
@@ -29,71 +32,45 @@ const TIERS = [
   },
   {
     key: 'partner',
-    segment: 'Partner',
-    name: 'Partner / Permit Runner',
-    price: '$79',
-    billing: 'per month',
-    description:
-      'For estimators and permit runners who screen sites for clients and share RegGuard.',
-    features: [
-      'Deep research lookups for client sites',
-      'Forwardable punch lists with your workflow',
-      'Saved Jobs + weekly email reminders',
-      'Forwardable Bid Risk Receipt for client sites',
-    ],
-    cta: 'Start Partner — $79/mo',
+    segment: 'Estimator / Permit Runner',
+    name: HABIT_TIERS.partner.name,
+    price: HABIT_TIERS.partner.priceLabel,
+    billing: HABIT_TIERS.partner.billing,
+    description: HABIT_TIERS.partner.oneLiner,
+    features: [...HABIT_TIERS.partner.features],
+    cta: `Start ${HABIT_TIERS.partner.name} — $79/mo`,
     highlight: false,
   },
   {
     key: 'contractor_pro',
     segment: 'Contractor',
-    name: 'Contractor Pro',
-    price: '$149',
-    billing: 'per month',
-    description: 'For contractors who screen DFW/Austin sites weekly.',
-    features: [
-      'Deep scout research on every lookup',
-      'Full punch lists, costs & action plans',
-      'Unlock deeper results after free preview',
-      'Strongest citeable coverage: Dallas / Plano / Austin',
-    ],
-    cta: 'Start Pro',
+    name: HABIT_TIERS.contractor_pro.name,
+    price: HABIT_TIERS.contractor_pro.priceLabel,
+    billing: HABIT_TIERS.contractor_pro.billing,
+    description: HABIT_TIERS.contractor_pro.oneLiner,
+    features: [...HABIT_TIERS.contractor_pro.features],
+    cta: 'Start Pro — $149/mo',
     highlight: true,
   },
   {
     key: 'ic_project',
-    segment: 'IC Consultant',
-    name: 'IC Project Report',
-    price: '$1,500',
-    billing: 'one-time per project',
-    description:
-      'High-touch citeable pre-bid diligence PDF package for one site — including colo / large-load parallel-track risk. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
-    features: [
-      'Research memo (PDF)',
-      'Contractor punch list (PDF)',
-      'Permit package worksheet (PDF)',
-      'Editable IC Diligence DOCX for counsel redlines',
-      'Bid Risk Receipt–ready killers + planning exposure (heuristic)',
-      'Strongest citeable coverage: Dallas / Plano / Austin TX',
-      'Generated after a confirmed site lookup',
-    ],
-    cta: 'Order Report',
+    segment: IC_BUNDLE.segment,
+    name: IC_BUNDLE.tierName,
+    price: IC_BUNDLE.priceLabel,
+    billing: IC_BUNDLE.billing,
+    description: IC_BUNDLE.cardDescription,
+    features: [...IC_BUNDLE.featureBullets],
+    cta: IC_BUNDLE.ctaOrder,
     highlight: false,
   },
   {
     key: 'ic_annual',
-    segment: 'IC Consultant',
+    segment: IC_BUNDLE.segment,
     name: 'IC Annual',
     price: '$15,000',
     billing: 'per year',
-    description:
-      'Annual access to regenerate IC Project Report PDFs for additional sites.',
-    features: [
-      'Regenerate reports for new site addresses',
-      'Same memo + punch list + permit worksheet package',
-      'Strongest citeable coverage: Dallas / Plano / Austin TX',
-      'Email support via support@regguardagent.com',
-    ],
+    description: IC_BUNDLE.annualDescription,
+    features: [...IC_BUNDLE.annualFeatures],
     cta: 'Subscribe Annually',
     highlight: false,
   },
@@ -145,9 +122,32 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl font-black text-white mb-6">Plans that match how you bid</h1>
           <p className="text-xl text-gray-300">
-            Reverse-benchmark pricing: free citeable punch list → Pro deep research → IC PDFs.
-            Beachhead: Dallas / Plano / Austin.
+            Free citeable punch list → Partner / Pro for bid-week habit →{' '}
+            <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
+            counsel-ready site packages. Beachhead: Dallas / Plano / Austin.
           </p>
+        </div>
+      </section>
+
+      <section className="px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto">
+          <IcDiligenceBundlePitch />
+          <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => handleCta('ic_project')}
+              className="px-8 py-3.5 min-h-[48px] bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl transition shadow-lg shadow-emerald-500/20"
+            >
+              {IC_BUNDLE.ctaBuy}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCta('free')}
+              className="px-6 py-3.5 min-h-[48px] border border-white/20 text-gray-200 font-semibold rounded-xl hover:bg-white/5"
+            >
+              Start with a free lookup
+            </button>
+          </div>
         </div>
       </section>
 
@@ -199,9 +199,10 @@ export default function PricingPage() {
 
       <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
         <div className="max-w-3xl mx-auto text-center">
-          <h3 className="text-xl font-bold text-white mb-3">See a SAMPLE Plano punch list</h3>
+          <h3 className="text-xl font-bold text-white mb-3">See a SAMPLE Plano Bid Risk Receipt</h3>
           <p className="text-gray-400 text-sm mb-6">
-            Labeled SAMPLE PDF — fictional Plano address for buyers. Not a live site report.
+            Labeled SAMPLE PDF — fictional Plano address in the same dark slate + emerald look as
+            the app. Shows Source / Unverified, owner, and due window. Not a live site report.
           </p>
           <a
             href={backendUrl('/sample/plano-punch-list.pdf')}
@@ -239,17 +240,31 @@ export default function PricingPage() {
           <h2 className="text-3xl font-black text-white">FAQ</h2>
           <div>
             <h3 className="text-lg font-bold text-white mb-2">What&apos;s free vs paid?</h3>
-            <p className="text-gray-400">
-              Free lookups are the lead magnet — soft-locked preview in-app. Partner ($79/mo) is for
-              permit runners. Contractor Pro ($149/mo) is for weekly bidders. IC Project ($1,500) is
-              a one-time PDF package (memo + punch + permit worksheet — not an official filing).
+            <p className="text-gray-400">{IC_BUNDLE.faqWhatYouGet}</p>
+            <p className="text-gray-400 mt-3">
+              Free lookups are the lead magnet. Partner ($79/mo) is for permit runners. Contractor
+              Pro ($149/mo) is for weekly bidders.
             </p>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-white mb-2">
+              What exactly is in the $1,500 IC Diligence Bundle?
+            </h3>
+            <p className="text-gray-400">{IC_BUNDLE.oneLiner}</p>
+            <ul className="mt-3 space-y-2 text-gray-400 text-sm">
+              {IC_BUNDLE.contents.map((c) => (
+                <li key={c.file}>
+                  <span className="text-white font-semibold">{c.label}</span> — {c.detail}
+                </li>
+              ))}
+            </ul>
           </div>
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
-              Yes. Choose IC Project Report at $1,500 one-time. IC Annual ($15,000/year) unlocks only
-              after you&apos;ve purchased at least one IC Project.
+              Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s
+              Diligence Bundle ZIP. IC Annual ($15,000/year) unlocks only after you&apos;ve purchased
+              at least one IC Project.
             </p>
           </div>
           <div>
@@ -292,8 +307,9 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Is the IC Queue / RTO tracker live?</h3>
             <p className="text-gray-400">
-              No. Interconnection queue tools are demo-only and disabled in production. Buy IC Project
-              Report for citeable site diligence PDFs — not live RTO queue positions.
+              No. Interconnection queue tools are demo-only and disabled in production. Buy the{' '}
+              {IC_BUNDLE.productName} for citeable site diligence (ZIP: memo + counsel DOCX + CSVs) —
+              not live RTO queue positions.
             </p>
           </div>
         </div>

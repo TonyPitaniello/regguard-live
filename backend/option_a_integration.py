@@ -91,6 +91,16 @@ async def run_option_a_analysis(
         from geocode import is_null_island
 
         findings = environmental_data.get("findings") or []
+        from real_environmental_screening import calculate_overall_env_risk
+
+        # Recompute overall with GIS-only rules (idempotent; fixes legacy max-of-stubs)
+        overall_meta = calculate_overall_env_risk(findings)
+        environmental_data["risk_level"] = overall_meta["risk_level"]
+        environmental_data["gis_complete"] = bool(overall_meta.get("gis_complete"))
+        environmental_data["risk_basis"] = overall_meta.get("basis")
+        if overall_meta.get("risk_honesty_note"):
+            environmental_data["risk_honesty_note"] = overall_meta["risk_honesty_note"]
+
         gis_cats = {
             "wetlands",
             "flood",
@@ -98,6 +108,7 @@ async def run_option_a_analysis(
             "flood_zone",
             "flood_zones",
             "flood zones",
+            "endangered_species",
         }
         verified_gis = [
             f
@@ -105,21 +116,24 @@ async def run_option_a_analysis(
             if isinstance(f, dict)
             and f.get("verified") is True
             and str(f.get("category") or "").strip().lower() in gis_cats
+            and str(f.get("risk_level") or "").upper() in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
         ]
         pin_ok = not is_null_island(latitude, longitude)
-        risk_verified = bool(pin_ok and verified_gis)
-        # Never leave PRELIMINARY overall when GIS parcel checks succeeded
+        # risk_verified only when flood + wetlands both resolved (same bar as all-clear)
+        verified_cats = {
+            str(f.get("category") or "").strip().lower().replace(" ", "_")
+            for f in verified_gis
+        }
+        has_flood = any(c in verified_cats for c in ("flood_zones", "flood_zone", "flood", "floodplain"))
+        has_wetlands = "wetlands" in verified_cats
+        risk_verified = bool(pin_ok and has_flood and has_wetlands)
+        environmental_data["risk_gis_verified"] = risk_verified
         if risk_verified and str(environmental_data.get("risk_level") or "").upper() in (
             "PRELIMINARY",
             "UNAVAILABLE",
             "",
         ):
-            levels = [str(f.get("risk_level") or "LOW").upper() for f in verified_gis]
-            rank = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4, "UNKNOWN": 0}
-            best = max((rank.get(lv, 0) for lv in levels), default=1)
-            inv = {v: k for k, v in rank.items() if k != "UNKNOWN"}
-            environmental_data["risk_level"] = inv.get(best, "LOW")
-            environmental_data["risk_gis_verified"] = True
+            environmental_data["risk_level"] = overall_meta["risk_level"] or "LOW"
 
         combined_analysis = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -139,7 +153,18 @@ async def run_option_a_analysis(
                 "high_risk_count": sum(
                     1
                     for f in (environmental_data.get("findings") or [])
-                    if f.get("risk_level") in ["HIGH", "CRITICAL"]
+                    if isinstance(f, dict)
+                    and f.get("verified") is True
+                    and str(f.get("category") or "").strip().lower()
+                    in (
+                        "wetlands",
+                        "flood",
+                        "floodplain",
+                        "flood_zone",
+                        "flood_zones",
+                        "endangered_species",
+                    )
+                    and str(f.get("risk_level") or "").upper() in ("HIGH", "CRITICAL")
                 ),
                 "total_punch_list_items": len(punch_list_data["punch_list"]),
                 "estimated_timeline": punch_list_data["timeline_summary"],

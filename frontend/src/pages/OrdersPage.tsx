@@ -428,8 +428,8 @@ export default function OrdersPage() {
                 <p className="mt-2 text-sm text-emerald-200/90">
                   {orders.some((o) => isIcTier(o.tier))
                     ? savedSite
-                      ? `One tap generates IC PDFs for ${savedSite.label} — no address re-entry.`
-                      : 'IC Project PDFs generate from the site bound at checkout (or your last researched site).'
+                      ? `One tap generates the IC Diligence Bundle for ${savedSite.label} — counsel ZIP (memo + DOCX + CSVs), no address re-entry.`
+                      : 'IC Diligence Bundle generates from the site bound at checkout (or your last researched site).'
                     : 'Next: unlock deeper research on your site (same email).'}
                 </p>
                 {orders
@@ -509,7 +509,7 @@ export default function OrdersPage() {
           !orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-lg mb-8">
               <p className="text-emerald-100 text-sm">
-                On Partner? Upgrade to Contractor Pro ($149/mo) if you run your own bid-week sites.
+                On Estimator / Permit Runner? Upgrade to Contractor Pro ($149/mo) if you run your own bid-week sites.
               </p>
               <a
                 href={`/checkout/contractor_pro${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
@@ -523,14 +523,14 @@ export default function OrdersPage() {
         {orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-teal-500/10 border border-teal-500/25 rounded-lg mb-8">
             <p className="text-teal-100 text-sm">
-              Prefer a lighter plan? Switch to Partner ($79/mo) for client screening — cancel Pro in
+              Prefer a lighter plan? Switch to Estimator / Permit Runner ($79/mo) for client screening — cancel Pro in
               Stripe email receipts if you already subscribed, then start Partner here.
             </p>
             <a
               href={`/checkout/partner${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
               className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-lg text-center whitespace-nowrap"
             >
-              Switch to Partner $79
+              Switch to Estimator / Permit Runner $79
             </a>
           </div>
         )}
@@ -563,7 +563,7 @@ export default function OrdersPage() {
                 href={`/checkout/ic_project${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition inline-block"
               >
-                Buy IC Project Report
+                Buy IC Diligence Bundle
               </a>
             </div>
           </div>

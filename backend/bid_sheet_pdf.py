@@ -15,17 +15,26 @@ logger = logging.getLogger(__name__)
 
 def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[str] = None) -> bytes:
     """Build a branded Bid Sheet PDF with hyperlinks (companion to CSV export)."""
+    from artifact_naming import document_display_title, site_line_from_analysis
+
     pdf = RegGuardPDF()
     pi = analysis.get("project_info") or {}
     address = pi.get("address") or "Project site"
     city = pi.get("city") or ""
     state = pi.get("state") or ""
     zip_code = pi.get("zip") or ""
+    site_line = site_line_from_analysis(analysis)
+    doc_title = document_display_title(site_line, "BID SHEET")
 
     pdf.add_page()
+    try:
+        pdf.set_title(ascii_safe(doc_title)[:120])
+        pdf.set_author("Reg Guard")
+    except Exception:
+        pass
     pdf.add_brand_banner(
-        "Bid Sheet (planning)",
-        f"{address}  |  Punch + fees + gotchas with source links",
+        ascii_safe(doc_title),
+        "Punch + fees + gotchas with source links  |  Planning aid - not a quote",
     )
 
     pdf.add_section_title("Site")

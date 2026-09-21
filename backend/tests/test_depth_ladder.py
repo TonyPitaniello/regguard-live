@@ -27,14 +27,14 @@ def test_free_bid_desk_points_to_partner():
     ).lower()
 
 
-def test_free_dc_points_to_ic_pdfs():
+def test_free_dc_points_to_ic_bundle():
     a = stamp_upgrade_offer(
         {"project_info": {"type": "data-center"}},
         depth_tier=DEPTH_FREE,
     )
     assert a["buyer_persona"] == PERSONA_DC_INFRA
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
-    assert "PDF" in (a["upgrade_offer"]["cta_label"] or "")
+    assert "Diligence Bundle" in (a["upgrade_offer"]["cta_label"] or "")
 
 
 def test_pro_light_dc_warns_not_enough():
