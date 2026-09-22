@@ -1267,7 +1267,19 @@ def root() -> Dict[str, str]:
 @app.get("/health")
 def health() -> Dict[str, Any]:
     """Lightweight probe for dashboards (frontend gate + load balancers)."""
-    out: Dict[str, Any] = {"ok": True, "service": "reg-guard-api"}
+    out: Dict[str, Any] = {
+        "ok": True,
+        "service": "reg-guard-api",
+        # Render sets these on deploy — used to confirm Bundle code is live
+        "git_sha": (
+            os.getenv("RENDER_GIT_COMMIT")
+            or os.getenv("RENDER_GIT_COMMIT_SHA")
+            or os.getenv("GIT_COMMIT")
+            or ""
+        )[:12]
+        or None,
+        "bundle_contract": "memo+boardroom+docx+csv+evidence",
+    }
     try:
         from zip_watch import watch_health
 
