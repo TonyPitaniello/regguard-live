@@ -62,12 +62,14 @@ interface LocationPickerProps {
   disabled?: boolean;
   /** When true (e.g. results modal open), hide/destroy the map so it cannot float over the page */
   collapseMap?: boolean;
-  /** Voice fill / parent-driven address fields */
+  /** Voice fill / parent-driven address fields (+ optional pin so remounts settle correctly) */
   externalValues?: {
     address?: string;
     city?: string;
     state?: string;
     zip?: string;
+    lat?: number | null;
+    lng?: number | null;
   } | null;
   /** Bump to force clear of local pin/fields (New site) */
   resetKey?: number;
@@ -168,16 +170,21 @@ export function LocationPicker({
     markerRef.current = null;
   };
 
-  // Sync voice-fill / external parent values into local fields → forward geocode
+  // Sync voice-fill / external parent values into local fields → pin or forward geocode
   useEffect(() => {
     if (!externalValues) return;
     const nextAddress = externalValues.address ?? '';
     const nextCity = externalValues.city ?? '';
     const nextState = externalValues.state ?? '';
     const nextZip = externalValues.zip ?? '';
-    if (!nextAddress && !nextCity && !nextState && !nextZip) return;
+    const nextLat = Number(externalValues.lat);
+    const nextLng = Number(externalValues.lng);
+    const hasPin =
+      Number.isFinite(nextLat) &&
+      Number.isFinite(nextLng) &&
+      !(Math.abs(nextLat) < 1e-6 && Math.abs(nextLng) < 1e-6);
+    if (!nextAddress && !nextCity && !nextState && !nextZip && !hasPin) return;
     autofillPurgeUntilRef.current = 0; // do not wipe checkout / voice restore
-    settledQueryRef.current = ''; // allow forward geocode
     if (nextAddress) setAddress(nextAddress);
     if (nextCity) setCity(nextCity);
     if (nextState) setState(nextState);
@@ -185,12 +192,28 @@ export function LocationPicker({
     setSiteFieldsUnlocked(true);
     setMapVisible(true);
     setLocationConfirmed(false);
+    if (hasPin) {
+      // Parent already has the authoritative pin — settle map here, skip re-geocode fight
+      settledQueryRef.current = composeQuery(nextAddress, nextCity, nextState, nextZip);
+      latLngRef.current = { lat: nextLat, lng: nextLng };
+      setLat(nextLat);
+      setLng(nextLng);
+      if (mapRef.current) {
+        placeMarker(nextLat, nextLng);
+      } else {
+        setMapEpoch((n) => n + 1);
+      }
+    } else {
+      settledQueryRef.current = ''; // allow forward geocode to place pin
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     externalValues?.address,
     externalValues?.city,
     externalValues?.state,
     externalValues?.zip,
+    externalValues?.lat,
+    externalValues?.lng,
   ]);
 
   // Parent "New site" / hard refresh — wipe local pin state

@@ -10,13 +10,171 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-PACKAGE_SCHEMA = "regguard.ic_package.v2"
-PACKAGE_VERSION = 2
+PACKAGE_SCHEMA = "regguard.ic_package.v3"
+PACKAGE_VERSION = 3
 
 
 def _s(v: Any, limit: int = 2000) -> str:
     t = str(v or "").strip()
     return t[:limit]
+
+
+def _url_host(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+
+        return (urlparse(url).netloc or "").lower().removeprefix("www.")
+    except Exception:
+        return ""
+
+
+def _ahj_trusted_hosts(analysis: Dict[str, Any]) -> set:
+    """Hosts that may cite AHJ fee / portal / apply claims."""
+    hosts: set = set()
+    ahj = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
+    ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
+    for u in list(ahj_block.get("ahj_citation_urls") or []) + [
+        ahj.get("portal_url") or "",
+        ahj.get("fees_url") or "",
+        ahj.get("apply_url") or "",
+        ahj.get("inspections_url") or "",
+        ahj_block.get("ahj_portal_url") or "",
+        ahj_block.get("ahj_design_criteria_url") or "",
+        ((analysis.get("paid_local") or {}).get("portal_url") or ""),
+    ]:
+        h = _url_host(str(u))
+        if h:
+            hosts.add(h)
+    ultra = analysis.get("ultralocal_scout") if isinstance(analysis.get("ultralocal_scout"), dict) else {}
+    for pg in ultra.get("confirmed_pages") or []:
+        if not isinstance(pg, dict):
+            continue
+        h = _url_host(str(pg.get("url") or pg.get("source_url") or ""))
+        if h:
+            hosts.add(h)
+    # Always trust Accela-style apply hosts when present on apply_url
+    apply_h = _url_host(str(ahj.get("apply_url") or ""))
+    if apply_h:
+        hosts.add(apply_h)
+    return hosts
+
+
+def _claim_url_allowed(url: str, label: str, ahj_hosts: set) -> bool:
+    """
+    Drop scout round-robin pollution (e.g. whitehouse.gov on a stormwater fee).
+    AHJ hosts always OK; otherwise require topic ↔ host fit.
+    Topic keywords are matched on the claim label only — never on the URL itself
+    (otherwise a polluted Fast-41 press URL self-authorizes).
+    """
+    u = _s(url, 400)
+    if not u.startswith("http"):
+        return False
+    host = _url_host(u)
+    if not host:
+        return False
+    if any(host == h or host.endswith("." + h) for h in ahj_hosts):
+        return True
+    blob = _s(label, 400).lower()
+    if any(k in blob for k in ("fast-41", "fast41", "permitting council", "nepa dashboard")):
+        return host.endswith("permits.performance.gov") or host.endswith("permitting.gov")
+    if any(k in blob for k in ("tdlr", "tabs", "contractor license")):
+        return "tdlr.texas.gov" in host or host.endswith("texas.gov")
+    if any(
+        k in blob
+        for k in (
+            "flood",
+            "fema",
+            "wetland",
+            "ipac",
+            "species",
+            "nwi",
+            "nepa",
+            "tceq",
+            "npdes",
+            "endangered",
+        )
+    ):
+        return any(
+            x in host
+            for x in (
+                "fema.gov",
+                "fws.gov",
+                "epa.gov",
+                "tceq.texas.gov",
+                "usgs.gov",
+                "usace.army.mil",
+                "ecos.fws.gov",
+            )
+        )
+    if any(k in blob for k in ("ercot", "interconnect", "large-load", "large load", "tdsp", "utility power")):
+        return any(x in host for x in ("ercot.com", "puc.texas.gov"))
+    if any(
+        k in blob
+        for k in (
+            "fee",
+            "stormwater",
+            "plan review",
+            "intake",
+            "building permit",
+            "trade permit",
+            "drainage study",
+            "budget ",
+        )
+    ):
+        # Fee dollars must come from AHJ / Accela — already checked above
+        return False
+    # Generic punch: allow civic hosts only (never news / whitehouse / random .com)
+    if host.endswith(".gov") or host.endswith(".mil") or host.endswith(".us"):
+        # Still block executive / press hosts commonly polluted onto fee rows
+        if any(
+            x in host
+            for x in (
+                "whitehouse.gov",
+                "state.gov",
+                "commerce.gov",
+            )
+        ):
+            return False
+        # Block press/newsroom paths even on otherwise-gov hosts
+        path = u.lower()
+        if "/newsroom/" in path or "/press-releases/" in path or "/releases/" in path:
+            return False
+        return True
+    return False
+
+
+def _sanitize_url(url: str, label: str, ahj_hosts: set) -> str:
+    u = _s(url, 400)
+    return u if _claim_url_allowed(u, label, ahj_hosts) else ""
+
+
+def _resolve_fee_schedule_url(analysis: Dict[str, Any], ahj: Dict[str, Any]) -> str:
+    """Prefer live fee-schedule PDF over generic department landing page."""
+    current = _s(ahj.get("fees_url"), 400)
+    portal = _s(ahj.get("portal_url"), 400)
+    ultra = analysis.get("ultralocal_scout") if isinstance(analysis.get("ultralocal_scout"), dict) else {}
+    for pg in ultra.get("confirmed_pages") or []:
+        if not isinstance(pg, dict):
+            continue
+        title = _s(pg.get("title") or pg.get("label"), 200).lower()
+        url = _s(pg.get("url") or pg.get("source_url"), 400)
+        if "fee" in title and url.startswith("http") and (
+            url.lower().endswith(".pdf") or "fee" in url.lower()
+        ):
+            return url
+    # Catalog / ahj fee table PDF citations
+    ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
+    for row in ahj_block.get("ahj_fee_table") or ahj_block.get("ahj_fee_lines") or []:
+        if not isinstance(row, dict):
+            continue
+        url = _s(row.get("citation_url") or row.get("source_url"), 400)
+        if url.lower().endswith(".pdf") and "fee" in url.lower():
+            return url
+        if url.lower().endswith(".pdf") and "schedule" in url.lower():
+            return url
+    if current and current != portal:
+        return current
+    return current or portal
 
 
 def _pi(analysis: Dict[str, Any]) -> Dict[str, Any]:
@@ -87,18 +245,21 @@ def _site_line(pi: Dict[str, Any]) -> str:
 
 
 def _killers(analysis: Dict[str, Any], n: int = 5) -> List[Dict[str, str]]:
+    ahj_hosts = _ahj_trusted_hosts(analysis)
     out: List[Dict[str, str]] = []
     for k in analysis.get("margin_killers") or []:
         if not isinstance(k, dict):
             continue
+        title = _s(k.get("title"), 160)
+        src = _sanitize_url(_s(k.get("source_url"), 400), title, ahj_hosts)
         out.append(
             {
                 "priority": _s(k.get("priority") or "NOTE", 20).upper(),
-                "title": _s(k.get("title"), 160),
+                "title": title,
                 "detail": _s(k.get("detail"), 400),
-                "source_url": _s(k.get("source_url"), 400),
+                "source_url": src,
                 "source_label": _s(
-                    k.get("source_label") or ("Source" if k.get("source_url") else "Unverified"),
+                    k.get("source_label") or ("Source" if src else "Unverified"),
                     80,
                 ),
             }
@@ -109,6 +270,7 @@ def _killers(analysis: Dict[str, Any], n: int = 5) -> List[Dict[str, str]]:
 
 
 def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
+    ahj_hosts = _ahj_trusted_hosts(analysis)
     items: List[Dict[str, Any]] = []
     wl = analysis.get("gotcha_watchlist") if isinstance(analysis.get("gotcha_watchlist"), dict) else {}
     for g in wl.get("items") or []:
@@ -120,10 +282,12 @@ def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
                 items.append(g)
     out: List[Dict[str, str]] = []
     for g in items[:n]:
+        title = _s(g.get("title"), 160)
+        src = _sanitize_url(_s(g.get("source_url"), 400), title, ahj_hosts)
         out.append(
             {
                 "priority": _s(g.get("priority") or "WATCH", 20).upper(),
-                "title": _s(g.get("title"), 160),
+                "title": title,
                 "detail": _s(g.get("detail"), 400),
                 "confirm_step": _s(
                     g.get("confirm_step")
@@ -131,9 +295,9 @@ def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
                     or "Confirm with AHJ / ordinance text before bid.",
                     240,
                 ),
-                "source_url": _s(g.get("source_url"), 400),
+                "source_url": src,
                 "source_label": _s(
-                    g.get("source_label") or ("Source" if g.get("source_url") else "Unverified"),
+                    g.get("source_label") or ("Source" if src else "Unverified"),
                     80,
                 ),
             }
@@ -142,24 +306,39 @@ def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
 
 
 def _punch(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, Any]]:
+    ahj_hosts = _ahj_trusted_hosts(analysis)
     punch = analysis.get("punch_list") if isinstance(analysis.get("punch_list"), dict) else {}
     raw = punch.get("punch_list") or punch.get("items") or []
     out: List[Dict[str, Any]] = []
     for item in raw:
         if not isinstance(item, dict):
             continue
-        url = _s(item.get("source_url") or item.get("citation_url"), 400)
+        task = _s(item.get("task") or item.get("action"), 280)
+        if not task:
+            continue
+        url = _sanitize_url(
+            _s(item.get("source_url") or item.get("citation_url"), 400),
+            task,
+            ahj_hosts,
+        )
         out.append(
             {
                 "priority": _s(item.get("priority") or "MEDIUM", 20).upper(),
-                "task": _s(item.get("task") or item.get("action"), 280),
+                "task": task,
                 "timeline": _s(item.get("timeline") or "Pre-bid", 40),
+                "owner": _s(
+                    item.get("owner") or item.get("responsible_party") or "Estimator / PM",
+                    60,
+                ),
+                "trade": _s(item.get("trade"), 40),
                 "estimated_cost": item.get("estimated_cost"),
                 "source_url": url,
                 "citation": _s(
-                    item.get("citation_label") or ("Source" if url else "Unverified"),
+                    item.get("citation_label")
+                    or ("Source" if url else "Unverified — confirm with AHJ"),
                     80,
                 ),
+                "verified": bool(url and item.get("verified")),
             }
         )
         if len(out) >= n:
@@ -168,11 +347,41 @@ def _punch(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, Any]]:
 
 
 def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
+    """Prefer citeable AHJ fee table / pack fees; strip polluted scout URLs."""
+    ahj_hosts = _ahj_trusted_hosts(analysis)
+    candidates: List[Dict[str, Any]] = []
+
+    ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
+    for f in ahj_block.get("ahj_fee_table") or ahj_block.get("ahj_fee_lines") or []:
+        if isinstance(f, dict):
+            candidates.append(f)
+
+    lp = analysis.get("local_pack") if isinstance(analysis.get("local_pack"), dict) else {}
+    for f in lp.get("fees") or []:
+        if isinstance(f, dict):
+            candidates.append(f)
+
     fee_card = analysis.get("fee_card") if isinstance(analysis.get("fee_card"), dict) else {}
-    fees = fee_card.get("fees") or []
+    for f in fee_card.get("fees") or []:
+        if isinstance(f, dict):
+            # Skip punch-extracted "Budget …" duplicates — catalog rows win
+            name0 = _s(f.get("name") or f.get("label") or f.get("fee"), 120)
+            if name0.lower().startswith("budget "):
+                continue
+            candidates.append(f)
+
     out: List[Dict[str, str]] = []
-    for f in fees:
-        if not isinstance(f, dict):
+    seen: set = set()
+    for f in candidates:
+        name = _s(f.get("name") or f.get("label") or f.get("fee"), 120)
+        if not name:
+            continue
+        key = name.lower()
+        # Collapse "Budget X: $N" against catalog "X"
+        key_norm = key
+        if key_norm.startswith("budget "):
+            key_norm = key_norm[7:].split(":")[0].strip()
+        if key in seen or key_norm in seen:
             continue
         amt = f.get("amount_usd")
         if isinstance(amt, (int, float)):
@@ -181,10 +390,22 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
             amount = "confirm on schedule"
         else:
             amount = _s(f.get("amount") or f.get("value") or f.get("range"), 80)
-        src = _s(f.get("source_url") or f.get("citation_url"), 400)
+        src = _sanitize_url(
+            _s(f.get("source_url") or f.get("citation_url"), 400),
+            name,
+            ahj_hosts,
+        )
+        if not src and not amount:
+            continue
+        # Do not keep fee rows whose only URL was pollution (cleared) when we already
+        # have a citeable catalog fee with the same dollars
+        if not src and name.lower().startswith("budget "):
+            continue
+        seen.add(key)
+        seen.add(key_norm)
         out.append(
             {
-                "name": _s(f.get("name") or f.get("label") or f.get("fee"), 120),
+                "name": name,
                 "amount": amount,
                 "trade": _s(f.get("trade"), 40),
                 "source_url": src,
@@ -253,10 +474,13 @@ def _document_checklist(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str,
 def _sources(analysis: Dict[str, Any], limit: int = 60) -> List[Dict[str, str]]:
     seen = set()
     out: List[Dict[str, str]] = []
+    ahj_hosts = _ahj_trusted_hosts(analysis)
 
     def add(url: Any, label: str = "") -> None:
         u = _s(url, 400)
         if not u or not u.startswith("http") or u in seen:
+            return
+        if not _claim_url_allowed(u, label or "Source", ahj_hosts):
             return
         seen.add(u)
         host = u.replace("https://", "").replace("http://", "")
@@ -265,8 +489,10 @@ def _sources(analysis: Dict[str, Any], limit: int = 60) -> List[Dict[str, str]]:
     for u in analysis.get("pro_source_urls") or []:
         add(u, "Scout source")
     ahj = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
+    # Prefer resolved fee-schedule PDF when available
+    fees_url = _resolve_fee_schedule_url(analysis, dict(ahj))
     add(ahj.get("portal_url"), _s(ahj.get("name") or "AHJ portal", 80))
-    add(ahj.get("fees_url"), "AHJ fees")
+    add(fees_url or ahj.get("fees_url"), "AHJ fees")
     add(ahj.get("apply_url"), "AHJ apply")
     add(ahj.get("inspections_url"), "AHJ inspections")
     for k in analysis.get("margin_killers") or []:
@@ -537,6 +763,7 @@ def _parallel_clock_rows(
                 "detail": _s(c.get("detail") or c.get("note") or c.get("status"), 240),
                 "owner": _s(c.get("owner") or c.get("responsible") or "PM", 40),
                 "track": _s(c.get("track") or "", 40),
+                "url": _s(c.get("url") or c.get("source_url"), 400),
             }
         )
     blob = " ".join(
@@ -572,7 +799,7 @@ def _parallel_clock_rows(
             if any(t in have for t in track.lower().split("/") if len(t) > 3):
                 # still add if track keyword missing from names
                 pass
-            rows.append({"name": name, "detail": detail, "owner": owner, "track": track})
+            rows.append({"name": name, "detail": detail, "owner": owner, "track": track, "url": ""})
 
         if "ahj" not in have and "permit" not in have and "municipal" not in have:
             _ensure(
@@ -605,7 +832,7 @@ def _parallel_clock_rows(
     for r in rows:
         r.setdefault("owner", "PM")
         r.setdefault("track", "")
-    return rows[:8]
+    return rows[:12]
 
 
 def build_evidence_binder(
@@ -729,12 +956,11 @@ def build_evidence_binder(
         )
 
     for c in clocks:
-        # Clocks rarely have URLs; still list as claims for the track
         _claim(
             claim_type="parallel_clock",
             label=_s(c.get("name"), 80),
             detail=_s(c.get("detail"), 240),
-            url="",
+            url=_s(c.get("url") or c.get("source_url"), 400),
             owner=_s(c.get("owner") or "PM", 60),
         )
 
@@ -816,6 +1042,88 @@ def evidence_index_to_csv(binder: Dict[str, Any], *, site: str = "") -> str:
     return buf.getvalue()
 
 
+def _compose_power_path(data: Dict[str, Any]) -> Dict[str, Any]:
+    raw = data.get("power_path") if isinstance(data.get("power_path"), dict) else {}
+    if not raw:
+        raw = data.get("power_path_card") if isinstance(data.get("power_path_card"), dict) else {}
+    if not raw:
+        return {}
+    checklist = [
+        _s(x, 200) for x in (raw.get("checklist") or []) if _s(x, 200)
+    ][:8]
+    band = raw.get("surcharge_band") if isinstance(raw.get("surcharge_band"), dict) else {}
+    notes_bits: List[str] = []
+    base_notes = _s(raw.get("notes") or raw.get("detail") or raw.get("disclaimer"), 600)
+    if base_notes:
+        notes_bits.append(base_notes)
+    if band.get("estimated_low_usd") is not None and band.get("estimated_high_usd") is not None:
+        try:
+            lo = int(float(band.get("estimated_low_usd")))
+            hi = int(float(band.get("estimated_high_usd")))
+            notes_bits.append(
+                f"Illustrative reinforcement band ~${lo:,}–${hi:,} "
+                "(planning proxy only — confirm with utility study / LGIA)."
+            )
+        except (TypeError, ValueError):
+            pass
+    if raw.get("federal_note"):
+        notes_bits.append(_s(raw.get("federal_note"), 300))
+    if checklist:
+        notes_bits.append("Checklist: " + "; ".join(checklist[:4]))
+    return {
+        "headline": _s(raw.get("headline") or raw.get("title"), 240),
+        "status": _s(raw.get("status") or ("FAST-41 candidate" if raw.get("fast41_candidate") else ""), 80),
+        "notes": _s(" | ".join(notes_bits), 900),
+        "source_url": _s(raw.get("source_url"), 400),
+        "checklist": checklist,
+        "disclaimer": _s(
+            raw.get("disclaimer")
+            or "NOT an interconnection study — screening / readiness only.",
+            400,
+        ),
+        "mw_hint": raw.get("mw_hint"),
+        "surcharge_band": band or None,
+    }
+
+
+def _compose_moratorium(data: Dict[str, Any], pi: Dict[str, Any]) -> Dict[str, Any]:
+    raw = data.get("moratorium_radar") if isinstance(data.get("moratorium_radar"), dict) else {}
+    if not raw:
+        return {}
+    city = _s(pi.get("city"), 40).lower()
+    state = _s(pi.get("state"), 8).upper()
+    metros_out: List[Dict[str, str]] = []
+    best_url = _s(raw.get("source_url") or raw.get("citation_url"), 400)
+    best_detail = _s(raw.get("detail") or raw.get("summary"), 600)
+    for m in raw.get("metros") or []:
+        if not isinstance(m, dict):
+            continue
+        name = _s(m.get("name") or m.get("metro"), 80)
+        url = _s(m.get("citation_url") or m.get("source_url") or m.get("url"), 400)
+        status = _s(m.get("status") or m.get("note") or m.get("tags"), 200)
+        metros_out.append({"name": name, "status": status, "citation_url": url})
+        # Prefer metro near site city / DFW for Fort Worth
+        name_l = name.lower()
+        if city and city in name_l:
+            if url:
+                best_url = url
+            if status:
+                best_detail = f"{name}: {status}"
+        elif state == "TX" and ("dfw" in name_l or "north texas" in name_l or "fort worth" in name_l):
+            if url and not best_url:
+                best_url = url
+            if status and (not best_detail or "austin" in (best_detail or "").lower()):
+                best_detail = f"{name}: {status}"
+    return {
+        "status": _s(raw.get("status") or ("HIGH" if raw.get("high_alert_state") else ""), 80),
+        "headline": _s(raw.get("headline"), 240),
+        "detail": best_detail or _s(raw.get("detail") or raw.get("summary"), 600),
+        "source_url": best_url,
+        "metros": metros_out[:6],
+        "disclaimer": _s(raw.get("disclaimer"), 300),
+    }
+
+
 def compose_ic_package(
     analysis: Dict[str, Any],
     *,
@@ -860,22 +1168,30 @@ def compose_ic_package(
     stamp["fingerprint"] = _s(stamp_raw.get("fingerprint") or data.get("stamp_fingerprint"), 64)
 
     ahj = data.get("ahj_card") if isinstance(data.get("ahj_card"), dict) else {}
+    ahj = dict(ahj)
+    fee_pdf = _resolve_fee_schedule_url(data, ahj)
+    if fee_pdf:
+        ahj["fees_url"] = fee_pdf
     coverage = data.get("coverage") if isinstance(data.get("coverage"), dict) else {}
     env = data.get("environmental_screening") if isinstance(data.get("environmental_screening"), dict) else {}
     clocks = data.get("parallel_clocks") if isinstance(data.get("parallel_clocks"), dict) else {}
     share = _s(share_url or data.get("share_url"), 300)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    killers = _killers(data, 5)
-    gotchas = _gotchas(data, 8)
-    punch = _punch(data, 35)
-    fees = _fees(data, 20)
-    sources = _sources(data, 60)
-    actions = _next_actions(data, 6)
+    # Alias power_path_card → power_path so Bundle surfaces DC planning depth
+    if not isinstance(data.get("power_path"), dict) and isinstance(data.get("power_path_card"), dict):
+        data["power_path"] = data["power_path_card"]
+
+    killers = _killers(data, 12)
+    gotchas = _gotchas(data, 16)
+    punch = _punch(data, 80)
+    fees = _fees(data, 40)
+    sources = _sources(data, 120)
+    actions = _next_actions(data, 12)
     contingency = _contingency_block(data)
     clock_rows = _parallel_clock_rows(data, pi, killers)
-    inspection_steps = _inspection_steps(data, 15)
-    doc_checklist = _document_checklist(data, 20)
+    inspection_steps = _inspection_steps(data, 25)
+    doc_checklist = _document_checklist(data, 30)
     binder = build_evidence_binder(
         killers=killers,
         fees=fees,
@@ -965,13 +1281,19 @@ def compose_ic_package(
         "generated_for": _s(generated_for, 120).lower(),
         "share_url": share,
         "deliverable": {
-            "primary": "IC Diligence Bundle (DOCX + CSV schedule + evidence index + decision memo PDF)",
-            "forward_artifact": "Bid Risk Receipt PDF (1-page stamp / contingency / top drivers)",
-            "price_positioning": "$1,500 IC Project — counsel-ready diligence package for one site",
+            "primary": (
+                "IC Diligence Bundle ZIP — decision memo + boardroom PDF + counsel DOCX "
+                "(evidence binder + parallel clocks) + fee/punch CSV + evidence index"
+            ),
+            "working_set": "Decision memo · Boardroom PDF · Counsel DOCX · Fee/punch CSV · Evidence index",
+            "forward_artifact": "Bid Risk Receipt / decision memo PDF (1-page stamp)",
+            "price_positioning": "$1,500 IC Project — counsel-ready Diligence Bundle for one site",
         },
         "cover": {
-            "product": f"RegGuard IC Diligence Package — {site_line}",
-            "price_positioning": "$1,500 IC Project — decision memo + counsel DOCX + fee/punch CSV + evidence binder",
+            "product": f"RegGuard IC Diligence Bundle — {site_line}",
+            "price_positioning": (
+                "$1,500 IC Project — decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence binder"
+            ),
             "site": site_line,
             "address": pi.get("address"),
             "city": pi.get("city"),
@@ -989,9 +1311,9 @@ def compose_ic_package(
             "headline": headline,
             "stamp": stamp,
             "contingency": contingency,
-            "top_risks": top3,
-            "local_gotchas": gotchas[:3],
-            "next_actions": actions[:3],
+            "top_risks": killers,
+            "local_gotchas": gotchas,
+            "next_actions": actions,
             "env_risk": _s(env.get("risk_level"), 40),
         },
         "bid_risk_receipt": {
@@ -1019,7 +1341,7 @@ def compose_ic_package(
             "coverage_note": _s(coverage.get("warning") or coverage.get("note"), 400),
             "fees": fees,
             "gotchas": gotchas,
-            "gotcha_cards": _gotcha_cards(data, 8),
+            "gotcha_cards": _gotcha_cards(data, 16),
             "inspection_sequence": inspection_steps,
             "document_checklist": doc_checklist,
             "env_risk": _s(env.get("risk_level"), 40),
@@ -1030,17 +1352,44 @@ def compose_ic_package(
                     "source_url": _s(f.get("source_url"), 400),
                     "risk_level": _s(f.get("risk_level"), 20),
                 }
-                for f in (env.get("findings") or [])[:8]
+                for f in (env.get("findings") or [])[:20]
                 if isinstance(f, dict)
             ],
             "parallel_clocks": clock_rows,
+            "power_path": _compose_power_path(data),
+            "moratorium_radar": _compose_moratorium(data, pi),
+            "ultralocal": (
+                {
+                    "enabled": bool((data.get("ultralocal_scout") or {}).get("enabled")),
+                    "depth": _s(data.get("scout_locality_depth"), 40),
+                    "summary": _s(
+                        (data.get("ultralocal_scout") or {}).get("summary")
+                        or (data.get("ultralocal_scout") or {}).get("headline"),
+                        600,
+                    ),
+                    "confirmed_pages": [
+                        {
+                            "title": _s(pg.get("title") or pg.get("label"), 160),
+                            "url": _s(pg.get("url") or pg.get("source_url"), 400),
+                        }
+                        for pg in (
+                            (data.get("ultralocal_scout") or {}).get("confirmed_pages") or []
+                        )[:8]
+                        if isinstance(pg, dict)
+                        and _s(pg.get("url") or pg.get("source_url"), 400).startswith("http")
+                    ],
+                }
+                if isinstance(data.get("ultralocal_scout"), dict)
+                else {}
+            ),
         },
         "parallel_clocks_track": {
             "enabled": is_dc or len(clock_rows) >= 2,
-            "title": "Data-center / large-load parallel clocks",
+            "title": "Interconnection consultant parallel clocks",
             "headline": (
-                "AHJ permits, interconnection, and water/NPDES run as independent clocks — "
-                "schedule risk stacks when any one slips."
+                "AHJ permits, utility interconnection / large-load, and water/NPDES run as independent "
+                "clocks — schedule risk stacks when any one slips. IC / interconnection consultants "
+                "should keep these tracks separate in the LOI narrative."
             ),
             "clocks": clock_rows,
         },
@@ -1050,7 +1399,10 @@ def compose_ic_package(
         },
         "evidence_binder": binder,
         "action_plan_summary": actions,
-        "action_plan_excerpt": _s((data.get("pro_summary_markdown") or "")[:2500], 2500),
+        "action_plan_excerpt": _s(
+            (data.get("pro_summary_markdown") or data.get("executive_summary_markdown") or "")[:8000],
+            8000,
+        ),
         "sources": sources,
         "disclaimers": [
             "Planning aid only — citeable pre-bid diligence, not a quote or sealed bid.",

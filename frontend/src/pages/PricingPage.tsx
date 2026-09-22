@@ -262,9 +262,9 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
-              Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s
-              Diligence Bundle ZIP. IC Annual ($15,000/year) unlocks only after you&apos;ve purchased
-              at least one IC Project.
+              Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s{' '}
+              {IC_BUNDLE.productName} ZIP. IC Annual ($15,000/year) unlocks only after you&apos;ve
+              purchased at least one IC Project.
             </p>
           </div>
           <div>
@@ -308,8 +308,8 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">Is the IC Queue / RTO tracker live?</h3>
             <p className="text-gray-400">
               No. Interconnection queue tools are demo-only and disabled in production. Buy the{' '}
-              {IC_BUNDLE.productName} for citeable site diligence (ZIP: memo + counsel DOCX + CSVs) —
-              not live RTO queue positions.
+              {IC_BUNDLE.productName} for citeable site diligence (ZIP: decision memo + boardroom PDF
+              + counsel DOCX + fee/punch CSV + evidence index) — not live RTO queue positions.
             </p>
           </div>
         </div>

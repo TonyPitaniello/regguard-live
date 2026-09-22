@@ -5598,9 +5598,14 @@ async def create_ic_boardroom_package_docx(body: Dict[str, Any] = Body(...)):
 @app.post("/ic-package/bundle", tags=["Samples"])
 async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
     """
-    $1,500 IC Diligence Bundle (ZIP) for IC / sponsor / lender buyers.
+    $1,500 IC Diligence Bundle (ZIP) — must match Pricing “What’s in the ZIP”:
 
-    Contents: decision memo PDF + counsel DOCX + fee/punch CSV + evidence index CSV.
+      01 Decision memo PDF
+      02 Boardroom PDF
+      03 Counsel DOCX (parallel clocks inside)
+      04 Fee / punch CSV
+      05 Evidence index CSV
+
     Same paywall as /ic-package/pdf.
     """
     from entitlement import access_summary
@@ -5661,6 +5666,60 @@ async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
         ),
     }
     return Response(content=raw, media_type="application/zip", headers=headers)
+
+
+@app.post("/ic-package/evidence-csv", tags=["Samples"])
+async def create_ic_evidence_index_csv(body: Dict[str, Any] = Body(...)):
+    """Evidence index CSV (claim → exhibit_id → source_url). Same IC paywall as PDF."""
+    from entitlement import access_summary
+    from ic_project_fulfillment import is_ic_tier
+
+    data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
+    email_l = str(generated_for or body.get("email") or "").strip().lower()
+    if not email_l or "@" not in email_l:
+        raise HTTPException(
+            status_code=403,
+            detail="Evidence index requires the purchase email on the request.",
+        )
+
+    ent = access_summary(email_l)
+    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
+    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
+    if not has_ic_entitlement:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Evidence index requires an IC Project purchase for this email. "
+                "Open Pricing → IC Project, then re-run with Generate IC Report."
+            ),
+        )
+
+    try:
+        from artifact_naming import document_download_filename, site_line_from_analysis
+        from ic_package_composer import compose_ic_package, evidence_index_to_csv
+
+        package = compose_ic_package(
+            data,
+            generated_for=str(generated_for or ""),
+            share_url=str(share_url or data.get("share_url") or ""),
+        )
+        site = site_line_from_analysis(data) or str((package.get("cover") or {}).get("site") or "SITE")
+        csv_text = evidence_index_to_csv(package.get("evidence_binder") or {}, site=site)
+        filename = document_download_filename(site, "EVIDENCE INDEX", "csv")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Evidence index failed: {e}") from e
+
+    from fastapi.responses import Response
+
+    headers = {
+        "Content-Disposition": f'attachment; filename="{filename}"',
+        "X-RegGuard-Artifact": "ic_evidence_index",
+        "X-RegGuard-Filename": filename,
+        "Access-Control-Expose-Headers": (
+            "X-RegGuard-Artifact, X-RegGuard-Filename, Content-Disposition"
+        ),
+    }
+    return Response(content=csv_text.encode("utf-8"), media_type="text/csv; charset=utf-8", headers=headers)
 
 
 @app.post("/ic-package/pdf", tags=["Samples"])

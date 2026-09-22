@@ -1,11 +1,11 @@
 """
 IC Diligence Package — counsel-ready DOCX for IC / sponsor / lender buyers.
 
-Structure (professional deliverable, not a longer PDF):
+Structure (professional deliverable for IC / interconnection consultants):
   A. Document control + cover
-  B. One-page decision memo (HOLD/CLEAR + contingency + top 3 drivers + exhibit refs)
+  B. One-page decision memo (HOLD/CLEAR + contingency + top drivers + exhibit refs)
   C. Parallel clocks track (AHJ / interconnect / water-NPDES) when data-center / large-load
-  D. Fee & punch schedule summary (full CSV ships in the ZIP bundle)
+  D. Fee & punch schedule (companion CSV also downloadable)
   E. Evidence binder — numbered exhibits with live hyperlinks
   F. Disclaimers
 
@@ -160,11 +160,16 @@ def generate_ic_boardroom_docx_bytes(
         _link_line(doc, "Interactive share / re-download", share)
 
     _heading(doc, "Contents", 1)
-    _body(doc, "A. One-page decision memo (HOLD/CLEAR + contingency + top drivers)")
+    _body(doc, "A. Decision memo (HOLD/CLEAR + contingency + top drivers)")
     _body(doc, "B. Parallel clocks track (AHJ / interconnect / water-NPDES) — when applicable")
-    _body(doc, "C. Fee & punch schedule summary (full CSV in ZIP bundle)")
-    _body(doc, "D. Evidence binder — numbered exhibits with live source hyperlinks")
-    _body(doc, "E. Disclaimers")
+    _body(doc, "C. Power path · moratorium · environmental · gotchas (screening depth)")
+    _body(doc, "D. Fee & punch schedule (companion CSV downloadable separately)")
+    _body(doc, "E. Evidence binder — numbered exhibits with live source hyperlinks")
+    _body(doc, "F. Recommended next actions + disclaimers")
+    _muted(
+        doc,
+        "Screening Bundle — NOT an interconnection study, Phase I ESA, geotech report, or AHJ filing.",
+    )
 
     # ----- A. Decision memo -----
     _heading(doc, f"A. One-page decision memo — {site}", 1)
@@ -193,9 +198,9 @@ def generate_ic_boardroom_docx_bytes(
         if band.get("plain"):
             _muted(doc, str(band.get("plain")))
 
-    _heading(doc, "Top 3 drivers (resolve or carry cushion)", 2)
+    _heading(doc, "Top risk drivers (resolve or carry cushion)", 2)
     drivers = memo.get("top_drivers") or (package.get("executive_summary") or {}).get("top_risks") or []
-    for i, k in enumerate(drivers[:3], start=1):
+    for i, k in enumerate(drivers[:8], start=1):
         pri = str(k.get("priority") or "NOTE").upper().replace("FAIL", "HOLD")
         ref = _exhibit_ref(str(k.get("exhibit_id") or ""))
         _body(doc, f"{i}. [{pri}] {k.get('title') or 'Driver'}  {ref}", bold=True)
@@ -204,33 +209,113 @@ def generate_ic_boardroom_docx_bytes(
         if k.get("source_url"):
             _link_line(doc, "Source", str(k.get("source_url")))
 
-    # ----- B. Parallel clocks -----
-    if clocks_track.get("enabled") or clocks_track.get("clocks") or findings.get("parallel_clocks"):
-        _heading(doc, f"B. Parallel clocks track — {site}", 1)
+    # ----- B. Parallel clocks (always present for IC Bundle — Pricing promise) -----
+    clock_rows = clocks_track.get("clocks") or findings.get("parallel_clocks") or []
+    _heading(doc, f"B. Parallel clocks track — {site}", 1)
+    _body(
+        doc,
+        str(
+            clocks_track.get("headline")
+            or "AHJ permits, utility interconnection / large-load, and water/NPDES run as independent "
+            "clocks — schedule risk stacks when any one slips."
+        ),
+        bold=True,
+    )
+    if not clock_rows:
+        _muted(
+            doc,
+            "No site-specific clocks stamped yet — treat AHJ permits and utility interconnection as "
+            "separate tracks until both are confirmed. Re-run IC depth for data-center / large-load sites.",
+        )
+    for c in clock_rows:
+        track = str(c.get("track") or "").upper()
+        name = c.get("name") or "Clock"
+        label = f"[{track}] {name}" if track else str(name)
+        _body(doc, label, bold=True)
+        if c.get("detail"):
+            _muted(doc, str(c.get("detail")))
+        if c.get("owner"):
+            _muted(doc, f"Owner: {c.get('owner')}")
+        if c.get("url"):
+            _link_line(doc, "Clock source", str(c.get("url")))
+
+    # ----- C. Power / mora / env / gotchas (parity with boardroom PDF) -----
+    _heading(doc, f"C. Power · moratorium · environmental · gotchas — {site}", 1)
+    power = findings.get("power_path") or {}
+    if power.get("headline") or power.get("notes") or power.get("checklist"):
+        _heading(doc, "Power / interconnection path (screening only)", 2)
         _body(
             doc,
-            str(
-                clocks_track.get("headline")
-                or "AHJ, interconnection, and water/NPDES can slip independently — treat as parallel clocks."
-            ),
+            str(power.get("headline") or "Utility / large-load path"),
             bold=True,
         )
-        for c in clocks_track.get("clocks") or findings.get("parallel_clocks") or []:
-            track = str(c.get("track") or "").upper()
-            name = c.get("name") or "Clock"
-            label = f"[{track}] {name}" if track else str(name)
-            _body(doc, label, bold=True)
-            if c.get("detail"):
-                _muted(doc, str(c.get("detail")))
-            if c.get("owner"):
-                _muted(doc, f"Owner: {c.get('owner')}")
+        if power.get("status"):
+            _muted(doc, f"Status: {power.get('status')}")
+        if power.get("notes"):
+            _muted(doc, str(power.get("notes")))
+        for item in power.get("checklist") or []:
+            _body(doc, f"- {item}", size=10)
+        if power.get("disclaimer"):
+            _muted(doc, str(power.get("disclaimer")))
+        if power.get("source_url"):
+            _link_line(doc, "Source", str(power.get("source_url")))
+        else:
+            _muted(doc, "NOT an interconnection study — confirm with utility / TDSP / ERCOT process.")
 
-    # ----- C. Fee & punch summary -----
-    _heading(doc, f"C. Fee & punch schedule summary — {site}", 1)
+    mora = findings.get("moratorium_radar") or {}
+    if mora.get("headline") or mora.get("detail") or mora.get("metros"):
+        _heading(doc, "Moratorium / pause radar", 2)
+        if mora.get("headline"):
+            _body(doc, str(mora.get("headline")), bold=True)
+        if mora.get("detail"):
+            _muted(doc, str(mora.get("detail")))
+        for m in mora.get("metros") or []:
+            line = m.get("name") or "Metro"
+            if m.get("status"):
+                line = f"{line} — {m.get('status')}"
+            _body(doc, str(line), size=10)
+            if m.get("citation_url"):
+                _link_line(doc, "Citation", str(m.get("citation_url")))
+        if mora.get("source_url"):
+            _link_line(doc, "Radar source", str(mora.get("source_url")))
+
+    if findings.get("env_risk") or findings.get("env_findings"):
+        _heading(doc, "Environmental screening (not Phase I)", 2)
+        if findings.get("env_risk"):
+            _body(doc, f"Env risk level: {findings.get('env_risk')}", bold=True)
+        for f in (findings.get("env_findings") or [])[:12]:
+            cat = f.get("category") or "Finding"
+            _body(doc, f"[{f.get('risk_level') or 'NOTE'}] {cat}", bold=True, size=10)
+            if f.get("description"):
+                _muted(doc, str(f.get("description")))
+            if f.get("source_url"):
+                _link_line(doc, "Mapper / source", str(f.get("source_url")))
+
+    cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
+    if cards:
+        _heading(doc, "Local gotcha confirm cards", 2)
+        for g in cards[:12]:
+            title = g.get("title") or g.get("label") or "Gotcha"
+            _body(doc, str(title), bold=True, size=10)
+            if g.get("detail") or g.get("confirm_step"):
+                _muted(doc, str(g.get("detail") or g.get("confirm_step")))
+            if g.get("source_url"):
+                _link_line(doc, "Source", str(g.get("source_url")))
+
+    ultra = findings.get("ultralocal") or {}
+    if ultra.get("summary") or ultra.get("confirmed_pages"):
+        _heading(doc, "Ultralocal scout", 2)
+        if ultra.get("summary"):
+            _muted(doc, str(ultra.get("summary")))
+        for pg in ultra.get("confirmed_pages") or []:
+            _link_line(doc, str(pg.get("title") or "Confirmed page"), str(pg.get("url")))
+
+    # ----- D. Fee & punch summary -----
+    _heading(doc, f"D. Fee & punch schedule — {site}", 1)
     _muted(
         doc,
-        "Full estimator schedule (trade / owner / due window / source_url / exhibit_id) ships as CSV "
-        "in the IC Diligence ZIP bundle. Below is the boardroom extract.",
+        "Full estimator schedule (trade / owner / due window / source_url / exhibit_id) is also "
+        "downloadable as CSV from results. Below is the counsel extract.",
     )
     ahj = findings.get("ahj") or {}
     if ahj.get("name"):
@@ -245,7 +330,7 @@ def generate_ic_boardroom_docx_bytes(
                 _link_line(doc, label, str(ahj.get(key)))
 
     _heading(doc, "Fee planning rows", 2)
-    for f in (findings.get("fees") or [])[:15]:
+    for f in (findings.get("fees") or [])[:40]:
         title = str(f.get("name") or "Fee")
         if f.get("trade"):
             title = f"[{str(f.get('trade')).upper()}] {title}"
@@ -261,7 +346,7 @@ def generate_ic_boardroom_docx_bytes(
     _heading(doc, "Critical-path punch", 2)
     if punch.get("timeline_summary"):
         _muted(doc, f"Timeline: {punch.get('timeline_summary')}")
-    for item in (punch.get("items") or [])[:25]:
+    for item in (punch.get("items") or [])[:80]:
         pri = str(item.get("priority") or "NOTE").upper().replace("FAIL", "HOLD")
         cost = item.get("estimated_cost")
         cost_s = f"  ·  est ${cost:,.0f}" if isinstance(cost, (int, float)) and cost else ""
@@ -280,8 +365,8 @@ def generate_ic_boardroom_docx_bytes(
         if item.get("source_url"):
             _link_line(doc, "Source", str(item.get("source_url")))
 
-    # ----- D. Evidence binder -----
-    _heading(doc, f"D. Evidence binder — {site}", 1)
+    # ----- E. Evidence binder -----
+    _heading(doc, f"E. Evidence binder — {site}", 1)
     summary = binder.get("summary") or {}
     _muted(
         doc,
@@ -312,8 +397,8 @@ def generate_ic_boardroom_docx_bytes(
         if c.get("source_url") and not c.get("exhibit_id"):
             _link_line(doc, "Confirm", str(c.get("source_url")))
 
-    # ----- E. Next actions + disclaimers -----
-    _heading(doc, f"E. Recommended next actions — {site}", 1)
+    # ----- F. Next actions + disclaimers -----
+    _heading(doc, f"F. Recommended next actions — {site}", 1)
     for a in package.get("action_plan_summary") or []:
         _body(doc, f"- {a}")
 

@@ -3,12 +3,12 @@
  * Use on Pricing, Checkout, Results, Methodology, Data Center hub.
  */
 
-import { Check, FileArchive, FileSpreadsheet, FileText, Link2, Clock3 } from 'lucide-react';
+import { Check, FileSpreadsheet, FileText, Link2, Clock3 } from 'lucide-react';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 
 type Variant = 'full' | 'compact' | 'inline';
 
-const FILE_ICONS = [FileText, FileText, FileSpreadsheet, FileSpreadsheet, Clock3] as const;
+const FILE_ICONS = [FileText, FileText, FileText, FileSpreadsheet, FileSpreadsheet, Clock3] as const;
 
 export function IcDiligenceBundlePitch({
   variant = 'full',
@@ -47,7 +47,7 @@ export function IcDiligenceBundlePitch({
         className={`rounded-xl border border-emerald-500/35 bg-gradient-to-br from-emerald-500/10 via-slate-900/80 to-slate-950/90 p-4 sm:p-5 ${className}`}
       >
         <div className="flex items-start gap-3">
-          <FileArchive className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
+          <FileText className="w-5 h-5 text-emerald-300 shrink-0 mt-0.5" />
           <div className="min-w-0">
             <p className="text-emerald-100 font-bold text-sm sm:text-base">
               {IC_BUNDLE.productName} · {IC_BUNDLE.priceLabel}
@@ -76,7 +76,7 @@ export function IcDiligenceBundlePitch({
     >
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-100 text-xs font-bold uppercase tracking-wide">
-          <FileArchive className="w-3.5 h-3.5" />
+          <FileText className="w-3.5 h-3.5" />
           {IC_BUNDLE.badge}
         </span>
         <span className="text-xs font-semibold text-gray-400">{IC_BUNDLE.segment}</span>

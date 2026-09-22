@@ -335,7 +335,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             str(band.get("plain") or "Planning aid - not a quote. Confirm dollars with the AHJ.")[:220],
         )
 
-    killers = list(ex.get("top_risks") or [])[:3]
+    killers = list(ex.get("top_risks") or [])[:5]
     if killers:
         _section_title(pdf, "Top risk flags")
         for k in killers:
@@ -359,13 +359,20 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         title_size=9,
     )
 
+    deliv = package.get("deliverable") if isinstance(package.get("deliverable"), dict) else {}
     _accent_card(
         pdf,
         "What this package includes",
         [
-            "1. Executive recommendation  |  2. Risk stamp & contingency  |  "
-            "3. Parallel path & jurisdiction",
-            "4. Critical-path punch list  |  5. Next actions  |  6. Source appendix",
+            str(
+                deliv.get("primary")
+                or "Full IC Diligence Package PDF for IC / interconnection / owner’s-rep review"
+            ),
+            "1. Executive recommendation & stamp  |  2. Contingency drivers  |  "
+            "3. Parallel clocks (AHJ · interconnect · water)",
+            "4. Jurisdiction, fees, gotchas, env  |  5. Full critical-path punch list",
+            "6. Evidence binder (EX-00N)  |  7. Next actions  |  8. Source appendix",
+            str(deliv.get("working_set") or "Companion: counsel DOCX · fee/punch CSV · evidence index · 1-page memo"),
         ],
         accent=EMERALD,
         title_size=9,
@@ -458,26 +465,108 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         title_size=9,
     )
 
-    # ---- Jurisdiction ----
+    # ---- Jurisdiction + parallel clocks (IC / interconnection consultant core) ----
     findings = package.get("site_findings") or {}
-    _begin_section(pdf, f"3. Parallel path schedule & jurisdiction — {site}", min_remain=32)
-    clocks = findings.get("parallel_clocks") or []
-    if clocks:
+    clocks_track = package.get("parallel_clocks_track") or {}
+    _begin_section(pdf, f"3. Parallel clocks & jurisdiction — {site}", min_remain=32)
+    if clocks_track.get("enabled") or clocks_track.get("clocks") or findings.get("parallel_clocks"):
         _muted(
             pdf,
-            "Data-center / large-load sites typically run municipal AHJ permits and utility "
-            "interconnection on independent clocks. Slip on either path moves bid risk.",
+            str(
+                clocks_track.get("headline")
+                or (
+                    "AHJ permits, utility interconnection / large-load, and water/NPDES run as "
+                    "independent clocks. Slip on any path moves bid / LOI risk."
+                )
+            ),
         )
-        for c in clocks[:8]:
+        for c in clocks_track.get("clocks") or findings.get("parallel_clocks") or []:
             if not isinstance(c, dict):
                 continue
-            _accent_card(
+            track = str(c.get("track") or "").strip()
+            name = str(c.get("name") or c.get("label") or "Path")
+            title = f"[{track}] {name}" if track else name
+            bits = [str(c.get("detail") or c.get("note") or "")]
+            if c.get("owner"):
+                bits.append(f"Owner: {c.get('owner')}")
+            _accent_card(pdf, title, bits, accent=PURPLE, title_size=9)
+    else:
+        clocks = findings.get("parallel_clocks") or []
+        if clocks:
+            _muted(
                 pdf,
-                str(c.get("name") or c.get("label") or "Path"),
-                [str(c.get("detail") or c.get("note") or "")],
-                accent=PURPLE,
-                title_size=9,
+                "Municipal AHJ permits and utility interconnection often run on independent clocks. "
+                "Slip on either path moves bid risk.",
             )
+            for c in clocks:
+                if not isinstance(c, dict):
+                    continue
+                _accent_card(
+                    pdf,
+                    str(c.get("name") or c.get("label") or "Path"),
+                    [str(c.get("detail") or c.get("note") or "")],
+                    accent=PURPLE,
+                    title_size=9,
+                )
+
+    power = findings.get("power_path") if isinstance(findings.get("power_path"), dict) else {}
+    if power.get("headline") or power.get("notes") or power.get("status") or power.get("checklist"):
+        _section_title(pdf, "Power / interconnection path", y_pad=1.0)
+        bits = []
+        if power.get("status"):
+            bits.append(f"Status: {power.get('status')}")
+        if power.get("headline"):
+            bits.append(str(power.get("headline")))
+        if power.get("notes"):
+            bits.append(str(power.get("notes")))
+        for item in (power.get("checklist") or [])[:6]:
+            bits.append(f"• {item}")
+        if power.get("disclaimer"):
+            bits.append(str(power.get("disclaimer")))
+        _accent_card(pdf, "Power path (confirm with utility / TDSP)", bits, accent=SKY, title_size=9)
+        if power.get("source_url"):
+            _link_line(pdf, "Source", str(power.get("source_url")))
+
+    mora = findings.get("moratorium_radar") if isinstance(findings.get("moratorium_radar"), dict) else {}
+    if mora.get("headline") or mora.get("detail") or mora.get("status") or mora.get("metros"):
+        _section_title(pdf, "Moratorium / pause radar", y_pad=1.0)
+        bits = []
+        if mora.get("status"):
+            bits.append(f"Status: {mora.get('status')}")
+        if mora.get("headline"):
+            bits.append(str(mora.get("headline")))
+        if mora.get("detail"):
+            bits.append(str(mora.get("detail")))
+        for m in (mora.get("metros") or [])[:4]:
+            if isinstance(m, dict):
+                bits.append(f"{m.get('name') or 'Metro'}: {m.get('status') or ''}".strip(": "))
+        if mora.get("disclaimer"):
+            bits.append(str(mora.get("disclaimer")))
+        _accent_card(pdf, "Moratorium radar", bits, accent=AMBER, title_size=9)
+        if mora.get("source_url"):
+            _link_line(pdf, "Source", str(mora.get("source_url")))
+        for m in (mora.get("metros") or [])[:3]:
+            if isinstance(m, dict) and m.get("citation_url"):
+                _link_line(pdf, str(m.get("name") or "Metro"), str(m.get("citation_url")))
+
+    ultra = findings.get("ultralocal") if isinstance(findings.get("ultralocal"), dict) else {}
+    if ultra.get("enabled") or ultra.get("summary") or ultra.get("confirmed_pages"):
+        _section_title(pdf, "Ultralocal scout (HOA / MUD / township)", y_pad=1.0)
+        bits = []
+        if ultra.get("depth"):
+            bits.append(f"Depth: {ultra.get('depth')}")
+        if ultra.get("summary"):
+            bits.append(str(ultra.get("summary")))
+        _accent_card(
+            pdf,
+            "Local + ultralocal overlays merged into killers",
+            bits or ["Ultralocal scout enabled for this site."],
+            accent=EMERALD,
+            title_size=9,
+        )
+        for pg in (ultra.get("confirmed_pages") or [])[:4]:
+            if isinstance(pg, dict) and pg.get("url"):
+                _link_line(pdf, str(pg.get("title") or "Confirmed page"), str(pg.get("url")))
 
     ahj = findings.get("ahj") or {}
     _section_title(pdf, "Authority having jurisdiction", y_pad=1.0)
@@ -508,6 +597,8 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
                 title = f"[{str(f.get('trade')).upper()}] {title}"
             if amt:
                 title = f"{title}  -  {amt}"
+            if f.get("exhibit_id"):
+                title = f"{title}  [{f.get('exhibit_id')}]"
             cite = f.get("source_label") or ("Source" if f.get("source_url") else "Unverified - confirm with AHJ")
             _accent_card(pdf, title, [str(f.get("note") or ""), cite], accent=AMBER_SOFT, title_size=9)
             if f.get("source_url"):
@@ -565,8 +656,14 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         if findings.get("env_risk"):
             env_lines.append(f"Risk level: {findings.get('env_risk')}")
         for f in findings.get("env_findings") or []:
-            env_lines.append(f"{f.get('category')}: {f.get('description')}")
+            line = f"{f.get('category')}: {f.get('description')}"
+            if f.get("risk_level"):
+                line = f"[{f.get('risk_level')}] {line}"
+            env_lines.append(line)
         _accent_card(pdf, "Environmental screening", env_lines, accent=SKY, title_size=9)
+        for f in findings.get("env_findings") or []:
+            if isinstance(f, dict) and f.get("source_url"):
+                _link_line(pdf, str(f.get("category") or "Env source"), str(f.get("source_url")))
 
     # ---- Punch ----
     punch = package.get("punch_list") or {}
@@ -576,32 +673,90 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     items = punch.get("items") or []
     if not items:
         _muted(pdf, "No punch-list items in this package payload.")
+    _muted(pdf, f"{len(items)} punch-list line(s) — full operational checklist for this site.")
     for item in items:
         cost = item.get("estimated_cost")
         cost_s = f"  ·  est ${cost:,.0f}" if isinstance(cost, (int, float)) and cost else ""
+        ex_id = f"  [{item.get('exhibit_id')}]" if item.get("exhibit_id") else ""
         _flag_card(
             pdf,
             str(item.get("priority") or "NOTE"),
-            f"{item.get('task')}{cost_s}",
+            f"{item.get('task')}{cost_s}{ex_id}",
             f"Timing: {item.get('timeline') or 'Pre-bid'}  |  {item.get('citation') or 'Unverified'}",
         )
+        if item.get("source_url"):
+            _link_line(pdf, "Source", str(item.get("source_url")))
 
-    # ---- Next actions ----
-    _begin_section(pdf, f"5. Next actions — {site}", min_remain=24)
+    # ---- Evidence binder ----
+    binder = package.get("evidence_binder") if isinstance(package.get("evidence_binder"), dict) else {}
+    exhibits = binder.get("exhibits") or []
+    claims = binder.get("claims") or []
+    summary = binder.get("summary") if isinstance(binder.get("summary"), dict) else {}
+    _begin_section(pdf, f"5. Evidence binder — {site}", min_remain=28)
     _muted(
         pdf,
-        "Boardroom next steps drawn from high-priority risks and confirm cards. "
-        "The ranked punch list is the full operational checklist.",
+        "Numbered exhibits map each citeable claim to a live source URL. "
+        "Unverified claims have no exhibit ID — confirm before reliance.",
+    )
+    if summary:
+        _accent_card(
+            pdf,
+            "Binder summary",
+            [
+                f"Exhibits: {summary.get('exhibit_count', len(exhibits))}",
+                f"Cited claims: {summary.get('exhibited_claims', 0)}",
+                f"Unverified claims: {summary.get('unverified_claims', 0)}",
+            ],
+            accent=EMERALD,
+            title_size=9,
+        )
+    if exhibits:
+        _section_title(pdf, "Numbered exhibits", y_pad=1.0)
+        for ex_row in exhibits:
+            if not isinstance(ex_row, dict):
+                continue
+            eid = str(ex_row.get("id") or "")
+            title = str(ex_row.get("title") or "Exhibit")
+            kind = str(ex_row.get("kind") or "")
+            _accent_card(
+                pdf,
+                f"{eid}  ·  {title}",
+                [f"Kind: {kind}" if kind else ""],
+                accent=EMERALD,
+                title_size=9,
+            )
+            if ex_row.get("url"):
+                _link_line(pdf, "URL", str(ex_row.get("url")))
+    if claims:
+        _section_title(pdf, "Claim → exhibit map (excerpt)", y_pad=1.0)
+        for cl in claims[:60]:
+            if not isinstance(cl, dict):
+                continue
+            eid = str(cl.get("exhibit_id") or "UNVERIFIED")
+            claim = str(cl.get("label") or cl.get("claim") or cl.get("title") or "Claim")
+            status = str(cl.get("status") or "")
+            _body(pdf, f"[{eid}] {claim}" + (f"  ({status})" if status else ""), 8)
+            if cl.get("source_url"):
+                _link_line(pdf, "  ", str(cl.get("source_url")))
+
+    # ---- Next actions ----
+    _begin_section(pdf, f"6. Next actions — {site}", min_remain=24)
+    _muted(
+        pdf,
+        "Boardroom next steps for IC / interconnection consultants and owner’s reps. "
+        "The ranked punch list above is the full operational checklist.",
     )
     for a in package.get("action_plan_summary") or []:
         _body(pdf, f"- {a}", 9)
     excerpt = (package.get("action_plan_excerpt") or "").strip()
     if excerpt:
         _section_title(pdf, "Research memo excerpt", y_pad=1.0)
-        _accent_card(pdf, "Planning excerpt (not a filing)", [excerpt[:1600]], accent=CARD_EDGE, title_size=9)
+        # Chunk long memo into readable cards
+        chunk = excerpt[:4500]
+        _accent_card(pdf, "Planning excerpt (not a filing)", [chunk], accent=CARD_EDGE, title_size=9)
 
-    # ---- Sources (compact list — fills pages without oversized source cards) ----
-    _begin_section(pdf, f"6. Source appendix — {site}", min_remain=24)
+    # ---- Sources ----
+    _begin_section(pdf, f"7. Source appendix — {site}", min_remain=24)
     _muted(pdf, "Every forwardable claim should resolve to a URL below or be treated as Unverified.")
     sources = package.get("sources") or []
     if not sources:

@@ -52,17 +52,31 @@ def test_ic_diligence_bundle_zip_contents():
     assert raw[:2] == b"PK"
     with zipfile.ZipFile(__import__("io").BytesIO(raw)) as zf:
         names = set(zf.namelist())
-        assert "00_README.txt" in names
-        assert "01_DECISION_MEMO.pdf" in names
-        assert "02_IC_DILIGENCE_COUNSEL.docx" in names
-        assert "03_FEE_PUNCH_SCHEDULE.csv" in names
-        assert "04_EVIDENCE_INDEX.csv" in names
+        # Exact Pricing contract — no README, boardroom required
+        assert names == {
+            "01_DECISION_MEMO.pdf",
+            "02_IC_DILIGENCE_BOARDROOM.pdf",
+            "03_IC_DILIGENCE_COUNSEL.docx",
+            "04_FEE_PUNCH_SCHEDULE.csv",
+            "05_EVIDENCE_INDEX.csv",
+        }
         memo = zf.read("01_DECISION_MEMO.pdf")
         assert memo[:4] == b"%PDF"
-        docx = zf.read("02_IC_DILIGENCE_COUNSEL.docx")
+        boardroom = zf.read("02_IC_DILIGENCE_BOARDROOM.pdf")
+        assert boardroom[:4] == b"%PDF"
+        assert len(boardroom) > 10_000
+        docx = zf.read("03_IC_DILIGENCE_COUNSEL.docx")
         assert docx[:2] == b"PK"
-        csv_text = zf.read("03_FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
+        # Parallel clocks section required in counsel DOCX
+        import zipfile as zfmod
+
+        with zfmod.ZipFile(__import__("io").BytesIO(docx)) as dz:
+            xml = dz.read("word/document.xml").decode("utf-8", errors="replace")
+        assert "Parallel clocks" in xml or "parallel clocks" in xml.lower()
+        csv_text = zf.read("04_FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
         assert "exhibit_id" in csv_text
         assert "source_url" in csv_text
-        idx = zf.read("04_EVIDENCE_INDEX.csv").decode("utf-8")
+        idx = zf.read("05_EVIDENCE_INDEX.csv").decode("utf-8")
         assert "EX-" in idx or "exhibit" in idx.lower()
+        assert "whitehouse.gov" not in csv_text.lower()
+        assert "whitehouse.gov" not in idx.lower()

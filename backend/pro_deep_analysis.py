@@ -171,14 +171,44 @@ def _merge_deep_into_analysis(
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             continue
-        if source_urls and not item.get("verified"):
-            url = source_urls[i % len(source_urls)]
+        if source_urls and not item.get("verified") and not item.get("source_url"):
+            task = str(item.get("task") or item.get("action") or "")
+            # Topic-match scout URLs — never round-robin unrelated hosts onto punch rows
+            chosen = ""
+            for url in source_urls:
+                host = _host(url)
+                if host and host in ahj_hosts:
+                    chosen = url
+                    break
+            if not chosen:
+                # Keyword overlap between task and URL path/host
+                task_l = task.lower()
+                for url in source_urls:
+                    ul = url.lower()
+                    if any(
+                        k in task_l and k in ul
+                        for k in (
+                            "fee",
+                            "permit",
+                            "flood",
+                            "fema",
+                            "ercot",
+                            "tdlr",
+                            "fast-41",
+                            "wetland",
+                            "npdes",
+                        )
+                    ):
+                        chosen = url
+                        break
+            if not chosen:
+                continue
             item = dict(item)
-            item["source_url"] = url
-            host = _host(url)
+            item["source_url"] = chosen
+            host = _host(chosen)
             bound = bool(host and host in ahj_hosts)
             item["verified"] = bound
-            item["source_label"] = "AHJ source" if bound else "Related scout link"
+            item["source_label"] = "AHJ source" if bound else "Topic-matched scout link"
             items[i] = item
 
     # Prepend deep checklist tasks not already present
@@ -186,7 +216,13 @@ def _merge_deep_into_analysis(
     for task in md_tasks:
         if task.lower() in existing_tasks:
             continue
-        url = source_urls[0] if source_urls else None
+        # Prefer AHJ-bound URL for new tasks; else leave blank (Unverified)
+        url = None
+        for candidate in source_urls:
+            host = _host(candidate)
+            if host and host in ahj_hosts:
+                url = candidate
+                break
         host = _host(url or "")
         bound = bool(url and host and host in ahj_hosts)
         items.insert(

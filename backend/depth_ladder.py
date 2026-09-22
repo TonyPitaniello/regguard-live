@@ -120,7 +120,7 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     analysis["pro_delta"] = {
         "title": (
-            "What this IC Diligence Bundle run includes"
+            "What IC-depth research added on this run"
             if is_ic
             else "What Contractor Pro added vs Free / Estimator"
         ),
@@ -131,7 +131,10 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "verified_punch_lines": verified_punch,
         "scout_mode": scout_mode or "none",
         "honesty": (
-            "More sources and deeper scout — not a guarantee fees match the live AHJ schedule."
+            "Research depth and citeable sources — not the Diligence Bundle file contents, and not a "
+            "guarantee fees match the live AHJ schedule."
+            if is_ic
+            else "More sources and deeper scout — not a guarantee fees match the live AHJ schedule."
         ),
     }
     return analysis

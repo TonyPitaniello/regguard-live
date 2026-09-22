@@ -52,6 +52,36 @@ const PROGRESS_LABELS: Record<ProgressStep, string> = {
   punch: 'Building punch list…',
 };
 
+function usableLatLng(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(ln)) return null;
+  if (Math.abs(la) < 1e-6 && Math.abs(ln) < 1e-6) return null;
+  if (la < -90 || la > 90 || ln < -180 || ln > 180) return null;
+  return { lat: la, lng: ln };
+}
+
+function coordsFromAnalysis(analysis: AnalysisData | null | undefined): { lat: number; lng: number } | null {
+  if (!analysis) return null;
+  const pi = analysis.project_info || ({} as NonNullable<AnalysisData['project_info']>);
+  const nested =
+    (pi as { coordinates?: { latitude?: unknown; longitude?: unknown; lat?: unknown; lng?: unknown } })
+      .coordinates || {};
+  const pairs: Array<[unknown, unknown]> = [
+    [(analysis as { latitude?: unknown }).latitude, (analysis as { longitude?: unknown }).longitude],
+    [(analysis as { lat?: unknown }).lat, (analysis as { lng?: unknown }).lng],
+    [(pi as { lat?: unknown }).lat, (pi as { lng?: unknown }).lng],
+    [(pi as { latitude?: unknown }).latitude, (pi as { longitude?: unknown }).longitude],
+    [nested.latitude, nested.longitude],
+    [nested.lat, nested.lng],
+  ];
+  for (const [la, ln] of pairs) {
+    const hit = usableLatLng(la, ln);
+    if (hit) return hit;
+  }
+  return null;
+}
+
 async function fetchEntitlementWithRetry(
   emailNorm: string,
   attempts = 3
@@ -114,8 +144,12 @@ export default function FreeTrialForm({
     city?: string;
     state?: string;
     zip?: string;
+    lat?: number | null;
+    lng?: number | null;
   } | null>(null);
   const [locationResetKey, setLocationResetKey] = useState(0);
+  /** After incomplete-run "Confirm pin", wait for map pin before re-researching */
+  const pendingRerunAfterPinRef = useRef(false);
   const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
   /** Delay mounting contact inputs so Chrome cannot autofill a pre-painted email field */
   const [contactFieldsReady, setContactFieldsReady] = useState(false);
@@ -202,19 +236,24 @@ export default function FreeTrialForm({
     lat: number,
     lng: number
   ) => {
-    const usable =
-      Number.isFinite(lat) &&
-      Number.isFinite(lng) &&
-      !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6);
+    const pin = usableLatLng(lat, lng);
     setFormData((prev) => ({
       ...prev,
       address,
       city,
       state,
       zip,
-      lat: usable ? lat : null,
-      lng: usable ? lng : null,
+      lat: pin ? pin.lat : null,
+      lng: pin ? pin.lng : null,
     }));
+    setExternalLocation({
+      address,
+      city,
+      state,
+      zip,
+      lat: pin?.lat ?? null,
+      lng: pin?.lng ?? null,
+    });
     setError('');
     setQuotaExceeded(false);
   };
@@ -284,6 +323,8 @@ export default function FreeTrialForm({
       zip: d.zip,
       projectType: d.projectType,
       email: mail || d.email,
+      lat: d.lat,
+      lng: d.lng,
     });
     void persistSavedJob({
       owner_email: mail,
@@ -319,6 +360,34 @@ export default function FreeTrialForm({
     setResearchId(id);
     setAnalysis(analysisWithId);
     setResultsOpen(true);
+    // Keep formData + map pin aligned with what research actually used
+    {
+      const pin = coordsFromAnalysis(analysisWithId) || usableLatLng(d.lat, d.lng);
+      const pi = analysisWithId.project_info;
+      const nextAddress = (pi?.address || d.address || '').trim();
+      const nextCity = (pi?.city || d.city || '').trim();
+      const nextState = (pi?.state || d.state || '').trim();
+      const nextZip = (pi?.zip || d.zip || '').trim();
+      if (nextAddress || nextCity || pin) {
+        setFormData((prev) => ({
+          ...prev,
+          ...(nextAddress ? { address: nextAddress } : {}),
+          ...(nextCity ? { city: nextCity } : {}),
+          ...(nextState ? { state: nextState } : {}),
+          ...(nextZip ? { zip: nextZip } : {}),
+          lat: pin?.lat ?? prev.lat,
+          lng: pin?.lng ?? prev.lng,
+        }));
+        setExternalLocation({
+          address: nextAddress || undefined,
+          city: nextCity || undefined,
+          state: nextState || undefined,
+          zip: nextZip || undefined,
+          lat: pin?.lat ?? null,
+          lng: pin?.lng ?? null,
+        });
+      }
+    }
     try {
       sessionStorage.setItem('resultsOpen', '1');
     } catch {
@@ -447,7 +516,7 @@ export default function FreeTrialForm({
         // Soft confirm chip — Cancel aborts IC slot consume
         generateIcReport = window.confirm(
           `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
-            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + DOCX + CSV + evidence) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
+            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + boardroom PDF + DOCX + CSV + evidence) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
         );
         try {
           sessionStorage.removeItem('icForceOnce');
@@ -464,7 +533,7 @@ export default function FreeTrialForm({
           `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
             (annual
               ? 'Your email has IC Annual access. OK creates/updates the Diligence Bundle ZIP for this address under that subscription. Cancel researches without the paid package. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
-              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + DOCX + CSV + evidence — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
+              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + boardroom PDF + DOCX + CSV + evidence — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
         );
         if (!generateIcReport) {
           clearPendingIcReport();
@@ -616,6 +685,50 @@ export default function FreeTrialForm({
       setLoading(false);
     }
   }, [showResults]);
+
+  // Incomplete-run "Confirm pin" — once the map settles a usable pin, re-run automatically
+  useEffect(() => {
+    if (!pendingRerunAfterPinRef.current) return;
+    const pin = usableLatLng(formData.lat, formData.lng);
+    if (!pin) return;
+    pendingRerunAfterPinRef.current = false;
+    setVoiceHint('Pin confirmed — re-running deep research…');
+    const t = window.setTimeout(() => {
+      void runResearch();
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [formData.lat, formData.lng, runResearch]);
+
+  const restoreSiteLocation = useCallback(
+    (fromAnalysis?: AnalysisData | null) => {
+      const d = formDataRef.current;
+      const pi = fromAnalysis?.project_info;
+      const address = (pi?.address || d.address || '').trim();
+      const city = (pi?.city || d.city || '').trim();
+      const state = (pi?.state || d.state || '').trim();
+      const zip = (pi?.zip || d.zip || '').trim();
+      const pin = usableLatLng(d.lat, d.lng) || coordsFromAnalysis(fromAnalysis);
+      setFormData((prev) => ({
+        ...prev,
+        ...(address ? { address } : {}),
+        ...(city ? { city } : {}),
+        ...(state ? { state } : {}),
+        ...(zip ? { zip } : {}),
+        lat: pin?.lat ?? prev.lat,
+        lng: pin?.lng ?? prev.lng,
+      }));
+      setExternalLocation({
+        address: address || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        zip: zip || undefined,
+        lat: pin?.lat ?? null,
+        lng: pin?.lng ?? null,
+      });
+      return { address, city, state, zip, pin };
+    },
+    []
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -973,7 +1086,7 @@ export default function FreeTrialForm({
                   formData.address
                     ? `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`
                     : 'the saved site'
-                }. Confirm the address when prompted — you will get the counsel ZIP (memo + DOCX + CSVs).`
+                }. Confirm the address when prompted — you will get the counsel ZIP (memo + boardroom PDF + DOCX + CSVs).`
               : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
@@ -1016,9 +1129,13 @@ export default function FreeTrialForm({
         </div>
       )}
 
-      {/* Keep form visible until results successfully mount — avoids navy blank if modal crashes */}
-      {!(resultsOpen && analysis) && (
-      <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10">
+      {/* Keep form mounted while results are open so address + pin state survive Confirm / re-run */}
+      <div
+        className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10 ${
+          resultsOpen && analysis ? 'hidden' : ''
+        }`}
+        aria-hidden={Boolean(resultsOpen && analysis)}
+      >
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
           <div className="flex justify-end">
             <button
@@ -1033,7 +1150,7 @@ export default function FreeTrialForm({
           <LocationPicker
             onLocationSelect={handleLocationSelect}
             disabled={loading}
-            collapseMap={false}
+            collapseMap={Boolean(resultsOpen && analysis)}
             externalValues={externalLocation}
             resetKey={locationResetKey}
           />
@@ -1215,7 +1332,6 @@ export default function FreeTrialForm({
           </p>
         </form>
       </div>
-      )}
 
       {analysis && (
         <ErrorBoundary
@@ -1226,6 +1342,7 @@ export default function FreeTrialForm({
           <ResultsViewerModal
             isOpen={resultsOpen}
             onClose={() => {
+              restoreSiteLocation(analysis);
               setResultsOpen(false);
               try {
                 sessionStorage.setItem('resultsOpen', '0');
@@ -1262,7 +1379,31 @@ export default function FreeTrialForm({
               } catch {
                 /* ignore */
               }
+              const restored = restoreSiteLocation(analysis);
+              const incomplete =
+                analysis.research_incomplete === true ||
+                analysis.depth_claim_honest === false ||
+                String(analysis.honesty?.source || '').toLowerCase() === 'instant';
               setResultsOpen(false);
+              try {
+                sessionStorage.setItem('resultsOpen', '0');
+              } catch {
+                /* ignore */
+              }
+              window.requestAnimationFrame(() => {
+                document.getElementById('free-trial-form')?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                });
+              });
+              if (incomplete && !restored.pin) {
+                // Address restored; wait for LocationPicker forward-geocode to settle the pin
+                pendingRerunAfterPinRef.current = true;
+                setVoiceHint(
+                  'Confirm the pin on the map for this address — deep research starts once it settles.'
+                );
+                return;
+              }
               void runResearch();
             }}
             unlockLoading={loading}

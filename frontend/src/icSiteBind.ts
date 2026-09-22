@@ -27,6 +27,8 @@ export function siteLabel(site: {
 export function readLastResearchForm(): Partial<BoundSite> & {
   projectType?: string;
   email?: string;
+  lat?: number;
+  lng?: number;
 } {
   try {
     const raw = sessionStorage.getItem('lastResearchForm');
@@ -36,6 +38,12 @@ export function readLastResearchForm(): Partial<BoundSite> & {
     const city = typeof parsed.city === 'string' ? parsed.city : undefined;
     const state = typeof parsed.state === 'string' ? parsed.state : undefined;
     const zip = typeof parsed.zip === 'string' ? parsed.zip : undefined;
+    const latN = Number(parsed.lat);
+    const lngN = Number(parsed.lng);
+    const hasPin =
+      Number.isFinite(latN) &&
+      Number.isFinite(lngN) &&
+      !(Math.abs(latN) < 1e-6 && Math.abs(lngN) < 1e-6);
     return {
       address,
       city,
@@ -43,6 +51,7 @@ export function readLastResearchForm(): Partial<BoundSite> & {
       zip,
       projectType: typeof parsed.projectType === 'string' ? parsed.projectType : undefined,
       email: typeof parsed.email === 'string' ? parsed.email : undefined,
+      ...(hasPin ? { lat: latN, lng: lngN } : {}),
       label:
         address && city && state && zip
           ? siteLabel({ address, city, state, zip })
@@ -68,8 +77,16 @@ export function persistLastResearchForm(data: {
   zip: string;
   projectType?: string;
   email?: string;
+  lat?: number | null;
+  lng?: number | null;
 }): void {
   try {
+    const latN = Number(data.lat);
+    const lngN = Number(data.lng);
+    const hasPin =
+      Number.isFinite(latN) &&
+      Number.isFinite(lngN) &&
+      !(Math.abs(latN) < 1e-6 && Math.abs(lngN) < 1e-6);
     sessionStorage.setItem(
       'lastResearchForm',
       JSON.stringify({
@@ -79,6 +96,7 @@ export function persistLastResearchForm(data: {
         zip: data.zip,
         projectType: data.projectType || 'commercial',
         email: data.email || '',
+        ...(hasPin ? { lat: latN, lng: lngN } : {}),
       })
     );
   } catch {

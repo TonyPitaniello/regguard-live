@@ -1608,7 +1608,7 @@ export default function ResultsViewerModal({
             }}
           >
             {allowIcPackageDownload
-              ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, counsel DOCX, fee/punch CSV, and evidence index. This brief is the forwardable stamp.'
+              ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, boardroom PDF, counsel DOCX, fee/punch CSV, and evidence index. This brief is the forwardable stamp.'
               : ownsIc
                 ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
                 : isDeep
@@ -1675,11 +1675,22 @@ export default function ResultsViewerModal({
     if (!isDeep || !proDelta?.bullets?.length) return null;
     const isIc = depthTier === 'ic_full' || Boolean(view.ic_package);
     const title = isIc
-      ? `What this ${IC_BUNDLE.productName} includes`
+      ? 'What IC-depth research added on this run'
       : 'What Contractor Pro added vs Free';
+    const honesty =
+      proDelta.honesty ||
+      (isIc
+        ? 'Research depth and citeable sources — not the Diligence Bundle contents, and not a guarantee fees match the live AHJ schedule.'
+        : undefined);
     return (
       <section className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 p-4 sm:p-5">
         <h3 className="text-emerald-200 font-bold text-sm sm:text-base">{title}</h3>
+        {isIc && (
+          <p className="text-xs text-emerald-100/80 mt-1 leading-relaxed">
+            Scout / AHJ depth for this site — separate from the {IC_BUNDLE.productName} download
+            below.
+          </p>
+        )}
         <ul className="mt-2 space-y-1.5">
           {proDelta.bullets.map((b) => (
             <li key={b} className="text-sm text-gray-200 flex gap-2">
@@ -1688,13 +1699,13 @@ export default function ResultsViewerModal({
             </li>
           ))}
         </ul>
-        {proDelta.honesty && (
-          <p className="text-xs text-amber-200/90 mt-3">{proDelta.honesty}</p>
+        {honesty && (
+          <p className="text-xs text-amber-200/90 mt-3">{honesty}</p>
         )}
         {(buyerPersona === 'dc_infra' || buyerPersona === 'ic_shop') && depthTier !== 'ic_full' && (
           <p className="text-xs text-blue-200 mt-2">
             Data-center / infra tip: Pro light skips FAST-41 / water / moratorium passes — use IC for
-            that depth + the Diligence Bundle ZIP.
+            that depth + the Diligence Bundle.
           </p>
         )}
       </section>
@@ -1881,10 +1892,26 @@ export default function ResultsViewerModal({
         artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE BUNDLE', 'zip'),
         ['application/zip', 'application/octet-stream']
       );
+      trackStampEvent('ic_bundle_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+        channel: 'results',
+        meta: {
+          artifact: 'ic_diligence_bundle_zip',
+          depth_tier: view.depth_tier || view.research_depth || '',
+        },
+      });
       showToast(
-        'IC Diligence Bundle downloaded — decision memo + counsel DOCX + fee/punch CSV + evidence index'
+        'IC Diligence Bundle downloaded — decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence index'
       );
     } catch (e) {
+      trackStampEvent('ic_bundle_download_fail', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        channel: 'results',
+        meta: { error: e instanceof Error ? e.message : 'fail' },
+      });
       showToast(e instanceof Error ? e.message : 'IC Diligence Bundle download failed');
     } finally {
       setPacketLoading(false);
@@ -1911,9 +1938,96 @@ export default function ResultsViewerModal({
         },
         artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'pdf')
       );
-      showToast('IC Diligence Package downloaded — planning aid, not a sealed bid');
+      trackStampEvent('ic_artifact_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        stampGrade: view.regguard_stamp?.grade || view.stamp_grade,
+        channel: 'results',
+        meta: { artifact: 'boardroom_pdf' },
+      });
+      showToast('IC Diligence Package PDF downloaded — full boardroom brief for IC / interconnection review');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC package download failed');
+    } finally {
+      setPacketLoading(false);
+    }
+  };
+
+  const downloadIcEvidenceCsv = async () => {
+    if (!allowIcPackageDownload) {
+      showToast(
+        'Evidence index requires an IC Project run for this site — free preview cannot download it.'
+      );
+      return;
+    }
+    setPacketLoading(true);
+    try {
+      const slim = analysisForPdfExport(view as unknown as Record<string, unknown>, effectiveResearchId);
+      await postBinaryDownload(
+        backendUrl('/ic-package/evidence-csv'),
+        {
+          analysis_data: slim,
+          research_id: effectiveResearchId || undefined,
+          generated_for: emailForCheckout || undefined,
+          email: emailForCheckout || undefined,
+        },
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'EVIDENCE INDEX', 'csv'),
+        ['text/csv', 'application/octet-stream']
+      );
+      trackStampEvent('ic_artifact_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        channel: 'results',
+        meta: { artifact: 'evidence_index_csv' },
+      });
+      showToast('Evidence index CSV downloaded — claim → exhibit → source_url');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Evidence index download failed');
+    } finally {
+      setPacketLoading(false);
+    }
+  };
+
+  const downloadIcFeePunchCsv = async () => {
+    if (!allowIcPackageDownload) {
+      showToast(
+        'Fee / punch CSV requires an IC Project run for this site — free preview cannot download it.'
+      );
+      return;
+    }
+    setPacketLoading(true);
+    try {
+      const res = await fetch(backendUrl('/research/bid-sheet.csv'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysis: view }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = artifactDownloadFilename(
+        view as unknown as Record<string, unknown>,
+        'FEE PUNCH SCHEDULE',
+        'csv'
+      );
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      trackStampEvent('ic_artifact_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        channel: 'results',
+        meta: { artifact: 'fee_punch_csv' },
+      });
+      showToast('Fee / punch CSV downloaded — trade / owner / due_window / exhibit_id / source_url');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'CSV export failed');
     } finally {
       setPacketLoading(false);
     }
@@ -1943,6 +2057,12 @@ export default function ResultsViewerModal({
           'application/octet-stream',
         ]
       );
+      trackStampEvent('ic_artifact_download', {
+        researchId: effectiveResearchId,
+        zip: view.project_info?.zip,
+        channel: 'results',
+        meta: { artifact: 'boardroom_docx' },
+      });
       showToast('IC Diligence DOCX downloaded — editable for counsel redlines; sources are hyperlinks');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'IC DOCX download failed');
@@ -2427,39 +2547,49 @@ export default function ResultsViewerModal({
                   <button
                     type="button"
                     disabled={packetLoading}
-                    onClick={() => void downloadIcBoardroomDocx()}
-                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                    onClick={() => void downloadIcBoardroomPackage()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold disabled:opacity-50"
                   >
                     <Download className="w-4 h-4 shrink-0" />
-                    Counsel DOCX only
+                    Boardroom PDF
                   </button>
                   <button
                     type="button"
                     disabled={packetLoading}
-                    onClick={() => void downloadBidSheetCsv()}
+                    onClick={() => void downloadBidReceipt()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    Decision memo PDF
+                  </button>
+                  <button
+                    type="button"
+                    disabled={packetLoading}
+                    onClick={() => void downloadIcBoardroomDocx()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    Counsel DOCX
+                  </button>
+                  <button
+                    type="button"
+                    disabled={packetLoading}
+                    onClick={() => void downloadIcFeePunchCsv()}
                     className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50"
                   >
                     <Download className="w-4 h-4 shrink-0" />
                     Fee / punch CSV
                   </button>
+                  <button
+                    type="button"
+                    disabled={packetLoading}
+                    onClick={() => void downloadIcEvidenceCsv()}
+                    className="inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-sky-400/50 bg-sky-500/10 text-sky-100 text-sm font-bold disabled:opacity-50 sm:col-span-2"
+                  >
+                    <Download className="w-4 h-4 shrink-0" />
+                    Evidence index CSV
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  disabled={packetLoading}
-                  onClick={() => void downloadBidReceipt()}
-                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-100 text-sm font-bold disabled:opacity-50"
-                >
-                  <Download className="w-4 h-4 shrink-0" />
-                  Decision memo PDF only (forwardable stamp)
-                </button>
-                <button
-                  type="button"
-                  disabled={packetLoading}
-                  onClick={() => void downloadIcBoardroomPackage()}
-                  className="w-full text-xs text-gray-400 underline text-left disabled:opacity-50"
-                >
-                  Optional: longer boardroom PDF (not the primary paid deliverable)
-                </button>
                 <button
                   type="button"
                   onClick={() => void forwardArtifact('IC Diligence Bundle')}
@@ -2478,15 +2608,16 @@ export default function ResultsViewerModal({
                           <button
                             type="button"
                             onClick={() => void downloadIcPdf(primary)}
-                            className="w-full text-xs text-emerald-200/90 underline text-left"
+                            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-100 text-sm font-bold"
                           >
-                            Or re-download package from My Orders link
+                            <Download className="w-4 h-4 shrink-0" />
+                            Re-download from My Orders
                           </button>
                         ) : null}
                         {parts.length > 0 ? (
                           <div>
                             <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">
-                              Optional parts
+                              Other order PDFs
                             </p>
                             <div className="grid sm:grid-cols-3 gap-2">
                               {parts.map((pdf) => (
@@ -2504,7 +2635,7 @@ export default function ResultsViewerModal({
                           </div>
                         ) : icOrderPdfs.length === 0 ? (
                           <p className="text-xs text-amber-100/90">
-                            Loading order links… you can still download the full package above.
+                            Loading order links… you can still download the Diligence Bundle above.
                           </p>
                         ) : null}
                       </>

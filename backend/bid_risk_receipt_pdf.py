@@ -84,20 +84,46 @@ def _badge(
     return w
 
 
+def _soft_cut(text: str, limit: int) -> str:
+    """Truncate on a word boundary — never mid-word at the cut."""
+    t = _ascii(str(text or "")).strip()
+    if limit <= 0 or len(t) <= limit:
+        return t
+    cut = t[:limit].rstrip()
+    if " " in cut:
+        cut = cut.rsplit(" ", 1)[0].rstrip()
+    return cut + ("…" if cut else t[:limit])
+
+
+def _ensure_space(pdf: "BidRiskReceiptPDF", need_mm: float = 28.0) -> None:
+    """Start a continuation page before content would clip into the footer."""
+    # Footer CYA sits near y=-12; keep a safe floor above it
+    floor = PAGE_H - 22
+    if pdf.get_y() + need_mm > floor:
+        pdf.add_page()
+        pdf.set_xy(MARGIN, 14)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 4, _ascii("BID RISK RECEIPT - continued"), ln=1)
+        pdf.ln(2)
+
+
 class BidRiskReceiptPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(format="Letter", unit="mm")
-        self.set_auto_page_break(auto=False)
+        # Allow page 2 when dense — better than clipping mid-word on page 1
+        self.set_auto_page_break(auto=True, margin=18)
 
     def header(self) -> None:
         self.set_fill_color(*BG)
         self.rect(0, 0, PAGE_W, PAGE_H, "F")
 
     def footer(self) -> None:
-        self.set_y(-12)
-        self.set_font("Helvetica", "I", 7)
+        self.set_y(-14)
+        self.set_font("Helvetica", "I", 6.5)
         self.set_text_color(*DIM)
-        self.multi_cell(0, 3.5, _ascii(CYA), align="C")
+        page = f" — {self.page_no()}" if self.page_no() > 1 else ""
+        self.multi_cell(0, 3.2, _ascii(CYA + page), align="C")
 
 
 def generate_bid_risk_receipt_pdf(
@@ -187,7 +213,67 @@ def generate_bid_risk_receipt_pdf(
         3.5,
         _ascii("I flagged risk on THIS site. Forward so the GC/owner sees it before bid."),
     )
-    pdf.ln(2)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.set_text_color(*AMBER)
+    pdf.multi_cell(
+        CONTENT_W,
+        3.2,
+        _ascii(
+            "SCREENING MEMO — not an interconnection study, Phase I ESA, geotech, or AHJ approval."
+        ),
+    )
+    pdf.ln(1)
+
+    # HOLD/CLEAR stamp up front (counsel density)
+    rg = data.get("regguard_stamp") or {}
+    grade = str(rg.get("grade") or data.get("stamp_grade") or "").upper()
+    display = {"FAIL": "HOLD", "PASS": "CLEAR"}.get(grade, grade or "—")
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 14)
+    stamp_color = AMBER if display == "HOLD" else (AMBER_SOFT if display == "CAUTION" else EMERALD_SOFT)
+    pdf.set_text_color(*stamp_color)
+    pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {display}"), ln=1)
+    if rg.get("headline") or rg.get("plain"):
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.2,
+            _ascii(str(rg.get("headline") or rg.get("plain") or "")[:280]),
+        )
+    # AHJ portal / fee schedule / Accela — citeable links above the fold
+    fees_u = str(ahj.get("fees_url") or "").strip()
+    portal_u = str(ahj.get("portal_url") or "").strip()
+    apply_u = str(ahj.get("apply_url") or "").strip()
+    # Prefer ultralocal fee PDF when present
+    ultra = data.get("ultralocal_scout") if isinstance(data.get("ultralocal_scout"), dict) else {}
+    for pg in ultra.get("confirmed_pages") or []:
+        if not isinstance(pg, dict):
+            continue
+        title = str(pg.get("title") or "").lower()
+        url = str(pg.get("url") or "").strip()
+        if "fee" in title and url.startswith("http"):
+            fees_u = url
+            break
+    if portal_u or fees_u or apply_u:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 4, "AHJ LINKS (confirm before bid)", ln=1)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*MUTED)
+        if portal_u:
+            pdf.set_x(MARGIN)
+            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Portal: {portal_u}"))
+        if fees_u:
+            pdf.set_x(MARGIN)
+            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Fee schedule: {fees_u}"))
+        if apply_u:
+            pdf.set_x(MARGIN)
+            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Apply: {apply_u}"))
+    pdf.ln(1)
 
     # Site card
     y0 = pdf.get_y()
@@ -339,14 +425,24 @@ def generate_bid_risk_receipt_pdf(
         )
     pdf.set_y(y1 + 26)
 
+    # Prefer citeable AHJ fee table over polluted fee_card budget rows
     fee_rows = []
-    fc = data.get("fee_card") or {}
-    if isinstance(fc.get("fees"), list) and fc.get("fees"):
-        fee_rows = fc["fees"]
+    ahj_block = data.get("ahj") if isinstance(data.get("ahj"), dict) else {}
+    if isinstance(ahj_block.get("ahj_fee_table"), list) and ahj_block.get("ahj_fee_table"):
+        fee_rows = ahj_block["ahj_fee_table"]
     else:
-        lp_fees = (data.get("local_pack") or {}).get("fees")
-        if isinstance(lp_fees, list):
-            fee_rows = lp_fees
+        fc = data.get("fee_card") or {}
+        if isinstance(fc.get("fees"), list) and fc.get("fees"):
+            fee_rows = [
+                r
+                for r in fc["fees"]
+                if isinstance(r, dict)
+                and not str(r.get("label") or r.get("name") or "").lower().startswith("budget ")
+            ]
+        if not fee_rows:
+            lp_fees = (data.get("local_pack") or {}).get("fees")
+            if isinstance(lp_fees, list):
+                fee_rows = lp_fees
     if fee_rows:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 9)
@@ -371,10 +467,14 @@ def generate_bid_risk_receipt_pdf(
             )
             amt = row.get("amount_usd")
             amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm schedule"
+            cite = str(row.get("citation_url") or row.get("source_url") or "")[:70]
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 8)
             pdf.set_text_color(*WHITE)
-            pdf.multi_cell(CONTENT_W, 3.5, _ascii(f"[{kind}] {label} — {amt_s}"))
+            line = f"[{kind}] {label} — {amt_s}"
+            if cite and "fortworth" in cite.lower():
+                line = f"{line} | {cite}"
+            pdf.multi_cell(CONTENT_W, 3.5, _ascii(line))
         pdf.ln(1)
 
     # Top 3 killers
@@ -396,16 +496,15 @@ def generate_bid_risk_receipt_pdf(
                 ver_tier = "unverified"
         ver = "SOURCE" if ver_tier == "verified" else ("LINK" if ver_tier == "link" else "UNVERIFIED")
         pri = str(k.get("priority") or "NOTE").upper()
-        title = _ascii(str(k.get("title") or "Item"))[:90]
-        detail = _ascii(str(k.get("detail") or ""))[:110]
+        title = _soft_cut(str(k.get("title") or "Item"), 90)
+        detail = _soft_cut(str(k.get("detail") or ""), 160)
         pe = k.get("planning_exposure") or {}
 
         box_h = 16 + (3.5 if detail else 0)
         if isinstance(pe, dict) and pe.get("usd_mid") is not None:
             box_h += 3.5
+        _ensure_space(pdf, box_h + 8)
         y = pdf.get_y()
-        if y + box_h > 250:
-            break
         pdf.set_fill_color(*CARD)
         pdf.set_draw_color(*CARD_EDGE)
         pdf.rect(MARGIN, y, CONTENT_W, box_h, "DF")
@@ -483,12 +582,12 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*DIM)
-        headline = str(rg.get("headline") or rg.get("label") or "")
-        headline = headline.replace("FAIL", "HOLD")
-        pdf.multi_cell(CONTENT_W, 3.5, _ascii(headline[:200]))
+        headline = _soft_cut(str(rg.get("headline") or rg.get("label") or "").replace("FAIL", "HOLD"), 240)
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(headline))
         for d in (rg.get("drivers") or [])[:3]:
             if not isinstance(d, dict):
                 continue
+            _ensure_space(pdf, 14)
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 7)
             pdf.set_text_color(*WHITE)
@@ -501,7 +600,7 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_x(MARGIN)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*DIM)
-                pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"  {d.get('detail')}")[:180])
+                pdf.multi_cell(CONTENT_W, 3.0, _soft_cut(f"  {d.get('detail')}", 220))
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
@@ -539,9 +638,10 @@ def generate_bid_risk_receipt_pdf(
         )
     radar = data.get("moratorium_radar") or {}
     if radar.get("is_stale") and radar.get("stale_banner"):
-        stamp_lines.append(str(radar.get("stale_banner"))[:180])
+        stamp_lines.append(_soft_cut(str(radar.get("stale_banner")), 200))
     if rg.get("disclaimer"):
-        stamp_lines.append(str(rg.get("disclaimer"))[:220])
+        stamp_lines.append(_soft_cut(str(rg.get("disclaimer")), 280))
+    _ensure_space(pdf, 36)
     pdf.multi_cell(
         CONTENT_W,
         4,
