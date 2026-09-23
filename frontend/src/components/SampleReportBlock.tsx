@@ -13,28 +13,28 @@ export const SAMPLE_DOWNLOADS = [
     tier: HABIT_TIERS.free.name,
     price: HABIT_TIERS.free.priceLabel,
     href: '/sample/free-preview.pdf',
-    label: 'Free preview PDF',
+    label: 'Sample Free Preview PDF',
     detail: HABIT_TIERS.free.oneLiner,
   },
   {
     tier: HABIT_TIERS.partner.name,
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
     href: '/sample/partner-receipt.pdf',
-    label: 'Full Bid Risk Receipt PDF',
+    label: 'Sample Full Bid Risk Receipt PDF',
     detail: HABIT_TIERS.partner.oneLiner,
   },
   {
     tier: HABIT_TIERS.contractor_pro.name,
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
     href: '/sample/pro-desk.zip',
-    label: 'Pro desk ZIP',
+    label: 'Sample Pro Desk ZIP',
     detail: HABIT_TIERS.contractor_pro.oneLiner,
   },
   {
     tier: IC_BUNDLE.tierName,
     price: IC_BUNDLE.priceLabel,
     href: '/sample/ic-diligence-bundle.zip',
-    label: 'IC Diligence Bundle ZIP',
+    label: 'Sample IC Diligence Bundle ZIP',
     detail: IC_BUNDLE.cardDescription,
   },
 ] as const;
@@ -78,7 +78,7 @@ export function SampleReportBlock({
         }`}
       >
         <Download className="w-4 h-4" />
-        Download tier ladder PDF
+        Download Sample Tier Ladder PDF
       </a>
 
       <div className={compact ? 'space-y-2.5' : 'space-y-4'}>
