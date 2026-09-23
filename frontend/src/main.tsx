@@ -61,9 +61,27 @@ async function migrateStalePwaCaches(): Promise<boolean> {
   return false;
 }
 
+function redirectHardRefreshToHome(): boolean {
+  try {
+    const nav = performance.getEntriesByType?.(
+      'navigation'
+    )?.[0] as PerformanceNavigationTiming | undefined;
+    if (!nav || nav.type !== 'reload') return false;
+    const path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
+    if (path === '/' || path === '/index.html') return false;
+    window.location.replace('/');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function boot() {
   // Capture install prompt as early as possible (before React mounts)
   ensurePwaInstallListener();
+
+  // Belt-and-suspenders with index.html: F5 / Cmd+R on any deep page → home
+  if (redirectHardRefreshToHome()) return;
 
   const reloading = await migrateStalePwaCaches();
   if (reloading) return;

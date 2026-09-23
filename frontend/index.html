@@ -42,6 +42,19 @@
       rel="stylesheet"
     />
     <title>Reg Guard — Bid Risk Receipt for contractors</title>
+    <!-- Hard refresh on any deep route → home (fresh entry). Direct links / Stripe returns stay put. -->
+    <script>
+      (function () {
+        try {
+          var nav =
+            performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+          if (!nav || nav.type !== 'reload') return;
+          var path = (location.pathname || '/').replace(/\/+$/, '') || '/';
+          if (path === '/' || path === '/index.html') return;
+          location.replace('/');
+        } catch (e) {}
+      })();
+    </script>
     <!-- HARD cache break for Arc/PWA: unregister SW + clear Cache Storage before React -->
     <script>
       (function () {
