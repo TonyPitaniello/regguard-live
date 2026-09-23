@@ -5573,28 +5573,11 @@ async def create_ic_boardroom_package_docx(body: Dict[str, Any] = Body(...)):
     Editable IC Diligence Package (DOCX) with clickable source hyperlinks.
     Same paywall as /ic-package/pdf.
     """
-    from entitlement import access_summary
-    from ic_project_fulfillment import is_ic_tier
+    from entitlement import assert_ic_artifact_access
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     email_l = str(generated_for or body.get("email") or "").strip().lower()
-    if not email_l or "@" not in email_l:
-        raise HTTPException(
-            status_code=403,
-            detail="IC Diligence Package requires the purchase email on the request.",
-        )
-
-    ent = access_summary(email_l)
-    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
-    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
-    if not has_ic_entitlement:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "IC Diligence DOCX requires an IC Project purchase for this email. "
-                "Open Pricing → IC Project, then re-run with Generate IC Report."
-            ),
-        )
+    assert_ic_artifact_access(email_l, data)
 
     resolved = share_url
     try:
@@ -5643,28 +5626,11 @@ async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
 
     Same paywall as /ic-package/pdf.
     """
-    from entitlement import access_summary
-    from ic_project_fulfillment import is_ic_tier
+    from entitlement import assert_ic_artifact_access
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     email_l = str(generated_for or body.get("email") or "").strip().lower()
-    if not email_l or "@" not in email_l:
-        raise HTTPException(
-            status_code=403,
-            detail="IC Diligence Bundle requires the purchase email on the request.",
-        )
-
-    ent = access_summary(email_l)
-    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
-    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
-    if not has_ic_entitlement:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "IC Diligence Bundle requires an IC Project purchase for this email. "
-                "Open Pricing → IC Project, then re-run with Generate IC Report."
-            ),
-        )
+    assert_ic_artifact_access(email_l, data)
 
     resolved = share_url
     try:
@@ -5706,28 +5672,11 @@ async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
 @app.post("/ic-package/evidence-csv", tags=["Samples"])
 async def create_ic_evidence_index_csv(body: Dict[str, Any] = Body(...)):
     """Evidence index CSV (claim → exhibit_id → source_url). Same IC paywall as PDF."""
-    from entitlement import access_summary
-    from ic_project_fulfillment import is_ic_tier
+    from entitlement import assert_ic_artifact_access
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     email_l = str(generated_for or body.get("email") or "").strip().lower()
-    if not email_l or "@" not in email_l:
-        raise HTTPException(
-            status_code=403,
-            detail="Evidence index requires the purchase email on the request.",
-        )
-
-    ent = access_summary(email_l)
-    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
-    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
-    if not has_ic_entitlement:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "Evidence index requires an IC Project purchase for this email. "
-                "Open Pricing → IC Project, then re-run with Generate IC Report."
-            ),
-        )
+    assert_ic_artifact_access(email_l, data)
 
     try:
         from artifact_naming import document_download_filename, site_line_from_analysis
@@ -5762,37 +5711,19 @@ async def create_ic_boardroom_package_pdf(body: Dict[str, Any] = Body(...)):
     """
     Generate the bound IC Project Diligence Package (boardroom PDF).
 
-    Paywall: requires server-side IC entitlement for the email. Client flags
-    (ic_pdfs_ready, depth_tier, research_depth) never grant access alone.
+    Paywall: IC-depth analysis + site-bound IC purchase for the email.
+    Free Instant Preview cannot download the $1,500 boardroom package.
     Returns PDF bytes (multi-instance safe).
     """
     import base64
     import json as _json
 
     from arbitrage_enrichment import enrich_analysis_with_arbitrage
-    from entitlement import access_summary
-    from ic_project_fulfillment import is_ic_tier
+    from entitlement import assert_ic_artifact_access
 
     data, generated_for, share_url, _mode = _unwrap_analysis_body(body)
     email_l = str(generated_for or body.get("email") or "").strip().lower()
-    if not email_l or "@" not in email_l:
-        raise HTTPException(
-            status_code=403,
-            detail="IC Diligence Package requires the purchase email on the request.",
-        )
-
-    ent = access_summary(email_l)
-    tiers = [str(t).lower() for t in (ent.get("tiers") or [])]
-    has_ic_entitlement = any(is_ic_tier(t) for t in tiers) or bool(ent.get("ic_pdfs_ready"))
-    if not has_ic_entitlement:
-        raise HTTPException(
-            status_code=403,
-            detail=(
-                "IC Diligence Package requires an IC Project purchase for this email. "
-                "Free preview / Contractor Pro results cannot download the $1,500 boardroom package. "
-                "Open Pricing → IC Project, then re-run with Generate IC Report."
-            ),
-        )
+    assert_ic_artifact_access(email_l, data)
 
     band = data.get("contingency_band") or {}
     if (

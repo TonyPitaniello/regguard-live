@@ -1103,19 +1103,26 @@ export default function ResultsViewerModal({
   const ownedTierSet = new Set(
     (entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
-  const ownsIcEntitlement =
-    icReportPending ||
-    ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => ownedTierSet.has(t));
-  // Never treat bare client ic_pdfs_ready as paid — only after real IC-depth run
+  const hasIcTierOnFile = [
+    'ic_project',
+    'ic_consultant',
+    'ic_annual',
+    'sponsor',
+  ].some((t) => ownedTierSet.has(t));
+  // Download ONLY after a completed IC-depth run — never for Instant Preview / free
+  const allowIcPackageDownload = isIcDepth && !incompleteRun;
   const icPdfsReady =
-    isIcDepth &&
+    allowIcPackageDownload &&
     (Boolean(view.ic_pdfs_ready) ||
       (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1'));
-  /** Soft UI gate — API requires IC entitlement email (client flags alone never unlock) */
-  const allowIcPackageDownload = ownsIcEntitlement || (isIcDepth && Boolean(emailForCheckout));
-  const ownsIc = ownsIcEntitlement || isIcDepth;
+  // Unused site credit → generate CTA; completed IC depth → treat as owned for this result
+  const ownsIc = allowIcPackageDownload;
+  const canGenerateIcForSite = Boolean(icReportPending) && !allowIcPackageDownload;
   const ownsPro =
-    ownsIc || ownedTierSet.has('contractor_pro') || (isDeep && !incompleteRun && depthTier !== 'free');
+    ownsIc ||
+    hasIcTierOnFile ||
+    ownedTierSet.has('contractor_pro') ||
+    (isDeep && !incompleteRun && depthTier !== 'free');
   const ownsPartner = ownsPro || ownedTierSet.has('partner');
   /** Premortem F9: CSV / city pack / bid packet are Pro desk — not Free or $79 */
   const sessionTier =
@@ -1123,10 +1130,10 @@ export default function ResultsViewerModal({
       ? (sessionStorage.getItem('regguardTier') || '').toLowerCase()
       : '';
   const allowProDeskDownloads =
-    ownsIcEntitlement ||
+    allowIcPackageDownload ||
     ownedTierSet.has('contractor_pro') ||
     sessionTier.includes('contractor_pro') ||
-    depthTier === 'ic_full' ||
+    (depthTier === 'ic_full' && !incompleteRun) ||
     ((depthTier === 'pro_local' ||
       depthTier === 'pro_light' ||
       depthTier === 'pro_partial') &&
@@ -1179,9 +1186,10 @@ export default function ResultsViewerModal({
   };
 
   const alreadyOwnsCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project'): boolean => {
-    if (tier === 'partner') return ownsPartner;
-    if (tier === 'contractor_pro') return ownsPro;
-    if (tier === 'ic_project') return ownsIc;
+    if (tier === 'partner') return ownsPartner && !incompleteRun;
+    if (tier === 'contractor_pro') return ownsPro && !incompleteRun;
+    // Never hide IC buy/upsell just because an old purchase is on file for another run
+    if (tier === 'ic_project') return allowIcPackageDownload;
     return false;
   };
 
@@ -1197,8 +1205,8 @@ export default function ResultsViewerModal({
       secondaryRaw && !alreadyOwnsCheckout(secondaryRaw) && secondaryRaw !== primary
         ? secondaryRaw
         : null;
-    // IC pending: show generate, not buy
-    if (ownsIc && !allowIcPackageDownload && (icReportPending || canUnlockDeeper)) {
+    // Unused IC credit for this site: show generate, not buy
+    if (canGenerateIcForSite) {
       return (
         <section
           id="rg-primary-upgrade"
@@ -2648,7 +2656,7 @@ export default function ResultsViewerModal({
                   </p>
                 )}
               </>
-            ) : ownsIc ? (
+            ) : canGenerateIcForSite ? (
               <div className="space-y-3">
                 <p className="text-amber-100 font-bold text-sm sm:text-base">
                   {IC_BUNDLE.generateHeadline}

@@ -71,6 +71,75 @@ def has_paid_access(email: Optional[str]) -> bool:
     return False
 
 
+def analysis_is_ic_depth(analysis: Optional[Dict[str, Any]]) -> bool:
+    """True only for a completed IC Project run — not free Instant Preview."""
+    if not isinstance(analysis, dict):
+        return False
+    if analysis.get("preview") is True:
+        return False
+    if analysis.get("research_incomplete") is True:
+        return False
+    if analysis.get("depth_claim_honest") is False:
+        return False
+    honesty = analysis.get("honesty") if isinstance(analysis.get("honesty"), dict) else {}
+    source = str(honesty.get("source") or "").strip().lower()
+    if source in ("instant", "preview", "client_instant"):
+        return False
+    depth_tier = str(analysis.get("depth_tier") or "").strip().lower()
+    research_depth = str(analysis.get("research_depth") or "").strip().lower()
+    return depth_tier == "ic_full" or research_depth in ("ic", "ic_full")
+
+
+def assert_ic_artifact_access(email: Optional[str], analysis: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Hard paywall for IC Diligence Bundle / boardroom / DOCX / evidence exports.
+
+    Requires:
+      1) This analysis is IC-depth (not free Instant Preview)
+      2) Email has IC Project access for THIS site ($1,500 per site)
+    """
+    from fastapi import HTTPException
+
+    from ic_project_fulfillment import evaluate_ic_site_access
+
+    email_l = _normalize_email(email)
+    if not email_l or "@" not in email_l:
+        raise HTTPException(
+            status_code=403,
+            detail="IC Diligence Bundle requires the purchase email on the request.",
+        )
+    if not analysis_is_ic_depth(analysis):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "IC Diligence Bundle requires a completed IC Project run for this site. "
+                "Free Instant Preview cannot download the $1,500 counsel ZIP — "
+                "confirm the pin, purchase IC Project if needed, and re-run with Generate IC Report."
+            ),
+        )
+
+    pi = analysis.get("project_info") if isinstance(analysis, dict) else None
+    pi = pi if isinstance(pi, dict) else {}
+    access = evaluate_ic_site_access(
+        email_l,
+        address=str(pi.get("address") or ""),
+        city=str(pi.get("city") or ""),
+        state=str(pi.get("state") or ""),
+        zip_code=str(pi.get("zip") or ""),
+    )
+    if not access.get("allowed"):
+        raise HTTPException(
+            status_code=403,
+            detail=str(
+                access.get("message")
+                or (
+                    "IC Project is $1,500 per site. This email has no unused credit for this address."
+                )
+            ),
+        )
+    return access
+
+
 def access_summary(
     email: Optional[str],
     *,
