@@ -124,7 +124,7 @@ export function DataCenterHub() {
       period: 'one-time',
       features: [
         '✓ Counsel-ready Diligence Bundle ZIP',
-        '✓ Decision memo + DOCX + fee/punch CSV + evidence',
+        '✓ Decision memo + DOCX + estimator Excel + evidence',
         '✓ DC parallel clocks (AHJ · interconnect · water)',
         '✓ SOURCE or Unverified labeling',
       ],

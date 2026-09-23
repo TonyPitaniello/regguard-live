@@ -8,7 +8,7 @@ import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 
 type Variant = 'full' | 'compact' | 'inline';
 
-const FILE_ICONS = [FileText, FileText, FileText, FileSpreadsheet, FileSpreadsheet, Clock3] as const;
+const FILE_ICONS = [FileText, FileText, FileText, FileSpreadsheet, FileSpreadsheet, FileSpreadsheet, Clock3] as const;
 
 export function IcDiligenceBundlePitch({
   variant = 'full',

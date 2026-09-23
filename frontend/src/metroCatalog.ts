@@ -49,7 +49,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Austin gas-relief clearance and service-upgrade patterns when citeable',
       'Source or Unverified on every punch line',
-      'IC Diligence Bundle adds memo + counsel DOCX + fee/punch CSV + evidence (not official filings)',
+      'IC Diligence Bundle adds memo + counsel DOCX + estimator Excel + evidence (not official filings)',
     ],
     feeNote:
       'Austin Development Services fees and Design Criteria override generic NEC narratives — verify before bid.',

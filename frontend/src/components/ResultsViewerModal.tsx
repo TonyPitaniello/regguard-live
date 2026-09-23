@@ -1608,7 +1608,7 @@ export default function ResultsViewerModal({
             }}
           >
             {allowIcPackageDownload
-              ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, boardroom PDF, counsel DOCX, fee/punch CSV, and evidence index. This brief is the forwardable stamp.'
+              ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, boardroom PDF, counsel DOCX, estimator Excel, and optional CSVs. This brief is the forwardable stamp.'
               : ownsIc
                 ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
                 : isDeep
@@ -1903,7 +1903,7 @@ export default function ResultsViewerModal({
         },
       });
       showToast(
-        'IC Diligence Bundle downloaded — decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence index'
+        'IC Diligence Bundle downloaded — decision memo + boardroom PDF + counsel DOCX + Excel + optional CSVs'
       );
     } catch (e) {
       trackStampEvent('ic_bundle_download_fail', {

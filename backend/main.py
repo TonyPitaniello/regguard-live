@@ -1278,7 +1278,7 @@ def health() -> Dict[str, Any]:
             or ""
         )[:12]
         or None,
-        "bundle_contract": "memo+boardroom+docx+csv+evidence",
+        "bundle_contract": "memo+boardroom+docx+xlsx+evidence_xlsx+csv",
     }
     try:
         from zip_watch import watch_health
@@ -5615,8 +5615,9 @@ async def create_ic_diligence_bundle(body: Dict[str, Any] = Body(...)):
       01 Decision memo PDF
       02 Boardroom PDF
       03 Counsel DOCX (parallel clocks inside)
-      04 Fee / punch CSV
-      05 Evidence index CSV
+      04 Fee / punch / evidence Excel (Fees | Punch | Evidence)
+      05 Evidence index Excel (Exhibits | Claims | Index)
+      06–07 Optional fee/punch + evidence CSV paste exports
 
     Same paywall as /ic-package/pdf.
     """

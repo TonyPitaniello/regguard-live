@@ -6,8 +6,9 @@
  *   01 Decision memo PDF
  *   02 Boardroom PDF (full brief)
  *   03 Counsel DOCX (editable same brief + hyperlinks)
- *   04 Fee / punch CSV
- *   05 Evidence index CSV
+ *   04 Fee / punch / evidence Excel (Fees · Punch · Evidence sheets)
+ *   05 Evidence index Excel (Exhibits · Claims · Index)
+ *   06–07 Optional CSV paste exports
  *   Parallel clocks live in the boardroom PDF and counsel DOCX
  */
 
@@ -23,11 +24,11 @@ export const IC_BUNDLE = {
 
   /** Hero / card one-liner — keep in lockstep with Pricing pitch */
   oneLiner:
-    'The diligence package counsel and lenders actually open: a 1-page HOLD/CLEAR stamp, a full boardroom PDF, an editable Word brief with live source links and numbered exhibits, fee/punch CSV your estimator can paste, and parallel clocks for AHJ vs interconnect vs water.',
+    'The diligence package counsel and lenders actually open: a 1-page HOLD/CLEAR stamp, a full boardroom PDF, an editable Word brief with live source links and numbered exhibits, an estimator Excel workbook (Fees · Punch · Evidence), a standalone evidence index Excel, and parallel clocks for AHJ vs interconnect vs water.',
 
   /** Slightly shorter for dense cards / IC Project tier card */
   cardDescription:
-    'Counsel-ready ZIP for one site — decision memo, full boardroom PDF, editable DOCX with evidence binder, fee/punch CSV, evidence index, and data-center parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
+    'Counsel-ready ZIP for one site — decision memo, full boardroom PDF, editable DOCX with evidence binder, estimator Excel (Fees · Punch · Evidence), optional CSV paste exports, and data-center parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
 
   /** Emotional draw — why buy */
   whyBuy:
@@ -46,8 +47,10 @@ export const IC_BUNDLE = {
    *   01_DECISION_MEMO.pdf
    *   02_IC_DILIGENCE_BOARDROOM.pdf
    *   03_IC_DILIGENCE_COUNSEL.docx
-   *   04_FEE_PUNCH_SCHEDULE.csv
-   *   05_EVIDENCE_INDEX.csv
+   *   04_FEE_PUNCH_EVIDENCE.xlsx
+   *   05_EVIDENCE_INDEX.xlsx
+   *   06_FEE_PUNCH_SCHEDULE.csv (optional)
+   *   07_EVIDENCE_INDEX.csv (optional)
    */
   contents: [
     {
@@ -69,16 +72,22 @@ export const IC_BUNDLE = {
         'Same boardroom brief with live hyperlinks, evidence binder (EX-001…), claim map, and parallel clocks counsel can mark up.',
     },
     {
-      file: '04 · Fee / punch CSV',
-      label: 'Estimator-ready schedule',
+      file: '04 · Fee / punch / evidence Excel',
+      label: 'Estimator-ready workbook',
       detail:
-        'Trade · owner · due window · exhibit_id · source_url — paste into your model or share with the GC.',
+        'Three sheets — Fees · Punch · Evidence — with trade, owner, due window, exhibit_id, and live source_url hyperlinks. Built for Excel, the desk estimators already use.',
     },
     {
-      file: '05 · Evidence index CSV',
+      file: '05 · Evidence index Excel',
       label: 'Numbered exhibit map',
       detail:
-        'Every cited claim → exhibit ID → source URL. No orphan screenshots.',
+        'Standalone workbook — Exhibits · Claims · Index. Every cited claim → exhibit ID → source URL. No orphan screenshots.',
+    },
+    {
+      file: '06–07 · Optional CSV exports',
+      label: 'Paste-into-Sheets CSVs',
+      detail:
+        'Same fee/punch schedule and evidence index as CSV for Google Sheets or model paste — optional alongside the Excel workbooks.',
     },
     {
       file: 'Inside boardroom PDF + counsel DOCX',
@@ -90,12 +99,13 @@ export const IC_BUNDLE = {
 
   /** Bullet list for pricing / checkout feature arrays */
   featureBullets: [
-    'ZIP download: decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence index',
+    'ZIP download: decision memo + boardroom PDF + counsel DOCX + Excel workbooks + optional CSVs',
     '1-page HOLD/CLEAR decision memo (Bid Risk Receipt) — forwardable stamp',
     'Full boardroom PDF — punch list, exhibits, parallel clocks',
     'Editable counsel DOCX with live source hyperlinks + evidence binder (EX-00N)',
-    'Fee / punch CSV: trade · owner · due window · exhibit_id · source_url',
-    'Evidence index — every claim mapped to a numbered exhibit',
+    'Estimator Excel: Fees · Punch · Evidence sheets (trade · owner · due window · exhibit_id)',
+    'Evidence index Excel: Exhibits · Claims · Index — every claim mapped to a numbered exhibit',
+    'Optional CSV paste exports of the same schedule + evidence index',
     'Data-center parallel clocks: AHJ · interconnect · water/NPDES',
     'Strongest citeable coverage today: Dallas / Plano / Austin TX',
   ] as const,
@@ -105,7 +115,7 @@ export const IC_BUNDLE = {
     'Regenerate the same IC Diligence Bundle ZIP for additional sites after your first IC Project.',
   annualFeatures: [
     'Regenerate ZIP bundles for new site addresses',
-    'Same decision memo + boardroom PDF + counsel DOCX + CSV + evidence package',
+    'Same decision memo + boardroom PDF + counsel DOCX + Excel + CSV package',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,
@@ -120,17 +130,17 @@ export const IC_BUNDLE = {
   /** Results — paid ready */
   readyHeadline: 'Your IC Diligence Bundle is ready',
   readyBody:
-    'Primary $1,500 deliverable: one ZIP with the decision memo, full boardroom PDF, counsel DOCX (evidence binder + hyperlinks), fee/punch CSV, and evidence index. Parallel clocks are in the boardroom PDF and DOCX. Download individual parts below if you only need one file.',
+    'Primary $1,500 deliverable: one ZIP with the decision memo, full boardroom PDF, counsel DOCX (evidence binder + hyperlinks), estimator Excel (Fees · Punch · Evidence), evidence index Excel, and optional CSV paste exports. Parallel clocks are in the boardroom PDF and DOCX. Download individual parts below if you only need one file.',
 
   /** Results — owns IC but wrong depth */
   generateHeadline: 'IC access on file — generate the Diligence Bundle for this site',
   generateBody:
-    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP: memo + boardroom PDF + DOCX + CSVs.',
+    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP: memo + boardroom PDF + DOCX + Excel.',
 
   /** Results — Pro upsell */
   upsellHeadline: 'Need counsel-ready deliverables for this site?',
   upsellBody:
-    'Contractor Pro is for weekly bid habit. IC Project ($1,500) unlocks the Diligence Bundle ZIP — decision memo, boardroom PDF, editable DOCX with exhibits, fee/punch CSV, and parallel clocks — for this address.',
+    'Contractor Pro is for weekly bid habit. IC Project ($1,500) unlocks the Diligence Bundle ZIP — decision memo, boardroom PDF, editable DOCX with exhibits, estimator Excel, and parallel clocks — for this address.',
 
   /** Results — free locked */
   lockedHeadline: 'IC Diligence Bundle locked',
@@ -139,16 +149,16 @@ export const IC_BUNDLE = {
 
   /** Checkout / post-pay */
   deliveryHint:
-    'After Stripe payment, run a site lookup with this email — then download the IC Diligence Bundle ZIP from results (memo + boardroom PDF + DOCX + CSVs).',
+    'After Stripe payment, run a site lookup with this email — then download the IC Diligence Bundle ZIP from results (memo + boardroom PDF + DOCX + Excel).',
   successBody:
-    'Payment confirmed. Re-run your site lookup with this same email and choose Generate IC Report — then download the Diligence Bundle ZIP (decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence index).',
+    'Payment confirmed. Re-run your site lookup with this same email and choose Generate IC Report — then download the Diligence Bundle ZIP (decision memo + boardroom PDF + counsel DOCX + Excel workbook + optional CSVs).',
   confirmPromptIntro: 'Generate IC Diligence Bundle for:',
   confirmPromptBody:
-    'OK builds the $1,500 counsel ZIP for this address from your IC purchase (decision memo + boardroom PDF + DOCX + CSV + evidence — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.',
+    'OK builds the $1,500 counsel ZIP for this address from your IC purchase (decision memo + boardroom PDF + DOCX + Excel + CSV — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.',
 
   /** FAQ */
   faqWhatYouGet:
-    'IC Project ($1,500) is a one-time Diligence Bundle ZIP for one site: 1-page decision memo (HOLD/CLEAR stamp), full boardroom PDF, editable counsel DOCX with evidence binder and live hyperlinks, fee/punch CSV (trade · owner · due window · exhibit_id), evidence index, and — for large-load sites — AHJ / interconnect / water parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
+    'IC Project ($1,500) is a one-time Diligence Bundle ZIP for one site: 1-page decision memo (HOLD/CLEAR stamp), full boardroom PDF, editable counsel DOCX with evidence binder and live hyperlinks, estimator Excel workbook (Fees · Punch · Evidence), standalone evidence index Excel, optional CSV paste exports, and — for large-load sites — AHJ / interconnect / water parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
 
   /** Methodology track title */
   methodologyTitle: 'Track B — IC Diligence Bundle ($1,500)',
@@ -160,7 +170,7 @@ export const IC_BUNDLE = {
 
   /** Orders / nav short */
   ordersHint:
-    'IC Project unlocks the Diligence Bundle ZIP from your IC-depth results — memo + boardroom PDF + counsel DOCX + CSVs. Re-download parts anytime from My Orders when available.',
+    'IC Project unlocks the Diligence Bundle ZIP from your IC-depth results — memo + boardroom PDF + counsel DOCX + Excel. Re-download parts anytime from My Orders when available.',
   navDescription: 'IC Diligence Bundle — counsel ZIP',
 } as const;
 

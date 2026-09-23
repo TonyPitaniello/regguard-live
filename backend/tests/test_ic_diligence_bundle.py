@@ -42,6 +42,7 @@ def test_dc_parallel_clocks_include_water_track():
 
 def test_ic_diligence_bundle_zip_contents():
     pytest.importorskip("docx")
+    pytest.importorskip("openpyxl")
     raw, filename = build_ic_diligence_bundle_zip(
         RICH,
         generated_for="buyer@example.com",
@@ -52,16 +53,20 @@ def test_ic_diligence_bundle_zip_contents():
     assert raw[:2] == b"PK"
     with zipfile.ZipFile(__import__("io").BytesIO(raw)) as zf:
         names = set(zf.namelist())
-        # Exact Pricing contract — no README, boardroom required
+        # Exact Pricing contract — Excel primary; CSVs optional; no README
         assert names == {
             "01_DECISION_MEMO.pdf",
             "02_IC_DILIGENCE_BOARDROOM.pdf",
             "03_IC_DILIGENCE_COUNSEL.docx",
-            "04_FEE_PUNCH_SCHEDULE.csv",
-            "05_EVIDENCE_INDEX.csv",
+            "04_FEE_PUNCH_EVIDENCE.xlsx",
+            "05_EVIDENCE_INDEX.xlsx",
+            "06_FEE_PUNCH_SCHEDULE.csv",
+            "07_EVIDENCE_INDEX.csv",
         }
         memo = zf.read("01_DECISION_MEMO.pdf")
         assert memo[:4] == b"%PDF"
+        # Hard 1-page stamp — no continuation page
+        assert memo.count(b"/Type /Page") == 1 or b"/Count 1" in memo
         boardroom = zf.read("02_IC_DILIGENCE_BOARDROOM.pdf")
         assert boardroom[:4] == b"%PDF"
         assert len(boardroom) > 10_000
@@ -73,10 +78,62 @@ def test_ic_diligence_bundle_zip_contents():
         with zfmod.ZipFile(__import__("io").BytesIO(docx)) as dz:
             xml = dz.read("word/document.xml").decode("utf-8", errors="replace")
         assert "Parallel clocks" in xml or "parallel clocks" in xml.lower()
-        csv_text = zf.read("04_FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
+
+        xlsx = zf.read("04_FEE_PUNCH_EVIDENCE.xlsx")
+        assert xlsx[:2] == b"PK"
+        from openpyxl import load_workbook
+
+        wb = load_workbook(__import__("io").BytesIO(xlsx))
+        assert set(wb.sheetnames) == {"Fees", "Punch", "Evidence"}
+        assert wb["Fees"]["A5"].value == "trade" or "trade" in [
+            c.value for c in wb["Fees"][5]
+        ]
+
+        ev_xlsx = zf.read("05_EVIDENCE_INDEX.xlsx")
+        assert ev_xlsx[:2] == b"PK"
+        ev_wb = load_workbook(__import__("io").BytesIO(ev_xlsx))
+        assert set(ev_wb.sheetnames) == {"Exhibits", "Claims", "Index"}
+
+        csv_text = zf.read("06_FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
         assert "exhibit_id" in csv_text
         assert "source_url" in csv_text
-        idx = zf.read("05_EVIDENCE_INDEX.csv").decode("utf-8")
+        idx = zf.read("07_EVIDENCE_INDEX.csv").decode("utf-8")
         assert "EX-" in idx or "exhibit" in idx.lower()
         assert "whitehouse.gov" not in csv_text.lower()
         assert "whitehouse.gov" not in idx.lower()
+
+
+def test_bid_risk_receipt_is_one_page_no_orphan_cut():
+    """Dense Chapin-style payload must stay on one page and never end with '?'."""
+    from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf_bytes
+    from pypdf import PdfReader
+    import io
+
+    payload = dict(RICH)
+    payload["project_info"] = {
+        **(RICH.get("project_info") or {}),
+        "address": "9999 Chapin School Road",
+        "city": "Fort Worth",
+        "state": "TX",
+        "zip": "76126",
+        "type": "data-center",
+    }
+    payload["dc_positioning"] = {"headline": "Large-load / ERCOT path"}
+    payload["parallel_clocks"] = {
+        "clocks": [
+            {"label": "AHJ", "owner": "City", "status": "Confirm portal"},
+            {"label": "Utility interconnect", "owner": "TDSP", "status": "Parallel"},
+            {"label": "Water / NPDES", "owner": "TCEQ", "status": "Flag"},
+        ]
+    }
+    raw = generate_bid_risk_receipt_pdf_bytes(
+        payload,
+        generated_for="buyer@example.com",
+        share_url="https://app.regguardagent.com/r/rg-test",
+    )
+    reader = PdfReader(io.BytesIO(raw))
+    assert len(reader.pages) == 1
+    text = "\n".join((p.extract_text() or "") for p in reader.pages)
+    assert "the?" not in text
+    assert "BID RISK RECEIPT - continued" not in text
+    assert "REGGUARD STAMP" in text or "HOLD" in text or "CLEAR" in text

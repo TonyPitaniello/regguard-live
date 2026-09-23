@@ -85,34 +85,31 @@ def _badge(
 
 
 def _soft_cut(text: str, limit: int) -> str:
-    """Truncate on a word boundary — never mid-word at the cut."""
+    """Truncate on a word boundary — never mid-word. ASCII ellipsis only (Helvetica)."""
     t = _ascii(str(text or "")).strip()
     if limit <= 0 or len(t) <= limit:
         return t
     cut = t[:limit].rstrip()
     if " " in cut:
-        cut = cut.rsplit(" ", 1)[0].rstrip()
-    return cut + ("…" if cut else t[:limit])
+        cut = cut.rsplit(" ", 1)[0].rstrip(".,;:")
+    # Use "..." not "…" — latin-1 replace turns U+2026 into "?" (awkward "the?")
+    return (cut + "...") if cut else _ascii(t[:limit])
 
 
-def _ensure_space(pdf: "BidRiskReceiptPDF", need_mm: float = 28.0) -> None:
-    """Start a continuation page before content would clip into the footer."""
-    # Footer CYA sits near y=-12; keep a safe floor above it
+def _ensure_space(pdf: "BidRiskReceiptPDF", need_mm: float = 28.0) -> bool:
+    """
+    True if there is room for need_mm on this page.
+    Bid Risk Receipt is a hard 1-pager — never start a continuation page.
+    """
     floor = PAGE_H - 22
-    if pdf.get_y() + need_mm > floor:
-        pdf.add_page()
-        pdf.set_xy(MARGIN, 14)
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*EMERALD)
-        pdf.cell(CONTENT_W, 4, _ascii("BID RISK RECEIPT - continued"), ln=1)
-        pdf.ln(2)
+    return pdf.get_y() + need_mm <= floor
 
 
 class BidRiskReceiptPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(format="Letter", unit="mm")
-        # Allow page 2 when dense — better than clipping mid-word on page 1
-        self.set_auto_page_break(auto=True, margin=18)
+        # Hard 1-page stamp — Pricing promises a one-page HOLD/CLEAR memo
+        self.set_auto_page_break(auto=False, margin=16)
 
     def header(self) -> None:
         self.set_fill_color(*BG)
@@ -241,7 +238,7 @@ def generate_bid_risk_receipt_pdf(
         pdf.multi_cell(
             CONTENT_W,
             3.2,
-            _ascii(str(rg.get("headline") or rg.get("plain") or "")[:280]),
+            _ascii(_soft_cut(str(rg.get("headline") or rg.get("plain") or "").replace("FAIL", "HOLD"), 200)),
         )
     # AHJ portal / fee schedule / Accela — citeable links above the fold
     fees_u = str(ahj.get("fees_url") or "").strip()
@@ -266,13 +263,13 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_text_color(*MUTED)
         if portal_u:
             pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Portal: {portal_u}"))
+            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Portal: {_soft_cut(portal_u, 95)}"))
         if fees_u:
             pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Fee schedule: {fees_u}"))
+            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Fee schedule: {_soft_cut(fees_u, 88)}"))
         if apply_u:
             pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Apply: {apply_u}"))
+            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Apply: {_soft_cut(apply_u, 95)}"))
     pdf.ln(1)
 
     # Site card
@@ -309,37 +306,14 @@ def generate_bid_risk_receipt_pdf(
         pdf.multi_cell(CONTENT_W - 8, 3.2, _ascii(str(identity.get("note"))[:160]))
     pdf.set_y(y0 + 24)
 
-    portal = str(ahj.get("portal_url") or "").strip()
-    if portal:
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 7)
-        pdf.set_text_color(*DIM)
-        pdf.cell(CONTENT_W, 3.5, _ascii(f"Portal: {portal}"), ln=1)
-    fees_u = str(ahj.get("fees_url") or "").strip()
-    if fees_u and fees_u != portal:
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 7)
-        pdf.set_text_color(*DIM)
-        pdf.cell(CONTENT_W, 3.5, _ascii(f"Fees: {fees_u}"), ln=1)
+    # Portal/fees already printed under AHJ LINKS — only show pack verified here
     verified = str(ahj.get("last_verified") or "").strip()
     if verified:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*EMERALD)
         pdf.cell(CONTENT_W, 3.5, _ascii(f"Pack last verified: {verified}"), ln=1)
-    insp = data.get("inspection_sequence_card") or {}
-    steps = list(insp.get("steps") or [])[:4]
-    if steps:
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "B", 7)
-        pdf.set_text_color(*WHITE)
-        pdf.cell(CONTENT_W, 3.5, "Inspection sequence", ln=1)
-        pdf.set_font("Helvetica", "", 7)
-        pdf.set_text_color(*DIM)
-        for i, step in enumerate(steps, 1):
-            pdf.set_x(MARGIN)
-            pdf.cell(CONTENT_W, 3.2, _ascii(f"  {i}. {step}"), ln=1)
-    if dc.get("headline"):
+    if dc.get("headline") and _ensure_space(pdf, 18):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*EMERALD)
@@ -349,47 +323,20 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_text_color(*DIM)
         if clocks:
             for c in clocks[:3]:
+                if not _ensure_space(pdf, 8):
+                    break
                 pdf.set_x(MARGIN)
-                pdf.multi_cell(
-                    CONTENT_W,
-                    3.2,
-                    _ascii(
-                        f"- {c.get('label')}: {c.get('owner')} — {c.get('status')}"
-                    ),
-                )
+                label = _soft_cut(str(c.get("label") or ""), 36)
+                status = _soft_cut(str(c.get("status") or ""), 48)
+                pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"- {label}: {status}"))
         else:
             pdf.set_x(MARGIN)
             pdf.multi_cell(
                 CONTENT_W,
-                3.5,
-                _ascii(
-                    "AHJ + utility often run on parallel clocks (not an interconnect study)."
-                ),
-            )
-        radar = data.get("moratorium_radar") or {}
-        if radar.get("headline"):
-            pdf.set_x(MARGIN)
-            pdf.set_font("Helvetica", "B", 7)
-            pdf.set_text_color(*AMBER if radar.get("high_alert_state") else DIM)
-            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"Moratorium: {radar.get('headline')}"))
-        power = data.get("power_path_card") or {}
-        if power.get("headline"):
-            pdf.set_x(MARGIN)
-            pdf.set_font("Helvetica", "", 7)
-            pdf.set_text_color(*DIM)
-            pdf.multi_cell(
-                CONTENT_W,
                 3.2,
-                _ascii(
-                    f"Power path: planning only"
-                    + (
-                        f" | FAST-41 candidate"
-                        if power.get("fast41_candidate")
-                        else ""
-                    )
-                ),
+                _ascii("AHJ + utility often run on parallel clocks (not an interconnect study)."),
             )
-    pdf.ln(2)
+    pdf.ln(1.5)
 
     # BIG contingency
     pdf.set_x(MARGIN)
@@ -456,10 +403,12 @@ def generate_bid_risk_receipt_pdf(
             3.2,
             _ascii("Do not mix these. Impact and tap fees are often larger than the building permit."),
         )
-        for row in fee_rows[:8]:
+        for row in fee_rows[:4]:
             if not isinstance(row, dict):
                 continue
-            label = str(row.get("label") or row.get("name") or "Fee")
+            if not _ensure_space(pdf, 10):
+                break
+            label = _soft_cut(str(row.get("label") or row.get("name") or "Fee"), 52)
             kind = classify_fee_kind(
                 label,
                 str(row.get("detail") or ""),
@@ -467,191 +416,120 @@ def generate_bid_risk_receipt_pdf(
             )
             amt = row.get("amount_usd")
             amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm schedule"
-            cite = str(row.get("citation_url") or row.get("source_url") or "")[:70]
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 8)
             pdf.set_text_color(*WHITE)
-            line = f"[{kind}] {label} — {amt_s}"
-            if cite and "fortworth" in cite.lower():
-                line = f"{line} | {cite}"
-            pdf.multi_cell(CONTENT_W, 3.5, _ascii(line))
-        pdf.ln(1)
+            pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"[{kind}] {label} — {amt_s}"))
+        pdf.ln(0.5)
 
-    # Top 3 killers
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 5, "TOP 3 RISK FLAGS  (Source or Unverified)", ln=1)
-
-    for i, k in enumerate(list(killers)[:3], 1):
-        if not isinstance(k, dict):
-            continue
-        ver_tier = str(k.get("citation_tier") or "").lower()
-        if not ver_tier:
-            if k.get("verified") and k.get("source_url"):
-                ver_tier = "verified"
-            elif k.get("source_url"):
-                ver_tier = "link"
-            else:
-                ver_tier = "unverified"
-        ver = "SOURCE" if ver_tier == "verified" else ("LINK" if ver_tier == "link" else "UNVERIFIED")
-        pri = str(k.get("priority") or "NOTE").upper()
-        title = _soft_cut(str(k.get("title") or "Item"), 90)
-        detail = _soft_cut(str(k.get("detail") or ""), 160)
-        pe = k.get("planning_exposure") or {}
-
-        box_h = 16 + (3.5 if detail else 0)
-        if isinstance(pe, dict) and pe.get("usd_mid") is not None:
-            box_h += 3.5
-        _ensure_space(pdf, box_h + 8)
-        y = pdf.get_y()
-        pdf.set_fill_color(*CARD)
-        pdf.set_draw_color(*CARD_EDGE)
-        pdf.rect(MARGIN, y, CONTENT_W, box_h, "DF")
-        bx, by = MARGIN + 4, y + 2.5
-
-        pdf.set_xy(bx, by)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*WHITE)
-        pdf.cell(8, 5, f"{i}.", ln=0)
-        bx2 = bx + 8
-        if pri in ("CRITICAL", "HIGH"):
-            bx2 += _badge(
-                pdf,
-                pri,
-                fg=BG,
-                bg=AMBER if pri == "HIGH" else (239, 68, 68),
-                x=bx2,
-                y=by,
-            )
-        else:
-            bx2 += _badge(pdf, pri, fg=WHITE, bg=CARD_EDGE, x=bx2, y=by)
-        bx2 += 2
-        if ver == "UNVERIFIED":
-            _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
-        elif ver == "LINK":
-            _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
-        else:
-            _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
-
-        pdf.set_xy(bx, by + 5.5)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 12, 4, title)
-        if detail:
-            pdf.set_x(bx)
-            pdf.set_font("Helvetica", "", 7)
-            pdf.set_text_color(*MUTED)
-            pdf.multi_cell(CONTENT_W - 12, 3.2, detail)
-        if isinstance(pe, dict) and pe.get("usd_mid") is not None:
-            pdf.set_x(bx)
-            pdf.set_font("Helvetica", "B", 7)
-            pdf.set_text_color(*EMERALD_SOFT)
-            pdf.multi_cell(
-                CONTENT_W - 12,
-                3.2,
-                _ascii(
-                    f"Planning exposure - ${int(pe.get('usd_low') or 0):,}"
-                    f"-${int(pe.get('usd_high') or 0):,} - not guaranteed savings"
-                ),
-            )
-        pdf.set_y(y + box_h + 2)
-
-    # Stamp
-    pdf.ln(1)
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 5, "REGGUARD STAMP", ln=1)
-
-    rg = data.get("regguard_stamp") or {}
-    grade = str(rg.get("grade") or data.get("stamp_grade") or "").upper()
-    display = {"FAIL": "HOLD", "PASS": "CLEAR", "CAUTION": "CAUTION", "HOLD": "HOLD", "CLEAR": "CLEAR"}.get(
-        grade, grade
-    )
-    if display in ("CLEAR", "CAUTION", "HOLD"):
-        if display == "CLEAR":
-            pdf.set_text_color(*EMERALD_SOFT)
-        elif display == "CAUTION":
-            pdf.set_text_color(*AMBER_SOFT)
-        else:
-            pdf.set_text_color(*AMBER)
+    # Top 3 killers — stop early rather than spill to page 2
+    if _ensure_space(pdf, 48):
         pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "B", 22)
-        pdf.cell(CONTENT_W, 10, _ascii(f"{display}"), ln=1)
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(*DIM)
-        headline = _soft_cut(str(rg.get("headline") or rg.get("label") or "").replace("FAIL", "HOLD"), 240)
-        pdf.multi_cell(CONTENT_W, 3.5, _ascii(headline))
-        for d in (rg.get("drivers") or [])[:3]:
-            if not isinstance(d, dict):
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 5, "TOP 3 RISK FLAGS  (Source or Unverified)", ln=1)
+
+        for i, k in enumerate(list(killers)[:3], 1):
+            if not isinstance(k, dict):
                 continue
-            _ensure_space(pdf, 14)
-            pdf.set_x(MARGIN)
-            pdf.set_font("Helvetica", "B", 7)
-            pdf.set_text_color(*WHITE)
-            pdf.multi_cell(
-                CONTENT_W,
-                3.2,
-                _ascii(f"- [{d.get('severity')}] {d.get('label')}"),
-            )
-            if d.get("detail"):
-                pdf.set_x(MARGIN)
-                pdf.set_font("Helvetica", "", 7)
-                pdf.set_text_color(*DIM)
-                pdf.multi_cell(CONTENT_W, 3.0, _soft_cut(f"  {d.get('detail')}", 220))
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 7)
-        pdf.set_text_color(*DIM)
-        pdf.multi_cell(
-            CONTENT_W,
-            3.2,
-            _ascii(
-                f"Valid until: {rg.get('valid_until') or ''}  |  fp {rg.get('fingerprint') or ''}"
-            ),
-        )
-        if rg.get("is_stale") and rg.get("stale_reason"):
-            pdf.set_x(MARGIN)
-            pdf.set_text_color(*AMBER)
-            pdf.multi_cell(CONTENT_W, 3.2, _ascii(f"STALE: {rg.get('stale_reason')}"))
+            ver_tier = str(k.get("citation_tier") or "").lower()
+            if not ver_tier:
+                if k.get("verified") and k.get("source_url"):
+                    ver_tier = "verified"
+                elif k.get("source_url"):
+                    ver_tier = "link"
+                else:
+                    ver_tier = "unverified"
+            ver = "SOURCE" if ver_tier == "verified" else ("LINK" if ver_tier == "link" else "UNVERIFIED")
+            pri = str(k.get("priority") or "NOTE").upper()
+            title = _soft_cut(str(k.get("title") or "Item"), 72)
+            detail = _soft_cut(str(k.get("detail") or ""), 110)
+            pe = k.get("planning_exposure") or {}
 
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*WHITE)
+            box_h = 14 + (3.2 if detail else 0)
+            if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+                box_h += 3.2
+            if not _ensure_space(pdf, box_h + 14):
+                break
+            y = pdf.get_y()
+            pdf.set_fill_color(*CARD)
+            pdf.set_draw_color(*CARD_EDGE)
+            pdf.rect(MARGIN, y, CONTENT_W, box_h, "DF")
+            bx, by = MARGIN + 4, y + 2
+
+            pdf.set_xy(bx, by)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*WHITE)
+            pdf.cell(8, 4.5, f"{i}.", ln=0)
+            bx2 = bx + 8
+            if pri in ("CRITICAL", "HIGH"):
+                bx2 += _badge(
+                    pdf,
+                    pri,
+                    fg=BG,
+                    bg=AMBER if pri == "HIGH" else (239, 68, 68),
+                    x=bx2,
+                    y=by,
+                )
+            else:
+                bx2 += _badge(pdf, pri, fg=WHITE, bg=CARD_EDGE, x=bx2, y=by)
+            bx2 += 2
+            if ver == "UNVERIFIED":
+                _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
+            elif ver == "LINK":
+                _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
+            else:
+                _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
+
+            pdf.set_xy(bx, by + 5)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*WHITE)
+            pdf.multi_cell(CONTENT_W - 12, 3.5, title)
+            if detail:
+                pdf.set_x(bx)
+                pdf.set_font("Helvetica", "", 7)
+                pdf.set_text_color(*MUTED)
+                pdf.multi_cell(CONTENT_W - 12, 3.0, detail)
+            if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+                pdf.set_x(bx)
+                pdf.set_font("Helvetica", "B", 7)
+                pdf.set_text_color(*EMERALD_SOFT)
+                pdf.multi_cell(
+                    CONTENT_W - 12,
+                    3.0,
+                    _ascii(
+                        f"Planning exposure - ${int(pe.get('usd_low') or 0):,}"
+                        f"-${int(pe.get('usd_high') or 0):,} - not guaranteed savings"
+                    ),
+                )
+            pdf.set_y(y + box_h + 1.5)
+
+    # Compact footer — stamp already shown above the fold (no duplicate HOLD / drivers)
+    rg = data.get("regguard_stamp") or {}
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
     valid = str(rg.get("valid_until") or "")[:10]
-    stamp_lines = [
+    fp = str(rg.get("fingerprint") or "")[:12]
+    footer_bits = [
         f"Flagged by: {who}",
-        f"Date: {stamp_date} UTC",
-        (
-            f"Re-run before you submit the bid. Stamp valid until {valid}. "
-            "Fees and portal asks move."
-            if valid
-            else "Re-run before you submit the bid. Fees and portal asks move."
-        ),
+        f"Date: {stamp_date} UTC"
+        + (f"  |  Valid until {valid}" if valid else "")
+        + (f"  |  fp {fp}" if fp else ""),
+        "Re-run before you submit the bid. Fees and portal asks move.",
     ]
-    if data.get("procurement_stamp") or data.get("lender_stamp") or data.get("surety_stamp"):
-        stamp_lines.append(
-            "PROCUREMENT / LENDER / SURETY ATTACH: Bid Risk Receipt included for "
-            "pre-bid diligence. Not an insurance quote, bond, or legal opinion."
-        )
-    radar = data.get("moratorium_radar") or {}
-    if radar.get("is_stale") and radar.get("stale_banner"):
-        stamp_lines.append(_soft_cut(str(radar.get("stale_banner")), 200))
-    if rg.get("disclaimer"):
-        stamp_lines.append(_soft_cut(str(rg.get("disclaimer")), 280))
-    _ensure_space(pdf, 36)
-    pdf.multi_cell(
-        CONTENT_W,
-        4,
-        _ascii("\n".join(stamp_lines)),
-    )
-    pdf.ln(1)
+    if rg.get("is_stale") and rg.get("stale_reason"):
+        footer_bits.append(_soft_cut(f"STALE: {rg.get('stale_reason')}", 120))
+    # Keep footer above page CYA strip
+    need = 4 + 3.2 * len(footer_bits) + 8
+    if pdf.get_y() + need > PAGE_H - 18:
+        pdf.set_y(max(MARGIN, PAGE_H - 18 - need))
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 7)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 3.2, _ascii("\n".join(footer_bits)))
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 7)
     pdf.set_text_color(*DIM)
-    pdf.multi_cell(CONTENT_W, 3.5, _ascii(cta_line))
+    pdf.multi_cell(CONTENT_W, 3.2, _ascii(_soft_cut(cta_line, 140)))
 
     if not output_path:
         out_dir = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data") / "bid_receipts"

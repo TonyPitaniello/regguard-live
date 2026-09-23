@@ -1283,7 +1283,7 @@ def compose_ic_package(
         "deliverable": {
             "primary": (
                 "IC Diligence Bundle ZIP — decision memo + boardroom PDF + counsel DOCX "
-                "(evidence binder + parallel clocks) + fee/punch CSV + evidence index"
+                "(evidence binder + parallel clocks) + estimator Excel (Fees · Punch · Evidence) + optional CSV"
             ),
             "working_set": "Decision memo · Boardroom PDF · Counsel DOCX · Fee/punch CSV · Evidence index",
             "forward_artifact": "Bid Risk Receipt / decision memo PDF (1-page stamp)",
@@ -1292,7 +1292,7 @@ def compose_ic_package(
         "cover": {
             "product": f"RegGuard IC Diligence Bundle — {site_line}",
             "price_positioning": (
-                "$1,500 IC Project — decision memo + boardroom PDF + counsel DOCX + fee/punch CSV + evidence binder"
+                "$1,500 IC Project — decision memo + boardroom PDF + counsel DOCX + Excel workbook + evidence binder"
             ),
             "site": site_line,
             "address": pi.get("address"),

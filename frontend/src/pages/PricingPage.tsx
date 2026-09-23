@@ -309,7 +309,7 @@ export default function PricingPage() {
             <p className="text-gray-400">
               No. Interconnection queue tools are demo-only and disabled in production. Buy the{' '}
               {IC_BUNDLE.productName} for citeable site diligence (ZIP: decision memo + boardroom PDF
-              + counsel DOCX + fee/punch CSV + evidence index) — not live RTO queue positions.
+              + counsel DOCX + estimator Excel) — not live RTO queue positions.
             </p>
           </div>
         </div>

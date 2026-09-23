@@ -516,7 +516,7 @@ export default function FreeTrialForm({
         // Soft confirm chip — Cancel aborts IC slot consume
         generateIcReport = window.confirm(
           `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
-            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + boardroom PDF + DOCX + CSV + evidence) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
+            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + boardroom PDF + DOCX + Excel) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
         );
         try {
           sessionStorage.removeItem('icForceOnce');
@@ -533,7 +533,7 @@ export default function FreeTrialForm({
           `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
             (annual
               ? 'Your email has IC Annual access. OK creates/updates the Diligence Bundle ZIP for this address under that subscription. Cancel researches without the paid package. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
-              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + boardroom PDF + DOCX + CSV + evidence — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
+              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + boardroom PDF + DOCX + Excel — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
         );
         if (!generateIcReport) {
           clearPendingIcReport();

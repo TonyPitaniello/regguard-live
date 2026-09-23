@@ -372,7 +372,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             "3. Parallel clocks (AHJ · interconnect · water)",
             "4. Jurisdiction, fees, gotchas, env  |  5. Full critical-path punch list",
             "6. Evidence binder (EX-00N)  |  7. Next actions  |  8. Source appendix",
-            str(deliv.get("working_set") or "Companion: counsel DOCX · fee/punch CSV · evidence index · 1-page memo"),
+            str(deliv.get("working_set") or "Companion: counsel DOCX · estimator Excel · optional CSV · 1-page memo"),
         ],
         accent=EMERALD,
         title_size=9,
