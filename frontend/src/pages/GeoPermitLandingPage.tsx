@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import { backendUrl } from '../env';
+import { sampleUrl } from '../components/SampleReportBlock';
 import { SeoHead } from '../SeoHead';
 import {
   METRO_LANDINGS,
@@ -214,13 +215,13 @@ export default function GeoPermitLandingPage() {
           </button>
           {local.samplePdf && (
             <a
-              href={backendUrl('/sample/tier-ladder.pdf')}
+              href={sampleUrl('/sample/tier-ladder.pdf')}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-purple-400/40 text-white font-semibold min-h-[44px]"
             >
               <Download className="w-4 h-4" />
-              SAMPLE tier ladder (FW DC site)
+              Download Sample Tier Ladder PDF
             </a>
           )}
         </div>

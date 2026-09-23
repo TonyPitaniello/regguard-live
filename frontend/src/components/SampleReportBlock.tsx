@@ -1,12 +1,21 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
  * Used on home (after intro) and /sample-report.
+ *
+ * Files are served from frontend/public/sample/ (same-origin) so downloads
+ * work even when the Render API is behind on deploys.
  */
 
 import { Download } from 'lucide-react';
-import { backendUrl } from '../env';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+
+/** Same-origin static samples under /public/sample */
+export function sampleUrl(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`;
+  if (p.startsWith('/sample/')) return p;
+  return `/sample${p.startsWith('/') ? p : `/${p}`}`;
+}
 
 export const SAMPLE_DOWNLOADS = [
   {
@@ -70,7 +79,7 @@ export function SampleReportBlock({
       </p>
 
       <a
-        href={backendUrl('/sample/tier-ladder.pdf')}
+        href={sampleUrl('/sample/tier-ladder.pdf')}
         target="_blank"
         rel="noreferrer"
         className={`inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition min-h-[44px] ${
@@ -99,7 +108,7 @@ export function SampleReportBlock({
               ) : null}
             </div>
             <a
-              href={backendUrl(s.href)}
+              href={sampleUrl(s.href)}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-400/40 hover:bg-emerald-500/15 text-emerald-100 font-semibold rounded-lg transition min-h-[44px] shrink-0 text-sm"
