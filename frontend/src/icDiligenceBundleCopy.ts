@@ -24,7 +24,7 @@ export const IC_BUNDLE = {
 
   /** Hero / card one-liner — keep in lockstep with Pricing pitch */
   oneLiner:
-    'The diligence package counsel and lenders actually open: a 1-page HOLD/CLEAR stamp, a full boardroom PDF, an editable Word brief with live source links and numbered exhibits, an estimator Excel workbook (Fees · Punch · Evidence), a standalone evidence index Excel, and parallel clocks for AHJ vs interconnect vs water.',
+    'The diligence package counsel and lenders actually open — and estimators forward: a 1-page HOLD/CLEAR stamp you can text, a boardroom PDF, editable Word with exhibits, Excel workbooks (Cover · Fees · Punch · Evidence) built for their desk, and parallel clocks for AHJ vs interconnect vs water.',
 
   /** Slightly shorter for dense cards / IC Project tier card */
   cardDescription:
@@ -49,8 +49,8 @@ export const IC_BUNDLE = {
    *   03_IC_DILIGENCE_COUNSEL.docx
    *   04_FEE_PUNCH_EVIDENCE.xlsx
    *   05_EVIDENCE_INDEX.xlsx
-   *   06_FEE_PUNCH_SCHEDULE.csv (optional)
-   *   07_EVIDENCE_INDEX.csv (optional)
+   *   optional/FEE_PUNCH_SCHEDULE.csv
+   *   optional/EVIDENCE_INDEX.csv
    */
   contents: [
     {
@@ -75,19 +75,19 @@ export const IC_BUNDLE = {
       file: '04 · Fee / punch / evidence Excel',
       label: 'Estimator-ready workbook',
       detail:
-        'Three sheets — Fees · Punch · Evidence — with trade, owner, due window, exhibit_id, and live source_url hyperlinks. Built for Excel, the desk estimators already use.',
+        'Cover + Fees · Punch · Evidence — trade, owner, due window, exhibit IDs, live source hyperlinks. Built for the Excel desk estimators already use.',
     },
     {
       file: '05 · Evidence index Excel',
       label: 'Numbered exhibit map',
       detail:
-        'Standalone workbook — Exhibits · Claims · Index. Every cited claim → exhibit ID → source URL. No orphan screenshots.',
+        'Cover + Exhibits · Claims · Index. Every cited claim → exhibit ID → source URL. No orphan screenshots.',
     },
     {
-      file: '06–07 · Optional CSV exports',
-      label: 'Paste-into-Sheets CSVs',
+      file: 'optional/ · CSV paste exports',
+      label: 'Optional Sheets paste',
       detail:
-        'Same fee/punch schedule and evidence index as CSV for Google Sheets or model paste — optional alongside the Excel workbooks.',
+        'Same fee/punch + evidence data as CSV inside optional/ — for Google Sheets or model paste. Primary deliverables are the Excel workbooks.',
     },
     {
       file: 'Inside boardroom PDF + counsel DOCX',

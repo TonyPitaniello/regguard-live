@@ -105,6 +105,109 @@ def _ensure_space(pdf: "BidRiskReceiptPDF", need_mm: float = 28.0) -> bool:
     return pdf.get_y() + need_mm <= floor
 
 
+def _clock_lines(data: Dict[str, Any]) -> list:
+    """Normalize parallel clock rows; drop blanks (never print '- : ')."""
+    raw = ((data.get("parallel_clocks") or {}).get("clocks")) or []
+    out = []
+    for c in raw:
+        if not isinstance(c, dict):
+            continue
+        label = str(
+            c.get("label") or c.get("name") or c.get("track") or c.get("clock") or ""
+        ).strip()
+        status = str(
+            c.get("status") or c.get("detail") or c.get("note") or c.get("owner") or ""
+        ).strip()
+        if not label and not status:
+            continue
+        if not label:
+            label = "Parallel clock"
+        out.append((label, status))
+    return out[:3]
+
+
+def _top_risk_flags(data: Dict[str, Any], killers: list) -> list:
+    """Surface up to 3 forwardable flags — killers, then stamp drivers, then gotchas."""
+    flags: list = []
+    seen = set()
+
+    def _add(priority: str, title: str, detail: str, source_url: str = "", verified: Any = None) -> None:
+        t = (title or "").strip()
+        if not t:
+            return
+        key = t.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        flags.append(
+            {
+                "priority": (priority or "NOTE").upper().replace("FAIL", "CRITICAL"),
+                "title": t,
+                "detail": detail or "",
+                "source_url": source_url or "",
+                "verified": verified,
+            }
+        )
+
+    for k in killers or []:
+        if not isinstance(k, dict):
+            continue
+        _add(
+            str(k.get("priority") or "NOTE"),
+            str(k.get("title") or k.get("label") or ""),
+            str(k.get("detail") or ""),
+            str(k.get("source_url") or ""),
+            k.get("verified"),
+        )
+        if len(flags) >= 3:
+            return flags[:3]
+
+    rg = data.get("regguard_stamp") if isinstance(data.get("regguard_stamp"), dict) else {}
+    for d in (rg.get("drivers") or []):
+        if not isinstance(d, dict):
+            continue
+        _add(
+            str(d.get("severity") or "HIGH"),
+            str(d.get("label") or d.get("title") or ""),
+            str(d.get("detail") or ""),
+            str(d.get("source_url") or ""),
+        )
+        if len(flags) >= 3:
+            return flags[:3]
+
+    for g in ((data.get("gotcha_watchlist") or {}).get("items")) or []:
+        if not isinstance(g, dict):
+            continue
+        _add(
+            str(g.get("priority") or "HIGH"),
+            str(g.get("title") or ""),
+            str(g.get("detail") or ""),
+            str(g.get("source_url") or ""),
+            bool(g.get("source_url")),
+        )
+        if len(flags) >= 3:
+            return flags[:3]
+    return flags[:3]
+
+
+def _stamp_is_stale(rg: Dict[str, Any]) -> bool:
+    if rg.get("is_stale"):
+        return True
+    valid = str(rg.get("valid_until") or "").strip()
+    if not valid:
+        return False
+    try:
+        from datetime import timezone
+
+        raw = valid.replace("Z", "+00:00")
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt < datetime.now(timezone.utc)
+    except Exception:
+        return False
+
+
 class BidRiskReceiptPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(format="Letter", unit="mm")
@@ -231,6 +334,18 @@ def generate_bid_risk_receipt_pdf(
     stamp_color = AMBER if display == "HOLD" else (AMBER_SOFT if display == "CAUTION" else EMERALD_SOFT)
     pdf.set_text_color(*stamp_color)
     pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {display}"), ln=1)
+    if _stamp_is_stale(rg):
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*AMBER)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.5,
+            _ascii(
+                "STALE STAMP — valid_until has passed. Re-run this address before "
+                "forwarding or locking a number."
+            ),
+        )
     if rg.get("headline") or rg.get("plain"):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 7)
@@ -314,21 +429,22 @@ def generate_bid_risk_receipt_pdf(
         pdf.set_text_color(*EMERALD)
         pdf.cell(CONTENT_W, 3.5, _ascii(f"Pack last verified: {verified}"), ln=1)
     if dc.get("headline") and _ensure_space(pdf, 18):
+        clock_lines = _clock_lines(data)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*EMERALD)
         pdf.cell(CONTENT_W, 4, _ascii("DATA CENTER - PARALLEL CLOCKS"), ln=1)
-        clocks = (data.get("parallel_clocks") or {}).get("clocks") or []
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
-        if clocks:
-            for c in clocks[:3]:
+        if clock_lines:
+            for label, status in clock_lines:
                 if not _ensure_space(pdf, 8):
                     break
                 pdf.set_x(MARGIN)
-                label = _soft_cut(str(c.get("label") or ""), 36)
-                status = _soft_cut(str(c.get("status") or ""), 48)
-                pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"- {label}: {status}"))
+                line = f"- {_soft_cut(label, 40)}"
+                if status:
+                    line += f": {_soft_cut(status, 52)}"
+                pdf.multi_cell(CONTENT_W, 3.0, _ascii(line))
         else:
             pdf.set_x(MARGIN)
             pdf.multi_cell(
@@ -422,14 +538,15 @@ def generate_bid_risk_receipt_pdf(
             pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"[{kind}] {label} — {amt_s}"))
         pdf.ln(0.5)
 
-    # Top 3 killers — stop early rather than spill to page 2
-    if _ensure_space(pdf, 48):
+    # Top risk flags — always try for 3 (killers + stamp drivers + gotchas)
+    risk_flags = _top_risk_flags(data, list(killers) if isinstance(killers, list) else [])
+    if risk_flags and _ensure_space(pdf, 48):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_text_color(*EMERALD)
         pdf.cell(CONTENT_W, 5, "TOP 3 RISK FLAGS  (Source or Unverified)", ln=1)
 
-        for i, k in enumerate(list(killers)[:3], 1):
+        for i, k in enumerate(risk_flags[:3], 1):
             if not isinstance(k, dict):
                 continue
             ver_tier = str(k.get("citation_tier") or "").lower()

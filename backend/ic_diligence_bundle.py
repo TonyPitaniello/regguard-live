@@ -6,10 +6,10 @@ Must match frontend IC_BUNDLE.contents / Pricing “What’s in the ZIP” exact
   01_DECISION_MEMO.pdf               — 1-page HOLD/CLEAR Bid Risk Receipt
   02_IC_DILIGENCE_BOARDROOM.pdf      — full boardroom brief (stamp, clocks, punch, exhibits)
   03_IC_DILIGENCE_COUNSEL.docx       — editable Word (same brief + hyperlinks + parallel clocks)
-  04_FEE_PUNCH_EVIDENCE.xlsx         — estimator workbook (Fees | Punch | Evidence)
-  05_EVIDENCE_INDEX.xlsx             — standalone evidence index (Exhibits | Claims | Index)
-  06_FEE_PUNCH_SCHEDULE.csv          — optional paste export (fee/punch)
-  07_EVIDENCE_INDEX.csv              — optional paste export (evidence index)
+  04_FEE_PUNCH_EVIDENCE.xlsx         — estimator workbook (Cover | Fees | Punch | Evidence)
+  05_EVIDENCE_INDEX.xlsx             — evidence index (Cover | Exhibits | Claims | Index)
+  optional/FEE_PUNCH_SCHEDULE.csv    — optional paste export (fee/punch)
+  optional/EVIDENCE_INDEX.csv        — optional paste export (evidence index)
 
 Parallel clocks live inside the boardroom PDF and counsel DOCX.
 No README.txt — Pricing does not promise one.
@@ -30,8 +30,8 @@ BUNDLE_REQUIRED = (
     "05_EVIDENCE_INDEX.xlsx",
 )
 BUNDLE_OPTIONAL_CSV = (
-    "06_FEE_PUNCH_SCHEDULE.csv",
-    "07_EVIDENCE_INDEX.csv",
+    "optional/FEE_PUNCH_SCHEDULE.csv",
+    "optional/EVIDENCE_INDEX.csv",
 )
 BUNDLE_MEMBERS = BUNDLE_REQUIRED + BUNDLE_OPTIONAL_CSV
 

@@ -60,8 +60,8 @@ def test_ic_diligence_bundle_zip_contents():
             "03_IC_DILIGENCE_COUNSEL.docx",
             "04_FEE_PUNCH_EVIDENCE.xlsx",
             "05_EVIDENCE_INDEX.xlsx",
-            "06_FEE_PUNCH_SCHEDULE.csv",
-            "07_EVIDENCE_INDEX.csv",
+            "optional/FEE_PUNCH_SCHEDULE.csv",
+            "optional/EVIDENCE_INDEX.csv",
         }
         memo = zf.read("01_DECISION_MEMO.pdf")
         assert memo[:4] == b"%PDF"
@@ -84,20 +84,19 @@ def test_ic_diligence_bundle_zip_contents():
         from openpyxl import load_workbook
 
         wb = load_workbook(__import__("io").BytesIO(xlsx))
-        assert set(wb.sheetnames) == {"Fees", "Punch", "Evidence"}
-        assert wb["Fees"]["A5"].value == "trade" or "trade" in [
-            c.value for c in wb["Fees"][5]
-        ]
+        assert "Cover" in wb.sheetnames
+        assert set(wb.sheetnames) >= {"Cover", "Fees", "Punch", "Evidence"}
+        assert wb["Fees"]["A5"].value == "Trade"
 
         ev_xlsx = zf.read("05_EVIDENCE_INDEX.xlsx")
         assert ev_xlsx[:2] == b"PK"
         ev_wb = load_workbook(__import__("io").BytesIO(ev_xlsx))
-        assert set(ev_wb.sheetnames) == {"Exhibits", "Claims", "Index"}
+        assert set(ev_wb.sheetnames) >= {"Cover", "Exhibits", "Claims", "Index"}
 
-        csv_text = zf.read("06_FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
+        csv_text = zf.read("optional/FEE_PUNCH_SCHEDULE.csv").decode("utf-8")
         assert "exhibit_id" in csv_text
         assert "source_url" in csv_text
-        idx = zf.read("07_EVIDENCE_INDEX.csv").decode("utf-8")
+        idx = zf.read("optional/EVIDENCE_INDEX.csv").decode("utf-8")
         assert "EX-" in idx or "exhibit" in idx.lower()
         assert "whitehouse.gov" not in csv_text.lower()
         assert "whitehouse.gov" not in idx.lower()
@@ -121,9 +120,9 @@ def test_bid_risk_receipt_is_one_page_no_orphan_cut():
     payload["dc_positioning"] = {"headline": "Large-load / ERCOT path"}
     payload["parallel_clocks"] = {
         "clocks": [
-            {"label": "AHJ", "owner": "City", "status": "Confirm portal"},
-            {"label": "Utility interconnect", "owner": "TDSP", "status": "Parallel"},
-            {"label": "Water / NPDES", "owner": "TCEQ", "status": "Flag"},
+            {"name": "AHJ permits", "detail": "Confirm portal + hearings before bid"},
+            {"name": "Utility interconnect", "detail": "TDSP parallel — not run by RegGuard"},
+            {"name": "Water / NPDES", "detail": "Independent track"},
         ]
     }
     raw = generate_bid_risk_receipt_pdf_bytes(
@@ -136,4 +135,10 @@ def test_bid_risk_receipt_is_one_page_no_orphan_cut():
     text = "\n".join((p.extract_text() or "") for p in reader.pages)
     assert "the?" not in text
     assert "BID RISK RECEIPT - continued" not in text
+    assert "- :" not in text
+    assert "AHJ permits" in text or "PARALLEL CLOCKS" in text
+    assert "STALE STAMP" in text  # RICH valid_until is in the past
     assert "REGGUARD STAMP" in text or "HOLD" in text or "CLEAR" in text
+    # Top flags filled from killers + stamp drivers + gotchas
+    assert "Large-load" in text or "High contingency" in text or "Grounding" in text
+
