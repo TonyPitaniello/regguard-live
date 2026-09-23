@@ -14,6 +14,7 @@ import { rememberReferralCode, storedReferralCode, withShareParams } from '../sh
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 import { analysisForPdfExport, artifactDownloadFilename, postBinaryDownload, postPdfDownload } from '../pdfExport';
+import { openAndDownloadBlob } from '../openAndDownload';
 import {
   buildArtifactTextMessage,
   copyText,
@@ -1781,14 +1782,10 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Export failed (${res.status})`);
       }
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'csv');
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      await openAndDownloadBlob(
+        blob,
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'csv')
+      );
       showToast('Bid sheet CSV downloaded — paste into Excel (trade / owner / due_window / source_url hyperlinks).');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'CSV export failed');
@@ -1811,14 +1808,10 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Bid sheet PDF failed (${res.status})`);
       }
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'pdf');
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      await openAndDownloadBlob(
+        blob,
+        artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'pdf')
+      );
       showToast('Bid sheet PDF downloaded — sources are clickable links.');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Bid sheet PDF failed');
@@ -1862,17 +1855,12 @@ export default function ResultsViewerModal({
       const res = await fetch(fetchUrl, { credentials: 'omit' });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download =
+      await openAndDownloadBlob(
+        blob,
         pdf.type === 'ic_package'
           ? artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'pdf')
-          : `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+          : `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`
+      );
       showToast(`${pdf.name} downloaded`);
     } catch {
       showToast('Could not download PDF — try My Orders or refresh.');
@@ -2015,18 +2003,14 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Export failed (${res.status})`);
       }
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = artifactDownloadFilename(
-        view as unknown as Record<string, unknown>,
-        'FEE PUNCH SCHEDULE',
-        'csv'
+      await openAndDownloadBlob(
+        blob,
+        artifactDownloadFilename(
+          view as unknown as Record<string, unknown>,
+          'FEE PUNCH SCHEDULE',
+          'csv'
+        )
       );
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
       trackStampEvent('ic_artifact_download', {
         researchId: effectiveResearchId,
         zip: view.project_info?.zip,
@@ -2117,14 +2101,7 @@ export default function ResultsViewerModal({
         if (!fileRes.ok) throw new Error(`Bid packet download failed (${fileRes.status})`);
         blob = await fileRes.blob();
       }
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = 'RegGuard_Bid_Packet.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      await openAndDownloadBlob(blob, 'RegGuard_Bid_Packet.pdf');
       showToast('Full bid packet PDF downloaded — citeable pre-bid diligence, not a sealed bid');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Bid packet failed');
@@ -4221,12 +4198,7 @@ export default function ResultsViewerModal({
                       const blob = new Blob([JSON.stringify(data, null, 2)], {
                         type: 'application/json',
                       });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'RegGuard_DC_Diligence.json';
-                      a.click();
-                      URL.revokeObjectURL(url);
+                      await openAndDownloadBlob(blob, 'RegGuard_DC_Diligence.json');
                     } catch {
                       /* soft fail */
                     }

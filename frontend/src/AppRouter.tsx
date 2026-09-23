@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
 import App from './App';
 import { DataCenterRequestForm } from './DataCenterRequestForm';
@@ -27,6 +27,7 @@ import ResultsPage from './pages/ResultsPage';
 import SharedReportPage from './pages/SharedReportPage';
 import JobsPage from './pages/JobsPage';
 import SampleReportPage from './pages/SampleReportPage';
+import FileViewerPage from './pages/FileViewerPage';
 import PremiumCheckoutPage from './pages/PremiumCheckoutPage';
 import OrdersPage from './pages/OrdersPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
@@ -44,7 +45,17 @@ import OnboardingSystem from './OnboardingSystem';
 import PwaInstallBanner from './components/PwaInstallBanner';
 import IosInstantInstall from './components/IosInstantInstall';
 import { backendUrl, isIcDemoEnabled } from './env';
+import { setAppNavigate } from './navigationBridge';
 import './router-layout.css';
+
+function NavigateBridge() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    setAppNavigate(navigate);
+    return () => setAppNavigate(null);
+  }, [navigate]);
+  return null;
+}
 
 function IcDemoWatermark({ children }: { children: ReactNode }) {
   return (
@@ -103,6 +114,7 @@ export function AppRouter() {
   return (
     <Router>
       <PlatformLayout user={user} onLogout={handleLogout}>
+        <NavigateBridge />
         <ReferralCapture />
         <OnboardingSystem />
         <VoiceCommandSystem />
@@ -112,6 +124,9 @@ export function AppRouter() {
         <Routes>
           {/* Home Dashboard */}
           <Route path="/" element={<PlatformDashboard />} />
+
+          {/* In-app file viewer (PDF preview + download) */}
+          <Route path="/view-file" element={<FileViewerPage />} />
 
           {/* Pricing */}
           <Route path="/pricing" element={<PricingPage />} />

@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Download, Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-react';
 import { backendUrl } from '../env';
+import { openAndDownloadBlob } from '../openAndDownload';
 import {
   hasValidPendingIcReport,
   persistLastResearchForm,
@@ -351,14 +352,10 @@ export default function OrdersPage() {
       const res = await fetch(fetchUrl, { credentials: 'omit' });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+      await openAndDownloadBlob(
+        blob,
+        `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`
+      );
     } catch (err) {
       console.error(err);
       // Never window.open bare *.onrender.com — Chrome Safe Browsing interstitial.

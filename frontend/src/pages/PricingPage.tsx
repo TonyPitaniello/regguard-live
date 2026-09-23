@@ -5,11 +5,11 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
-import { Check, ArrowLeft, Download } from 'lucide-react';
+import { Check, ArrowLeft } from 'lucide-react';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
-import { sampleUrl } from '../components/SampleReportBlock';
+import { SampleOpenButton } from '../components/SampleReportBlock';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 
 const TIERS = [
@@ -202,47 +202,31 @@ export default function PricingPage() {
             Diligence Bundle include — not a sealed bid or interconnect study.
           </p>
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 justify-center">
-            <a
-              href={sampleUrl('/sample/tier-ladder.pdf')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition min-h-[44px]"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Download className="w-4 h-4" />
-              Download Sample Tier Ladder PDF
-            </a>
-            <a
-              href={sampleUrl('/sample/free-preview.pdf')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sample Free Preview PDF
-            </a>
-            <a
-              href={sampleUrl('/sample/partner-receipt.pdf')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sample Full Bid Risk Receipt PDF
-            </a>
-            <a
-              href={sampleUrl('/sample/pro-desk.zip')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sample Pro Desk ZIP
-            </a>
-            <a
-              href={sampleUrl('/sample/ic-diligence-bundle.zip')}
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Sample IC Diligence Bundle ZIP
-            </a>
+            <SampleOpenButton
+              href="/sample/tier-ladder.pdf"
+              label="Download Sample Tier Ladder PDF"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
+            />
+            <SampleOpenButton
+              href="/sample/free-preview.pdf"
+              label="Sample Free Preview PDF"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
+            />
+            <SampleOpenButton
+              href="/sample/partner-receipt.pdf"
+              label="Sample Full Bid Risk Receipt PDF"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
+            />
+            <SampleOpenButton
+              href="/sample/pro-desk.zip"
+              label="Sample Pro Desk ZIP"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
+            />
+            <SampleOpenButton
+              href="/sample/ic-diligence-bundle.zip"
+              label="Sample IC Diligence Bundle ZIP"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
+            />
           </div>
         </div>
       </section>

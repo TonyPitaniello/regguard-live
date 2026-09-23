@@ -183,15 +183,8 @@ export async function postBinaryDownload(
   await saveBlob(await res.blob(), filenameFromHeaders(res, filename));
 }
 
+import { openAndDownloadBlob } from './openAndDownload';
+
 async function saveBlob(blob: Blob, filename: string): Promise<void> {
-  if (!blob || blob.size < 80) throw new Error('File was empty — try again.');
-  const objectUrl = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = objectUrl;
-  a.download = filename;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
+  await openAndDownloadBlob(blob, filename);
 }

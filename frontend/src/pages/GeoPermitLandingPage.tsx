@@ -5,9 +5,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { backendUrl } from '../env';
-import { sampleUrl } from '../components/SampleReportBlock';
+import { SampleOpenButton } from '../components/SampleReportBlock';
 import { SeoHead } from '../SeoHead';
 import {
   METRO_LANDINGS,
@@ -214,15 +214,11 @@ export default function GeoPermitLandingPage() {
             Run free {local.city} site lookup
           </button>
           {local.samplePdf && (
-            <a
-              href={sampleUrl('/sample/tier-ladder.pdf')}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-purple-400/40 text-white font-semibold min-h-[44px]"
-            >
-              <Download className="w-4 h-4" />
-              Download Sample Tier Ladder PDF
-            </a>
+            <SampleOpenButton
+              href="/sample/tier-ladder.pdf"
+              label="Download Sample Tier Ladder PDF"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-purple-400/40 text-white font-semibold min-h-[44px] disabled:opacity-60"
+            />
           )}
         </div>
 
