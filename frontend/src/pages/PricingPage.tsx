@@ -16,17 +16,11 @@ const TIERS = [
   {
     key: 'free',
     segment: 'Contractor',
-    name: 'Free Lookups',
-    price: '$0',
-    billing: 'Free lead magnet',
-    description:
-      'DFW/Austin-first punch list preview. Source or Unverified on every line. Forward to unlock more.',
-    features: [
-      'Free site diligence lookup',
-      'Top punch-list actions (soft-locked preview)',
-      'Forward punch list to unlock full free list',
-      'Text or email your results',
-    ],
+    name: HABIT_TIERS.free.name,
+    price: HABIT_TIERS.free.priceLabel,
+    billing: HABIT_TIERS.free.billing,
+    description: HABIT_TIERS.free.oneLiner,
+    features: [...HABIT_TIERS.free.features],
     cta: 'Try Free',
     highlight: false,
   },
@@ -198,21 +192,58 @@ export default function PricingPage() {
       </section>
 
       <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
-        <div className="max-w-3xl mx-auto text-center">
-          <h3 className="text-xl font-bold text-white mb-3">See a SAMPLE Plano Bid Risk Receipt</h3>
-          <p className="text-gray-400 text-sm mb-6">
-            Labeled SAMPLE PDF — fictional Plano address in the same dark slate + emerald look as
-            the app. Shows Source / Unverified, owner, and due window. Not a live site report.
+        <div className="max-w-3xl mx-auto">
+          <h3 className="text-xl font-bold text-white mb-2 text-center">
+            SAMPLE — same Fort Worth DC-adjacent site at every tier
+          </h3>
+          <p className="text-gray-400 text-sm mb-6 text-center">
+            9999 Chapin School Road, Fort Worth, TX 76126 (labeled SAMPLE). Live Fort Worth AHJ
+            cites. Shows exactly what Free, Estimator/Permit Runner, Contractor Pro, and the IC
+            Diligence Bundle include — not a sealed bid or interconnect study.
           </p>
-          <a
-            href={backendUrl('/sample/plano-punch-list.pdf')}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download className="w-4 h-4" />
-            Download SAMPLE Plano PDF
-          </a>
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 justify-center">
+            <a
+              href={backendUrl('/sample/tier-ladder.pdf')}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition min-h-[44px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Download className="w-4 h-4" />
+              Tier ladder PDF
+            </a>
+            <a
+              href={backendUrl('/sample/free-preview.pdf')}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Free preview
+            </a>
+            <a
+              href={backendUrl('/sample/partner-receipt.pdf')}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              $79 Receipt
+            </a>
+            <a
+              href={backendUrl('/sample/pro-desk.zip')}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              $149 Pro ZIP
+            </a>
+            <a
+              href={backendUrl('/sample/ic-diligence-bundle.zip')}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              $1,500 IC Bundle ZIP
+            </a>
+          </div>
         </div>
       </section>
 

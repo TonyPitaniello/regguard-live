@@ -115,7 +115,7 @@ export const IC_BUNDLE = {
     'Regenerate the same IC Diligence Bundle ZIP for additional sites after your first IC Project.',
   annualFeatures: [
     'Regenerate ZIP bundles for new site addresses',
-    'Same decision memo + boardroom PDF + counsel DOCX + Excel + CSV package',
+    'Same decision memo + boardroom PDF + counsel DOCX + Excel + optional CSV package',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,

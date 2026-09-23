@@ -6379,16 +6379,87 @@ async def admin_sms_delivery(
 
 @app.get("/sample/plano-punch-list.pdf", tags=["Samples"])
 async def download_sample_plano_pdf():
-    """Labeled SAMPLE Plano punch-list PDF for pricing / landing."""
-    from fastapi.responses import FileResponse
+    """
+    Back-compat SAMPLE PDF link (Pricing / geo landings).
+    Now serves the Fort Worth Chapin Estimator-tier Bid Risk Receipt SAMPLE
+    (same file as /sample/partner-receipt.pdf) — labeled SAMPLE.
+    """
+    from sample_tier_deliverables import generate_partner_receipt_pdf_bytes
 
-    from sample_plano_pdf import generate_sample_plano_punch_pdf
-
-    path = generate_sample_plano_punch_pdf()
-    return FileResponse(
-        path,
+    raw = generate_partner_receipt_pdf_bytes()
+    return Response(
+        content=raw,
         media_type="application/pdf",
-        filename="RegGuard_Plano_Punch_List_SAMPLE.pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Chapin_FW_Estimator_Receipt_SAMPLE.pdf"'
+        },
+    )
+
+
+@app.get("/sample/tier-ladder.pdf", tags=["Samples"])
+async def download_sample_tier_ladder_pdf():
+    """SAMPLE: same Fort Worth DC-adjacent site — what Free / $79 / $149 / $1,500 include."""
+    from sample_tier_deliverables import generate_tier_ladder_pdf_bytes
+
+    raw = generate_tier_ladder_pdf_bytes()
+    return Response(
+        content=raw,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Chapin_FW_Tier_Ladder_SAMPLE.pdf"'
+        },
+    )
+
+
+@app.get("/sample/free-preview.pdf", tags=["Samples"])
+async def download_sample_free_preview_pdf():
+    from sample_tier_deliverables import generate_free_preview_pdf_bytes
+
+    raw = generate_free_preview_pdf_bytes()
+    return Response(
+        content=raw,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Chapin_FW_Free_Preview_SAMPLE.pdf"'
+        },
+    )
+
+
+@app.get("/sample/partner-receipt.pdf", tags=["Samples"])
+async def download_sample_partner_receipt_pdf():
+    from sample_tier_deliverables import generate_partner_receipt_pdf_bytes
+
+    raw = generate_partner_receipt_pdf_bytes()
+    return Response(
+        content=raw,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="RegGuard_Chapin_FW_Estimator_Receipt_SAMPLE.pdf"'
+        },
+    )
+
+
+@app.get("/sample/pro-desk.zip", tags=["Samples"])
+async def download_sample_pro_desk_zip():
+    from sample_tier_deliverables import generate_pro_desk_zip_bytes
+
+    raw, filename = generate_pro_desk_zip_bytes()
+    return Response(
+        content=raw,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/sample/ic-diligence-bundle.zip", tags=["Samples"])
+async def download_sample_ic_bundle_zip():
+    from sample_tier_deliverables import generate_ic_bundle_sample_zip_bytes
+
+    raw, filename = generate_ic_bundle_sample_zip_bytes()
+    return Response(
+        content=raw,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 

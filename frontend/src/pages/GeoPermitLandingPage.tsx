@@ -214,13 +214,13 @@ export default function GeoPermitLandingPage() {
           </button>
           {local.samplePdf && (
             <a
-              href={backendUrl('/sample/plano-punch-list.pdf')}
+              href={backendUrl('/sample/tier-ladder.pdf')}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-purple-400/40 text-white font-semibold min-h-[44px]"
             >
               <Download className="w-4 h-4" />
-              SAMPLE Plano PDF
+              SAMPLE tier ladder (FW DC site)
             </a>
           )}
         </div>

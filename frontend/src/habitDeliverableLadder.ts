@@ -1,6 +1,7 @@
 /**
  * Paid deliverable ladder — Free → Estimator/Permit Runner ($79) → Pro ($149) → IC ($1,500).
  * Premortem rule: more pay = more get; never ungated Pro/IC artifacts on Free/$79.
+ * Keep in lockstep with PricingPage + IC_BUNDLE + sample tier ladder.
  */
 
 export const HABIT_TIERS = {
@@ -8,6 +9,21 @@ export const HABIT_TIERS = {
     key: 'free' as const,
     name: 'Free Lookups',
     priceLabel: '$0',
+    billing: 'Free lead magnet',
+    oneLiner:
+      'DFW/Austin-first punch list preview. Source or Unverified on every line. Forward to unlock more.',
+    features: [
+      'Free site diligence lookup',
+      'Top punch-list actions (soft-locked preview — top ~5 lines)',
+      'Source or Unverified on every visible line',
+      'Forward punch list to unlock the rest of the free list',
+      'Text or email your results',
+    ] as const,
+    notIncluded: [
+      'Full Bid Risk Receipt PDF habit desk (Estimator / Permit Runner)',
+      'Fee / punch CSV + city pack (Contractor Pro)',
+      'IC Diligence Bundle ZIP (memo + boardroom + DOCX + Excel)',
+    ] as const,
   },
   partner: {
     key: 'partner' as const,
@@ -23,13 +39,13 @@ export const HABIT_TIERS = {
       'Saved Jobs + weekly email reminders for client pipeline',
       'In-app city pack slice for beachhead AHJs',
       'More monthly lookups than Free (habit quota)',
-      'Strongest citeable coverage: Dallas / Plano / Austin',
+      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     ] as const,
     notIncluded: [
       'Fee / punch CSV (that is Contractor Pro)',
       'Full city pack PDF / bid packet (Pro)',
       'Deep scout every lookup (Pro)',
-      'Counsel DOCX / evidence binder (IC Diligence Bundle)',
+      'Counsel DOCX / Excel workbooks / IC Diligence Bundle ZIP',
     ] as const,
   },
   contractor_pro: {
@@ -45,11 +61,12 @@ export const HABIT_TIERS = {
       'Fee / punch CSV — trade · owner · due window · source_url (estimator paste)',
       'Full city pack PDF + bid sheet PDF + bid packet',
       'Day-7 re-check habit for live bids',
-      'Strongest citeable coverage: Dallas / Plano / Austin',
+      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     ] as const,
     notIncluded: [
-      'Counsel DOCX + evidence binder (IC Diligence Bundle)',
-      'Parallel-clocks war room as primary (IC)',
+      'Counsel DOCX + evidence binder Excel (IC Diligence Bundle)',
+      'Boardroom PDF + parallel-clocks war room as primary (IC)',
+      'Estimator Excel workbooks — Fees · Punch · Evidence (IC)',
     ] as const,
   },
 } as const;

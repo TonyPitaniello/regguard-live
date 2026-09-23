@@ -167,7 +167,7 @@ def stamp_upgrade_offer(
                 "detail": (
                     f"This free preview is a first look for a {ptype} site. "
                     "For FAST-41 / utility / moratorium-depth research plus the IC Diligence "
-                    "Bundle ZIP (memo + counsel DOCX + CSV + evidence), get an IC Project. "
+                    "Bundle ZIP (memo + boardroom PDF + counsel DOCX + Excel workbooks), get an IC Project. "
                     "More citeable sources — not a certified fee quote."
                 ),
                 "cta_label": "Get IC Diligence Bundle — $1,500",
@@ -210,7 +210,7 @@ def stamp_upgrade_offer(
                 "detail": (
                     f"Pro finished paid local confirm{partial}. Light scout skips FAST-41, water, "
                     "and moratorium passes. IC Project runs the full Universal Scout and delivers "
-                    "the Diligence Bundle ZIP (memo + counsel DOCX + CSV + evidence)."
+                    "the Diligence Bundle ZIP (memo + boardroom PDF + counsel DOCX + Excel workbooks)."
                 ),
                 "cta_label": "Get IC Diligence Bundle — $1,500",
                 "cta_tier": "ic_project",
