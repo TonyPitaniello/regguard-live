@@ -26,7 +26,7 @@
       "destination": "https://regguard-api.onrender.com/share/:id"
     },
     {
-      "source": "/((?!assets/|icons/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|a2p-evidence(?:/)?|signup-without-sms(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-|sitemap\\.xml|robots\\.txt).*)",
+      "source": "/((?!assets/|icons/|sample/|privacy(?:/)?|terms(?:/)?|sms-opt-in(?:/)?|a2p-evidence(?:/)?|signup-without-sms(?:/)?|manifest\\.webmanifest|registerSW\\.js|sw\\.js|workbox-|sitemap\\.xml|robots\\.txt).*)",
       "destination": "/index.html"
     }
   ],
