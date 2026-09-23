@@ -29,6 +29,176 @@ def _address_fingerprint(address: str) -> str:
     return " ".join((address or "").strip().lower().split())
 
 
+def site_fingerprint(
+    *,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+) -> str:
+    """
+    Normalize a site key for IC Project one-site binding.
+    Street + ZIP + state — city omitted to avoid Fort Worth vs Ft Worth mismatches.
+    """
+    street = _address_fingerprint(address)
+    # If address already embeds "city, ST zip", keep street portion only when comma-separated
+    if "," in street:
+        street = street.split(",", 1)[0].strip()
+    z = "".join(c for c in str(zip_code or "") if c.isdigit())[:5]
+    st = (state or "").strip().lower()[:2]
+    return f"{street}|{z}|{st}"
+
+
+def order_site_fingerprint(order: Dict[str, Any]) -> str:
+    if not isinstance(order, dict):
+        return ""
+    addr = str(order.get("site_address") or "").strip()
+    city = str(order.get("site_city") or "").strip()
+    state = str(order.get("site_state") or "").strip()
+    zip_code = str(order.get("site_zip") or "").strip()
+    if not addr:
+        # Fulfill historically stored full line in order["address"]
+        raw = str(order.get("address") or order.get("site_label") or "").strip()
+        if raw:
+            # Prefer parsing "street, city, ST ZIP"
+            import re
+
+            m = re.match(
+                r"^(.+),\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5})",
+                raw,
+            )
+            if m:
+                return site_fingerprint(
+                    address=m.group(1),
+                    city=m.group(2),
+                    state=m.group(3),
+                    zip_code=m.group(4),
+                )
+            return site_fingerprint(address=raw)
+    return site_fingerprint(address=addr, city=city, state=state, zip_code=zip_code)
+
+
+def evaluate_ic_site_access(
+    email: str,
+    *,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+) -> Dict[str, Any]:
+    """
+    IC Project is $1,500 per site. IC Annual may cover additional sites.
+
+    Modes:
+      annual            — subscription may generate for this address
+      bind_unused       — paid IC Project not yet bound / PDFs not ready (one-shot)
+      same_site_refresh — paid IC Project already bound to this exact site
+      need_purchase     — must buy another IC Project for this address
+    """
+    from order_service import get_raw_orders_for_email, normalize_tier
+
+    email_l = (email or "").strip().lower()
+    fp = site_fingerprint(address=address, city=city, state=state, zip_code=zip_code)
+    site_label = ", ".join(
+        p for p in [(address or "").strip(), f"{(city or '').strip()} {(state or '').strip()} {(zip_code or '').strip()}".strip()] if p
+    )
+    empty = {
+        "allowed": False,
+        "mode": "need_purchase",
+        "order_id": None,
+        "bound_site": "",
+        "site_fingerprint": fp,
+        "message": (
+            "IC Project is $1,500 per site. Purchase unlocks the Diligence Bundle ZIP "
+            "for one address only."
+        ),
+    }
+    if not email_l or "@" not in email_l:
+        return empty
+
+    orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
+    if not orders:
+        return empty
+
+    # Active IC Annual → additional sites allowed under subscription
+    for o in orders:
+        if normalize_tier(str(o.get("tier") or "")) == "ic_annual":
+            return {
+                "allowed": True,
+                "mode": "annual",
+                "order_id": str(o.get("order_id") or o.get("id") or "") or None,
+                "bound_site": order_site_fingerprint(o) and str(o.get("site_label") or o.get("address") or ""),
+                "site_fingerprint": fp,
+                "message": (
+                    "Your email has IC Annual access. OK creates/updates the Diligence Bundle "
+                    f"ZIP for this address under that subscription:\n\n{site_label}\n\n"
+                    "Cancel researches without the paid package."
+                ),
+            }
+
+    # Unused IC Project (PDFs not ready) — bind this address once
+    for o in orders:
+        tier = normalize_tier(str(o.get("tier") or ""))
+        if tier not in ("ic_project", "ic_consultant"):
+            continue
+        if not pdfs_are_ready(o.get("pdfs")):
+            return {
+                "allowed": True,
+                "mode": "bind_unused",
+                "order_id": str(o.get("order_id") or o.get("id") or "") or None,
+                "bound_site": "",
+                "site_fingerprint": fp,
+                "message": (
+                    f"OK uses your $1,500 IC Project purchase for THIS address only:\n\n{site_label}\n\n"
+                    "Additional sites require a new $1,500 purchase. Cancel researches without "
+                    "the counsel ZIP. Reg Guard does not store your credit card."
+                ),
+            }
+
+    # Same-site refresh
+    if fp and fp != "||":
+        for o in orders:
+            tier = normalize_tier(str(o.get("tier") or ""))
+            if tier not in ("ic_project", "ic_consultant"):
+                continue
+            ofp = order_site_fingerprint(o)
+            if ofp and ofp == fp:
+                bound = str(o.get("site_label") or o.get("address") or site_label)
+                return {
+                    "allowed": True,
+                    "mode": "same_site_refresh",
+                    "order_id": str(o.get("order_id") or o.get("id") or "") or None,
+                    "bound_site": bound,
+                    "site_fingerprint": fp,
+                    "message": (
+                        f"OK refreshes the Diligence Bundle for this paid site (no new charge):\n\n{bound}\n\n"
+                        "A different address requires a new $1,500 IC Project purchase. "
+                        "Cancel researches without regenerating the counsel ZIP."
+                    ),
+                }
+
+    # Has IC purchase(s) but for other site(s)
+    prior = []
+    for o in orders:
+        label = str(o.get("site_label") or o.get("address") or o.get("site_address") or "").strip()
+        if label:
+            prior.append(label)
+    prior_s = prior[0] if prior else "another address"
+    return {
+        "allowed": False,
+        "mode": "need_purchase",
+        "order_id": None,
+        "bound_site": prior_s,
+        "site_fingerprint": fp,
+        "message": (
+            f"IC Project is $1,500 per site. Your prior purchase is bound to:\n\n{prior_s}\n\n"
+            f"This run is a different site:\n\n{site_label}\n\n"
+            "OK opens Checkout for a new $1,500 IC Project for this address. "
+            "Cancel researches without the counsel ZIP."
+        ),
+    }
+
+
 def api_public_base() -> str:
     """
     Public base for PDF/download links in emails and order JSON.
@@ -343,7 +513,7 @@ def build_pdf_meta(
 
 def find_open_ic_order(email: str) -> Optional[Dict[str, Any]]:
     """Newest IC-tier order for email that still needs PDFs (or any IC order)."""
-    from order_service import get_raw_orders_for_email, normalize_tier
+    from order_service import get_raw_orders_for_email
 
     email_l = (email or "").strip().lower()
     if not email_l:
@@ -352,11 +522,49 @@ def find_open_ic_order(email: str) -> Optional[Dict[str, Any]]:
     ic_orders = [o for o in orders if is_ic_tier(str(o.get("tier") or ""))]
     if not ic_orders:
         return None
-    # Prefer order without ready PDFs
     for o in ic_orders:
         if not pdfs_are_ready(o.get("pdfs")):
             return o
     return ic_orders[0]
+
+
+def resolve_ic_order_for_site(
+    email: str,
+    *,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+) -> Optional[Dict[str, Any]]:
+    """Pick the IC order that may fulfill THIS site (or None if a new purchase is required)."""
+    from order_service import get_raw_orders_for_email, normalize_tier
+
+    access = evaluate_ic_site_access(
+        email, address=address, city=city, state=state, zip_code=zip_code
+    )
+    if not access.get("allowed"):
+        return None
+    oid = str(access.get("order_id") or "").strip()
+    if oid:
+        for o in get_raw_orders_for_email(email):
+            if str(o.get("order_id") or o.get("id") or "") == oid:
+                return o
+    # Annual / fallback: prefer unfulfilled, else newest annual, else matching site
+    email_l = (email or "").strip().lower()
+    orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
+    mode = str(access.get("mode") or "")
+    if mode == "annual":
+        for o in orders:
+            if normalize_tier(str(o.get("tier") or "")) == "ic_annual":
+                return o
+    for o in orders:
+        if not pdfs_are_ready(o.get("pdfs")):
+            return o
+    fp = site_fingerprint(address=address, city=city, state=state, zip_code=zip_code)
+    for o in orders:
+        if order_site_fingerprint(o) == fp:
+            return o
+    return orders[0] if orders else None
 
 
 async def fulfill_ic_project_artifacts(
@@ -367,55 +575,99 @@ async def fulfill_ic_project_artifacts(
     idempotency_key: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """
-    Generate IC PDFs for the buyer's open IC order and update order.pdfs.
-    Idempotent unless force=True (or address changed).
+    Generate IC PDFs for an IC order that may cover THIS site.
+
+    IC Project ($1,500): one site only — same-site refresh OK; new address requires new purchase.
+    IC Annual: may regenerate for additional sites.
     """
-    from order_service import update_order_artifacts
+    from order_service import normalize_tier, update_order_artifacts
 
     email_l = (email or "").strip().lower()
     if not email_l or not isinstance(analysis, dict):
         return None
 
-    order = find_open_ic_order(email_l)
+    pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+    site_addr = str(pi.get("address") or "").strip()
+    site_city = str(pi.get("city") or "").strip()
+    site_state = str(pi.get("state") or "").strip()
+    site_zip = str(pi.get("zip") or "").strip()
+
+    access = evaluate_ic_site_access(
+        email_l,
+        address=site_addr,
+        city=site_city,
+        state=site_state,
+        zip_code=site_zip,
+    )
+    if not access.get("allowed"):
+        logger.info(
+            "IC fulfill blocked — need_purchase email=%s site=%s bound=%s",
+            email_l,
+            access.get("site_fingerprint"),
+            access.get("bound_site"),
+        )
+        return None
+
+    order = resolve_ic_order_for_site(
+        email_l,
+        address=site_addr,
+        city=site_city,
+        state=site_state,
+        zip_code=site_zip,
+    )
     if not order:
-        logger.info("IC fulfill skipped — no IC order for %s", email_l)
+        logger.info("IC fulfill skipped — no resolvable IC order for %s", email_l)
         return None
 
     order_id = str(order.get("order_id") or order.get("id") or "")
     if not order_id:
         return None
 
+    tier_ic = normalize_tier(str(order.get("tier") or ""))
+    mode = str(access.get("mode") or "")
+    already = pdfs_are_ready(order.get("pdfs"))
+
+    # Hard rule: ic_project cannot jump to a different site after PDFs are ready
+    if already and mode == "need_purchase":
+        return None
+    if already and tier_ic in ("ic_project", "ic_consultant") and mode not in (
+        "same_site_refresh",
+        "bind_unused",
+    ):
+        if mode != "annual":
+            logger.info(
+                "IC fulfill blocked cross-site reuse order=%s mode=%s",
+                order_id,
+                mode,
+            )
+            return None
+
     idem = (idempotency_key or "").strip()
     if idem:
         prior = _IC_IDEMPOTENCY.get(idem)
-        if prior == order_id and pdfs_are_ready(order.get("pdfs")) and order_id in _PDF_BYTES:
+        if prior == order_id and already and order_id in _PDF_BYTES:
             logger.info("IC fulfill idempotent hit key=%s order=%s", idem, order_id)
             return order
         if idem in _IC_IN_FLIGHT:
             logger.info("IC fulfill skipped — in flight for key=%s", idem)
             return order
 
-    new_address = str((analysis.get("project_info") or {}).get("address") or "").strip().lower()
-    old_address = str(order.get("address") or "").strip().lower()
-    address_changed = bool(
-        new_address
-        and old_address
-        and _address_fingerprint(new_address) != _address_fingerprint(old_address)
+    allow_regen = mode in ("same_site_refresh", "annual", "bind_unused") or (
+        force and mode == "same_site_refresh"
     )
-
-    if pdfs_are_ready(order.get("pdfs")) and not force and not address_changed and order_id in _PDF_BYTES:
+    if already and not allow_regen and order_id in _PDF_BYTES:
         logger.info("IC fulfill skipped — PDFs already ready for order %s", order_id)
         if idem:
             _IC_IDEMPOTENCY[idem] = order_id
         return order
 
-    # Allow regenerate when caller forces, or buyer researched a different site
-    if pdfs_are_ready(order.get("pdfs")) and (force or address_changed):
+    if already and allow_regen:
         logger.info(
-            "IC regenerate order=%s force=%s address_changed=%s",
+            "IC regenerate order=%s mode=%s tier=%s force=%s",
             order_id,
+            mode,
+            tier_ic,
             force,
-            address_changed,
         )
 
     if idem:
@@ -431,14 +683,30 @@ async def fulfill_ic_project_artifacts(
     _PDF_BYTES[order_id] = byte_map
     token = str(order.get("download_token") or "")
     pdfs = build_pdf_meta(order_id, email_l, byte_map, download_token=token)
-    address = (analysis.get("project_info") or {}).get("address") or ""
+    site_label = ", ".join(
+        p
+        for p in [
+            site_addr,
+            f"{site_city}, {site_state} {site_zip}".strip(" ,"),
+        ]
+        if p
+    )
 
-    # Persist a fresh shareable research record so email/forward ≠ Instant Preview
+    # Bind site on the order (IC Project one-site lock)
+    order["site_address"] = site_addr
+    order["site_city"] = site_city
+    order["site_state"] = site_state
+    order["site_zip"] = site_zip
+    order["site_label"] = site_label
+    order["project_type"] = str(pi.get("type") or order.get("site_project_type") or "")
+    if order.get("project_type"):
+        order["site_project_type"] = order["project_type"]
+
     shaped = analysis_for_pdfs(analysis)
     shaped["preview"] = False
     shaped["depth_tier"] = "ic_full"
     shaped["research_depth"] = "ic"
-    shaped.pop("research_id", None)  # force new id
+    shaped.pop("research_id", None)
     shaped.pop("share_url", None)
     share_meta: Dict[str, Any] = {}
     try:
@@ -452,7 +720,6 @@ async def fulfill_ic_project_artifacts(
         logger.warning("IC share refresh failed: %s", e)
         shaped = analysis_for_pdfs(analysis)
 
-    # Update pdf_status on raw order before artifact patch
     order["pdf_status"] = "ready"
     if share_meta.get("share_url"):
         order["share_url"] = share_meta["share_url"]
@@ -462,14 +729,22 @@ async def fulfill_ic_project_artifacts(
         order_id,
         pdfs=pdfs,
         analysis_json=shaped,
-        address=str(address),
+        address=site_label or site_addr,
         share_url=share_meta.get("share_url"),
         research_id=share_meta.get("research_id"),
+        site_address=site_addr,
+        site_city=site_city,
+        site_state=site_state,
+        site_zip=site_zip,
+        site_label=site_label,
+        site_project_type=str(pi.get("type") or ""),
     )
     logger.info(
-        "✅ IC Project PDFs ready order=%s email=%s sizes=%s share=%s",
+        "✅ IC Project PDFs ready order=%s email=%s mode=%s site=%s sizes=%s share=%s",
         order_id,
         email_l,
+        mode,
+        site_label,
         {k: len(v) for k, v in byte_map.items()},
         share_meta.get("share_url") or "n/a",
     )
@@ -483,11 +758,10 @@ async def fulfill_ic_project_artifacts(
         order_id,
         pdfs,
         share_url=str(share_meta.get("share_url") or ""),
-        site_label=str(address or ""),
+        site_label=str(site_label or site_addr or ""),
         analysis=shaped,
     )
 
-    # Always surface share fields for free-trial response merge (frontend email/SMS).
     out = dict(updated or order or {})
     if share_meta.get("share_url"):
         out["share_url"] = share_meta["share_url"]

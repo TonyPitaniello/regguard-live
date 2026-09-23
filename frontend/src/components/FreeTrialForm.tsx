@@ -84,11 +84,17 @@ function coordsFromAnalysis(analysis: AnalysisData | null | undefined): { lat: n
 
 async function fetchEntitlementWithRetry(
   emailNorm: string,
-  attempts = 3
+  attempts = 3,
+  site?: { address?: string; city?: string; state?: string; zip?: string }
 ): Promise<Record<string, unknown> | null> {
+  const qs = new URLSearchParams({ email: emailNorm });
+  if (site?.address) qs.set('address', site.address);
+  if (site?.city) qs.set('city', site.city);
+  if (site?.state) qs.set('state', site.state);
+  if (site?.zip) qs.set('zip', site.zip);
   for (let i = 0; i < attempts; i += 1) {
     try {
-      const ent = await fetch(backendUrl(`/entitlement?email=${encodeURIComponent(emailNorm)}`));
+      const ent = await fetch(backendUrl(`/entitlement?${qs.toString()}`));
       if (ent.ok) {
         return (await ent.json()) as Record<string, unknown>;
       }
@@ -182,11 +188,7 @@ export default function FreeTrialForm({
       return [];
     }
   });
-  const [icReportPending, setIcReportPending] = useState(() =>
-    ['ic_project', 'ic_consultant', 'ic_annual'].includes(
-      (typeof window !== 'undefined' ? sessionStorage.getItem('regguardTier') || '' : '').toLowerCase()
-    )
-  );
+  const [icReportPending, setIcReportPending] = useState(false);
   const [unlockBanner, setUnlockBanner] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const autoUnlockTried = useRef(false);
@@ -456,7 +458,12 @@ export default function FreeTrialForm({
     let icReportPending = ['ic_project', 'ic_consultant', 'ic_annual'].includes(
       (sessionStorage.getItem('regguardTier') || '').toLowerCase()
     );
-    const entData = await fetchEntitlementWithRetry(emailNorm, 3);
+    const entData = await fetchEntitlementWithRetry(emailNorm, 3, {
+      address: fixed.address,
+      city: fixed.city,
+      state: fixed.state,
+      zip: fixed.zip,
+    });
     if (entData) {
       paid = Boolean(entData.paid || entData.deep_research);
       if (paid) {
@@ -478,9 +485,9 @@ export default function FreeTrialForm({
       if (['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)) {
         sessionStorage.setItem('regguardTier', tier);
       }
-      icReportPending =
-        Boolean(entData.ic_report_pending) ||
-        ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier);
+      // Site-bound: only pending when THIS site can use an IC credit
+      const icSite = (entData.ic_site || {}) as Record<string, unknown>;
+      icReportPending = Boolean(icSite.allowed);
       setIcReportPending(icReportPending);
     }
 
@@ -511,13 +518,30 @@ export default function FreeTrialForm({
       state: siteNorm.state || fixed.state,
       zip: siteNorm.zip || fixed.zip,
     };
-    if (paid && icReportPending) {
+
+    // Re-fetch entitlement with normalized site (authoritative for dialog)
+    const siteEnt = await fetchEntitlementWithRetry(emailNorm, 2, {
+      address: dataForApi.address,
+      city: dataForApi.city,
+      state: dataForApi.state,
+      zip: dataForApi.zip,
+    });
+    const icSite = ((siteEnt || entData)?.ic_site || {}) as {
+      allowed?: boolean;
+      mode?: string;
+      message?: string;
+      bound_site?: string;
+    };
+    const icAllowed = Boolean(icSite.allowed);
+    icReportPending = icAllowed;
+    setIcReportPending(icAllowed);
+
+    if (paid && icAllowed) {
+      const msg =
+        icSite.message ||
+        `Generate IC Diligence Bundle for:\n\n${siteChip}\n\nOK uses your IC credit for this address only.`;
       if (forceIc) {
-        // Soft confirm chip — Cancel aborts IC slot consume
-        generateIcReport = window.confirm(
-          `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
-            'Your email already has IC Project access. OK builds the counsel ZIP for this site (decision memo + boardroom PDF + DOCX + Excel) using that purchase (Reg Guard does not store your card; Stripe Checkout handled payment). Cancel runs research without the paid package.'
-        );
+        generateIcReport = window.confirm(msg);
         try {
           sessionStorage.removeItem('icForceOnce');
         } catch {
@@ -527,19 +551,51 @@ export default function FreeTrialForm({
           clearPendingIcReport();
         }
       } else {
-        const tier = (sessionStorage.getItem('regguardTier') || '').toLowerCase();
-        const annual = tier === 'ic_annual';
-        generateIcReport = window.confirm(
-          `Generate IC Diligence Bundle for:\n\n${siteChip}\n\n` +
-            (annual
-              ? 'Your email has IC Annual access. OK creates/updates the Diligence Bundle ZIP for this address under that subscription. Cancel researches without the paid package. Cards for renewals are handled by Stripe — Reg Guard never stores card numbers.'
-              : 'Your email has an IC Project purchase on file. OK builds the $1,500 counsel ZIP for this address (decision memo + boardroom PDF + DOCX + Excel — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.')
-        );
+        generateIcReport = window.confirm(msg);
         if (!generateIcReport) {
           clearPendingIcReport();
         }
       }
-    } else if (hasValidPendingIcReport() && !icReportPending) {
+    } else if (
+      paid &&
+      !icAllowed &&
+      String(icSite.mode || '') === 'need_purchase' &&
+      (forceOnce ||
+        hasValidPendingIcReport() ||
+        entitlementTiers.some((t) => String(t).includes('ic')) ||
+        ['ic_project', 'ic_consultant', 'ic_annual'].includes(
+          (sessionStorage.getItem('regguardTier') || '').toLowerCase()
+        ))
+    ) {
+      // Prior IC purchase is for a different site — new address requires a new $1,500 payment
+      const buy = window.confirm(
+        icSite.message ||
+          `IC Project is $1,500 per site.\n\n${siteChip}\n\nOK opens Checkout for this address. Cancel runs research without the counsel ZIP.`
+      );
+      try {
+        sessionStorage.removeItem('icForceOnce');
+      } catch {
+        /* ignore */
+      }
+      clearPendingIcReport();
+      if (buy) {
+        persistLastResearchForm({
+          address: dataForApi.address,
+          city: dataForApi.city,
+          state: dataForApi.state,
+          zip: dataForApi.zip,
+          projectType: dataForApi.projectType,
+          email: emailNorm,
+          lat: dataForApi.lat,
+          lng: dataForApi.lng,
+        });
+        setLoading(false);
+        navigate(
+          `/checkout/ic_project?email=${encodeURIComponent(emailNorm)}&from=new_site`
+        );
+        return;
+      }
+    } else if (hasValidPendingIcReport() && !icAllowed) {
       clearPendingIcReport();
     }
     if (generateIcReport) {
@@ -943,7 +999,13 @@ export default function FreeTrialForm({
 
     void (async () => {
       if (!email) return;
-      const entData = await fetchEntitlementWithRetry(email, 3);
+      const siteHint = {
+        address: last.address || formDataRef.current.address,
+        city: last.city || formDataRef.current.city,
+        state: last.state || formDataRef.current.state,
+        zip: last.zip || formDataRef.current.zip,
+      };
+      const entData = await fetchEntitlementWithRetry(email, 3, siteHint);
       if (!entData) return;
       const paid = Boolean(entData.paid || entData.deep_research);
       if (!paid) return;
@@ -962,10 +1024,9 @@ export default function FreeTrialForm({
       const tier =
         tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
       if (tier) sessionStorage.setItem('regguardTier', tier);
-      setIcReportPending(
-        Boolean(entData.ic_report_pending) ||
-          ['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)
-      );
+      const icSite = (entData.ic_site || {}) as { allowed?: boolean };
+      // Only mark pending when THIS site can consume an IC credit (not any prior purchase)
+      setIcReportPending(Boolean(icSite.allowed) || Boolean(entData.ic_report_pending));
 
       const readySite =
         (last.address || formDataRef.current.address) &&
@@ -1372,7 +1433,12 @@ export default function FreeTrialForm({
             }
             onUnlockDeeper={() => {
               try {
-                if (icReportPending || entitlementTiers.some((t) => String(t).includes('ic'))) {
+                // Only skip Checkout when THIS site still has an unused / same-site IC credit
+                if (icReportPending) {
+                  sessionStorage.setItem('icForceOnce', '1');
+                  setPendingIcReport(true);
+                } else if (entitlementTiers.some((t) => String(t).includes('ic'))) {
+                  // Prior IC purchase exists but not for this site — force checkout path
                   sessionStorage.setItem('icForceOnce', '1');
                   setPendingIcReport(true);
                 }

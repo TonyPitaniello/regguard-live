@@ -468,6 +468,12 @@ def update_order_artifacts(
     address: Optional[str] = None,
     share_url: Optional[str] = None,
     research_id: Optional[str] = None,
+    site_address: Optional[str] = None,
+    site_city: Optional[str] = None,
+    site_state: Optional[str] = None,
+    site_zip: Optional[str] = None,
+    site_label: Optional[str] = None,
+    site_project_type: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Update in-memory order PDFs/analysis; best-effort Supabase PATCH."""
     order = get_raw_order_by_id(order_id)
@@ -486,6 +492,18 @@ def update_order_artifacts(
         order["share_url"] = share_url
     if research_id:
         order["research_id"] = research_id
+    if site_address is not None:
+        order["site_address"] = site_address
+    if site_city is not None:
+        order["site_city"] = site_city
+    if site_state is not None:
+        order["site_state"] = site_state
+    if site_zip is not None:
+        order["site_zip"] = site_zip
+    if site_label is not None:
+        order["site_label"] = site_label
+    if site_project_type is not None:
+        order["site_project_type"] = site_project_type
     remember_order(order)
     _persist_order_artifacts_supabase(order)
     return order_to_frontend(order)

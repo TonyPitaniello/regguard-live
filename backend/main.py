@@ -1751,11 +1751,26 @@ async def test_supabase() -> Dict[str, Any]:
         }
 
 @app.get("/entitlement", tags=["Payments"])
-async def get_entitlement(email: str = "") -> Dict[str, Any]:
-    """Return whether an email has paid access (Contractor Pro / IC deep research)."""
+async def get_entitlement(
+    email: str = "",
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip: str = "",
+) -> Dict[str, Any]:
+    """
+    Paid access summary. Pass address/city/state/zip to evaluate IC Project
+    one-site binding ($1,500 per site — not unlimited runs per email).
+    """
     from entitlement import access_summary
 
-    return access_summary(email)
+    return access_summary(
+        email,
+        address=address,
+        city=city,
+        state=state,
+        zip_code=zip,
+    )
 
 
 @app.post("/free-trial")
@@ -2143,10 +2158,21 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     ic_pending = False
     if paid and isinstance(analysis, dict):
         try:
-            from ic_project_fulfillment import fulfill_ic_project_artifacts, find_open_ic_order
+            from ic_project_fulfillment import fulfill_ic_project_artifacts
 
             email_for_ic = (getattr(request_body, "email", None) or "").strip().lower()
-            open_ic = find_open_ic_order(email_for_ic) if email_for_ic else None
+            open_ic = None
+            if email_for_ic and isinstance(analysis, dict):
+                from ic_project_fulfillment import resolve_ic_order_for_site
+
+                pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+                open_ic = resolve_ic_order_for_site(
+                    email_for_ic,
+                    address=str(pi.get("address") or ""),
+                    city=str(pi.get("city") or ""),
+                    state=str(pi.get("state") or ""),
+                    zip_code=str(pi.get("zip") or ""),
+                )
             if open_ic:
                 want_ic = bool(getattr(request_body, "generate_ic_report", False))
                 depth = str(analysis.get("research_depth") or research_depth or "")
@@ -2157,12 +2183,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
 
                     already = _pdfs_ready(open_ic.get("pdfs"))
                     tier_ic = str(open_ic.get("tier") or "").lower()
-                    # ic_annual (and replace on ic_project) may regenerate for a new address
-                    force = already and tier_ic in (
-                        "ic_annual",
-                        "ic_project",
-                        "ic_consultant",
-                    )
+                    # Same-site refresh or IC Annual only — never force a new site onto ic_project
+                    force = already and tier_ic in ("ic_annual",)
                     idem = (getattr(request_body, "ic_idempotency_key", None) or "").strip() or None
                     fulfilled = await fulfill_ic_project_artifacts(
                         email_for_ic,

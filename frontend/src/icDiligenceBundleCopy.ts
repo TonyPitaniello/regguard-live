@@ -133,9 +133,9 @@ export const IC_BUNDLE = {
     'Primary $1,500 deliverable: one ZIP with the decision memo, full boardroom PDF, counsel DOCX (evidence binder + hyperlinks), estimator Excel (Fees · Punch · Evidence), evidence index Excel, and optional CSV paste exports. Parallel clocks are in the boardroom PDF and DOCX. Download individual parts below if you only need one file.',
 
   /** Results — owns IC but wrong depth */
-  generateHeadline: 'IC access on file — generate the Diligence Bundle for this site',
+  generateHeadline: 'Generate the Diligence Bundle for this paid site',
   generateBody:
-    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP: memo + boardroom PDF + DOCX + Excel.',
+    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP for this address: memo + boardroom PDF + DOCX + Excel. A different address needs a new $1,500 IC Project purchase.',
 
   /** Results — Pro upsell */
   upsellHeadline: 'Need counsel-ready deliverables for this site?',
@@ -154,7 +154,7 @@ export const IC_BUNDLE = {
     'Payment confirmed. Re-run your site lookup with this same email and choose Generate IC Report — then download the Diligence Bundle ZIP (decision memo + boardroom PDF + counsel DOCX + Excel workbook + optional CSVs).',
   confirmPromptIntro: 'Generate IC Diligence Bundle for:',
   confirmPromptBody:
-    'OK builds the $1,500 counsel ZIP for this address from your IC purchase (decision memo + boardroom PDF + DOCX + Excel + CSV — no new charge here). Cancel researches without the paid package. Reg Guard does not store your credit card.',
+    'OK uses your IC Project purchase for THIS address only (decision memo + boardroom PDF + DOCX + Excel — no new charge for this paid site). A different address needs a new $1,500 purchase. Cancel researches without the paid package. Reg Guard does not store your credit card.',
 
   /** FAQ */
   faqWhatYouGet:

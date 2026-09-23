@@ -71,17 +71,36 @@ def has_paid_access(email: Optional[str]) -> bool:
     return False
 
 
-def access_summary(email: Optional[str]) -> Dict[str, Any]:
+def access_summary(
+    email: Optional[str],
+    *,
+    address: str = "",
+    city: str = "",
+    state: str = "",
+    zip_code: str = "",
+) -> Dict[str, Any]:
     email_l = _normalize_email(email)
     paid = has_paid_access(email_l)
     tiers: list[str] = []
     ic_report_pending = False
     has_ic = False
     has_ic_pdfs = False
+    ic_site: Dict[str, Any] = {
+        "allowed": False,
+        "mode": "need_purchase",
+        "order_id": None,
+        "bound_site": "",
+        "site_fingerprint": "",
+        "message": "IC Project is $1,500 per site.",
+    }
     if email_l:
         try:
             from order_service import list_orders_for_email
-            from ic_project_fulfillment import is_ic_tier, pdfs_are_ready
+            from ic_project_fulfillment import (
+                evaluate_ic_site_access,
+                is_ic_tier,
+                pdfs_are_ready,
+            )
 
             for order in list_orders_for_email(email_l):
                 tier = (order.get("tier") or "").strip().lower()
@@ -93,6 +112,17 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
                         has_ic_pdfs = True
             # Pending only when IC purchased and PDFs not ready yet
             ic_report_pending = has_ic and not has_ic_pdfs
+            if address or city or zip_code:
+                ic_site = evaluate_ic_site_access(
+                    email_l,
+                    address=address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                )
+            elif has_ic:
+                # No site in query — report generic pending / bound status only
+                ic_site = evaluate_ic_site_access(email_l)
         except Exception:
             pass
     return {
@@ -103,4 +133,5 @@ def access_summary(email: Optional[str]) -> Dict[str, Any]:
         "primary_tier": tiers[0] if tiers else ("free" if email_l else "anonymous"),
         "ic_report_pending": ic_report_pending,
         "ic_pdfs_ready": has_ic_pdfs,
+        "ic_site": ic_site,
     }
