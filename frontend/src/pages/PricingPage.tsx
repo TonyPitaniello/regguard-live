@@ -209,7 +209,7 @@ export default function PricingPage() {
               rel="noreferrer"
             >
               <Download className="w-4 h-4" />
-              Tier ladder PDF
+              Download Sample Tier Ladder PDF
             </a>
             <a
               href={backendUrl('/sample/free-preview.pdf')}
@@ -217,7 +217,7 @@ export default function PricingPage() {
               target="_blank"
               rel="noreferrer"
             >
-              Free preview
+              Sample Free Preview PDF
             </a>
             <a
               href={backendUrl('/sample/partner-receipt.pdf')}
@@ -225,7 +225,7 @@ export default function PricingPage() {
               target="_blank"
               rel="noreferrer"
             >
-              $79 Receipt
+              Sample Full Bid Risk Receipt PDF
             </a>
             <a
               href={backendUrl('/sample/pro-desk.zip')}
@@ -233,7 +233,7 @@ export default function PricingPage() {
               target="_blank"
               rel="noreferrer"
             >
-              $149 Pro ZIP
+              Sample Pro Desk ZIP
             </a>
             <a
               href={backendUrl('/sample/ic-diligence-bundle.zip')}
@@ -241,7 +241,7 @@ export default function PricingPage() {
               target="_blank"
               rel="noreferrer"
             >
-              $1,500 IC Bundle ZIP
+              Sample IC Diligence Bundle ZIP
             </a>
           </div>
         </div>
