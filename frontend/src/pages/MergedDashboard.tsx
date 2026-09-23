@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import FreeTrialForm from '../components/FreeTrialForm';
+import { SampleReportBlock } from '../components/SampleReportBlock';
 import { backendUrl } from '../env';
 import { SeoHead } from '../SeoHead';
 import { isIosDevice, isStandaloneApp } from '../pwaInstall';
@@ -87,9 +88,9 @@ export function PlatformDashboard() {
         </div>
       </header>
 
-      {/* Hero: brand + one line + form (the only CTA) */}
-      <section className="px-4 pt-10 pb-6 sm:px-6 lg:px-8 sm:pt-14">
-        <div className="max-w-2xl mx-auto text-center mb-8">
+      {/* Hero intro */}
+      <section className="px-4 pt-10 pb-4 sm:px-6 lg:px-8 sm:pt-14">
+        <div className="max-w-2xl mx-auto text-center">
           <p className="text-5xl sm:text-6xl md:text-7xl font-black text-white mb-4 tracking-tight">
             RegGuard
           </p>
@@ -101,7 +102,20 @@ export function PlatformDashboard() {
             honest Unverified. No credit card required to try it free.
           </p>
         </div>
+      </section>
 
+      {/* Sample report — before address intake */}
+      <section className="px-4 pb-6 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-500/25 bg-slate-950/40 p-5 sm:p-6">
+          <SampleReportBlock compact />
+          <p className="text-center text-gray-500 text-xs mt-4">
+            Then run your own site below — same receipt format.
+          </p>
+        </div>
+      </section>
+
+      {/* Address intake */}
+      <section className="px-4 pb-6 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
