@@ -12,7 +12,7 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260923-site-diligence';
+const RG_BUILD_ID = 'launch-20260923-now-see-results';
 
 /**
  * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.

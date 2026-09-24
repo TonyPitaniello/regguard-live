@@ -1198,6 +1198,9 @@ export default function FreeTrialForm({
         aria-hidden={Boolean(resultsOpen && analysis)}
       >
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
+          <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+            Now see results for your site
+          </h2>
           <div className="flex justify-end">
             <button
               type="button"
@@ -1205,7 +1208,7 @@ export default function FreeTrialForm({
               disabled={loading}
               className="text-sm text-emerald-300 hover:text-emerald-200 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
             >
-              Start a new site
+              Clear &amp; start over
             </button>
           </div>
           <LocationPicker
