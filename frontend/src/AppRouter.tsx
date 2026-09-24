@@ -27,6 +27,7 @@ import ResultsPage from './pages/ResultsPage';
 import SharedReportPage from './pages/SharedReportPage';
 import JobsPage from './pages/JobsPage';
 import SampleReportPage from './pages/SampleReportPage';
+import SampleSiteDiligencePage from './pages/SampleSiteDiligencePage';
 import FileViewerPage from './pages/FileViewerPage';
 import PremiumCheckoutPage from './pages/PremiumCheckoutPage';
 import OrdersPage from './pages/OrdersPage';
@@ -174,6 +175,7 @@ export function AppRouter() {
 
           {/* Sample Report */}
           <Route path="/sample-report" element={<SampleReportPage />} />
+          <Route path="/sample-site-diligence" element={<SampleSiteDiligencePage />} />
           <Route path="/refund-cases" element={<RefundCasesPage />} />
           <Route path="/guarantee" element={<RefundCasesPage />} />
 

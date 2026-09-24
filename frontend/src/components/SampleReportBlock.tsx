@@ -1,6 +1,6 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * View opens a scrollable PDF in-app; Save downloads the package (PDF or ZIP).
+ * Includes the on-screen results panel (Your Site Diligence Analysis) + Executive Summary.
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -27,6 +27,7 @@ function sampleFilename(path: string): string {
     'pro-desk.zip': 'RegGuard_Sample_Pro_Desk.zip',
     'ic-project-report.pdf': 'RegGuard_Sample_IC_Project_Report.pdf',
     'ic-diligence-bundle.zip': 'RegGuard_Sample_IC_Diligence_Bundle.zip',
+    'executive-summary.pdf': 'RegGuard_Sample_Executive_Summary.pdf',
     'plano-punch-list.pdf': 'RegGuard_Sample_Estimator_Receipt.pdf',
   };
   return map[base] || `RegGuard_Sample_${base}`;
@@ -35,6 +36,8 @@ function sampleFilename(path: string): string {
 type SampleRowDef = {
   /** Stable key / default path */
   href: string;
+  /** In-app React route to open on View (scrollable live results UI) */
+  viewRoute?: string;
   /** Scrollable in-app PDF (defaults to href) */
   viewHref?: string;
   /** Disk download (defaults to href) */
@@ -45,14 +48,35 @@ type SampleRowDef = {
   highlight?: boolean;
 };
 
-/** All sample rows — Pro / IC View = PDF page; Save = full ZIP */
+/**
+ * Samples in product order:
+ * 1) On-screen results panel after address entry
+ * 2) Executive summary card from that panel
+ * 3) Tier artifacts
+ */
 export const SAMPLE_ROWS: readonly SampleRowDef[] = [
+  {
+    href: '/sample-site-diligence',
+    viewRoute: '/sample-site-diligence',
+    downloadHref: '/sample/executive-summary.pdf',
+    title: 'Your Site Diligence Analysis',
+    subtitle:
+      'The long scrollable results panel after you enter an address — stamp, contingency, punch, and packs',
+    price: null,
+    highlight: true,
+  },
+  {
+    href: '/sample/executive-summary.pdf',
+    title: 'Executive Summary',
+    subtitle: 'The amber summary card at the top of Your Site Diligence Analysis',
+    price: null,
+    highlight: true,
+  },
   {
     href: '/sample/tier-ladder.pdf',
     title: 'Sample Tier Ladder',
     subtitle: 'All tiers on one Fort Worth site',
     price: null,
-    highlight: true,
   },
   {
     href: '/sample/free-preview.pdf',
@@ -96,12 +120,14 @@ export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) 
 /** Eye = view in app; Download = save. Full-width on phones; icon track on sm+. */
 export function SampleOpenButton({
   href,
+  viewRoute,
   viewHref,
   downloadHref,
   label,
   className,
 }: {
   href: string;
+  viewRoute?: string;
   viewHref?: string;
   downloadHref?: string;
   label?: string;
@@ -121,6 +147,10 @@ export function SampleOpenButton({
     setErr('');
     try {
       if (mode === 'view') {
+        if (viewRoute) {
+          navigate(viewRoute);
+          return;
+        }
         const url = sampleUrl(viewPath);
         const name = sampleFilename(viewPath);
         await viewInAppUrl(url, name, { navigate: (to) => navigate(to) });
@@ -184,6 +214,7 @@ export function SampleOpenButton({
 
 function SampleRow({
   href,
+  viewRoute,
   viewHref,
   downloadHref,
   title,
@@ -214,6 +245,7 @@ function SampleRow({
       </div>
       <SampleOpenButton
         href={href}
+        viewRoute={viewRoute}
         viewHref={viewHref}
         downloadHref={downloadHref}
         label={subtitle || title}

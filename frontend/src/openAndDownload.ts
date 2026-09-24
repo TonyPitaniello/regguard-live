@@ -1,5 +1,6 @@
 /**
  * Open a file in the in-app viewer and/or force a disk download.
+ * ZIPs unpack so PDFs / text scroll in-app; Save still gets the original package.
  * Browsers often inline application/pdf — we download via octet-stream instead.
  */
 
@@ -52,17 +53,21 @@ function resolveFilename(url: string, filename: string | undefined, blob: Blob):
   );
 }
 
-/** Open in-app /view-file only (no disk download). */
+function goToViewer(id: string, opts?: NavOpts): void {
+  const to = `/view-file?id=${encodeURIComponent(id)}`;
+  if (opts?.navigate) opts.navigate(to);
+  else appNavigate(to);
+}
+
+/** Open in-app /view-file only (no disk download). Unpacks ZIP → scrollable PDF/text. */
 export async function viewInAppBlob(
   blob: Blob,
   filename: string,
   opts?: NavOpts
 ): Promise<string> {
   if (!blob || blob.size < 40) throw new Error('File was empty — try again.');
-  const id = stashFileBlob(blob, filename);
-  const to = `/view-file?id=${encodeURIComponent(id)}`;
-  if (opts?.navigate) opts.navigate(to);
-  else appNavigate(to);
+  const id = await stashFileBlob(blob, filename);
+  goToViewer(id, opts);
   return id;
 }
 
@@ -89,8 +94,8 @@ export async function downloadOnlyUrl(url: string, filename?: string): Promise<v
 }
 
 /**
- * Legacy combined path (Results/Orders artifacts): open viewer + download.
- * Prefer viewInApp* / downloadOnly* for sample CTAs.
+ * Open viewer (scrollable) + download original package to disk.
+ * Used by Results / Orders / PDF export.
  */
 export async function openAndDownloadBlob(
   blob: Blob,
@@ -100,17 +105,26 @@ export async function openAndDownloadBlob(
   if (!blob || blob.size < 40) {
     throw new Error('File was empty — try again.');
   }
-  const id = stashFileBlob(blob, filename);
+  const id = await stashFileBlob(blob, filename);
   const file = getStashedFile(id);
   if (!file) throw new Error('Could not prepare file viewer.');
 
-  const to = `/view-file?id=${encodeURIComponent(id)}`;
-  if (opts?.navigate) opts.navigate(to);
-  else appNavigate(to);
+  goToViewer(id, opts);
 
+  // Always save the original package (ZIP or PDF), not just the previewed member
   window.setTimeout(() => {
-    triggerBrowserDownload(blob, file.filename);
-    markStashedDownloaded(id);
+    const packageUrl = file.packageBlobUrl || file.blobUrl;
+    const packageName = file.packageFilename || file.filename;
+    void fetch(packageUrl)
+      .then((r) => r.blob())
+      .then((b) => {
+        triggerBrowserDownload(b, packageName);
+        markStashedDownloaded(id);
+      })
+      .catch(() => {
+        triggerBrowserDownload(blob, filename);
+        markStashedDownloaded(id);
+      });
   }, 50);
 
   return id;
@@ -125,23 +139,80 @@ export async function openAndDownloadUrl(
   return openAndDownloadBlob(blob, resolveFilename(url, filename, blob), opts);
 }
 
-/** Re-download from an already-stashed viewer file. */
+/** Re-download package (or current file) from an already-stashed viewer session. */
 export function redownloadStashed(id: string): void {
+  const file = getStashedFile(id);
+  if (!file) return;
+  const url = file.packageBlobUrl || file.blobUrl;
+  const name = file.packageFilename || file.filename;
+  void fetch(url)
+    .then((r) => r.blob())
+    .then((b) => {
+      triggerBrowserDownload(b, name);
+      markStashedDownloaded(id);
+    })
+    .catch(() => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    });
+}
+
+/** Download only the currently previewed member. */
+export function downloadActiveMember(id: string): void {
   const file = getStashedFile(id);
   if (!file) return;
   void fetch(file.blobUrl)
     .then((r) => r.blob())
     .then((b) => {
       triggerBrowserDownload(b, file.filename);
-      markStashedDownloaded(id);
     })
-    .catch(() => {
-      const a = document.createElement('a');
-      a.href = file.blobUrl;
-      a.download = file.filename;
-      a.rel = 'noopener';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+    .catch(() => undefined);
+}
+
+/** Native share / copy forward text for the stashed package. */
+export async function forwardStashed(id: string): Promise<'shared' | 'copied' | 'failed'> {
+  const file = getStashedFile(id);
+  if (!file) return 'failed';
+  const name = file.packageFilename || file.filename;
+  const url = file.packageBlobUrl || file.blobUrl;
+  try {
+    const blob = await (await fetch(url)).blob();
+    const shareFile = new File([blob], name, {
+      type: blob.type || 'application/octet-stream',
     });
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      const canFiles =
+        !navigator.canShare || navigator.canShare({ files: [shareFile] });
+      if (canFiles) {
+        await navigator.share({
+          files: [shareFile],
+          title: 'Reg Guard',
+          text: `Reg Guard — ${name}`,
+        });
+        return 'shared';
+      }
+      await navigator.share({
+        title: 'Reg Guard',
+        text: `Reg Guard — ${name}\n\nOpen Reg Guard to download this file.\nPlanning aid only — confirm with AHJ before bid.`,
+      });
+      return 'shared';
+    }
+  } catch (e) {
+    // User cancel vs hard fail
+    if (e instanceof Error && /AbortError|canceled|cancelled/i.test(e.message)) {
+      return 'failed';
+    }
+  }
+  try {
+    const text = `Reg Guard — ${name}\n\nOpen Reg Guard results to download this file.\nPlanning aid only — confirm with AHJ before bid.`;
+    await navigator.clipboard.writeText(text);
+    return 'copied';
+  } catch {
+    return 'failed';
+  }
 }
