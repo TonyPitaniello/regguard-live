@@ -56,36 +56,33 @@ type SampleRowDef = {
  */
 export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   {
-    href: '/sample/tier-ladder.pdf',
-    title: 'Sample Tier Ladder',
-    subtitle: 'All tiers on one Fort Worth site',
-    price: null,
-  },
-  {
     href: '/sample-site-diligence?tier=free',
     viewRoute: '/sample-site-diligence?tier=free',
     title: HABIT_TIERS.free.name,
-    subtitle: 'Least shown — locked punch lines blurred · free preview depth',
+    subtitle:
+      'Bid Risk Receipt preview — stamp, contingency band, and top punch lines with Source or Unverified',
     price: HABIT_TIERS.free.priceLabel,
   },
   {
     href: '/sample-site-diligence?tier=partner',
     viewRoute: '/sample-site-diligence?tier=partner',
     title: HABIT_TIERS.partner.name,
-    subtitle: 'More unlocked punch + receipt · Pro desk still blurred',
+    subtitle:
+      'Full forwardable Bid Risk Receipt, unlocked punch list, and Saved Jobs habit for client sites',
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
   },
   {
     href: '/sample-site-diligence?tier=pro',
     viewRoute: '/sample-site-diligence?tier=pro',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle: 'Full Pro desk unlocked — city pack, CSV, bid packet',
+    subtitle:
+      'Full City Pack, fee / punch CSV, bid packet, parcel GIS, and zoning Cite-or-Confirm desk',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: `Full ${IC_BUNDLE.productName} — scrollable boardroom sample inside`,
+    subtitle: `Counsel-ready ${IC_BUNDLE.productName} — decision memo, boardroom PDF, DOCX, and Excel workbooks`,
     price: IC_BUNDLE.priceLabel,
   },
 ] as const;
