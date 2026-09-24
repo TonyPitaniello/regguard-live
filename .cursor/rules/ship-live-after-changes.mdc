@@ -1,18 +1,28 @@
 ---
-description: Always ship user-facing changes to app.regguardagent.com
+description: Ship live updates ONLY to app.regguardagent.com
 alwaysApply: true
 ---
 
-# Live deploy after every change
+# Live deploy — app.regguardagent.com only
 
-Production URL: **https://app.regguardagent.com** (Vercel from `TonyPitaniello/regguard-live` `main`).
+**Sole production URL:** https://app.regguardagent.com  
+**Repo / deploy:** Vercel from `TonyPitaniello/regguard-live` `main`.
 
-After finishing any user-facing frontend/backend change in this repo:
+## Hard rules
 
-1. Commit the relevant files (skip backend runtime data dumps like `account_credits.json` / `*.jsonl` unless asked).
-2. `git push origin HEAD` immediately — do not wait for the user to ask.
-3. Bump the frontend cache-bust `BUILD` / `RG_BUILD_ID` when the UI must defeat stale PWA/Arc caches.
-4. Confirm live with a quick curl/check that the new BUILD (or change) is on `app.regguardagent.com`.
-5. Tell the user the live URL (include `?forceclear=1` when a hard refresh is needed).
+- All live / production updates, verification, and user-facing links go to **app.regguardagent.com only**.
+- Do **not** treat these as production or tell the user to check them for live:
+  - `app.regguard.com` / `regguard.com` (parked / wrong)
+  - `*.vercel.app` preview hostnames (internal only; never the “live” answer)
+  - localhost / other staging hosts as the shipped destination
+- When confirming a ship, curl/check **https://app.regguardagent.com** (BUILD id or change string). Say the live URL is app.regguardagent.com (add `?forceclear=1` when PWA/cache bust is needed).
 
-Do this after **each** change batch in the conversation, not only at the end.
+## After each user-facing change batch
+
+1. Commit relevant files (skip backend runtime dumps like `account_credits.json` / `*.jsonl` unless asked).
+2. `git push origin HEAD` immediately — do not wait to be asked.
+3. Bump frontend `RG_BUILD_ID` / `BUILD` when UI must defeat stale PWA/Arc caches.
+4. Confirm the new BUILD (or change) is on **app.regguardagent.com**.
+5. Tell the user that live URL only.
+
+Do this after **each** change batch, not only at the end of the conversation.
