@@ -281,7 +281,6 @@ export async function repairPwaInstall(reload = true): Promise<void> {
       /* ignore */
     }
     const url = new URL(window.location.href);
-    url.searchParams.set('repaired', '1');
-    window.location.replace(url.pathname + url.search);
+    window.location.replace(url.pathname || '/');
   }
 }

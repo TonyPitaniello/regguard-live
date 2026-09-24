@@ -13,13 +13,32 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260924-citeable-title';
+const RG_BUILD_ID = 'launch-20260924-clean-url';
+
+/** Internal params that must never linger in the address bar. */
+const VANITY_QUERY_KEYS = ['v', 'forceclear', 'rgbuild', 'source', 'repaired'] as const;
+
+function cleanAddressBar(): void {
+  try {
+    const url = new URL(window.location.href);
+    let changed = false;
+    for (const key of VANITY_QUERY_KEYS) {
+      if (url.searchParams.has(key)) {
+        url.searchParams.delete(key);
+        changed = true;
+      }
+    }
+    if (!changed) return;
+    const q = url.searchParams.toString();
+    window.history.replaceState({}, '', url.pathname + (q ? `?${q}` : '') + url.hash);
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Soft cache refresh on BUILD_ID change — do NOT unregister the service worker.
- * Unregistering kills beforeinstallprompt until a second visit after claim.
- * Critical: never return without mounting if replace would be a same-URL no-op
- * (Arc/Chromium skip navigation → permanent blank #root).
+ * Do NOT put ?v= in the address bar. One session-guarded reload is enough.
  */
 async function migrateStalePwaCaches(): Promise<boolean> {
   let previous = '';
@@ -37,7 +56,6 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
-  // Clear Cache Storage only — leave SW registered so Download stays one-click.
   try {
     if ('caches' in window) {
       const keys = await caches.keys();
@@ -47,16 +65,15 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
-  // Only hard-navigate when the bust query actually changes the URL.
   if (previous) {
+    const reloadKey = `rg_bust_reload_${RG_BUILD_ID}`;
     try {
-      const url = new URL(window.location.href);
-      if (url.searchParams.get('v') === RG_BUILD_ID) {
-        return false;
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, '1');
+        window.location.reload();
+        return true;
       }
-      url.searchParams.set('v', RG_BUILD_ID);
-      window.location.replace(url.toString());
-      return true;
+      sessionStorage.removeItem(reloadKey);
     } catch {
       return false;
     }
@@ -105,13 +122,14 @@ function registerInstallableServiceWorker(): void {
 async function boot() {
   // Capture install prompt as early as possible (before React mounts)
   ensurePwaInstallListener();
+  cleanAddressBar();
 
   // Belt-and-suspenders with index.html: F5 / Cmd+R on any deep page → home
   if (redirectHardRefreshToHome()) return;
 
   const reloading = await migrateStalePwaCaches();
   if (reloading) {
-    // Safety net: if replace was a silent no-op, still mount after a tick.
+    // Safety net: if reload was a silent no-op, still mount after a tick.
     window.setTimeout(() => {
       if (document.getElementById('root')?.childElementCount) return;
       void mountApp();
@@ -123,17 +141,7 @@ async function boot() {
 }
 
 async function mountApp() {
-  // Strip one-time cache-bust query after successful boot
-  try {
-    const url = new URL(window.location.href);
-    if (url.searchParams.has('rgbuild') || url.searchParams.has('forceclear')) {
-      url.searchParams.delete('rgbuild');
-      url.searchParams.delete('forceclear');
-      window.history.replaceState({}, '', url.pathname + (url.search || '') + url.hash);
-    }
-  } catch {
-    /* ignore */
-  }
+  cleanAddressBar();
 
   registerInstallableServiceWorker();
 
