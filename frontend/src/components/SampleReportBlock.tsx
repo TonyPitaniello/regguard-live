@@ -118,9 +118,9 @@ export function SampleOpenButton({
     'inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold text-sm transition disabled:opacity-60';
 
   return (
-    <div className={`w-full sm:w-auto sm:shrink-0 ${className || ''}`}>
+    <div className={`w-full md:w-auto md:shrink-0 ${className || ''}`}>
       <div
-        className="grid grid-cols-2 gap-2 w-full sm:w-[7.5rem]"
+        className="grid grid-cols-2 gap-2 w-full md:w-[7.5rem]"
         role="group"
         aria-label={`${title}: view or download`}
       >
@@ -130,14 +130,14 @@ export function SampleOpenButton({
           aria-label={`View ${title} in Reg Guard`}
           onClick={(e) => void run('view', e)}
           disabled={busy !== null}
-          className={`${btnBase} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300 px-2 sm:px-0`}
+          className={`${btnBase} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300 px-3 md:px-0`}
         >
           {busy === 'view' ? (
             <Loader2 className="w-5 h-5 animate-spin shrink-0" />
           ) : (
             <Eye className="w-5 h-5 shrink-0" strokeWidth={2.25} />
           )}
-          <span className="sm:hidden">View</span>
+          <span className="md:hidden">View</span>
         </button>
         <button
           type="button"
@@ -145,17 +145,17 @@ export function SampleOpenButton({
           aria-label={`Download ${title}`}
           onClick={(e) => void run('download', e)}
           disabled={busy !== null}
-          className={`${btnBase} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20 px-2 sm:px-0`}
+          className={`${btnBase} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20 px-3 md:px-0`}
         >
           {busy === 'download' ? (
             <Loader2 className="w-5 h-5 animate-spin shrink-0" />
           ) : (
             <Download className="w-5 h-5 shrink-0" strokeWidth={2.25} />
           )}
-          <span className="sm:hidden">Save</span>
+          <span className="md:hidden">Save</span>
         </button>
       </div>
-      {err ? <p className="text-amber-200 text-xs mt-1 text-center sm:text-left">{err}</p> : null}
+      {err ? <p className="text-amber-200 text-xs mt-1 text-center md:text-left">{err}</p> : null}
     </div>
   );
 }
@@ -175,21 +175,21 @@ function SampleRow({
 }) {
   return (
     <div
-      className={`flex flex-col gap-3 rounded-xl border p-3.5 sm:p-4 sm:flex-row sm:items-center sm:gap-4 ${
+      className={`flex flex-col gap-3 rounded-xl border p-3.5 md:p-4 md:flex-row md:items-center md:gap-4 ${
         highlight
           ? 'border-emerald-500/35 bg-emerald-500/10'
           : 'border-[rgba(61,79,143,0.4)] bg-[rgba(10,20,41,0.85)]'
       }`}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-white font-bold text-[15px] sm:text-base leading-snug break-words">
+        <p className="text-white font-bold text-[15px] md:text-base leading-snug break-words">
           {title}
         </p>
         {price ? (
           <p className="text-emerald-300 font-semibold text-sm mt-0.5">{price}</p>
         ) : null}
         {subtitle ? (
-          <p className="text-[#b8c1d1] text-xs sm:text-sm mt-1 leading-relaxed break-words">
+          <p className="text-[#b8c1d1] text-xs md:text-sm mt-1 leading-relaxed break-words">
             {subtitle}
           </p>
         ) : null}
@@ -225,7 +225,7 @@ export function SampleReportBlock({
         Fort Worth Development Services cites. Planning aid only — not a quote or sealed bid.
       </p>
 
-      <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] px-3 py-3 mb-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] px-3 py-3 mb-3 md:flex-row md:flex-wrap md:items-center md:gap-x-5 md:gap-y-2">
         <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
             <Eye className="w-4 h-4" strokeWidth={2.25} />
@@ -240,7 +240,7 @@ export function SampleReportBlock({
         </span>
       </div>
 
-      <div className="space-y-2.5 sm:space-y-3">
+      <div className="space-y-2.5 md:space-y-3">
         {SAMPLE_ROWS.map((row) => (
           <SampleRow
             key={row.href}
