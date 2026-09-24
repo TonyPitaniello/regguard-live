@@ -736,3 +736,76 @@ select {
   color: #ffffff;
   font-weight: 600;
 }
+
+/* ========== DOCUMENT PREVIEWS (white paper on dark shell) ==========
+   Global rules above force light text for the dark app chrome. White
+   DOCX / XLSX / CSV surfaces must override those for readability. */
+.rg-doc-surface {
+  color: #0f172a !important;
+  background: #ffffff;
+}
+
+.rg-doc-surface .rg-doc-eyebrow {
+  color: #047857 !important;
+}
+
+.rg-doc-surface .rg-doc-title,
+.rg-doc-surface .rg-docx-preview,
+.rg-doc-surface .rg-docx-preview p,
+.rg-doc-surface .rg-docx-preview li,
+.rg-doc-surface .rg-docx-preview span,
+.rg-doc-surface .rg-docx-preview td,
+.rg-doc-surface .rg-docx-preview th,
+.rg-doc-surface .rg-docx-preview strong,
+.rg-doc-surface .rg-docx-preview em,
+.rg-doc-surface .rg-docx-preview h1,
+.rg-doc-surface .rg-docx-preview h2,
+.rg-doc-surface .rg-docx-preview h3,
+.rg-doc-surface .rg-docx-preview h4,
+.rg-doc-surface .rg-docx-preview h5,
+.rg-doc-surface .rg-docx-preview h6,
+.rg-doc-surface h1,
+.rg-doc-surface h2,
+.rg-doc-surface h3,
+.rg-doc-surface h4,
+.rg-doc-surface p,
+.rg-doc-surface td,
+.rg-doc-surface th,
+.rg-doc-surface li,
+.rg-doc-surface label {
+  color: #0f172a !important;
+}
+
+.rg-doc-surface .rg-doc-muted {
+  color: #64748b !important;
+}
+
+.rg-doc-surface a {
+  color: #047857 !important;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.rg-doc-surface a:hover {
+  color: #065f46 !important;
+}
+
+.rg-doc-surface .rg-sheet-th {
+  color: #ffffff !important;
+}
+
+.rg-doc-surface .rg-sheet-td {
+  color: #1e293b !important;
+}
+
+.rg-doc-surface button.rg-sheet-tab {
+  color: #334155 !important;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.rg-doc-surface button.rg-sheet-tab-active {
+  color: #ffffff !important;
+  background: #059669;
+  border-color: #059669;
+}

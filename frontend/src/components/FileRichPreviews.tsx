@@ -58,15 +58,15 @@ function SheetDocument({
 
   return (
     <div className="min-h-full bg-[#e8edf5] px-3 py-6 sm:px-6">
-      <article className="mx-auto max-w-6xl bg-white text-slate-900 shadow-xl rounded-sm border border-slate-200 overflow-hidden">
+      <article className="rg-doc-surface mx-auto max-w-6xl bg-white shadow-xl rounded-sm border border-slate-200 overflow-hidden">
         <header className="border-b border-slate-200 px-5 py-4 sm:px-8 bg-gradient-to-r from-slate-50 to-white">
-          <p className="text-[11px] font-bold tracking-wide text-emerald-700 uppercase">
+          <p className="rg-doc-eyebrow text-[11px] font-bold tracking-wide uppercase">
             Reg Guard · IC Diligence Bundle
           </p>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 leading-tight">
+          <h1 className="rg-doc-title text-xl sm:text-2xl font-black mt-1 leading-tight">
             {title}
           </h1>
-          <p className="text-xs text-slate-500 mt-1">
+          <p className="rg-doc-muted text-xs mt-1">
             Finished workbook preview — planning aid, not a sealed bid or AHJ filing.
           </p>
         </header>
@@ -77,10 +77,8 @@ function SheetDocument({
                 key={s.name}
                 type="button"
                 onClick={() => onSelect(i)}
-                className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-semibold min-h-[36px] ${
-                  i === active
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:border-emerald-400'
+                className={`rg-sheet-tab shrink-0 px-3 py-1.5 rounded-md text-xs font-semibold min-h-[36px] ${
+                  i === active ? 'rg-sheet-tab-active' : ''
                 }`}
               >
                 {s.name}
@@ -90,12 +88,12 @@ function SheetDocument({
         ) : null}
         <div className="overflow-auto max-h-[75vh]">
           <table className="w-full text-left text-xs sm:text-sm border-collapse">
-            <thead className="sticky top-0 z-10 bg-slate-800 text-white">
+            <thead className="sticky top-0 z-10 bg-slate-800">
               <tr>
                 {header.map((cell, i) => (
                   <th
                     key={`h-${i}`}
-                    className="px-3 py-2.5 font-bold whitespace-nowrap border-r border-slate-700 last:border-r-0"
+                    className="rg-sheet-th px-3 py-2.5 font-bold whitespace-nowrap border-r border-slate-700 last:border-r-0"
                   >
                     {cell || `Col ${i + 1}`}
                   </th>
@@ -111,7 +109,7 @@ function SheetDocument({
                   {header.map((_, ci) => (
                     <td
                       key={`c-${ri}-${ci}`}
-                      className="px-3 py-2 align-top border-b border-slate-100 text-slate-800 max-w-[280px] break-words"
+                      className="rg-sheet-td px-3 py-2 align-top border-b border-slate-100 max-w-[280px] break-words"
                     >
                       {row[ci] ?? ''}
                     </td>
@@ -121,7 +119,7 @@ function SheetDocument({
             </tbody>
           </table>
         </div>
-        <footer className="px-5 py-3 border-t border-slate-200 text-[11px] text-slate-500 bg-slate-50">
+        <footer className="rg-doc-muted px-5 py-3 border-t border-slate-200 text-[11px] bg-slate-50">
           {body.length} data row{body.length === 1 ? '' : 's'}
           {sheets.length > 1 ? ` · sheet “${sheet.name}”` : ''}
         </footer>
@@ -168,20 +166,19 @@ export function DocxPreview({ blobUrl, filename }: { blobUrl: string; filename: 
 
   return (
     <div className="min-h-full bg-[#e8edf5] px-3 py-6 sm:px-6 overflow-auto">
-      <article className="mx-auto max-w-3xl bg-white text-slate-900 shadow-xl rounded-sm border border-slate-200 px-6 py-8 sm:px-10 sm:py-10">
-        <p className="text-[11px] font-bold tracking-wide text-emerald-700 uppercase mb-2">
+      <article className="rg-doc-surface mx-auto max-w-3xl bg-white shadow-xl rounded-sm border border-slate-200 px-6 py-8 sm:px-10 sm:py-10">
+        <p className="rg-doc-eyebrow text-[11px] font-bold tracking-wide uppercase mb-2">
           Reg Guard · Counsel DOCX Preview
         </p>
-        <h1 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 leading-tight">
+        <h1 className="rg-doc-title text-xl sm:text-2xl font-black mb-6 leading-tight">
           {humanTitle(filename)}
         </h1>
         <div
-          className="rg-docx-preview prose prose-slate max-w-none text-[15px] leading-relaxed
+          className="rg-docx-preview text-[15px] leading-relaxed
             [&_h1]:text-2xl [&_h1]:font-black [&_h1]:mt-6 [&_h1]:mb-3
             [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-5 [&_h2]:mb-2
             [&_h3]:text-lg [&_h3]:font-bold [&_h3]:mt-4 [&_h3]:mb-2
             [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
-            [&_a]:text-emerald-700 [&_a]:underline
             [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-slate-200 [&_td]:px-2 [&_td]:py-1
             [&_th]:border [&_th]:border-slate-300 [&_th]:bg-slate-100 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left"
           dangerouslySetInnerHTML={{ __html: html }}
