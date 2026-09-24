@@ -1,17 +1,24 @@
 /**
- * Sample of the on-screen results panel after address entry:
- * Site Diligence Results (includes Executive Summary).
+ * Sample of the on-screen results panel after address entry.
+ * ?tier=free|partner|pro shows progressive unlock + blur ladder.
  */
 
-import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import ResultsViewerModal, { type AnalysisData } from '../components/ResultsViewerModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
+import {
+  analysisForSampleDemo,
+  parseSampleDemoTier,
+  sampleDemoLabel,
+} from '../sampleDemoTier';
 
 export default function SampleSiteDiligencePage() {
   const navigate = useNavigate();
-  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [params] = useSearchParams();
+  const demoTier = parseSampleDemoTier(params.get('tier'));
+  const [base, setBase] = useState<AnalysisData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -24,7 +31,7 @@ export default function SampleSiteDiligencePage() {
       })
       .then((data) => {
         if (cancelled) return;
-        setAnalysis(data);
+        setBase(data);
         setLoading(false);
       })
       .catch((err) => {
@@ -36,6 +43,11 @@ export default function SampleSiteDiligencePage() {
       cancelled = true;
     };
   }, []);
+
+  const analysis = useMemo(
+    () => (base ? analysisForSampleDemo(base, demoTier) : null),
+    [base, demoTier]
+  );
 
   if (loading) {
     return (
@@ -78,9 +90,14 @@ export default function SampleSiteDiligencePage() {
           Jump to Executive summary
         </a>
       </div>
-      <p className="max-w-5xl mx-auto mb-3 text-xs font-bold uppercase tracking-wider text-amber-300">
+      <p className="max-w-5xl mx-auto mb-2 text-xs font-bold uppercase tracking-wider text-amber-300">
         Labeled SAMPLE — same panel you get after entering an address
       </p>
+      {demoTier ? (
+        <p className="max-w-5xl mx-auto mb-3 text-sm font-semibold text-emerald-200">
+          {sampleDemoLabel(demoTier)}
+        </p>
+      ) : null}
       <div className="max-w-5xl mx-auto">
         <ErrorBoundary>
           <ResultsViewerModal
@@ -88,6 +105,7 @@ export default function SampleSiteDiligencePage() {
             onClose={() => navigate('/#sample-report')}
             analysis={analysis}
             researchId={analysis.research_id || 'rg-sample-chapin-fw'}
+            demoTier={demoTier}
           />
         </ErrorBoundary>
       </div>

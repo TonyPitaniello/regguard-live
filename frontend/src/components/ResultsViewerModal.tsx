@@ -63,6 +63,8 @@ export interface AnalysisData {
   depth_claim_note?: string;
   depth_claim_honest?: boolean;
   research_incomplete?: boolean;
+  /** Labeled sample ladder: free | partner | pro — drives blur / unlock in ResultsViewerModal */
+  sample_demo_tier?: 'free' | 'partner' | 'pro' | string;
   scout_mode?: string;
   scout_locality_depth?: string;
   ultralocal_scout?: { enabled?: boolean; hit_count?: number } | null;
@@ -522,6 +524,11 @@ interface ResultsViewerModalProps {
   entitlementTiers?: string[];
   /** IC purchased but PDFs not ready yet — show generate, not buy */
   icReportPending?: boolean;
+  /**
+   * Labeled sample ladder override — Free (blur), Estimator (partial), Pro (full desk).
+   * When set, gating ignores share-unlock and paid entitlements.
+   */
+  demoTier?: 'free' | 'partner' | 'pro' | null;
 }
 
 /** Canonical shareable report link for social + clipboard + PDF/email CTAs. Never homepage. */
@@ -854,6 +861,7 @@ export default function ResultsViewerModal({
   unlockLoading = false,
   entitlementTiers = [],
   icReportPending = false,
+  demoTier = null,
 }: ResultsViewerModalProps) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState({
@@ -1097,11 +1105,33 @@ export default function ResultsViewerModal({
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
-  // Soft-lock: free sees limited lines unless they shared OR paid deep research
-  const softLocked = !isDeep && !shareUnlocked;
-  const punchVisible = softLocked ? FREE_PUNCH_VISIBLE : 50;
-  const findingsVisible = softLocked ? FREE_FINDINGS_VISIBLE : 12;
-  const ownedTierSet = new Set(
+  const DEMO_FREE_PUNCH = 3;
+  const DEMO_PARTNER_PUNCH = 8;
+  // Soft-lock: free sees limited lines unless they shared OR paid deep research.
+  // Sample demos force Free → Estimator → Pro (ignore share unlock).
+  const softLocked =
+    demoTier === 'free'
+      ? true
+      : demoTier === 'partner' || demoTier === 'pro'
+        ? false
+        : !isDeep && !shareUnlocked;
+  const punchVisible =
+    demoTier === 'free'
+      ? DEMO_FREE_PUNCH
+      : demoTier === 'partner'
+        ? DEMO_PARTNER_PUNCH
+        : softLocked
+          ? FREE_PUNCH_VISIBLE
+          : 50;
+  const findingsVisible =
+    demoTier === 'free'
+      ? FREE_FINDINGS_VISIBLE
+      : demoTier === 'partner'
+        ? 8
+        : softLocked
+          ? FREE_FINDINGS_VISIBLE
+          : 12;
+  const ownedTiersSet = new Set(
     (entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
   const hasIcTierOnFile = [
@@ -1109,36 +1139,51 @@ export default function ResultsViewerModal({
     'ic_consultant',
     'ic_annual',
     'sponsor',
-  ].some((t) => ownedTierSet.has(t));
+  ].some((t) => ownedTiersSet.has(t));
   // Download ONLY after a completed IC-depth run — never for Instant Preview / free
-  const allowIcPackageDownload = isIcDepth && !incompleteRun;
+  const allowIcPackageDownload =
+    demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
+      ? false
+      : isIcDepth && !incompleteRun;
   const icPdfsReady =
     allowIcPackageDownload &&
     (Boolean(view.ic_pdfs_ready) ||
       (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1'));
-  // Unused site credit → generate CTA; completed IC depth → treat as owned for this result
   const ownsIc = allowIcPackageDownload;
   const canGenerateIcForSite = Boolean(icReportPending) && !allowIcPackageDownload;
   const ownsPro =
-    ownsIc ||
-    hasIcTierOnFile ||
-    ownedTierSet.has('contractor_pro') ||
-    (isDeep && !incompleteRun && depthTier !== 'free');
-  const ownsPartner = ownsPro || ownedTierSet.has('partner');
+    demoTier === 'pro'
+      ? true
+      : demoTier === 'free' || demoTier === 'partner'
+        ? false
+        : ownsIc ||
+          hasIcTierOnFile ||
+          ownedTiersSet.has('contractor_pro') ||
+          (isDeep && !incompleteRun && depthTier !== 'free');
+  const ownsPartner =
+    demoTier === 'partner' || demoTier === 'pro'
+      ? true
+      : demoTier === 'free'
+        ? false
+        : ownsPro || ownedTiersSet.has('partner');
   /** Premortem F9: CSV / city pack / bid packet are Pro desk — not Free or $79 */
   const sessionTier =
     typeof window !== 'undefined'
       ? (sessionStorage.getItem('regguardTier') || '').toLowerCase()
       : '';
   const allowProDeskDownloads =
-    allowIcPackageDownload ||
-    ownedTierSet.has('contractor_pro') ||
-    sessionTier.includes('contractor_pro') ||
-    (depthTier === 'ic_full' && !incompleteRun) ||
-    ((depthTier === 'pro_local' ||
-      depthTier === 'pro_light' ||
-      depthTier === 'pro_partial') &&
-      (ownedTierSet.has('contractor_pro') || sessionTier.includes('contractor_pro')));
+    demoTier === 'pro'
+      ? true
+      : demoTier === 'free' || demoTier === 'partner'
+        ? false
+        : allowIcPackageDownload ||
+          ownedTiersSet.has('contractor_pro') ||
+          sessionTier.includes('contractor_pro') ||
+          (depthTier === 'ic_full' && !incompleteRun) ||
+          ((depthTier === 'pro_local' ||
+            depthTier === 'pro_light' ||
+            depthTier === 'pro_partial') &&
+            (ownedTiersSet.has('contractor_pro') || sessionTier.includes('contractor_pro')));
 
   const requireProDesk = (artifact: ProDeskArtifact): boolean => {
     if (allowProDeskDownloads) return true;
@@ -2416,6 +2461,17 @@ export default function ResultsViewerModal({
           </div>
         </div>
 
+        {demoTier ? (
+          <div className="px-5 sm:px-8 py-3 border-b border-emerald-500/30 bg-emerald-500/10">
+            <p className="text-sm font-bold text-emerald-100">
+              {demoTier === 'free'
+                ? 'SAMPLE Free Lookups — fewest lines · locked sections blurred'
+                : demoTier === 'partner'
+                  ? 'SAMPLE Estimator / Permit Runner — more unlocked · Pro desk still locked'
+                  : 'SAMPLE Contractor Pro — full Pro desk unlocked'}
+            </p>
+          </div>
+        ) : null}
         {/* Stay-oriented: jump without losing this results session */}
         <div className="px-5 sm:px-8 py-2 border-b border-slate-700/60 bg-slate-950/80 flex flex-wrap gap-2 text-xs sm:text-sm">
           <button
@@ -3336,40 +3392,98 @@ export default function ResultsViewerModal({
                     );
                   });
                 })()}
-                {softLocked && (view.punch_list?.punch_list || []).length > FREE_PUNCH_VISIBLE && (
-                  <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
-                    <p className="text-sm text-purple-100 mb-3">
-                      {(view.punch_list?.punch_list || []).length - FREE_PUNCH_VISIBLE} more punch
-                      lines locked — forward the Bid Risk Receipt or upgrade to unlock.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                      <button
-                        type="button"
-                        onClick={() => void downloadBidReceipt()}
-                        disabled={packetLoading}
-                        className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
-                      >
-                        {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void copyShareText('text')}
-                        className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
-                      >
-                        Copy receipt text
-                      </button>
-                      {!alreadyOwnsCheckout('partner') && (
-                        <button
-                          type="button"
-                          onClick={() => goCheckout('partner')}
-                          className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
+                {softLocked && (view.punch_list?.punch_list || []).length > punchVisible && (
+                  <div className="space-y-2">
+                    {(view.punch_list?.punch_list || [])
+                      .slice(punchVisible, punchVisible + 3)
+                      .map((item, idx) => (
+                        <div
+                          key={`blur-punch-${idx}`}
+                          className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-slate-800/40 p-3 select-none"
+                          aria-hidden
                         >
-                          Estimator / Permit Runner — $79/mo
-                        </button>
+                          <div className="blur-sm opacity-70 pointer-events-none">
+                            <p className="text-white text-sm font-semibold">{item.task}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {item.timeline} • {item.responsible_party || 'Owner'}
+                            </p>
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
+                              Locked
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
+                      <p className="text-sm text-purple-100 mb-3">
+                        {(view.punch_list?.punch_list || []).length - punchVisible} more punch
+                        lines locked — forward the Bid Risk Receipt or upgrade to unlock.
+                      </p>
+                      {demoTier ? (
+                        <p className="text-xs text-purple-200/90">
+                          SAMPLE — Free shows the least. Estimator unlocks more. Pro unlocks the desk.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                          <button
+                            type="button"
+                            onClick={() => void downloadBidReceipt()}
+                            disabled={packetLoading}
+                            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
+                          >
+                            {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void copyShareText('text')}
+                            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+                          >
+                            Copy receipt text
+                          </button>
+                          {!alreadyOwnsCheckout('partner') && (
+                            <button
+                              type="button"
+                              onClick={() => goCheckout('partner')}
+                              className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
+                            >
+                              Estimator / Permit Runner — $79/mo
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </div>
                 )}
+                {!softLocked &&
+                  demoTier === 'partner' &&
+                  (view.punch_list?.punch_list || []).length > punchVisible && (
+                    <div className="space-y-2 mt-2">
+                      {(view.punch_list?.punch_list || [])
+                        .slice(punchVisible, punchVisible + 2)
+                        .map((item, idx) => (
+                          <div
+                            key={`blur-partner-${idx}`}
+                            className="relative overflow-hidden rounded-lg border border-amber-500/30 bg-slate-800/40 p-3 select-none"
+                            aria-hidden
+                          >
+                            <div className="blur-sm opacity-70 pointer-events-none">
+                              <p className="text-white text-sm font-semibold">{item.task}</p>
+                              <p className="text-xs text-gray-400 mt-1">Pro desk line…</p>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                              <span className="text-[11px] font-bold uppercase tracking-wide text-amber-100 px-2 py-1 rounded bg-amber-600/40 border border-amber-400/40">
+                                Contractor Pro
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      <p className="text-xs text-amber-100/90 text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
+                        SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on
+                        Contractor Pro.
+                      </p>
+                    </div>
+                  )}
               </div>
             )}
           </section>
