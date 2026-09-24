@@ -1,4 +1,5 @@
 import { createRoot } from 'react-dom/client';
+import { registerSW } from 'virtual:pwa-register';
 
 import { AppRouter } from './AppRouter';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -12,11 +13,10 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260923-blank-fix';
+const RG_BUILD_ID = 'launch-20260924-oneclick-download';
 
 /**
  * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.
- * Do NOT re-register a service worker while Arc is holding stale shells.
  * Critical: never return without mounting if replace would be a same-URL no-op
  * (Arc/Chromium skip navigation → permanent blank #root).
  */
@@ -86,6 +86,25 @@ function redirectHardRefreshToHome(): boolean {
   }
 }
 
+function registerInstallableServiceWorker(): void {
+  try {
+    // NetworkOnly navigations in workbox + autoUpdate keep installability without
+    // serving stale JS shells. Required for Chrome/Edge beforeinstallprompt.
+    registerSW({
+      immediate: true,
+      onRegisteredSW(_url, registration) {
+        try {
+          void registration?.update();
+        } catch {
+          /* ignore */
+        }
+      },
+    });
+  } catch (err) {
+    console.warn('[Reg Guard] PWA register failed (install still available via browser menu)', err);
+  }
+}
+
 async function boot() {
   // Capture install prompt as early as possible (before React mounts)
   ensurePwaInstallListener();
@@ -119,15 +138,7 @@ async function mountApp() {
     /* ignore */
   }
 
-  // SW disabled (selfDestroying) until Arc cache poison is fully cleared.
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-  } catch {
-    /* ignore */
-  }
+  registerInstallableServiceWorker();
 
   const rootEl = document.getElementById('root');
   if (!rootEl) return;

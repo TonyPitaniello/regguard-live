@@ -106,6 +106,44 @@ export async function promptPwaInstall(): Promise<'accepted' | 'dismissed' | 'un
   }
 }
 
+export type OneClickInstallResult =
+  | 'accepted'
+  | 'dismissed'
+  | 'ios_share'
+  | 'ios_help'
+  | 'already_installed'
+  | 'unavailable';
+
+/**
+ * One-tap Download: native Chromium install prompt when available;
+ * iOS opens Share (or the Home Screen help sheet). Never required to visit /install first.
+ */
+export async function oneClickInstallApp(): Promise<OneClickInstallResult> {
+  ensurePwaInstallListener();
+  if (isStandaloneApp()) return 'already_installed';
+
+  const native = await promptPwaInstall();
+  if (native === 'accepted') return 'accepted';
+  if (native === 'dismissed') return 'dismissed';
+
+  if (isIosDevice()) {
+    // Dynamic import avoids circular deps with IosInstantInstall ↔ pwaInstall
+    try {
+      const { openIosShareSheet, showIosInstallInstructions } = await import(
+        './components/IosInstantInstall'
+      );
+      const share = await openIosShareSheet();
+      if (share === 'shared' || share === 'cancelled') return 'ios_share';
+      showIosInstallInstructions();
+      return 'ios_help';
+    } catch {
+      return 'unavailable';
+    }
+  }
+
+  return 'unavailable';
+}
+
 export type LaunchAppMode =
   | 'standalone'
   | 'prompt'

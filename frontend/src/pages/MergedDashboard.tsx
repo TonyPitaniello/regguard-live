@@ -9,8 +9,7 @@ import FreeTrialForm from '../components/FreeTrialForm';
 import { SampleReportBlock } from '../components/SampleReportBlock';
 import { backendUrl } from '../env';
 import { SeoHead } from '../SeoHead';
-import { isIosDevice, isStandaloneApp } from '../pwaInstall';
-import { showIosInstallInstructions } from '../components/IosInstantInstall';
+import { isStandaloneApp, oneClickInstallApp } from '../pwaInstall';
 import { BRAND_LOCKUP, BRAND_PROSE, PRODUCT_COPY } from '../productCopy';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
@@ -18,6 +17,7 @@ import { HABIT_TIERS } from '../habitDeliverableLadder';
 export function PlatformDashboard() {
   const navigate = useNavigate();
   const [forwards, setForwards] = useState<number | null>(null);
+  const [downloadHint, setDownloadHint] = useState('');
 
   useEffect(() => {
     void fetch(backendUrl('/stats/forwards'))
@@ -33,11 +33,27 @@ export function PlatformDashboard() {
   };
 
   const handleGetApp = () => {
-    if (isIosDevice() && !isStandaloneApp()) {
-      showIosInstallInstructions();
-      return;
-    }
-    navigate('/install');
+    void (async () => {
+      if (isStandaloneApp()) {
+        setDownloadHint('Reg Guard is already installed on this device.');
+        return;
+      }
+      const result = await oneClickInstallApp();
+      if (result === 'accepted' || result === 'already_installed') {
+        setDownloadHint('Installed — open Reg Guard from your home screen.');
+        return;
+      }
+      if (result === 'dismissed' || result === 'ios_share' || result === 'ios_help') {
+        return;
+      }
+      // Chromium without deferred prompt yet — brief wait then retry, else install page
+      window.setTimeout(() => {
+        void oneClickInstallApp().then((second) => {
+          if (second === 'accepted') return;
+          if (second === 'unavailable') navigate('/install');
+        });
+      }, 600);
+    })();
   };
 
   return (
@@ -54,7 +70,7 @@ export function PlatformDashboard() {
             <button
               type="button"
               onClick={handleGetApp}
-              className="sm:hidden text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
+              className="text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
             >
               Download
             </button>
@@ -89,6 +105,11 @@ export function PlatformDashboard() {
           </div>
         </div>
       </header>
+      {downloadHint ? (
+        <p className="text-center text-emerald-200 text-xs py-2 bg-emerald-500/10 border-b border-emerald-500/20">
+          {downloadHint}
+        </p>
+      ) : null}
 
       <section className="px-4 pt-10 pb-4 sm:px-6 lg:px-8 sm:pt-14">
         <div className="max-w-2xl mx-auto text-center">

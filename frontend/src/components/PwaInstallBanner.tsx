@@ -12,7 +12,7 @@ import {
   isIosDevice,
   isMobileViewport,
   isStandaloneApp,
-  promptPwaInstall,
+  oneClickInstallApp,
   subscribePwaInstall,
 } from '../pwaInstall';
 
@@ -60,9 +60,12 @@ export default function PwaInstallBanner() {
   };
 
   const install = async () => {
-    const outcome = await promptPwaInstall();
-    if (outcome === 'accepted') {
+    const outcome = await oneClickInstallApp();
+    if (outcome === 'accepted' || outcome === 'already_installed') {
       dismiss();
+      return;
+    }
+    if (outcome === 'dismissed' || outcome === 'ios_share' || outcome === 'ios_help') {
       return;
     }
     window.location.assign('/install');
@@ -91,8 +94,8 @@ export default function PwaInstallBanner() {
           <p className="text-sm font-bold text-white">Launch Reg Guard as an app</p>
           <p className="mt-0.5 text-xs text-gray-400">
             {canPrompt
-              ? 'Install for one-tap Bid Risk Receipts — works offline for recent pages.'
-              : 'On iPhone: tap Show install steps, then Share → Add to Home Screen.'}
+              ? 'One tap installs Reg Guard to your home screen.'
+              : 'Tap Download — Chrome installs in one step; iPhone opens Share → Add to Home Screen.'}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
             {canPrompt ? (
@@ -101,15 +104,16 @@ export default function PwaInstallBanner() {
                 onClick={() => void install()}
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 min-h-[44px]"
               >
-                Launch app
+                Download
               </button>
             ) : (
-              <a
-                href="/install"
+              <button
+                type="button"
+                onClick={() => void install()}
                 className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-500 min-h-[44px] inline-flex items-center"
               >
-                Show install steps
-              </a>
+                Download
+              </button>
             )}
             <button
               type="button"

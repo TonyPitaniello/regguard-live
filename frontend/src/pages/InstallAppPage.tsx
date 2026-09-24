@@ -1,5 +1,5 @@
 /**
- * Install page — iPhone: one-tap Download opens Share → Add to Home Screen.
+ * Install page — one-tap Download triggers native install (Chrome) or iOS Share.
  */
 import { useEffect, useState } from 'react';
 import { Download, Smartphone, Share, PlusSquare } from 'lucide-react';
@@ -8,7 +8,7 @@ import {
   getLaunchAppMode,
   isIosDevice,
   isStandaloneApp,
-  promptPwaInstall,
+  oneClickInstallApp,
   repairPwaInstall,
   subscribePwaInstall,
 } from '../pwaInstall';
@@ -33,20 +33,30 @@ export default function InstallAppPage() {
   useEffect(() => {
     if (isStandaloneApp()) {
       setStatus('Reg Guard is already running as an app on this device.');
+      return;
     }
+    // Auto one-click when Chromium already has a deferred prompt
+    if (getDeferredInstallPrompt()) {
+      void tryNativeInstall();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tryNativeInstall = async () => {
     setBusy(true);
-    setStatus('Checking install…');
-    const outcome = await promptPwaInstall();
+    setStatus('Opening install…');
+    const outcome = await oneClickInstallApp();
     setBusy(false);
-    if (outcome === 'accepted') {
+    if (outcome === 'accepted' || outcome === 'already_installed') {
       setStatus('Installed. Open Reg Guard from your home screen.');
       return;
     }
     if (outcome === 'dismissed') {
-      setStatus('Install was dismissed. You can still add it from the browser menu.');
+      setStatus('Install was dismissed. Tap Download to try again.');
+      return;
+    }
+    if (outcome === 'ios_share' || outcome === 'ios_help') {
+      setStatus('Next: tap Add to Home Screen, then Add.');
       return;
     }
     setStatus('Use your browser menu → Install app / Add to Home screen.');
@@ -82,7 +92,7 @@ export default function InstallAppPage() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-white">Download Reg Guard</h1>
-            <p className="text-sm text-slate-400">One tap on iPhone Safari</p>
+            <p className="text-sm text-slate-400">One tap opens Share on iPhone Safari</p>
           </div>
         </div>
 
@@ -156,7 +166,7 @@ export default function InstallAppPage() {
         </div>
         <div>
           <h1 className="text-2xl font-black text-white">Download Reg Guard</h1>
-          <p className="text-sm text-slate-400">Install to your home screen</p>
+          <p className="text-sm text-slate-400">One tap installs to your home screen</p>
         </div>
       </div>
 
@@ -166,29 +176,25 @@ export default function InstallAppPage() {
         </p>
       ) : null}
 
-      {(canPrompt || mode === 'prompt') && (
+      {!isStandaloneApp() && (
         <button
           type="button"
           onClick={() => void tryNativeInstall()}
-          className="mb-4 w-full min-h-[52px] rounded-xl bg-emerald-600 px-4 py-3 text-base font-bold text-white hover:bg-emerald-500"
+          disabled={busy}
+          className="mb-4 w-full min-h-[56px] rounded-xl bg-emerald-600 px-4 py-3 text-lg font-bold text-white hover:bg-emerald-500 inline-flex items-center justify-center gap-2"
         >
-          Download Reg Guard
+          <Download className="h-5 w-5" />
+          {busy ? 'Opening…' : canPrompt || mode === 'prompt' ? 'Download Reg Guard' : 'Download Reg Guard'}
         </button>
       )}
 
-      <ol className="mb-6 list-decimal space-y-3 pl-5 text-[15px] leading-relaxed text-slate-300">
-        <li>
-          Open the browser menu (<strong className="text-emerald-300">⋮</strong> or{' '}
-          <strong className="text-emerald-300">⋯</strong>).
-        </li>
-        <li>
-          Tap <strong className="text-emerald-300">Install app</strong> or{' '}
+      {!canPrompt && !isStandaloneApp() ? (
+        <p className="mb-4 text-sm text-slate-400 leading-relaxed">
+          If the install dialog does not appear, use the browser menu →{' '}
+          <strong className="text-emerald-300">Install app</strong> /{' '}
           <strong className="text-emerald-300">Add to Home screen</strong>.
-        </li>
-        <li>
-          Open <strong className="text-emerald-300">Reg Guard</strong> from your home screen.
-        </li>
-      </ol>
+        </p>
+      ) : null}
 
       <button
         type="button"

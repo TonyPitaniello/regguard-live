@@ -20,6 +20,7 @@ import {
   getLaunchAppMode,
   isIosDevice,
   isStandaloneApp,
+  oneClickInstallApp,
   subscribePwaInstall,
 } from './pwaInstall';
 import { instantIosInstall, showIosInstallInstructions } from './components/IosInstantInstall';
@@ -153,13 +154,30 @@ export function PlatformLayout({
   };
 
   const handleGetApp = (e: MouseEvent) => {
+    e.preventDefault();
     setMobileMenuOpen(false);
-    if (isIosDevice() && !isStandaloneApp()) {
-      e.preventDefault();
-      showIosInstallInstructions();
-      void instantIosInstall();
-      return;
-    }
+    void (async () => {
+      const result = await oneClickInstallApp();
+      if (result === 'accepted' || result === 'already_installed' || result === 'dismissed') {
+        return;
+      }
+      if (result === 'ios_share' || result === 'ios_help') {
+        return;
+      }
+      // Prompt not ready yet — wait briefly for SW + beforeinstallprompt, then retry
+      window.setTimeout(() => {
+        void oneClickInstallApp().then((second) => {
+          if (second === 'unavailable') {
+            if (isIosDevice() && !isStandaloneApp()) {
+              showIosInstallInstructions();
+              void instantIosInstall();
+              return;
+            }
+            navigate('/install');
+          }
+        });
+      }, 700);
+    })();
   };
 
   const routesByCategory = PLATFORM_ROUTES.reduce(
@@ -188,13 +206,13 @@ export function PlatformLayout({
         </button>
         <span className="mobile-menu-brand">Reg Guard</span>
         {showGetApp && (
-          <Link
-            to="/install"
+          <button
+            type="button"
             className="mobile-get-app"
             onClick={handleGetApp}
           >
             Download
-          </Link>
+          </button>
         )}
       </div>
 
@@ -262,8 +280,8 @@ export function PlatformLayout({
 
             <div className="nav-section">
               <div className="nav-section-title">App</div>
-              <Link
-                to="/install"
+              <button
+                type="button"
                 className={`nav-item ${isActive('/install') ? 'active' : ''}`}
                 title="Download Reg Guard to your Home Screen"
                 onClick={handleGetApp}
@@ -274,7 +292,7 @@ export function PlatformLayout({
                     {showGetApp ? 'Download app' : 'App help'}
                   </span>
                 )}
-              </Link>
+              </button>
             </div>
           </nav>
 
