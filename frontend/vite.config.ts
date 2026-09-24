@@ -47,9 +47,9 @@ export default defineConfig({
         name: 'Reg Guard',
         short_name: 'Reg Guard',
         description:
-          'Bid Risk Receipts and pre-bid diligence for contractors — federal, state, and local.',
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
+          'Citeable site diligence before you bid — forwardable Bid Risk Receipt. Source on every line, or an honest Unverified.',
+        theme_color: '#0b1220',
+        background_color: '#0b1220',
         display: 'standalone',
         display_override: ['standalone', 'minimal-ui'],
         orientation: 'any',
@@ -82,6 +82,9 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Claim clients immediately so Chrome can fire beforeinstallprompt on first visit.
+        clientsClaim: true,
+        skipWaiting: true,
         // Do NOT precache hashed JS/CSS — stale shells blank the home-screen app after deploys.
         // Keep a SW with fetch handlers (installability) but always prefer network.
         globPatterns: ['icons/*.{png,ico}', 'manifest.webmanifest'],

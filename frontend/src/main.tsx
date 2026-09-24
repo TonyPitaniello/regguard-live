@@ -13,10 +13,11 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260924-download-onepush';
+const RG_BUILD_ID = 'launch-20260924-download-works';
 
 /**
- * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.
+ * Soft cache refresh on BUILD_ID change — do NOT unregister the service worker.
+ * Unregistering kills beforeinstallprompt until a second visit after claim.
  * Critical: never return without mounting if replace would be a same-URL no-op
  * (Arc/Chromium skip navigation → permanent blank #root).
  */
@@ -36,15 +37,7 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
-  try {
-    if ('serviceWorker' in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map((r) => r.unregister()));
-    }
-  } catch {
-    /* ignore */
-  }
-
+  // Clear Cache Storage only — leave SW registered so Download stays one-click.
   try {
     if ('caches' in window) {
       const keys = await caches.keys();
@@ -95,6 +88,10 @@ function registerInstallableServiceWorker(): void {
       onRegisteredSW(_url, registration) {
         try {
           void registration?.update();
+          // Activate waiting worker ASAP so Chromium can offer install on this visit.
+          if (registration?.waiting) {
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
         } catch {
           /* ignore */
         }

@@ -42,7 +42,8 @@ export function PlatformDashboard() {
         description={PRODUCT_COPY.seoDescription}
         canonical="https://app.regguardagent.com/"
       />
-      <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20 sticky top-0 z-50">
+      {/* Desktop/tablet header only — mobile uses PlatformLayout green Download (one bar, one tap). */}
+      <header className="hidden md:block bg-slate-900/80 backdrop-blur border-b border-purple-500/20 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{BRAND_LOCKUP}</h1>
           <div className="flex items-center gap-3 sm:gap-4">

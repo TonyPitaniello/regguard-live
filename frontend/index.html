@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#0b1220" />
     <meta name="application-name" content="Reg Guard" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,14 +12,14 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="description"
-      content="Reg Guard Bid Risk Receipts — pre-bid diligence for DFW and Austin contractors. Forwardable receipt, city gotchas, Source or Unverified. Planning aid, not a quote."
+      content="Citeable site diligence before you bid — forwardable Bid Risk Receipt. Source on every line, or an honest Unverified. Planning aid, not a quote."
     />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Reg Guard" />
     <meta property="og:title" content="Reg Guard — Bid Risk Receipt for contractors" />
     <meta
       property="og:description"
-      content="Pre-bid diligence for DFW and Austin. Forward the receipt to your GC. Planning aid — not a quote or sealed bid."
+      content="Citeable site diligence before you bid. Forward a Bid Risk Receipt to your GC. Planning aid — not a quote or sealed bid."
     />
     <meta property="og:url" content="https://app.regguardagent.com/" />
     <meta property="og:image" content="https://app.regguardagent.com/icons/apple-touch-icon.png" />
@@ -27,7 +27,7 @@
     <meta name="twitter:title" content="Reg Guard — Bid Risk Receipt for contractors" />
     <meta
       name="twitter:description"
-      content="Pre-bid diligence for DFW and Austin contractors. Planning aid, not a quote."
+      content="Citeable site diligence before you bid — Bid Risk Receipt for contractors. Planning aid, not a quote."
     />
     <meta
       http-equiv="Permissions-Policy"
@@ -58,7 +58,7 @@
     <!-- HARD cache break for Arc/PWA: unregister SW + clear Cache Storage before React -->
     <script>
       (function () {
-        var BUILD = 'launch-20260924-download-onepush';
+        var BUILD = 'launch-20260924-download-works';
         var KEY = 'rg_html_build_v';
         var force = false;
         try {
@@ -90,6 +90,8 @@
           }
         };
 
+        // Clear Cache Storage only — keep SW registered so Download can prompt on this visit.
+        // forceclear=1 still clears caches; blank-shell recovery can unregister separately.
         var clearCaches = function () {
           if (!('caches' in window)) return Promise.resolve();
           return caches.keys().then(function (keys) {
@@ -101,19 +103,7 @@
           });
         };
 
-        var killSw = function () {
-          if (!('serviceWorker' in navigator)) return Promise.resolve();
-          return navigator.serviceWorker.getRegistrations().then(function (regs) {
-            return Promise.all(
-              regs.map(function (r) {
-                return r.unregister();
-              })
-            );
-          });
-        };
-
         Promise.resolve()
-          .then(killSw)
           .then(clearCaches)
           .then(finish, finish);
       })();

@@ -7,7 +7,6 @@ import {
   X,
   Briefcase,
   Download,
-  Smartphone,
   DollarSign,
   BookOpen,
   Package,
@@ -260,14 +259,12 @@ export function PlatformLayout({
               <button
                 type="button"
                 className={`nav-item ${isActive('/install') ? 'active' : ''}`}
-                title="Download Reg Guard to your Home Screen"
+                title="Download Reg Guard"
                 onClick={handleGetApp}
               >
-                {showGetApp ? <Download size={18} /> : <Smartphone size={18} />}
+                <Download size={18} />
                 {(sidebarOpen || mobileMenuOpen) && (
-                  <span className="nav-label">
-                    {showGetApp ? 'Download app' : 'App help'}
-                  </span>
+                  <span className="nav-label">Download</span>
                 )}
               </button>
             </div>

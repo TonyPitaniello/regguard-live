@@ -16,6 +16,11 @@ const listeners = new Set<Listener>();
 const BOOT_RECOVERY_KEY = 'rg_sw_recovery';
 const BOOT_OK_KEY = 'rg_boot_ok';
 
+const APP_ORIGIN = 'https://app.regguardagent.com';
+const SHARE_TITLE = 'Reg Guard';
+const SHARE_TEXT =
+  'Citeable site diligence before you bid — forwardable Bid Risk Receipt.';
+
 function notify() {
   listeners.forEach((fn) => {
     try {
@@ -28,8 +33,10 @@ function notify() {
 
 export function isIosDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
-  return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
-    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return (
+    /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  );
 }
 
 /**
@@ -132,16 +139,57 @@ function waitForDeferredPrompt(ms: number): Promise<BeforeInstallPromptEvent | n
   });
 }
 
-/** iOS: Share sheet only — must stay on the user-gesture call stack (no instruction UI). */
-async function iosShareInstall(): Promise<'ios_share' | 'unavailable'> {
+/** Make sure the SW is active + controlling — required for Chromium install prompt. */
+async function ensureServiceWorkerControlling(ms = 2500): Promise<void> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if (reg.waiting) {
+      try {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      } catch {
+        /* ignore */
+      }
+    }
+    if (navigator.serviceWorker.controller) return;
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      const t = window.setTimeout(done, ms);
+      navigator.serviceWorker.addEventListener(
+        'controllerchange',
+        () => {
+          window.clearTimeout(t);
+          done();
+        },
+        { once: true }
+      );
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+function appShareUrl(): string {
+  try {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/`;
+    }
+  } catch {
+    /* ignore */
+  }
+  return `${APP_ORIGIN}/`;
+}
+
+/** Share sheet — must stay on the user-gesture call stack (no instruction UI). */
+async function shareInstall(): Promise<'ios_share' | 'unavailable'> {
   if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
     return 'unavailable';
   }
   try {
     await navigator.share({
-      title: 'Reg Guard',
-      text: 'Install Reg Guard',
-      url: window.location.origin + '/',
+      title: SHARE_TITLE,
+      text: SHARE_TEXT,
+      url: appShareUrl(),
     });
     return 'ios_share';
   } catch (err) {
@@ -153,7 +201,7 @@ async function iosShareInstall(): Promise<'ios_share' | 'unavailable'> {
 }
 
 /**
- * One push of Download: Chromium install dialog, or iOS Share.
+ * One push of Download: Chromium install dialog, or Share sheet.
  * Never opens instruction pages / secondary buttons.
  */
 export async function oneClickInstallApp(): Promise<OneClickInstallResult> {
@@ -162,23 +210,23 @@ export async function oneClickInstallApp(): Promise<OneClickInstallResult> {
 
   // iOS first — preserve the click gesture for navigator.share
   if (isIosDevice()) {
-    return iosShareInstall();
+    return shareInstall();
   }
 
+  // Chromium: SW must control the page before beforeinstallprompt is reliable
+  await ensureServiceWorkerControlling(2000);
   if (!deferred) {
-    await waitForDeferredPrompt(2500);
+    await waitForDeferredPrompt(3500);
   }
   const native = await promptPwaInstall();
   if (native === 'accepted') return 'accepted';
   if (native === 'dismissed') return 'dismissed';
-  return 'unavailable';
+
+  // Desktop Safari / browsers without beforeinstallprompt — still one gesture
+  return shareInstall();
 }
 
-export type LaunchAppMode =
-  | 'standalone'
-  | 'prompt'
-  | 'ios'
-  | 'manual';
+export type LaunchAppMode = 'standalone' | 'prompt' | 'ios' | 'manual';
 
 export function getLaunchAppMode(): LaunchAppMode {
   if (isStandaloneApp()) return 'standalone';
