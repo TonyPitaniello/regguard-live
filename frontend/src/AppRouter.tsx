@@ -43,8 +43,6 @@ import MoratoriumRadarPage from './pages/MoratoriumRadarPage';
 import InstallAppPage from './pages/InstallAppPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
-import PwaInstallBanner from './components/PwaInstallBanner';
-import IosInstantInstall from './components/IosInstantInstall';
 import { backendUrl, isIcDemoEnabled } from './env';
 import { setAppNavigate } from './navigationBridge';
 import './router-layout.css';
@@ -119,9 +117,6 @@ export function AppRouter() {
         <ReferralCapture />
         <OnboardingSystem />
         <VoiceCommandSystem />
-        <IosInstantInstall />
-        <PwaInstallBanner />
-        
         <Routes>
           {/* Home Dashboard */}
           <Route path="/" element={<PlatformDashboard />} />

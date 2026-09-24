@@ -110,37 +110,67 @@ export type OneClickInstallResult =
   | 'accepted'
   | 'dismissed'
   | 'ios_share'
-  | 'ios_help'
   | 'already_installed'
   | 'unavailable';
 
+function waitForDeferredPrompt(ms: number): Promise<BeforeInstallPromptEvent | null> {
+  if (deferred) return Promise.resolve(deferred);
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if (deferred) {
+        resolve(deferred);
+        return;
+      }
+      if (Date.now() - start >= ms) {
+        resolve(null);
+        return;
+      }
+      window.setTimeout(tick, 100);
+    };
+    tick();
+  });
+}
+
+/** iOS: Share sheet only — must stay on the user-gesture call stack (no instruction UI). */
+async function iosShareInstall(): Promise<'ios_share' | 'unavailable'> {
+  if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') {
+    return 'unavailable';
+  }
+  try {
+    await navigator.share({
+      title: 'Reg Guard',
+      text: 'Install Reg Guard',
+      url: window.location.origin + '/',
+    });
+    return 'ios_share';
+  } catch (err) {
+    if (err && typeof err === 'object' && 'name' in err && (err as { name: string }).name === 'AbortError') {
+      return 'ios_share';
+    }
+    return 'unavailable';
+  }
+}
+
 /**
- * One-tap Download: native Chromium install prompt when available;
- * iOS opens Share (or the Home Screen help sheet). Never required to visit /install first.
+ * One push of Download: Chromium install dialog, or iOS Share.
+ * Never opens instruction pages / secondary buttons.
  */
 export async function oneClickInstallApp(): Promise<OneClickInstallResult> {
   ensurePwaInstallListener();
   if (isStandaloneApp()) return 'already_installed';
 
+  // iOS first — preserve the click gesture for navigator.share
+  if (isIosDevice()) {
+    return iosShareInstall();
+  }
+
+  if (!deferred) {
+    await waitForDeferredPrompt(2500);
+  }
   const native = await promptPwaInstall();
   if (native === 'accepted') return 'accepted';
   if (native === 'dismissed') return 'dismissed';
-
-  if (isIosDevice()) {
-    // Dynamic import avoids circular deps with IosInstantInstall ↔ pwaInstall
-    try {
-      const { openIosShareSheet, showIosInstallInstructions } = await import(
-        './components/IosInstantInstall'
-      );
-      const share = await openIosShareSheet();
-      if (share === 'shared' || share === 'cancelled') return 'ios_share';
-      showIosInstallInstructions();
-      return 'ios_help';
-    } catch {
-      return 'unavailable';
-    }
-  }
-
   return 'unavailable';
 }
 

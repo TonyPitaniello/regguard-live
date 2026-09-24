@@ -13,7 +13,7 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260924-oneclick-download';
+const RG_BUILD_ID = 'launch-20260924-download-onepush';
 
 /**
  * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.

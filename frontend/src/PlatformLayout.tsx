@@ -18,12 +18,10 @@ import {
   ensurePwaInstallListener,
   getDeferredInstallPrompt,
   getLaunchAppMode,
-  isIosDevice,
   isStandaloneApp,
   oneClickInstallApp,
   subscribePwaInstall,
 } from './pwaInstall';
-import { instantIosInstall, showIosInstallInstructions } from './components/IosInstantInstall';
 
 export interface PlatformUser {
   id?: string;
@@ -156,28 +154,7 @@ export function PlatformLayout({
   const handleGetApp = (e: MouseEvent) => {
     e.preventDefault();
     setMobileMenuOpen(false);
-    void (async () => {
-      const result = await oneClickInstallApp();
-      if (result === 'accepted' || result === 'already_installed' || result === 'dismissed') {
-        return;
-      }
-      if (result === 'ios_share' || result === 'ios_help') {
-        return;
-      }
-      // Prompt not ready yet — wait briefly for SW + beforeinstallprompt, then retry
-      window.setTimeout(() => {
-        void oneClickInstallApp().then((second) => {
-          if (second === 'unavailable') {
-            if (isIosDevice() && !isStandaloneApp()) {
-              showIosInstallInstructions();
-              void instantIosInstall();
-              return;
-            }
-            navigate('/install');
-          }
-        });
-      }, 700);
-    })();
+    void oneClickInstallApp();
   };
 
   const routesByCategory = PLATFORM_ROUTES.reduce(
