@@ -1,17 +1,19 @@
 /**
  * In-memory stash for files opened in the in-app viewer.
  * Survives client-side React Router navigations (same document).
- * ZIP packages are unpacked so PDFs / text can scroll in-app.
+ * ZIP packages are unpacked so PDFs / DOCX / sheets can scroll in-app.
  */
 
 import { unzipSync } from 'fflate';
+
+export type PreviewKind = 'pdf' | 'text' | 'docx' | 'sheet' | 'none';
 
 export type StashedMember = {
   name: string;
   blobUrl: string;
   mime: string;
   size: number;
-  previewKind: 'pdf' | 'text' | 'none';
+  previewKind: PreviewKind;
 };
 
 export type StashedFile = {
@@ -22,7 +24,7 @@ export type StashedFile = {
   mime: string;
   size: number;
   downloaded: boolean;
-  previewKind: 'pdf' | 'text' | 'none';
+  previewKind: PreviewKind;
   /** Original package (ZIP) for Save / Forward when viewing an extracted member */
   packageFilename?: string;
   packageBlobUrl?: string;
@@ -47,17 +49,33 @@ export function guessMime(filename: string): string {
   return 'application/octet-stream';
 }
 
-export function previewKindFor(mime: string, filename: string): 'pdf' | 'text' | 'none' {
+export function previewKindFor(mime: string, filename: string): PreviewKind {
   const m = (mime || '').toLowerCase();
   const n = (filename || '').toLowerCase();
   if (m.includes('pdf') || n.endsWith('.pdf')) return 'pdf';
   if (
+    m.includes('wordprocessingml') ||
+    m.includes('msword') ||
+    n.endsWith('.docx') ||
+    n.endsWith('.doc')
+  ) {
+    return 'docx';
+  }
+  if (
+    m.includes('spreadsheetml') ||
+    m.includes('excel') ||
+    m.includes('csv') ||
+    n.endsWith('.xlsx') ||
+    n.endsWith('.xls') ||
+    n.endsWith('.csv')
+  ) {
+    return 'sheet';
+  }
+  if (
     m.startsWith('text/') ||
     m.includes('json') ||
-    m.includes('csv') ||
     n.endsWith('.txt') ||
     n.endsWith('.md') ||
-    n.endsWith('.csv') ||
     n.endsWith('.json') ||
     n.endsWith('.html') ||
     n.endsWith('.htm')
@@ -80,7 +98,9 @@ function scoreMemberName(name: string): number {
   if (n.includes('receipt') || n.includes('bid_risk') || n.includes('memo')) score += 30;
   if (n.includes('city_pack') || n.includes('city-pack')) score += 20;
   if (n.includes('readme')) score -= 50;
-  if (n.endsWith('.docx') || n.endsWith('.xlsx') || n.endsWith('.csv')) score += 5;
+  if (n.endsWith('.docx')) score += 25;
+  if (n.endsWith('.xlsx') || n.endsWith('.xls')) score += 20;
+  if (n.endsWith('.csv')) score += 10;
   // Prefer shorter paths / numbered primary docs
   if (/^\d{2}_/.test(name.split('/').pop() || '')) score += 10;
   return score;
@@ -116,7 +136,7 @@ export async function expandBlobForViewer(
   displayBlob: Blob;
   displayName: string;
   mime: string;
-  previewKind: 'pdf' | 'text' | 'none';
+  previewKind: PreviewKind;
   members?: StashedMember[];
   packageBlob?: Blob;
   packageFilename?: string;
@@ -126,7 +146,7 @@ export async function expandBlobForViewer(
   const isZip =
     lower.endsWith('.zip') ||
     mime0.includes('zip') ||
-    mime0.includes('octet-stream') && lower.endsWith('.zip');
+    (mime0.includes('octet-stream') && lower.endsWith('.zip'));
 
   if (!isZip && !lower.endsWith('.zip')) {
     const typed = typedBlob(blob, filename, mime0);
@@ -173,6 +193,8 @@ export async function expandBlobForViewer(
 
     const best =
       members.find((m) => m.previewKind === 'pdf') ||
+      members.find((m) => m.previewKind === 'docx') ||
+      members.find((m) => m.previewKind === 'sheet') ||
       members.find((m) => m.previewKind === 'text') ||
       members[0];
 

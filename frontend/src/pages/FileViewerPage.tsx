@@ -1,5 +1,5 @@
 /**
- * In-app file viewer — scrollable PDF / text preview + Download + Forward.
+ * In-app file viewer — scrollable PDF / DOCX / sheet preview + Download + Forward.
  * ZIP packages unpack to member tabs (PDFs first).
  */
 
@@ -17,6 +17,7 @@ import {
   forwardStashed,
   redownloadStashed,
 } from '../openAndDownload';
+import { DocxPreview, SheetPreviewPanel } from '../components/FileRichPreviews';
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -91,7 +92,7 @@ export default function FileViewerPage() {
   if (missing || !file) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-[#0a1429] text-white flex flex-col items-center justify-center px-4">
-        <p className="text-lg font-bold mb-2">File session expired</p>
+        <p className="text-lg font-bold mb-2">File Session Expired</p>
         <p className="text-gray-300 text-sm mb-6 text-center max-w-md">
           Open the file again from the sample list or your results — the viewer needs a fresh file
           from this browser session.
@@ -100,7 +101,7 @@ export default function FileViewerPage() {
           to="/"
           className="px-5 py-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold min-h-[44px]"
         >
-          Back to home
+          Back to Home
         </Link>
       </div>
     );
@@ -188,13 +189,17 @@ export default function FileViewerPage() {
         </div>
       ) : null}
 
-      <main className="flex-1 flex flex-col min-h-0">
+      <main className="flex-1 flex flex-col min-h-0 overflow-auto">
         {file.previewKind === 'pdf' ? (
           <iframe
             title={file.filename}
             src={file.blobUrl}
             className="flex-1 w-full min-h-[70vh] bg-white border-0"
           />
+        ) : file.previewKind === 'docx' ? (
+          <DocxPreview blobUrl={file.blobUrl} filename={file.filename} />
+        ) : file.previewKind === 'sheet' ? (
+          <SheetPreviewPanel blobUrl={file.blobUrl} filename={file.filename} />
         ) : file.previewKind === 'text' ? (
           <pre className="flex-1 overflow-auto p-4 text-sm text-gray-200 whitespace-pre-wrap font-mono bg-slate-950">
             {textBody ?? 'Loading…'}
@@ -202,7 +207,7 @@ export default function FileViewerPage() {
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
             <FileArchive className="w-12 h-12 text-emerald-400" />
-            <p className="font-bold text-lg">Package ready</p>
+            <p className="font-bold text-lg">Package Ready</p>
             <p className="text-gray-400 text-sm max-w-md">
               This file type doesn&apos;t preview in-browser. Use Forward or Download.
             </p>
