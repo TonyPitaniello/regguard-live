@@ -51,28 +51,10 @@ type SampleRowDef = {
 };
 
 /**
- * Samples in product order:
- * 1) On-screen results panel after address entry
- * 2) Executive summary card from that panel
- * 3) Tier artifacts
+ * Samples in product order — Free → Estimator → Pro → IC.
+ * Site Diligence Results + Executive Summary live inside each tier viewer (not listed here).
  */
 export const SAMPLE_ROWS: readonly SampleRowDef[] = [
-  {
-    href: '/sample-site-diligence',
-    viewRoute: '/sample-site-diligence',
-    title: PRODUCT_COPY.resultsPanelTitle,
-    subtitle:
-      'The long scrollable results panel after you enter an address — stamp, contingency, punch, and packs',
-    price: null,
-    highlight: true,
-  },
-  {
-    href: '/sample/executive-summary.pdf',
-    title: PRODUCT_COPY.executiveSummary,
-    subtitle: `The amber summary card at the top of ${PRODUCT_COPY.resultsPanelTitle}`,
-    price: null,
-    highlight: true,
-  },
   {
     href: '/sample/tier-ladder.pdf',
     title: 'Sample Tier Ladder',
