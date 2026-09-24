@@ -1,7 +1,7 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * Eye = view in app. Download icon = save to disk.
- * Icon columns align evenly; copy + colors match the Reg Guard palette.
+ * Mobile-first: full titles (no ellipsis), View / Save actions with labels.
+ * sm+: compact icon columns aligned on the right.
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -31,12 +31,12 @@ function sampleFilename(path: string): string {
   return map[base] || `RegGuard_Sample_${base}`;
 }
 
-/** All sample rows — same layout so eye / download columns line up */
+/** All sample rows — same actions so View / Save line up */
 export const SAMPLE_ROWS = [
   {
     href: '/sample/tier-ladder.pdf',
-    title: 'Sample Tier Ladder PDF',
-    subtitle: 'What Free, Estimator / Permit Runner, Pro, and IC include on this site',
+    title: 'Sample Tier Ladder',
+    subtitle: 'All tiers on one Fort Worth site',
     price: null as string | null,
     highlight: true,
   },
@@ -50,7 +50,7 @@ export const SAMPLE_ROWS = [
   {
     href: '/sample/partner-receipt.pdf',
     title: HABIT_TIERS.partner.name,
-    subtitle: 'Sample Full Bid Risk Receipt PDF',
+    subtitle: 'Sample Bid Risk Receipt PDF',
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
     highlight: false,
   },
@@ -79,10 +79,7 @@ export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) 
   detail: r.subtitle,
 }));
 
-const iconBtn =
-  'inline-flex items-center justify-center h-11 w-11 rounded-lg transition disabled:opacity-60 shrink-0';
-
-/** Fixed-width eye + download pair so every row aligns. */
+/** Eye = view in app; Download = save. Full-width on phones; icon track on sm+. */
 export function SampleOpenButton({
   href,
   label,
@@ -117,10 +114,13 @@ export function SampleOpenButton({
     }
   };
 
+  const btnBase =
+    'inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold text-sm transition disabled:opacity-60';
+
   return (
-    <div className={`shrink-0 ${className || ''}`}>
+    <div className={`w-full sm:w-auto sm:shrink-0 ${className || ''}`}>
       <div
-        className="grid grid-cols-2 gap-2 w-[6.25rem]"
+        className="grid grid-cols-2 gap-2 w-full sm:w-[7.5rem]"
         role="group"
         aria-label={`${title}: view or download`}
       >
@@ -130,13 +130,14 @@ export function SampleOpenButton({
           aria-label={`View ${title} in Reg Guard`}
           onClick={(e) => void run('view', e)}
           disabled={busy !== null}
-          className={`${iconBtn} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300`}
+          className={`${btnBase} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300 px-2 sm:px-0`}
         >
           {busy === 'view' ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin shrink-0" />
           ) : (
-            <Eye className="w-5 h-5" strokeWidth={2.25} />
+            <Eye className="w-5 h-5 shrink-0" strokeWidth={2.25} />
           )}
+          <span className="sm:hidden">View</span>
         </button>
         <button
           type="button"
@@ -144,16 +145,17 @@ export function SampleOpenButton({
           aria-label={`Download ${title}`}
           onClick={(e) => void run('download', e)}
           disabled={busy !== null}
-          className={`${iconBtn} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20`}
+          className={`${btnBase} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20 px-2 sm:px-0`}
         >
           {busy === 'download' ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
+            <Loader2 className="w-5 h-5 animate-spin shrink-0" />
           ) : (
-            <Download className="w-5 h-5" strokeWidth={2.25} />
+            <Download className="w-5 h-5 shrink-0" strokeWidth={2.25} />
           )}
+          <span className="sm:hidden">Save</span>
         </button>
       </div>
-      {err ? <p className="text-amber-200 text-xs mt-1 max-w-[6.25rem] text-center">{err}</p> : null}
+      {err ? <p className="text-amber-200 text-xs mt-1 text-center sm:text-left">{err}</p> : null}
     </div>
   );
 }
@@ -164,35 +166,30 @@ function SampleRow({
   subtitle,
   price,
   highlight,
-  compact,
 }: {
   href: string;
   title: string;
   subtitle: string;
   price: string | null;
   highlight?: boolean;
-  compact?: boolean;
 }) {
   return (
     <div
-      className={`grid grid-cols-[minmax(0,1fr)_6.25rem] items-center gap-3 rounded-xl border ${
+      className={`flex flex-col gap-3 rounded-xl border p-3.5 sm:p-4 sm:flex-row sm:items-center sm:gap-4 ${
         highlight
           ? 'border-emerald-500/35 bg-emerald-500/10'
           : 'border-[rgba(61,79,143,0.4)] bg-[rgba(10,20,41,0.85)]'
-      } ${compact ? 'p-3.5' : 'p-4 sm:p-5'}`}
+      }`}
     >
-      <div className="min-w-0">
-        <p className={`text-white font-bold leading-snug ${compact ? 'text-sm' : 'text-sm sm:text-base'}`}>
+      <div className="min-w-0 flex-1">
+        <p className="text-white font-bold text-[15px] sm:text-base leading-snug break-words">
           {title}
-          {price ? (
-            <>
-              {' '}
-              <span className="text-emerald-300 font-semibold whitespace-nowrap">· {price}</span>
-            </>
-          ) : null}
         </p>
+        {price ? (
+          <p className="text-emerald-300 font-semibold text-sm mt-0.5">{price}</p>
+        ) : null}
         {subtitle ? (
-          <p className={`text-[#b8c1d1] mt-1 leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}>
+          <p className="text-[#b8c1d1] text-xs sm:text-sm mt-1 leading-relaxed break-words">
             {subtitle}
           </p>
         ) : null}
@@ -210,54 +207,40 @@ export function SampleReportBlock({
   id?: string;
 }) {
   return (
-    <div id={id} className={compact ? 'text-left' : ''}>
+    <div id={id} className="text-left w-full max-w-full overflow-hidden">
       <p className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
         Labeled SAMPLE
       </p>
       <h3
         className={
           compact
-            ? 'text-xl sm:text-2xl font-black text-white mb-2'
-            : 'text-4xl sm:text-5xl font-black text-white mb-4'
+            ? 'text-xl sm:text-2xl font-black text-white mb-2 leading-tight'
+            : 'text-3xl sm:text-5xl font-black text-white mb-3 leading-tight'
         }
       >
         Same site. Every tier.
       </h3>
-      <p className={`text-[#b8c1d1] leading-relaxed ${compact ? 'text-sm mb-3' : 'text-base mb-4'}`}>
-        9999 Chapin School Road, Fort Worth, TX 76126 — large-load / data-center-adjacent
-        screening with live Fort Worth Development Services cites. Planning aid only — not a quote,
-        sealed bid, or AHJ filing.
+      <p className="text-[#b8c1d1] text-sm leading-relaxed mb-3 break-words">
+        9999 Chapin School Road, Fort Worth, TX 76126 — large-load / DC-adjacent screening with live
+        Fort Worth Development Services cites. Planning aid only — not a quote or sealed bid.
       </p>
 
-      {/* Legend matches the two real buttons */}
-      <div
-        className={`flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] ${
-          compact ? 'px-3 py-2.5 mb-3 text-xs' : 'px-4 py-3 mb-4 text-sm'
-        }`}
-      >
-        <span className="inline-flex items-center gap-2 text-white font-semibold">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
+      <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] px-3 py-3 mb-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-5 sm:gap-y-2">
+        <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
             <Eye className="w-4 h-4" strokeWidth={2.25} />
           </span>
-          View in Reg Guard
+          View opens in Reg Guard
         </span>
-        <span className="inline-flex items-center gap-2 text-white font-semibold">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+        <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
             <Download className="w-4 h-4" strokeWidth={2.25} />
           </span>
-          Download to your device
+          Save downloads to your phone
         </span>
       </div>
 
-      <div className={`grid grid-cols-[minmax(0,1fr)_6.25rem] gap-3 px-1 mb-2 ${compact ? '' : ''}`}>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8c1d1]">Sample</p>
-        <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-300">
-          <span>View</span>
-          <span>Save</span>
-        </div>
-      </div>
-
-      <div className={compact ? 'space-y-2.5' : 'space-y-3'}>
+      <div className="space-y-2.5 sm:space-y-3">
         {SAMPLE_ROWS.map((row) => (
           <SampleRow
             key={row.href}
@@ -266,7 +249,6 @@ export function SampleReportBlock({
             subtitle={row.subtitle}
             price={row.price}
             highlight={row.highlight}
-            compact={compact}
           />
         ))}
       </div>

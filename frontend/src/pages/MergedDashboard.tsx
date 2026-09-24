@@ -104,11 +104,11 @@ export function PlatformDashboard() {
         </div>
       </section>
 
-      {/* Sample report — before address intake */}
-      <section className="px-4 pb-6 sm:px-6 lg:px-8">
-        <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-500/30 bg-[rgba(15,29,56,0.95)] p-5 sm:p-6 shadow-lg shadow-black/20">
+      {/* Sample report — before address intake (mobile-first card) */}
+      <section className="px-3 pb-5 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-500/30 bg-[rgba(15,29,56,0.95)] p-3.5 sm:p-6 shadow-lg shadow-black/20">
           <SampleReportBlock compact />
-          <p className="text-center text-[#b8c1d1] text-xs mt-4">
+          <p className="text-center text-[#b8c1d1] text-xs mt-4 px-1">
             Then run your own site below — same receipt format.
           </p>
         </div>
