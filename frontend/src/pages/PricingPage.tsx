@@ -157,7 +157,7 @@ export default function PricingPage() {
                   : 'border-purple-500/20'
               }`}
             >
-              <p className="text-xs font-bold uppercase tracking-wider text-purple-300 mb-2">
+              <p className="text-xs font-bold tracking-wide text-purple-300 mb-2">
                 {tier.segment}
               </p>
               <h2 className="text-2xl font-black text-white mb-1">{tier.name}</h2>

@@ -1229,7 +1229,7 @@ export default function FreeTrialForm({
               disabled={loading}
               className="text-sm text-emerald-300 hover:text-emerald-200 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
             >
-              Clear &amp; start over
+              {PRODUCT_COPY.formClear}
             </button>
           </div>
           <LocationPicker
@@ -1405,7 +1405,7 @@ export default function FreeTrialForm({
                 : 'Analyzing site…'
               : paidEntitled
                 ? 'Run deep research on this site'
-                : 'Get my Bid Risk Receipt'}
+                : PRODUCT_COPY.freeCta}
           </button>
 
           <p className="text-gray-400 text-sm text-center leading-relaxed">

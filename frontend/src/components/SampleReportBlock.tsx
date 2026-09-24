@@ -221,8 +221,8 @@ export function SampleReportBlock({
 }) {
   return (
     <div id={id} className="text-left w-full max-w-full overflow-hidden">
-      <p className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
-        Labeled SAMPLE
+      <p className="text-amber-300 text-xs font-bold tracking-wide mb-2">
+        {PRODUCT_COPY.sampleEyebrow}
       </p>
       <p
         className={

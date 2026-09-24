@@ -24,6 +24,7 @@ import {
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { IcDiligenceBundlePitch } from './IcDiligenceBundlePitch';
 import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitDeliverableLadder';
+import { PRODUCT_COPY } from '../productCopy';
 import {
   ladderUpsells,
   resolveResultsLadder,
@@ -470,7 +471,7 @@ function resolveCoverage(view: AnalysisData): {
       badge: c.badge || 'Paid local confirm',
       warning:
         c.warning ||
-        'Page-capped · cached · not a full city pack. Fee dollars are planning aids — confirm on the official AHJ schedule.',
+        'Page-capped · cached · not a Full City Pack. Fee dollars are planning aids — confirm on the official AHJ schedule.',
       note: c.note || '',
       feesAllowed: true,
     };
@@ -488,7 +489,7 @@ function resolveCoverage(view: AnalysisData): {
   if (j?.citeable_local) {
     return {
       tier: 'full_pack',
-      badge: 'Full city pack',
+      badge: 'Full City Pack',
       warning: 'Curated local fees/gotchas — still confirm dollars on the official schedule.',
       note: j.coverage_note || '',
       feesAllowed: true,
@@ -1362,7 +1363,7 @@ export default function ResultsViewerModal({
         className="bg-slate-800/40 border border-amber-500/35 rounded-xl p-4 sm:p-5 space-y-3 scroll-mt-4"
       >
         <h3 className="text-amber-200 font-bold text-base">
-          {view.gotcha_watchlist.title || 'Local gotcha watchlist'}
+          {view.gotcha_watchlist.title || PRODUCT_COPY.sections.localGotchaWatchlist}
         </h3>
         <ul className="space-y-3">
           {(view.gotcha_watchlist.items || []).map((g) => (
@@ -1542,13 +1543,12 @@ export default function ResultsViewerModal({
             style={{
               fontSize: 12,
               fontWeight: 900,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
               color: '#fde68a',
               margin: 0,
             }}
           >
-            Executive summary
+            {PRODUCT_COPY.executiveSummary}
           </p>
           <h3
             style={{
@@ -1604,7 +1604,7 @@ export default function ResultsViewerModal({
                   margin: 0,
                 }}
               >
-                Suggested bid contingency
+                {PRODUCT_COPY.sections.suggestedBidContingency}
               </p>
               <div style={{ filter: softLocked ? 'blur(7px)' : undefined, userSelect: softLocked ? 'none' : undefined }}>
                 <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
@@ -1623,7 +1623,7 @@ export default function ResultsViewerModal({
                 </p>
               ) : blurProDesk ? (
                 <p style={{ fontSize: 12, color: '#fcd34d', margin: '10px 0 0' }}>
-                  Estimator — band shown. Full city pack / fee schedule stay on Contractor Pro.
+                  Estimator — band shown. Full City Pack / fee schedule stay on Contractor Pro.
                 </p>
               ) : null}
             </div>
@@ -1632,7 +1632,7 @@ export default function ResultsViewerModal({
           {priorityLines.length > 0 ? (
             <div style={{ marginTop: 16 }}>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
-                What to resolve before bid
+                {PRODUCT_COPY.sections.whatToResolve}
               </h4>
               <ol style={{ margin: 0, paddingLeft: 20 }}>
                 {priorityLines.map((item, i) => {
@@ -1698,7 +1698,7 @@ export default function ResultsViewerModal({
           {punch.length > 0 ? (
             <div style={{ marginTop: 16 }}>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 8px' }}>
-                Immediate punch highlights
+                {PRODUCT_COPY.sections.immediatePunch}
               </h4>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {punch.map((p, i) => {
@@ -1766,7 +1766,7 @@ export default function ResultsViewerModal({
             color: '#fff',
           }}
         >
-          <p style={{ fontWeight: 900, color: '#fde68a', margin: 0 }}>EXECUTIVE SUMMARY</p>
+          <p style={{ fontWeight: 900, color: '#fde68a', margin: 0 }}>{PRODUCT_COPY.executiveSummary}</p>
           <p style={{ marginTop: 8, lineHeight: 1.5 }}>
             {view.project_info?.address || 'This site'} — review contingency, stamp drivers, and punch
             list below before bid. (Summary renderer recovered from a data shape error.)
@@ -1790,7 +1790,7 @@ export default function ResultsViewerModal({
           () => el.classList.remove('ring-2', 'ring-emerald-400/70', 'ring-offset-2', 'ring-offset-slate-900'),
           1800
         );
-        showToast('Opened full city pack — fees & gotchas for this AHJ.');
+        showToast('Opened Full City Pack — fees & gotchas for this AHJ.');
         return;
       }
       if (attempt < 4) {
@@ -1960,7 +1960,7 @@ export default function ResultsViewerModal({
         },
         artifactDownloadFilename(view as unknown as Record<string, unknown>, 'FULL CITY PACK', 'pdf')
       );
-      showToast('Full city pack PDF downloaded — fees, gotchas, and AHJ links.');
+      showToast('Full City Pack PDF downloaded — fees, gotchas, and AHJ links.');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'City pack PDF failed');
     } finally {
@@ -2474,7 +2474,7 @@ export default function ResultsViewerModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
-                Site Diligence Results
+                {PRODUCT_COPY.resultsPanelTitle}
               </h2>
               <p className="text-gray-400 text-sm mt-1">
                 {(() => {
@@ -2580,7 +2580,7 @@ export default function ResultsViewerModal({
             }}
             className="px-3 py-2 min-h-[40px] rounded-lg border border-sky-500/50 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25 font-bold"
           >
-            Executive summary
+            Executive Summary
           </button>
           <a
             href="/orders?from=results"
@@ -2623,7 +2623,7 @@ export default function ResultsViewerModal({
           </div>
         )}
 
-        {/* Executive summary + IC PDFs — summary is INSIDE the green card users stare at */}
+        {/* Executive Summary + IC PDFs — summary is INSIDE the green card users stare at */}
         <div className="px-5 sm:px-8 py-4 border-b border-emerald-500/30 bg-slate-950/90 space-y-4">
           <div
             id="ic-project-report-pdfs"
@@ -2656,7 +2656,7 @@ export default function ResultsViewerModal({
                   type="button"
                   onClick={async () => {
                     const ok = await copyText(buildExecutiveSummaryText());
-                    showToast(ok ? 'Executive summary copied' : 'Could not copy — try Download');
+                    showToast(ok ? 'Executive Summary copied' : 'Could not copy — try Download');
                   }}
                   className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg border border-white/20 bg-white/5 text-gray-200 text-sm font-semibold"
                 >
@@ -2874,9 +2874,9 @@ export default function ResultsViewerModal({
           />
 
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-300/90 mb-1 flex items-center gap-2">
+            <p className="text-xs font-bold tracking-wide text-emerald-300/90 mb-1 flex items-center gap-2">
               <Share2 className="w-3.5 h-3.5" />
-              Bid Risk Receipt — default bid-file forward
+              {PRODUCT_COPY.sections.bidRiskReceiptShare}
             </p>
             <p className="text-sm text-gray-300 mb-3">
               Forward or Download from the top of these results — or use the buttons below.
@@ -2901,7 +2901,7 @@ export default function ResultsViewerModal({
                   {(view.regguard_stamp?.headline ||
                     view.project_info?.address ||
                     'This site') +
-                    ' — treat municipal permits and utility interconnection as parallel clocks until both are confirmed. See Executive summary above for contingency and drivers.'}
+                    ' — treat municipal permits and utility interconnection as parallel clocks until both are confirmed. See Executive Summary above for contingency and drivers.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   CLEAR = no Critical killers on the current pack · CAUTION = material risk · HOLD =
@@ -3062,11 +3062,11 @@ export default function ResultsViewerModal({
             <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4 sm:p-5">
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
-                    Flagged before bid day
+                  <p className="text-xs font-bold tracking-wide text-emerald-300">
+                    {PRODUCT_COPY.sections.flaggedBeforeBidDay}
                   </p>
                   <h3 className="text-lg font-bold text-white mt-0.5">
-                    Bid Risk Receipt — forward to GC / owner
+                    {PRODUCT_COPY.sections.bidRiskReceiptForward}
                   </h3>
                   <p className="text-gray-400 text-sm mt-1">
                     Site-specific CYA stamp: contingency + top risks. Citeable pre-bid diligence —
@@ -3252,7 +3252,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Coverage — Full city pack always jumps to curated fees + gotchas */}
+          {/* Coverage — Full City Pack always jumps to curated fees + gotchas */}
           <section
             className={`rounded-xl border p-4 ${
               coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
@@ -3261,7 +3261,7 @@ export default function ResultsViewerModal({
                   ? 'border-amber-500/40 bg-amber-500/10'
                   : 'border-slate-600 bg-slate-800/60'
             }`}
-            aria-label="Coverage depth"
+            aria-label="Coverage Depth"
           >
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -3273,10 +3273,10 @@ export default function ResultsViewerModal({
                     ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
                     : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
                 }`}
-                title="Download Full city pack PDF — contingency, fees, gotchas, AHJ links"
+                title="Download Full City Pack PDF — contingency, fees, gotchas, AHJ links"
               >
                 <Download className="w-3.5 h-3.5" />
-                {packetLoading ? 'Building city pack…' : 'Download Full city pack PDF'}
+                {packetLoading ? 'Building city pack…' : 'Download Full City Pack PDF'}
               </button>
               <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
               <button
@@ -3284,7 +3284,7 @@ export default function ResultsViewerModal({
                 className="inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg border border-emerald-500/40 bg-slate-950/40 hover:bg-slate-900 text-emerald-100 text-xs font-bold"
                 onClick={jumpToCityPack}
               >
-                Jump to Full city pack
+                Jump to Full City Pack
               </button>
             </div>
             {view.paid_local?.status === 'capped' && (
@@ -3355,7 +3355,7 @@ export default function ResultsViewerModal({
             </section>
           )}
 
-          {/* Local gotchas render inside Full city pack (#rg-city-pack) so Jump lands on them */}
+          {/* Local gotchas render inside Full City Pack (#rg-city-pack) so Jump lands on them */}
 
           {/* F1: exactly one primary paid CTA for this results view */}
           {renderPrimaryUpgrade()}
@@ -3375,8 +3375,8 @@ export default function ResultsViewerModal({
             if (!isDeep || !brief) return null;
             return (
               <section className="rounded-xl border border-amber-500/35 bg-slate-950/80 p-4 sm:p-5">
-                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-amber-200">
-                  Scout briefing
+                <p className="text-[11px] font-black tracking-wide text-amber-200">
+                  {PRODUCT_COPY.sections.scoutBriefing}
                 </p>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
                   Action items are on the pre-bid punch list below. This card is only the watchdog
@@ -3384,8 +3384,8 @@ export default function ResultsViewerModal({
                 </p>
                 {brief.watchdog ? (
                   <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-amber-100">
-                      Code-change watchdog
+                    <p className="text-xs font-bold tracking-wide text-amber-100">
+                      {PRODUCT_COPY.sections.codeChangeWatchdog}
                     </p>
                     <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{brief.watchdog}</p>
                     {brief.hits.length > 0 ? (
@@ -3401,8 +3401,8 @@ export default function ResultsViewerModal({
                 ) : null}
                 {brief.bottomLine ? (
                   <div className="mt-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-3">
-                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-200">
-                      Bottom line
+                    <p className="text-xs font-bold tracking-wide text-emerald-200">
+                      {PRODUCT_COPY.sections.bottomLine}
                     </p>
                     <p className="text-sm text-gray-100 mt-1.5 leading-relaxed">{brief.bottomLine}</p>
                   </div>
@@ -3421,7 +3421,7 @@ export default function ResultsViewerModal({
               onClick={() => toggle('critical')}
               className="w-full flex items-center justify-between bg-emerald-600/20 border border-emerald-500/30 rounded-lg p-4 mb-3"
             >
-              <h3 className="text-lg font-bold text-white">Pre-bid punch list</h3>
+              <h3 className="text-lg font-bold text-white">{PRODUCT_COPY.sections.preBidPunchList}</h3>
               {expanded.critical ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (
@@ -3588,14 +3588,14 @@ export default function ResultsViewerModal({
           {/* Timeline & cost — cost rollup soft-locked for free */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
-              <h3 className="text-sm font-bold text-gray-400 mb-2">Timeline</h3>
+              <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.timeline}</h3>
               <p className="text-2xl font-black text-blue-400">
                 {view.summary?.estimated_timeline || 'Confirm with AHJ'}
               </p>
               <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
             </div>
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5 relative overflow-hidden">
-              <h3 className="text-sm font-bold text-gray-400 mb-2">Estimated Cost</h3>
+              <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.estimatedCost}</h3>
               {softLocked ? (
                 <>
                   <p className="text-2xl font-black text-green-400 blur-sm select-none">$••,•••</p>
@@ -3634,7 +3634,7 @@ export default function ResultsViewerModal({
             <div className="px-4 py-3 border-b border-emerald-500/25 bg-emerald-500/10 flex flex-wrap items-start justify-between gap-2">
               <div>
               <p className="text-sm font-bold text-emerald-200">
-                Full city pack
+                {PRODUCT_COPY.fullCityPack}
                 {view.ahj_card?.name || view.project_info?.city || view.local_pack?.city
                   ? ` — ${view.ahj_card?.name || view.project_info?.city || view.local_pack?.city}`
                   : ''}
@@ -3645,7 +3645,7 @@ export default function ResultsViewerModal({
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
                 {packFees.length || packGotchas.length || view.contingency_band
                   ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Download this pack as a PDF, or use the bid downloads below.`
-                  : 'Download the Full city pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
+                  : 'Download the Full City Pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
               </p>
               </div>
               <button
@@ -3721,7 +3721,7 @@ export default function ResultsViewerModal({
                 {packFees.length > 0 && (
                   <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-blue-300 mb-2">
-                      {view.fee_card?.title || 'Fee & timeline extract'}
+                      {view.fee_card?.title || PRODUCT_COPY.sections.feeTimelineExtract}
                       {(view.fee_card?.planning_aid || view.fee_card?.paid_local_confirm) && (
                         <span className="ml-2 text-xs font-semibold text-amber-300">Planning aid</span>
                       )}
@@ -3811,7 +3811,7 @@ export default function ResultsViewerModal({
                 {packGotchas.length > 0 && (
                   <div id="rg-local-gotchas" className="px-4 py-4 space-y-3">
                     <h4 className="text-sm font-bold text-amber-200">
-                      {view.gotcha_watchlist?.title || 'Local gotcha watchlist'}
+                      {view.gotcha_watchlist?.title || PRODUCT_COPY.sections.localGotchaWatchlist}
                     </h4>
                     <ul className="space-y-3">
                       {packGotchas.slice(0, 8).map((g) => (
@@ -3899,7 +3899,7 @@ export default function ResultsViewerModal({
                   (view.inspection_sequence_card.steps || []).length > 0 && (
                     <div className="px-4 py-4">
                       <h4 className="text-sm font-bold text-indigo-300 mb-2">
-                        {view.inspection_sequence_card.title || 'Inspection sequence'}
+                        {view.inspection_sequence_card.title || PRODUCT_COPY.sections.inspectionSequence}
                       </h4>
                       <ol className="list-decimal pl-5 space-y-1">
                         {(view.inspection_sequence_card.steps || []).map((step, i) => (
@@ -3914,7 +3914,7 @@ export default function ResultsViewerModal({
                 <div className="px-4 py-4 flex flex-col gap-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div>
-                      <h3 className="text-base font-bold text-white">Bid-time downloads</h3>
+                      <h3 className="text-base font-bold text-white">{PRODUCT_COPY.sections.bidTimeDownloads}</h3>
                       <p className="text-xs text-gray-400 mt-0.5">
                         Download PDFs here, or Text a share link — recipients open the link to view /
                         download. SMS cannot attach PDF files from the browser.
@@ -3949,12 +3949,12 @@ export default function ResultsViewerModal({
                       {packetLoading
                         ? 'Building…'
                         : allowProDeskDownloads
-                          ? 'Full city pack PDF'
+                          ? 'Full City Pack PDF'
                           : 'City pack — Pro $149'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => void forwardArtifact('Full city pack PDF')}
+                      onClick={() => void forwardArtifact('Full City Pack PDF')}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
                     >
                       <MessageSquare className="w-4 h-4" />
@@ -4044,7 +4044,7 @@ export default function ResultsViewerModal({
                 )}
 
                 <div className="px-4 py-4 space-y-2">
-                  <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
+                  <h4 className="text-sm font-bold text-gray-200">{PRODUCT_COPY.sections.submitLocalGotcha}</h4>
                   <p className="text-xs text-gray-400">
                     Estimator / Permit Runner and Contractor Pro emails get a $20 credit after ops
                     verifies and cites the portal.
@@ -4191,8 +4191,8 @@ export default function ResultsViewerModal({
               {view.vertical_playbook && (view.vertical_playbook.items || []).length > 0 ? (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
-                      {view.vertical_playbook.label || 'Vertical playbook'} — cite or Confirm
+                    <h4 className="text-sm font-bold tracking-wide text-cyan-200">
+                      {view.vertical_playbook.label || PRODUCT_COPY.sections.verticalPlaybook} — Cite or Confirm
                     </h4>
                     <p className="text-xs text-cyan-100/90">
                       Checklist completeness:{' '}
@@ -4258,7 +4258,7 @@ export default function ResultsViewerModal({
 
               {view.parallel_clocks && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                  <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                     {view.parallel_clocks.title || 'Parallel clocks'}
                   </h4>
                   <p className="text-sm text-gray-300">{view.parallel_clocks.headline}</p>
@@ -4294,7 +4294,7 @@ export default function ResultsViewerModal({
               {view.moratorium_radar && (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                    <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                       {view.moratorium_radar.title || 'Moratorium radar'}
                     </h4>
                     {view.moratorium_radar.is_stale ? (
@@ -4356,7 +4356,7 @@ export default function ResultsViewerModal({
 
               {view.power_path_card && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                  <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                     {view.power_path_card.title || 'Power path'}
                   </h4>
                   <p className="text-sm text-gray-300">{view.power_path_card.headline}</p>
@@ -4379,7 +4379,7 @@ export default function ResultsViewerModal({
 
               {view.water_cooling_card && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                  <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                     {view.water_cooling_card.title || 'Water & cooling'}
                   </h4>
                   <p className="text-sm text-gray-300">{view.water_cooling_card.headline}</p>
@@ -4416,7 +4416,7 @@ export default function ResultsViewerModal({
 
               {view.opposition_card && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                  <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                     {view.opposition_card.title || 'Opposition early-warning'}
                   </h4>
                   <p className="text-sm text-gray-300">{view.opposition_card.headline}</p>
@@ -4434,7 +4434,7 @@ export default function ResultsViewerModal({
 
               {view.fast41_card && (
                 <div className="space-y-2">
-                  <h4 className="text-sm font-bold uppercase tracking-wide text-cyan-200">
+                  <h4 className="text-sm font-bold tracking-wide text-cyan-200">
                     {view.fast41_card.title || 'FAST-41'}
                   </h4>
                   <p className="text-sm text-gray-300">{view.fast41_card.headline}</p>
@@ -4503,7 +4503,7 @@ export default function ResultsViewerModal({
               onClick={() => toggle('environmental')}
               className="w-full flex items-center justify-between bg-purple-600/20 border border-purple-500/30 rounded-lg p-4 mb-3"
             >
-              <h3 className="text-lg font-bold text-white">Environmental Findings</h3>
+              <h3 className="text-lg font-bold text-white">{PRODUCT_COPY.sections.environmentalFindings}</h3>
               {expanded.environmental ? (
                 <ChevronUp className="w-5 h-5 text-gray-400" />
               ) : (

@@ -13,6 +13,7 @@ import {
   parseSampleDemoTier,
   sampleDemoLabel,
 } from '../sampleDemoTier';
+import { PRODUCT_COPY } from '../productCopy';
 
 export default function SampleSiteDiligencePage() {
   const navigate = useNavigate();
@@ -87,11 +88,11 @@ export default function SampleSiteDiligencePage() {
           href="#rg-executive-summary"
           className="inline-flex items-center px-3 py-2 rounded-lg border border-amber-400/50 bg-amber-500/15 text-amber-100 text-sm font-bold min-h-[44px]"
         >
-          Jump to Executive summary
+          Jump to Executive Summary
         </a>
       </div>
-      <p className="max-w-5xl mx-auto mb-2 text-xs font-bold uppercase tracking-wider text-amber-300">
-        Labeled SAMPLE — same panel you get after entering an address
+      <p className="max-w-5xl mx-auto mb-2 text-xs font-bold tracking-wide text-amber-300">
+        {PRODUCT_COPY.sampleEyebrow} — same panel you get after entering an address
       </p>
       {demoTier ? (
         <p className="max-w-5xl mx-auto mb-3 text-sm font-semibold text-emerald-200">

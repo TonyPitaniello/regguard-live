@@ -356,7 +356,7 @@ export default function SharedReportPage() {
         >
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">
-              Executive summary — read this first
+              Executive Summary — read this first
             </p>
             <h2 className="text-xl sm:text-2xl font-black text-white mt-1">
               What matters before you bid

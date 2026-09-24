@@ -1,6 +1,6 @@
 /**
  * OrdersPage.tsx
- * Phase 2 Week 2: Order history and PDF download portal
+ * Phase 2 Week 2: Order History and PDF download portal
  * 
  * Shows user's orders and provides PDF download links
  */
@@ -649,7 +649,7 @@ function OrderCard({
         <div className="grid md:grid-cols-2 gap-6 mb-6">
           {/* Order Info */}
           <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
+            <h3 className="text-sm font-bold text-gray-300 tracking-wide mb-4">
               Order Information
             </h3>
             <dl className="space-y-3">
@@ -693,7 +693,7 @@ function OrderCard({
 
           {/* Download Info — labeled cluster matching results page */}
           <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase mb-4">
+            <h3 className="text-sm font-bold text-gray-300 tracking-wide mb-4">
               Included Files
             </h3>
             {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
