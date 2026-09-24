@@ -4,7 +4,11 @@
     "city": "Fort Worth",
     "state": "TX",
     "zip": "76126",
-    "type": "data-center"
+    "type": "data-center",
+    "latitude": 32.6758,
+    "longitude": -97.4612,
+    "lat": 32.6758,
+    "lng": -97.4612
   },
   "project_type": "data-center",
   "depth_tier": "ic_full",
@@ -12,7 +16,7 @@
   "ic_package": true,
   "depth_badge": "IC PROJECT (SAMPLE)",
   "coverage": {
-    "badge": "Full city pack",
+    "badge": "Full City Pack",
     "tier": "full_pack",
     "warning": "SAMPLE \u2014 confirm every fee on the live Fort Worth schedule before bid."
   },
@@ -187,8 +191,31 @@
         "source_url": "https://www.fortworthtexas.gov/files/assets/public/v/1/development-services/all-deactivated-pdfs/development-fee-schedule-preview.pdf",
         "verified": true,
         "owner": "Civil / Estimator"
+      },
+      {
+        "label": "Technology fee (intake) \u2014 bundled in new-construction packet above",
+        "trade": "BUILDING",
+        "amount_usd": 15,
+        "detail": "Shown separately for estimator desk clarity",
+        "source_url": "https://www.fortworthtexas.gov/files/assets/public/v/8/development-services/documents/resources-applications-forms-videos/p/new-construction-packet-fillable-0522.pdf",
+        "verified": true,
+        "owner": "Permit runner"
+      },
+      {
+        "label": "Impact / tap fees \u2014 confirm utility provider schedule (not city building permit)",
+        "trade": "CIVIL",
+        "amount_usd": null,
+        "amount_requires_schedule": true,
+        "detail": "Parallel utility clock \u2014 do not mix with building permit valuation",
+        "source_url": "https://www.fortworthtexas.gov/departments/development-services",
+        "verified": true,
+        "owner": "Civil / Utility coordinator"
       }
-    ]
+    ],
+    "title": "Fee & Timeline Extract",
+    "planning_aid": true,
+    "paid_local_confirm": true,
+    "disclaimer": "Planning aid \u2014 confirm dollars on the official Fort Worth schedule before bid."
   },
   "gotcha_watchlist": {
     "items": [
@@ -210,6 +237,14 @@
         "source_url": "https://www.fortworthtexas.gov/departments/development-services",
         "owner": "GC / Permit runner",
         "due_window": "Construction"
+      },
+      {
+        "priority": "MEDIUM",
+        "title": "Zoning / use confirmation is Confirm \u2014 not auto-cited",
+        "detail": "Reg Guard flags land-use / setbacks on the Pro desk; confirm industrial or DC use with Fort Worth planning before LOI.",
+        "source_url": "https://www.fortworthtexas.gov/departments/development-services",
+        "owner": "PM / Zoning",
+        "due_window": "Pre-bid"
       }
     ]
   },
@@ -311,5 +346,172 @@
   "sample_meta": {
     "labeled_sample": true,
     "site_story": "Fort Worth large-load / data-center-adjacent parcel already screened with Reg Guard IC Diligence patterns. SAMPLE for buyers \u2014 re-run a live address for current cites."
+  },
+  "summary": {
+    "estimated_timeline": "AHJ intake 4\u20138 weeks \u00b7 utility interconnect parallel (confirm)",
+    "estimated_total_cost": 1695,
+    "high_risk_count": 0,
+    "notes": "SAMPLE \u2014 citeable Fort Worth fees + GIS screening. Planning aid only."
+  },
+  "honesty": {
+    "risk_verified": true,
+    "estimates_unverified": false,
+    "risk_score_hidden": false,
+    "labels": {
+      "risk": "Score uses verified FEMA flood + NWI wetlands at the pin. Noise / NEPA / state do not set the overall score."
+    }
+  },
+  "environmental_screening": {
+    "risk_level": "LOW",
+    "risk_score_hidden": false,
+    "risk_honesty_note": "Score uses verified FEMA flood + NWI wetlands at the pin. Noise / species / state layers are shown separately and do not set the overall score.",
+    "findings": [
+      {
+        "category": "flood_zones",
+        "risk_level": "LOW",
+        "description": "FEMA NFHL at pin: Zone X (area of minimal flood hazard). Confirm panel effective date before LOI.",
+        "verified": true,
+        "source_url": "https://msc.fema.gov/portal/home",
+        "source_label": "FEMA MSC / NFHL",
+        "data_sources": [
+          "FEMA NFHL"
+        ],
+        "action_items": [
+          "Download FIRMette for the parcel and attach to bid file",
+          "Confirm no LOMA / Panel change since stamp date"
+        ]
+      },
+      {
+        "category": "wetlands",
+        "risk_level": "LOW",
+        "description": "USFWS NWI query at pin: no mapped wetland polygon intersecting the sample pin.",
+        "verified": true,
+        "source_url": "https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper",
+        "source_label": "USFWS NWI Wetlands Mapper",
+        "data_sources": [
+          "USFWS NWI"
+        ],
+        "action_items": [
+          "Open NWI mapper and screenshot pin for the diligence binder"
+        ]
+      },
+      {
+        "category": "endangered_species",
+        "risk_level": "PRELIMINARY",
+        "description": "IPaC screening is planning-only for this SAMPLE \u2014 run official IPaC for bid-file species diligence.",
+        "verified": false,
+        "source_url": "https://ipac.ecosphere.fws.gov/",
+        "source_label": "USFWS IPaC",
+        "data_sources": [
+          "USFWS IPaC"
+        ],
+        "action_items": [
+          "Generate official IPaC official species list for the parcel"
+        ]
+      },
+      {
+        "category": "noise_ordinance",
+        "risk_level": "UNKNOWN",
+        "description": "Municipal noise / decibel limits not parcel-verified in this SAMPLE \u2014 confirm Fort Worth noise ordinance for generator / construction hours.",
+        "verified": false,
+        "source_url": "https://www.fortworthtexas.gov/",
+        "source_label": "City of Fort Worth",
+        "data_sources": [
+          "Municipal code"
+        ],
+        "action_items": [
+          "Confirm construction-hour and standby-generator noise limits with AHJ"
+        ]
+      }
+    ],
+    "action_plan": [
+      "Attach FIRMette + NWI screenshot to Bid Risk Receipt forward",
+      "Run official IPaC before counsel package"
+    ],
+    "total_research_cost": 0
+  },
+  "vertical_playbook": {
+    "label": "Data-center / large-load playbook",
+    "beachhead_hint": "Fort Worth beachhead \u2014 cite Accela + fee schedule; confirm zoning / use with planning.",
+    "stats": {
+      "completeness_pct": 62,
+      "cited": 5,
+      "confirm": 3
+    },
+    "disclaimer": "Checklist coverage with sources \u2014 not a guarantee. Confirm zoning, fees, and utility paths before bid.",
+    "items": [
+      {
+        "id": "zoning_confirm",
+        "priority": "HIGH",
+        "task": "Confirm industrial / data-center use and setbacks with Fort Worth planning",
+        "status": "confirm",
+        "detail": "Zoning & land use are on the Pro desk as Confirm \u2014 open Development Services / planning portal before LOI."
+      },
+      {
+        "id": "ahj_portal",
+        "priority": "CRITICAL",
+        "task": "Confirm Accela CFW application type and portal path",
+        "status": "cited",
+        "detail": "Citeable Accela CFW path included in AHJ card."
+      },
+      {
+        "id": "fee_schedule",
+        "priority": "CRITICAL",
+        "task": "Pull live Fort Worth Master Fee Schedule",
+        "status": "cited",
+        "detail": "Fee schedule PDF cited on fee lines and punch list."
+      },
+      {
+        "id": "parallel_utility",
+        "priority": "CRITICAL",
+        "task": "Treat ERCOT/TDSP large-load interconnect as a parallel clock",
+        "status": "cited",
+        "detail": "Flagged on stamp drivers and parallel clocks card."
+      },
+      {
+        "id": "flood_nwi",
+        "priority": "HIGH",
+        "task": "Parcel GIS \u2014 FEMA flood + NWI wetlands at pin",
+        "status": "cited",
+        "detail": "Verified LOW overall from flood + wetlands at sample pin."
+      },
+      {
+        "id": "noise",
+        "priority": "MEDIUM",
+        "task": "Confirm noise ordinance for generators / construction hours",
+        "status": "confirm",
+        "detail": "Not parcel-verified in SAMPLE \u2014 Confirm with AHJ."
+      },
+      {
+        "id": "ipac",
+        "priority": "MEDIUM",
+        "task": "Official IPaC species list for counsel package",
+        "status": "confirm",
+        "detail": "PRELIMINARY in SAMPLE \u2014 Confirm via IPaC for bid file."
+      },
+      {
+        "id": "stormwater",
+        "priority": "HIGH",
+        "task": "Price stormwater drainage study review",
+        "status": "cited",
+        "detail": "$1,406.25 base cited on fee card \u2014 confirm acreage adder."
+      }
+    ]
+  },
+  "scout_mode": "light",
+  "pro_delta": {
+    "title": "What Contractor Pro added on this site",
+    "bullets": [
+      "Paid local confirm + light Universal Scout passes",
+      "Parcel GIS flood + wetlands verified at pin",
+      "City pack fees / gotchas + Bid Risk Receipt desk downloads",
+      "Zoning / land-use checklist as Cite or Confirm"
+    ],
+    "pages_scraped": 6,
+    "fee_rows": 4,
+    "scout_sources": 5,
+    "verified_punch_lines": 6,
+    "scout_mode": "light",
+    "honesty": "More sources and formats \u2014 not a guarantee fees match the live schedule."
   }
 }

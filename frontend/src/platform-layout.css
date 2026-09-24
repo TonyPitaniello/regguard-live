@@ -799,13 +799,14 @@ select {
 }
 
 .rg-doc-surface button.rg-sheet-tab {
-  color: #334155 !important;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  color: #0f172a !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 700 !important;
 }
 
 .rg-doc-surface button.rg-sheet-tab-active {
   color: #ffffff !important;
-  background: #059669;
-  border-color: #059669;
+  background: #059669 !important;
+  border-color: #059669 !important;
 }
