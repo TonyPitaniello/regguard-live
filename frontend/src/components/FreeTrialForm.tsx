@@ -31,6 +31,7 @@ import {
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode } from '../shareLinks';
 import { getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
+import { PRODUCT_COPY } from '../productCopy';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -1201,7 +1202,7 @@ export default function FreeTrialForm({
       >
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
           <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
-            Now run your site
+            {PRODUCT_COPY.formHeading}
           </h2>
           <div className="flex justify-end">
             <button
