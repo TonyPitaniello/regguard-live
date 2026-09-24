@@ -1,7 +1,7 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
  * Eye = view in app. Download icon = save to disk.
- * Icon columns align evenly down the list.
+ * Icon columns align evenly; copy + colors match the Reg Guard palette.
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -36,40 +36,35 @@ export const SAMPLE_ROWS = [
   {
     href: '/sample/tier-ladder.pdf',
     title: 'Sample Tier Ladder PDF',
-    subtitle: 'Overview of Free / Partner / Pro / IC on one site',
-    tier: null as string | null,
+    subtitle: 'What Free, Estimator / Permit Runner, Pro, and IC include on this site',
     price: null as string | null,
     highlight: true,
   },
   {
     href: '/sample/free-preview.pdf',
     title: HABIT_TIERS.free.name,
-    subtitle: HABIT_TIERS.free.oneLiner,
-    tier: HABIT_TIERS.free.name,
+    subtitle: 'Sample Free Preview PDF',
     price: HABIT_TIERS.free.priceLabel,
     highlight: false,
   },
   {
     href: '/sample/partner-receipt.pdf',
     title: HABIT_TIERS.partner.name,
-    subtitle: HABIT_TIERS.partner.oneLiner,
-    tier: HABIT_TIERS.partner.name,
+    subtitle: 'Sample Full Bid Risk Receipt PDF',
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
     highlight: false,
   },
   {
     href: '/sample/pro-desk.zip',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle: HABIT_TIERS.contractor_pro.oneLiner,
-    tier: HABIT_TIERS.contractor_pro.name,
+    subtitle: 'Sample Pro Desk ZIP',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
     highlight: false,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: IC_BUNDLE.cardDescription,
-    tier: IC_BUNDLE.tierName,
+    subtitle: 'Sample IC Diligence Bundle ZIP',
     price: IC_BUNDLE.priceLabel,
     highlight: false,
   },
@@ -77,10 +72,10 @@ export const SAMPLE_ROWS = [
 
 /** @deprecated — use SAMPLE_ROWS */
 export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) => ({
-  tier: r.tier || r.title,
+  tier: r.title,
   price: r.price || '',
   href: r.href,
-  shortLabel: r.title,
+  shortLabel: r.subtitle,
   detail: r.subtitle,
 }));
 
@@ -124,7 +119,6 @@ export function SampleOpenButton({
 
   return (
     <div className={`shrink-0 ${className || ''}`}>
-      {/* Fixed track: [eye][gap][download] — same width on every row */}
       <div
         className="grid grid-cols-2 gap-2 w-[6.25rem]"
         role="group"
@@ -132,16 +126,16 @@ export function SampleOpenButton({
       >
         <button
           type="button"
-          title={`View ${title}`}
-          aria-label={`View ${title}`}
+          title={`View ${title} in Reg Guard`}
+          aria-label={`View ${title} in Reg Guard`}
           onClick={(e) => void run('view', e)}
           disabled={busy !== null}
-          className={`${iconBtn} border border-emerald-400/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100`}
+          className={`${iconBtn} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300`}
         >
           {busy === 'view' ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            <Eye className="w-5 h-5" />
+            <Eye className="w-5 h-5" strokeWidth={2.25} />
           )}
         </button>
         <button
@@ -150,12 +144,12 @@ export function SampleOpenButton({
           aria-label={`Download ${title}`}
           onClick={(e) => void run('download', e)}
           disabled={busy !== null}
-          className={`${iconBtn} border border-white/20 bg-white/5 hover:bg-white/10 text-white`}
+          className={`${iconBtn} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20`}
         >
           {busy === 'download' ? (
             <Loader2 className="w-5 h-5 animate-spin" />
           ) : (
-            <Download className="w-5 h-5" />
+            <Download className="w-5 h-5" strokeWidth={2.25} />
           )}
         </button>
       </div>
@@ -181,27 +175,29 @@ function SampleRow({
 }) {
   return (
     <div
-      className={`grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border ${
+      className={`grid grid-cols-[minmax(0,1fr)_6.25rem] items-center gap-3 rounded-xl border ${
         highlight
-          ? 'border-emerald-500/30 bg-emerald-500/10'
-          : 'border-white/10 bg-slate-950/50'
+          ? 'border-emerald-500/35 bg-emerald-500/10'
+          : 'border-[rgba(61,79,143,0.4)] bg-[rgba(10,20,41,0.85)]'
       } ${compact ? 'p-3.5' : 'p-4 sm:p-5'}`}
     >
-      <div className="min-w-0 pr-2">
-        <p className={`text-white font-bold truncate ${compact ? 'text-sm' : 'text-sm sm:text-base'}`}>
+      <div className="min-w-0">
+        <p className={`text-white font-bold leading-snug ${compact ? 'text-sm' : 'text-sm sm:text-base'}`}>
           {title}
           {price ? (
             <>
               {' '}
-              <span className="text-emerald-300 font-semibold">· {price}</span>
+              <span className="text-emerald-300 font-semibold whitespace-nowrap">· {price}</span>
             </>
           ) : null}
         </p>
-        {!compact && subtitle ? (
-          <p className="text-gray-400 text-sm mt-1 leading-relaxed line-clamp-2">{subtitle}</p>
+        {subtitle ? (
+          <p className={`text-[#b8c1d1] mt-1 leading-relaxed ${compact ? 'text-xs' : 'text-sm'}`}>
+            {subtitle}
+          </p>
         ) : null}
       </div>
-      <SampleOpenButton href={href} label={title} />
+      <SampleOpenButton href={href} label={subtitle || title} />
     </div>
   );
 }
@@ -215,7 +211,7 @@ export function SampleReportBlock({
 }) {
   return (
     <div id={id} className={compact ? 'text-left' : ''}>
-      <p className="text-amber-200/90 text-xs font-bold uppercase tracking-wider mb-2">
+      <p className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
         Labeled SAMPLE
       </p>
       <h3
@@ -227,23 +223,46 @@ export function SampleReportBlock({
       >
         Same site. Every tier.
       </h3>
-      <p className={`text-gray-300 leading-relaxed ${compact ? 'text-sm mb-1' : 'text-lg mb-2'}`}>
+      <p className={`text-[#b8c1d1] leading-relaxed ${compact ? 'text-sm mb-3' : 'text-base mb-4'}`}>
         9999 Chapin School Road, Fort Worth, TX 76126 — large-load / data-center-adjacent
-        screening with live Fort Worth Development Services cites.
+        screening with live Fort Worth Development Services cites. Planning aid only — not a quote,
+        sealed bid, or AHJ filing.
       </p>
-      <p className={`text-gray-400 ${compact ? 'text-xs mb-4' : 'text-sm mb-6'}`}>
-        Planning aid only — not a quote, sealed bid, interconnection study, or AHJ filing.{' '}
-        <span className="text-gray-300">
-          Eye = view in Reg Guard. Download = save to your device.
+
+      {/* Legend matches the two real buttons */}
+      <div
+        className={`flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] ${
+          compact ? 'px-3 py-2.5 mb-3 text-xs' : 'px-4 py-3 mb-4 text-sm'
+        }`}
+      >
+        <span className="inline-flex items-center gap-2 text-white font-semibold">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
+            <Eye className="w-4 h-4" strokeWidth={2.25} />
+          </span>
+          View in Reg Guard
         </span>
-      </p>
+        <span className="inline-flex items-center gap-2 text-white font-semibold">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
+            <Download className="w-4 h-4" strokeWidth={2.25} />
+          </span>
+          Download to your device
+        </span>
+      </div>
+
+      <div className={`grid grid-cols-[minmax(0,1fr)_6.25rem] gap-3 px-1 mb-2 ${compact ? '' : ''}`}>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-[#b8c1d1]">Sample</p>
+        <div className="grid grid-cols-2 gap-2 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+          <span>View</span>
+          <span>Save</span>
+        </div>
+      </div>
 
       <div className={compact ? 'space-y-2.5' : 'space-y-3'}>
         {SAMPLE_ROWS.map((row) => (
           <SampleRow
             key={row.href}
             href={row.href}
-            title={row.highlight ? row.title : row.tier || row.title}
+            title={row.title}
             subtitle={row.subtitle}
             price={row.price}
             highlight={row.highlight}
