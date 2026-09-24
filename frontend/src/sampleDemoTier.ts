@@ -105,6 +105,8 @@ export function analysisForSampleDemo(
 
   clone.research_id = `rg-sample-chapin-${tier}`;
   clone.sample_demo_tier = tier;
+  (clone as AnalysisData & { access_tier?: string }).access_tier =
+    tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
   return clone;
 }
 

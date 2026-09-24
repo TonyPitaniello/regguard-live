@@ -24,6 +24,7 @@ import {
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { IcDiligenceBundlePitch } from './IcDiligenceBundlePitch';
 import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitDeliverableLadder';
+import { resolveResultsLadder } from '../resultsAccessLadder';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -1105,85 +1106,33 @@ export default function ResultsViewerModal({
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
-  const DEMO_FREE_PUNCH = 3;
-  const DEMO_PARTNER_PUNCH = 8;
-  // Soft-lock: free sees limited lines unless they shared OR paid deep research.
-  // Sample demos force Free → Estimator → Pro (ignore share unlock).
-  const softLocked =
-    demoTier === 'free'
-      ? true
-      : demoTier === 'partner' || demoTier === 'pro'
-        ? false
-        : !isDeep && !shareUnlocked;
-  const punchVisible =
-    demoTier === 'free'
-      ? DEMO_FREE_PUNCH
-      : demoTier === 'partner'
-        ? DEMO_PARTNER_PUNCH
-        : softLocked
-          ? FREE_PUNCH_VISIBLE
-          : 50;
-  const findingsVisible =
-    demoTier === 'free'
-      ? FREE_FINDINGS_VISIBLE
-      : demoTier === 'partner'
-        ? 8
-        : softLocked
-          ? FREE_FINDINGS_VISIBLE
-          : 12;
-  const ownedTiersSet = new Set(
-    (entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
-  );
-  const hasIcTierOnFile = [
-    'ic_project',
-    'ic_consultant',
-    'ic_annual',
-    'sponsor',
-  ].some((t) => ownedTiersSet.has(t));
-  // Download ONLY after a completed IC-depth run — never for Instant Preview / free
+  const ladder = resolveResultsLadder({
+    demoTier,
+    entitlementTiers,
+    accessTier: (view as { access_tier?: string }).access_tier || null,
+    isDeep,
+    isIcDepth,
+    shareUnlocked,
+  });
+  const softLocked = ladder.softLocked;
+  const punchVisible = ladder.punchVisible;
+  const findingsVisible = ladder.findingsVisible;
+  const ownsIc = ladder.ownsIc && isIcDepth && !incompleteRun;
+  const canGenerateIcForSite = Boolean(icReportPending) && !ownsIc;
+  const ownsPro = ladder.ownsPro;
+  const ownsPartner = ladder.ownsPartner;
+  const allowProDeskDownloads = ladder.allowProDesk;
+  const blurProDesk = ladder.blurProDesk;
+  const proBlurPunchTeasers = ladder.proBlurPunchTeasers;
+  // Keep IC package download only for real IC-depth completed runs (demo never IC).
   const allowIcPackageDownload =
     demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
       ? false
-      : isIcDepth && !incompleteRun;
+      : isIcDepth && !incompleteRun && ladder.ownsIc;
   const icPdfsReady =
     allowIcPackageDownload &&
     (Boolean(view.ic_pdfs_ready) ||
       (typeof window !== 'undefined' && sessionStorage.getItem('icPdfsReady') === '1'));
-  const ownsIc = allowIcPackageDownload;
-  const canGenerateIcForSite = Boolean(icReportPending) && !allowIcPackageDownload;
-  const ownsPro =
-    demoTier === 'pro'
-      ? true
-      : demoTier === 'free' || demoTier === 'partner'
-        ? false
-        : ownsIc ||
-          hasIcTierOnFile ||
-          ownedTiersSet.has('contractor_pro') ||
-          (isDeep && !incompleteRun && depthTier !== 'free');
-  const ownsPartner =
-    demoTier === 'partner' || demoTier === 'pro'
-      ? true
-      : demoTier === 'free'
-        ? false
-        : ownsPro || ownedTiersSet.has('partner');
-  /** Premortem F9: CSV / city pack / bid packet are Pro desk — not Free or $79 */
-  const sessionTier =
-    typeof window !== 'undefined'
-      ? (sessionStorage.getItem('regguardTier') || '').toLowerCase()
-      : '';
-  const allowProDeskDownloads =
-    demoTier === 'pro'
-      ? true
-      : demoTier === 'free' || demoTier === 'partner'
-        ? false
-        : allowIcPackageDownload ||
-          ownedTiersSet.has('contractor_pro') ||
-          sessionTier.includes('contractor_pro') ||
-          (depthTier === 'ic_full' && !incompleteRun) ||
-          ((depthTier === 'pro_local' ||
-            depthTier === 'pro_light' ||
-            depthTier === 'pro_partial') &&
-            (ownedTiersSet.has('contractor_pro') || sessionTier.includes('contractor_pro')));
 
   const requireProDesk = (artifact: ProDeskArtifact): boolean => {
     if (allowProDeskDownloads) return true;
@@ -1580,6 +1529,8 @@ export default function ResultsViewerModal({
                 borderRadius: 10,
                 padding: '12px 14px',
                 background: 'rgba(251,191,36,0.1)',
+                position: 'relative',
+                overflow: 'hidden',
               }}
             >
               <p
@@ -1594,15 +1545,26 @@ export default function ResultsViewerModal({
               >
                 Suggested bid contingency
               </p>
-              <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
-                +{contingency.pct_low ?? '—'}% – +{contingency.pct_high ?? '—'}%
-              </p>
-              <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
-                Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
-                local fees, review timing, and site risk
-                {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. Planning
-                aid only — confirm dollars with {ahjName}.
-              </p>
+              <div style={{ filter: softLocked ? 'blur(7px)' : undefined, userSelect: softLocked ? 'none' : undefined }}>
+                <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
+                  +{contingency.pct_low ?? '—'}% – +{contingency.pct_high ?? '—'}%
+                </p>
+                <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
+                  Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
+                  local fees, review timing, and site risk
+                  {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. Planning
+                  aid only — confirm dollars with {ahjName}.
+                </p>
+              </div>
+              {softLocked ? (
+                <p style={{ fontSize: 12, color: '#fde68a', margin: '10px 0 0', fontWeight: 700 }}>
+                  Free — contingency unlocks when you forward the Bid Risk Receipt or upgrade.
+                </p>
+              ) : blurProDesk ? (
+                <p style={{ fontSize: 12, color: '#fcd34d', margin: '10px 0 0' }}>
+                  Estimator — band shown. Full city pack / fee schedule stay on Contractor Pro.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -1612,17 +1574,62 @@ export default function ResultsViewerModal({
                 What to resolve before bid
               </h4>
               <ol style={{ margin: 0, paddingLeft: 20 }}>
-                {priorityLines.map((item, i) => (
-                  <li key={`ex-p-${i}`} style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 8 }}>
-                    <span style={{ color: '#fde68a', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
-                      {item.sev}
-                    </span>
-                    <span style={{ color: '#fff', fontWeight: 600 }}>{item.title}</span>
-                    {item.detail ? (
-                      <p style={{ color: '#94a3b8', fontSize: 12, margin: '4px 0 0' }}>{item.detail}</p>
-                    ) : null}
-                  </li>
-                ))}
+                {priorityLines.map((item, i) => {
+                  const clearCount = softLocked ? 1 : blurProDesk ? 2 : priorityLines.length;
+                  const locked = i >= clearCount;
+                  return (
+                    <li
+                      key={`ex-p-${i}`}
+                      style={{
+                        color: '#e2e8f0',
+                        fontSize: 14,
+                        marginBottom: 8,
+                        filter: locked ? 'blur(5px)' : undefined,
+                        userSelect: locked ? 'none' : undefined,
+                        position: 'relative',
+                      }}
+                    >
+                      <span style={{ color: '#fde68a', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
+                        {item.sev}
+                      </span>
+                      <span style={{ color: '#fff', fontWeight: 600 }}>{item.title}</span>
+                      {item.detail && (!softLocked || i === 0) ? (
+                        <p
+                          style={{
+                            color: '#94a3b8',
+                            fontSize: 12,
+                            margin: '4px 0 0',
+                            filter: softLocked || (blurProDesk && i >= 1) ? 'blur(4px)' : undefined,
+                          }}
+                        >
+                          {item.detail}
+                        </p>
+                      ) : null}
+                      {locked ? (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            right: 0,
+                            top: 0,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: '0.06em',
+                            textTransform: 'uppercase',
+                            color: softLocked ? '#e9d5ff' : '#fde68a',
+                            background: softLocked ? 'rgba(126,34,206,0.45)' : 'rgba(180,83,9,0.45)',
+                            border: softLocked
+                              ? '1px solid rgba(192,132,252,0.5)'
+                              : '1px solid rgba(251,191,36,0.45)',
+                            borderRadius: 4,
+                            padding: '2px 6px',
+                          }}
+                        >
+                          {softLocked ? 'Free locked' : 'Pro'}
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ol>
             </div>
           ) : null}
@@ -1633,14 +1640,27 @@ export default function ResultsViewerModal({
                 Immediate punch highlights
               </h4>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {punch.map((p, i) => (
-                  <li key={`ex-punch-${i}`} style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 6 }}>
-                    <span style={{ color: '#fca5a5', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
-                      {formatStampSeverity(p.priority)}
-                    </span>
-                    {p.task}
-                  </li>
-                ))}
+                {punch.map((p, i) => {
+                  const clearCount = softLocked ? 1 : blurProDesk ? 2 : punch.length;
+                  const locked = i >= clearCount;
+                  return (
+                    <li
+                      key={`ex-punch-${i}`}
+                      style={{
+                        color: '#e2e8f0',
+                        fontSize: 14,
+                        marginBottom: 6,
+                        filter: locked ? 'blur(5px)' : undefined,
+                        userSelect: locked ? 'none' : undefined,
+                      }}
+                    >
+                      <span style={{ color: '#fca5a5', fontWeight: 700, fontSize: 11, marginRight: 6 }}>
+                        {formatStampSeverity(p.priority)}
+                      </span>
+                      {p.task}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ) : null}
@@ -3062,12 +3082,27 @@ export default function ResultsViewerModal({
                 {view.project_info?.address || 'Site'} · {view.ahj_card?.name || 'Local AHJ'}
               </p>
               {view.contingency_band && (
-                <p className="text-4xl font-black text-emerald-400 mb-1 tracking-tight">
-                  +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
-                </p>
+                <div className="relative mb-1">
+                  <p
+                    className={`text-4xl font-black text-emerald-400 tracking-tight ${
+                      softLocked ? 'blur-md select-none' : ''
+                    }`}
+                  >
+                    +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
+                  </p>
+                  {softLocked ? (
+                    <p className="text-xs text-purple-100 mt-2 font-semibold">
+                      Free — forward the receipt or upgrade to reveal the contingency band.
+                    </p>
+                  ) : null}
+                </div>
               )}
               {view.contingency_band && (
-                <p className="text-sm text-gray-300 mb-3">
+                <p
+                  className={`text-sm text-gray-300 mb-3 ${
+                    softLocked ? 'blur-sm select-none' : ''
+                  }`}
+                >
                   Suggested cushion on your base bid for this site (mid {view.contingency_band.pct_mid}
                   %). Add roughly {view.contingency_band.pct_low}%–{view.contingency_band.pct_high}% for
                   AHJ fees, timeline slip, and local risk — planning aid, not a quote.
@@ -3103,10 +3138,20 @@ export default function ResultsViewerModal({
                     </span>
                     <span className="text-white font-medium">{k.title}</span>
                     {k.detail && (
-                      <p className="text-gray-400 text-xs mt-0.5 line-clamp-2">{k.detail}</p>
+                      <p
+                        className={`text-gray-400 text-xs mt-0.5 line-clamp-2 ${
+                          softLocked ? 'blur-sm select-none' : ''
+                        }`}
+                      >
+                        {k.detail}
+                      </p>
                     )}
                     {k.planning_exposure?.usd_mid != null && (
-                      <p className="text-emerald-300/90 text-xs mt-1">
+                      <p
+                        className={`text-emerald-300/90 text-xs mt-1 ${
+                          softLocked || blurProDesk ? 'blur-sm select-none' : ''
+                        }`}
+                      >
                         Planning exposure ~$
                         {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
                         {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
@@ -3455,12 +3500,11 @@ export default function ResultsViewerModal({
                     </div>
                   </div>
                 )}
-                {!softLocked &&
-                  demoTier === 'partner' &&
+                {proBlurPunchTeasers > 0 &&
                   (view.punch_list?.punch_list || []).length > punchVisible && (
                     <div className="space-y-2 mt-2">
                       {(view.punch_list?.punch_list || [])
-                        .slice(punchVisible, punchVisible + 2)
+                        .slice(punchVisible, punchVisible + proBlurPunchTeasers)
                         .map((item, idx) => (
                           <div
                             key={`blur-partner-${idx}`}
@@ -3479,8 +3523,9 @@ export default function ResultsViewerModal({
                           </div>
                         ))}
                       <p className="text-xs text-amber-100/90 text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
-                        SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on
-                        Contractor Pro.
+                        {demoTier
+                          ? 'SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on Contractor Pro.'
+                          : 'Estimator / Permit Runner unlocks punch + receipt. City pack / CSV / bid packet unlock on Contractor Pro ($149).'}
                       </p>
                     </div>
                   )}
@@ -3553,17 +3598,64 @@ export default function ResultsViewerModal({
               </div>
               <button
                 type="button"
-                onClick={() => void downloadCityPackPdf()}
+                onClick={() => {
+                  if (!allowProDeskDownloads) {
+                    showToast(proDeskGateMessage('city_pack_pdf'));
+                    goCheckout('contractor_pro');
+                    return;
+                  }
+                  void downloadCityPackPdf();
+                }}
                 disabled={packetLoading}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px] shrink-0"
               >
                 <Download className="w-4 h-4" />
-                {packetLoading ? 'Building…' : 'Download PDF'}
+                {packetLoading
+                  ? 'Building…'
+                  : allowProDeskDownloads
+                    ? 'Download PDF'
+                    : 'PDF — Pro $149'}
               </button>
             </div>
 
             {cityPackHasBody ? (
-              <div id="bid-arbitrage" className="divide-y divide-emerald-500/20">
+              <div id="bid-arbitrage" className="divide-y divide-emerald-500/20 relative">
+                {softLocked ? (
+                  <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end">
+                    <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/50" />
+                    <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center pointer-events-auto">
+                      <p className="text-xs font-bold text-purple-50">
+                        Free — city pack fees & gotchas blurred. Forward the receipt or upgrade to
+                        Estimator for more punch; Contractor Pro unlocks the full pack.
+                      </p>
+                      {!demoTier ? (
+                        <button
+                          type="button"
+                          onClick={() => goCheckout('partner')}
+                          className="mt-2 px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold"
+                        >
+                          Estimator / Permit Runner — $79
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : blurProDesk ? (
+                  <div className="px-4 py-3 border-b border-amber-500/30 bg-amber-500/10">
+                    <p className="text-xs font-bold text-amber-50">
+                      Estimator — contingency & punch unlocked. Fee dollars and pack PDF stay on
+                      Contractor Pro ($149).
+                    </p>
+                    {!demoTier ? (
+                      <button
+                        type="button"
+                        onClick={() => goCheckout('contractor_pro')}
+                        className="mt-2 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
+                      >
+                        Unlock Contractor Pro
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 {view.contingency_band && (
                   <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-emerald-300 mb-2">
@@ -3575,9 +3667,14 @@ export default function ResultsViewerModal({
                         (mid {view.contingency_band.pct_mid}%)
                       </span>
                     </p>
-                    {typeof view.contingency_band.usd_mid === 'number' && !softLocked && (
+                    {typeof view.contingency_band.usd_mid === 'number' && !softLocked && !blurProDesk && (
                       <p className="text-sm text-gray-300 mt-1">
                         ~${view.contingency_band.usd_mid.toLocaleString()} mid band on current rollup
+                      </p>
+                    )}
+                    {typeof view.contingency_band.usd_mid === 'number' && blurProDesk && !softLocked && (
+                      <p className="text-sm text-amber-100/80 mt-1">
+                        Dollar mid-band unlocks on Contractor Pro.
                       </p>
                     )}
                     <p className="text-gray-500 text-xs mt-2">{view.contingency_band.disclaimer}</p>
@@ -3637,11 +3734,19 @@ export default function ResultsViewerModal({
                               </span>
                             )}
                             <span className="text-white font-medium">{f.label}</span>
-                            {typeof f.amount_usd === 'number'
-                              ? ` — $${f.amount_usd.toLocaleString()}`
-                              : f.amount_requires_schedule
-                                ? ' — confirm on schedule'
-                                : ''}
+                            {typeof f.amount_usd === 'number' ? (
+                              <span
+                                className={
+                                  softLocked || blurProDesk ? 'blur-sm select-none inline-block' : undefined
+                                }
+                              >
+                                {` — $${f.amount_usd.toLocaleString()}`}
+                              </span>
+                            ) : f.amount_requires_schedule ? (
+                              ' — confirm on schedule'
+                            ) : (
+                              ''
+                            )}
                             {(f.planning_aid ||
                               view.fee_card?.planning_aid ||
                               view.fee_card?.paid_local_confirm) && (
@@ -4504,6 +4609,32 @@ export default function ResultsViewerModal({
                   </div>
                   );
                 })}
+                {softLocked &&
+                  (view.environmental_screening?.findings || []).length > findingsVisible && (
+                    <div className="space-y-2">
+                      {(view.environmental_screening?.findings || [])
+                        .slice(findingsVisible, findingsVisible + 2)
+                        .map((finding, idx) => (
+                          <div
+                            key={`blur-find-${idx}`}
+                            className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-slate-800/40 p-4 select-none"
+                            aria-hidden
+                          >
+                            <div className="blur-sm opacity-70 pointer-events-none">
+                              <h4 className="font-bold text-white capitalize">
+                                {String(finding.category || 'layer').replace(/_/g, ' ')}
+                              </h4>
+                              <p className="text-gray-300 text-sm mt-1">{finding.description}</p>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                              <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
+                                Locked
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
               </div>
             )}
           </section>
