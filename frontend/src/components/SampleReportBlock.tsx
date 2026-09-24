@@ -1,14 +1,14 @@
 /**
- * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * Includes Site Diligence Results (on-screen panel) + Executive Summary.
+ * Sample tier artifacts — Fort Worth Chapin DC-adjacent site at every tier.
+ * List = view only. Forward / Download live in the in-app viewer.
  */
 
 import { useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Eye, Loader2 } from 'lucide-react';
+import { Eye, Loader2 } from 'lucide-react';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
-import { downloadOnlyUrl, viewInAppUrl } from '../openAndDownload';
+import { viewInAppUrl } from '../openAndDownload';
 import { PRODUCT_COPY } from '../productCopy';
 
 /** Same-origin static samples under /public/sample */
@@ -39,10 +39,8 @@ type SampleRowDef = {
   href: string;
   /** In-app React route to open on View (scrollable live results UI) */
   viewRoute?: string;
-  /** Scrollable in-app PDF (defaults to href) */
+  /** Scrollable in-app file (defaults to href). Prefer ZIP when package exists. */
   viewHref?: string;
-  /** Disk download (defaults to href) */
-  downloadHref?: string;
   title: string;
   subtitle: string;
   price: string | null;
@@ -59,7 +57,6 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   {
     href: '/sample-site-diligence',
     viewRoute: '/sample-site-diligence',
-    downloadHref: '/sample/executive-summary.pdf',
     title: PRODUCT_COPY.resultsPanelTitle,
     subtitle:
       'The long scrollable results panel after you enter an address — stamp, contingency, punch, and packs',
@@ -93,18 +90,14 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   },
   {
     href: '/sample/pro-desk.zip',
-    viewHref: '/sample/pro-desk-report.pdf',
-    downloadHref: '/sample/pro-desk.zip',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle: 'Scrollable sample report · Save downloads the full Pro package ZIP',
+    subtitle: 'Full Pro package — scrollable report inside',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
-    viewHref: '/sample/ic-project-report.pdf',
-    downloadHref: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: `Scrollable boardroom sample · Save downloads the full ${IC_BUNDLE.productName} ZIP`,
+    subtitle: `Full ${IC_BUNDLE.productName} — scrollable boardroom sample inside`,
     price: IC_BUNDLE.priceLabel,
   },
 ] as const;
@@ -118,140 +111,122 @@ export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) 
   detail: r.subtitle,
 }));
 
-/** Eye = view in app; Download = save. Full-width on phones; icon track on sm+. */
+/** View only — Forward / Download are inside the viewer. */
 export function SampleOpenButton({
   href,
   viewRoute,
   viewHref,
-  downloadHref,
   label,
   className,
 }: {
   href: string;
   viewRoute?: string;
   viewHref?: string;
+  /** @deprecated ignored — downloads happen in the viewer */
   downloadHref?: string;
   label?: string;
   className?: string;
 }) {
   const navigate = useNavigate();
-  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const viewPath = viewHref || href;
-  const savePath = downloadHref || href;
   const title = label || sampleFilename(viewPath).replace(/^RegGuard_/, '').replace(/_/g, ' ');
 
-  const run = async (mode: 'view' | 'download', e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setBusy(mode);
+  const runView = async (e?: MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setBusy(true);
     setErr('');
     try {
-      if (mode === 'view') {
-        if (viewRoute) {
-          navigate(viewRoute);
-          return;
-        }
-        const url = sampleUrl(viewPath);
-        const name = sampleFilename(viewPath);
-        await viewInAppUrl(url, name, { navigate: (to) => navigate(to) });
-      } else {
-        const url = sampleUrl(savePath);
-        const name = sampleFilename(savePath);
-        await downloadOnlyUrl(url, name);
+      if (viewRoute) {
+        navigate(viewRoute);
+        return;
       }
+      const url = sampleUrl(viewPath);
+      const name = sampleFilename(viewPath);
+      await viewInAppUrl(url, name, { navigate: (to) => navigate(to) });
     } catch (errObj) {
-      setErr(errObj instanceof Error ? errObj.message : 'Action failed');
+      setErr(errObj instanceof Error ? errObj.message : 'Could not open');
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
-  const btnBase =
-    'inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold text-sm transition disabled:opacity-60';
-
   return (
     <div className={`w-full md:w-auto md:shrink-0 ${className || ''}`}>
-      <div
-        className="grid grid-cols-2 gap-2 w-full md:w-[7.5rem]"
-        role="group"
-        aria-label={`${title}: view or download`}
+      <button
+        type="button"
+        title={`View ${title}`}
+        aria-label={`View ${title}`}
+        onClick={(e) => void runView(e)}
+        disabled={busy}
+        className="w-full md:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold text-sm transition disabled:opacity-60 border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300"
       >
-        <button
-          type="button"
-          title={`View ${title} in Reg Guard`}
-          aria-label={`View ${title} in Reg Guard`}
-          onClick={(e) => void run('view', e)}
-          disabled={busy !== null}
-          className={`${btnBase} border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300 px-3 md:px-0`}
-        >
-          {busy === 'view' ? (
-            <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-          ) : (
-            <Eye className="w-5 h-5 shrink-0" strokeWidth={2.25} />
-          )}
-          <span className="md:hidden">View</span>
-        </button>
-        <button
-          type="button"
-          title={`Download ${title}`}
-          aria-label={`Download ${title}`}
-          onClick={(e) => void run('download', e)}
-          disabled={busy !== null}
-          className={`${btnBase} bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20 px-3 md:px-0`}
-        >
-          {busy === 'download' ? (
-            <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-          ) : (
-            <Download className="w-5 h-5 shrink-0" strokeWidth={2.25} />
-          )}
-          <span className="md:hidden">Save</span>
-        </button>
-      </div>
+        {busy ? (
+          <Loader2 className="w-5 h-5 animate-spin shrink-0" />
+        ) : (
+          <Eye className="w-5 h-5 shrink-0" strokeWidth={2.25} />
+        )}
+        View
+      </button>
       {err ? <p className="text-amber-200 text-xs mt-1 text-center md:text-left">{err}</p> : null}
     </div>
   );
 }
 
-function SampleRow({
-  href,
-  viewRoute,
-  viewHref,
-  downloadHref,
-  title,
-  subtitle,
-  price,
-  highlight,
-}: SampleRowDef) {
+function SampleRow(row: SampleRowDef) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+
+  const open = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (row.viewRoute) {
+        navigate(row.viewRoute);
+        return;
+      }
+      const path = row.viewHref || row.href;
+      await viewInAppUrl(sampleUrl(path), sampleFilename(path), {
+        navigate: (to) => navigate(to),
+      });
+    } catch {
+      /* SampleOpenButton shows errors if used; row click is best-effort */
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div
-      className={`flex flex-col gap-3 rounded-xl border p-3.5 md:p-4 md:flex-row md:items-center md:gap-4 ${
-        highlight
+    <button
+      type="button"
+      onClick={() => void open()}
+      disabled={busy}
+      className={`w-full text-left flex flex-col gap-3 rounded-xl border p-3.5 md:p-4 md:flex-row md:items-center md:gap-4 transition hover:border-emerald-400/50 disabled:opacity-60 ${
+        row.highlight
           ? 'border-emerald-500/35 bg-emerald-500/10'
           : 'border-[rgba(61,79,143,0.4)] bg-[rgba(10,20,41,0.85)]'
       }`}
     >
       <div className="min-w-0 flex-1">
         <p className="text-white font-bold text-[15px] md:text-base leading-snug break-words">
-          {title}
+          {row.title}
         </p>
-        {price ? (
-          <p className="text-emerald-300 font-semibold text-sm mt-0.5">{price}</p>
+        {row.price ? (
+          <p className="text-emerald-300 font-semibold text-sm mt-0.5">{row.price}</p>
         ) : null}
-        {subtitle ? (
+        {row.subtitle ? (
           <p className="text-[#b8c1d1] text-xs md:text-sm mt-1 leading-relaxed break-words">
-            {subtitle}
+            {row.subtitle}
           </p>
         ) : null}
       </div>
-      <SampleOpenButton
-        href={href}
-        viewRoute={viewRoute}
-        viewHref={viewHref}
-        downloadHref={downloadHref}
-        label={subtitle || title}
-      />
-    </div>
+      <span className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold text-sm border border-emerald-400/60 bg-[#0f1d38] text-emerald-300 shrink-0">
+        {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Eye className="w-5 h-5" strokeWidth={2.25} />}
+        View
+      </span>
+    </button>
   );
 }
 
@@ -285,25 +260,10 @@ export function SampleReportBlock({
       >
         {PRODUCT_COPY.sampleHeading}
       </h3>
-      <p className="text-[#b8c1d1] text-sm leading-relaxed mb-3 break-words">
+      <p className="text-[#b8c1d1] text-sm leading-relaxed mb-4 break-words">
         9999 Chapin School Road, Fort Worth, TX 76126 — large-load / DC-adjacent screening with live
         Fort Worth Development Services cites. {PRODUCT_COPY.honestyShort}
       </p>
-
-      <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] px-3 py-3 mb-3 md:flex-row md:flex-wrap md:items-center md:gap-x-5 md:gap-y-2">
-        <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
-            <Eye className="w-4 h-4" strokeWidth={2.25} />
-          </span>
-          {PRODUCT_COPY.viewChrome}
-        </span>
-        <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
-            <Download className="w-4 h-4" strokeWidth={2.25} />
-          </span>
-          {PRODUCT_COPY.saveChrome}
-        </span>
-      </div>
 
       <div className="space-y-2.5 md:space-y-3">
         {SAMPLE_ROWS.map((row) => (

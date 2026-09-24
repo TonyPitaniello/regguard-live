@@ -199,9 +199,7 @@ export default function PricingPage() {
           </h3>
           <p className="text-gray-400 text-sm mb-6 text-center">
             9999 Chapin School Road, Fort Worth, TX 76126 (labeled SAMPLE). Live Fort Worth AHJ
-            cites. Shows exactly what Free, Estimator/Permit Runner, Contractor Pro, and the IC
-            Diligence Bundle include — not a sealed bid or interconnect study. Eye = view ·
-            Download = save.
+            cites. Tap View to open — Forward and Download are inside the viewer.
           </p>
           <SampleReportBlock compact />
         </div>

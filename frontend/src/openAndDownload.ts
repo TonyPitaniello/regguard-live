@@ -192,13 +192,13 @@ export async function forwardStashed(id: string): Promise<'shared' | 'copied' | 
         await navigator.share({
           files: [shareFile],
           title: 'Reg Guard',
-          text: `Reg Guard — ${name}`,
+          text: `Reg Guard — Citeable Bid Risk Receipt — before you bid.\n${name}`,
         });
         return 'shared';
       }
       await navigator.share({
         title: 'Reg Guard',
-        text: `Reg Guard — ${name}\n\nOpen Reg Guard to download this file.\nPlanning aid only — confirm with AHJ before bid.`,
+        text: `Reg Guard — Citeable Bid Risk Receipt — before you bid.\n${name}`,
       });
       return 'shared';
     }
@@ -209,7 +209,7 @@ export async function forwardStashed(id: string): Promise<'shared' | 'copied' | 
     }
   }
   try {
-    const text = `Reg Guard — ${name}\n\nOpen Reg Guard results to download this file.\nPlanning aid only — confirm with AHJ before bid.`;
+    const text = `Reg Guard — Citeable Bid Risk Receipt — before you bid.\n${name}\nOpen in Reg Guard to download.\nPlanning aid only — confirm with AHJ before bid.`;
     await navigator.clipboard.writeText(text);
     return 'copied';
   } catch {

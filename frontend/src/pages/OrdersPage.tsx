@@ -6,9 +6,9 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Download, Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-react';
 import { backendUrl } from '../env';
-import { openAndDownloadBlob } from '../openAndDownload';
+import { viewInAppBlob } from '../openAndDownload';
 import {
   hasValidPendingIcReport,
   persistLastResearchForm,
@@ -352,7 +352,7 @@ export default function OrdersPage() {
       const res = await fetch(fetchUrl, { credentials: 'omit' });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
-      await openAndDownloadBlob(
+      await viewInAppBlob(
         blob,
         `${(pdf.type || 'report').replace(/[^\w.-]+/g, '_')}.pdf`
       );
@@ -712,8 +712,8 @@ function OrderCard({
                           : 'bg-emerald-600/15 border-emerald-500/35 text-emerald-100 hover:bg-emerald-600/25'
                       }`}
                     >
-                      <Download className="w-4 h-4 shrink-0" />
-                      <span className="truncate">{pdf.name}</span>
+                      <FileText className="w-4 h-4 shrink-0" />
+                      <span className="truncate">View {pdf.name}</span>
                     </button>
                   );
                 })}

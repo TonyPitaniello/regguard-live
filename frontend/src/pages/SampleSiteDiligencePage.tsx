@@ -8,7 +8,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import ResultsViewerModal, { type AnalysisData } from '../components/ResultsViewerModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
-import { downloadOnlyUrl } from '../openAndDownload';
 
 export default function SampleSiteDiligencePage() {
   const navigate = useNavigate();
@@ -72,26 +71,12 @@ export default function SampleSiteDiligencePage() {
           <ArrowLeft className="w-4 h-4" />
           Back to samples
         </button>
-        <div className="flex flex-wrap gap-2">
-          <a
-            href="#rg-executive-summary"
-            className="inline-flex items-center px-3 py-2 rounded-lg border border-amber-400/50 bg-amber-500/15 text-amber-100 text-sm font-bold min-h-[44px]"
-          >
-            Jump to Executive summary
-          </a>
-          <button
-            type="button"
-            onClick={() =>
-              void downloadOnlyUrl(
-                '/sample/executive-summary.pdf',
-                'RegGuard_Sample_Executive_Summary.pdf'
-              )
-            }
-            className="inline-flex items-center px-3 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-bold min-h-[44px]"
-          >
-            Save Executive Summary PDF
-          </button>
-        </div>
+        <a
+          href="#rg-executive-summary"
+          className="inline-flex items-center px-3 py-2 rounded-lg border border-amber-400/50 bg-amber-500/15 text-amber-100 text-sm font-bold min-h-[44px]"
+        >
+          Jump to Executive summary
+        </a>
       </div>
       <p className="max-w-5xl mx-auto mb-3 text-xs font-bold uppercase tracking-wider text-amber-300">
         Labeled SAMPLE — same panel you get after entering an address

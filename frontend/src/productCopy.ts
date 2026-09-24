@@ -40,8 +40,6 @@ export const PRODUCT_COPY = {
   sampleLead: 'See what Reg Guard can do',
   sampleHeading: 'Sample Site Results',
   sampleBridge: 'Then run your own site below — same Bid Risk Receipt format.',
-  viewChrome: 'View opens in Reg Guard',
-  saveChrome: 'Save downloads to your phone',
 
   formHeading: 'Now run your site',
   formClear: 'Clear & start over',

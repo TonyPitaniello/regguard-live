@@ -14,7 +14,7 @@ import { rememberReferralCode, storedReferralCode, withShareParams } from '../sh
 import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 import { analysisForPdfExport, artifactDownloadFilename, postBinaryDownload, postPdfDownload } from '../pdfExport';
-import { openAndDownloadBlob } from '../openAndDownload';
+import { downloadOnlyBlob } from '../openAndDownload';
 import {
   buildArtifactTextMessage,
   copyText,
@@ -1782,7 +1782,7 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Export failed (${res.status})`);
       }
       const blob = await res.blob();
-      await openAndDownloadBlob(
+      await downloadOnlyBlob(
         blob,
         artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'csv')
       );
@@ -1808,7 +1808,7 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Bid sheet PDF failed (${res.status})`);
       }
       const blob = await res.blob();
-      await openAndDownloadBlob(
+      await downloadOnlyBlob(
         blob,
         artifactDownloadFilename(view as unknown as Record<string, unknown>, 'BID SHEET', 'pdf')
       );
@@ -1855,7 +1855,7 @@ export default function ResultsViewerModal({
       const res = await fetch(fetchUrl, { credentials: 'omit' });
       if (!res.ok) throw new Error(`Download failed (${res.status})`);
       const blob = await res.blob();
-      await openAndDownloadBlob(
+      await downloadOnlyBlob(
         blob,
         pdf.type === 'ic_package'
           ? artifactDownloadFilename(view as unknown as Record<string, unknown>, 'IC DILIGENCE PACKAGE', 'pdf')
@@ -2003,7 +2003,7 @@ export default function ResultsViewerModal({
         throw new Error(data.detail || `Export failed (${res.status})`);
       }
       const blob = await res.blob();
-      await openAndDownloadBlob(
+      await downloadOnlyBlob(
         blob,
         artifactDownloadFilename(
           view as unknown as Record<string, unknown>,
@@ -2101,7 +2101,7 @@ export default function ResultsViewerModal({
         if (!fileRes.ok) throw new Error(`Bid packet download failed (${fileRes.status})`);
         blob = await fileRes.blob();
       }
-      await openAndDownloadBlob(blob, 'RegGuard_Bid_Packet.pdf');
+      await downloadOnlyBlob(blob, 'RegGuard_Bid_Packet.pdf');
       showToast('Full bid packet PDF downloaded — citeable pre-bid diligence, not a sealed bid');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Bid packet failed');
@@ -2344,55 +2344,76 @@ export default function ResultsViewerModal({
     >
       <div className="w-full flex flex-col bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-purple-500/30 rounded-2xl shadow-2xl">
         {/* Header — scrolls away with the page (not a frozen overlay) */}
-        <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90">
-          <div>
-            <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
-              Site Diligence Results
-            </h2>
-            <p className="text-gray-400 text-sm mt-1">
-              {(() => {
-                const pi = view.project_info || ({} as AnalysisData['project_info']);
-                const street = (pi.address || '').trim();
-                const place = `${pi.city || ''}, ${pi.state || ''} ${pi.zip || ''}`.trim();
-                const sn = street.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const cn = (pi.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (cn && sn.includes(cn) && street.includes(String(pi.zip || ''))) {
-                  return street || place || 'Site address';
-                }
-                return [street, place].filter(Boolean).join(' · ') || 'Site address';
-              })()}
-            </p>
-            {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
-              <p
-                className={`mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide border ${
-                  isInstantPreviewDepth(view)
-                    ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
-                    : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                }`}
-              >
-                {depthBadgeLabel ||
-                  (view.research_depth === 'pro'
-                    ? 'Contractor Pro — deep research'
-                    : 'Contractor Pro — partial deep research')}
+        <div className="flex flex-col gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
+                Site Diligence Results
+              </h2>
+              <p className="text-gray-400 text-sm mt-1">
+                {(() => {
+                  const pi = view.project_info || ({} as AnalysisData['project_info']);
+                  const street = (pi.address || '').trim();
+                  const place = `${pi.city || ''}, ${pi.state || ''} ${pi.zip || ''}`.trim();
+                  const sn = street.toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const cn = (pi.city || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  if (cn && sn.includes(cn) && street.includes(String(pi.zip || ''))) {
+                    return street || place || 'Site address';
+                  }
+                  return [street, place].filter(Boolean).join(' · ') || 'Site address';
+                })()}
               </p>
-            )}
-            {view.depth_claim_note && (
-              <p className="mt-1.5 text-xs text-amber-200/90 max-w-2xl">{view.depth_claim_note}</p>
-            )}
-            {!isDeep && !depthBadgeLabel && (
-              <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
-                Free preview — citeable fees & top punch lines
-              </p>
-            )}
+              {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
+                <p
+                  className={`mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide border ${
+                    isInstantPreviewDepth(view)
+                      ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  }`}
+                >
+                  {depthBadgeLabel ||
+                    (view.research_depth === 'pro'
+                      ? 'Contractor Pro — deep research'
+                      : 'Contractor Pro — partial deep research')}
+                </p>
+              )}
+              {view.depth_claim_note && (
+                <p className="mt-1.5 text-xs text-amber-200/90 max-w-2xl">{view.depth_claim_note}</p>
+              )}
+              {!isDeep && !depthBadgeLabel && (
+                <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
+                  Free preview — citeable fees & top punch lines
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-slate-800 transition shrink-0"
+              aria-label="Close results"
+            >
+              <X className="w-6 h-6" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-slate-800 transition"
-            aria-label="Close results"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <button
+              type="button"
+              onClick={() => void forwardArtifact('Bid Risk Receipt')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg border border-emerald-400/50 bg-emerald-500/15 text-emerald-100 text-sm font-bold"
+            >
+              <Share2 className="w-4 h-4 shrink-0" />
+              Forward
+            </button>
+            <button
+              type="button"
+              onClick={() => void downloadBidReceipt()}
+              disabled={packetLoading}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black disabled:opacity-50"
+            >
+              <Download className="w-4 h-4 shrink-0" />
+              {packetLoading ? 'Opening…' : 'Download'}
+            </button>
+          </div>
         </div>
 
         {/* Stay-oriented: jump without losing this results session */}
@@ -2480,19 +2501,19 @@ export default function ResultsViewerModal({
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
+                  onClick={() => void forwardArtifact('Executive Summary')}
+                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Forward summary
+                </button>
+                <button
+                  type="button"
                   onClick={() => void forwardArtifact('Executive Summary', { downloadText: true })}
                   className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-100 text-sm font-semibold hover:bg-amber-500/30"
                 >
                   <Download className="w-4 h-4" />
                   Download summary
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void forwardArtifact('Executive Summary')}
-                  className="inline-flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Text summary
                 </button>
                 <button
                   type="button"
@@ -2743,8 +2764,7 @@ export default function ResultsViewerModal({
               Bid Risk Receipt — default bid-file forward
             </p>
             <p className="text-sm text-gray-300 mb-3">
-              This one-page receipt is what GCs forward. Full packs (city pack, bid packet, IC) are
-              attachments — download them below, then text the share link.
+              Forward or Download from the top of these results — or use the buttons below.
             </p>
             {(view.regguard_stamp?.grade || view.stamp_grade) && (
               <div
@@ -4199,7 +4219,7 @@ export default function ResultsViewerModal({
                       const blob = new Blob([JSON.stringify(data, null, 2)], {
                         type: 'application/json',
                       });
-                      await openAndDownloadBlob(blob, 'RegGuard_DC_Diligence.json');
+                      await downloadOnlyBlob(blob, 'RegGuard_DC_Diligence.json');
                     } catch {
                       /* soft fail */
                     }

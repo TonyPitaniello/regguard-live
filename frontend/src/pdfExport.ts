@@ -183,8 +183,9 @@ export async function postBinaryDownload(
   await saveBlob(await res.blob(), filenameFromHeaders(res, filename));
 }
 
-import { openAndDownloadBlob } from './openAndDownload';
+import { downloadOnlyBlob } from './openAndDownload';
 
+/** Save to disk — caller is already in a results/viewer Forward·Download context. */
 async function saveBlob(blob: Blob, filename: string): Promise<void> {
-  await openAndDownloadBlob(blob, filename);
+  await downloadOnlyBlob(blob, filename);
 }

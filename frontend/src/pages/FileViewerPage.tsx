@@ -1,11 +1,11 @@
 /**
- * In-app file viewer — scrollable PDF / text preview + download + forward.
+ * In-app file viewer — scrollable PDF / text preview + Download + Forward.
  * ZIP packages unpack to member tabs (PDFs first).
  */
 
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, FileArchive, FileText, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, FileArchive, FileText, Share2 } from 'lucide-react';
 import {
   getStashedFile,
   releaseStashedFile,
@@ -126,40 +126,39 @@ export default function FileViewerPage() {
             <p className="font-bold text-sm sm:text-base truncate">{file.filename}</p>
             <p className="text-xs text-gray-400 truncate">
               {hasPackage ? `Inside ${packageLabel} · ` : ''}
-              Viewing in Reg Guard · {formatBytes(file.size)}
-              {file.downloaded ? ' · Also saved to Downloads' : ''}
+              {formatBytes(file.size)}
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 w-full max-w-lg mx-auto sm:max-w-none sm:mx-0 sm:flex sm:flex-wrap sm:justify-end">
-          <button
-            type="button"
-            onClick={() => downloadActiveMember(id)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-emerald-400/50 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-200 font-bold text-xs sm:text-sm min-h-[44px]"
-            title="Download this page"
-          >
-            <Eye className="w-4 h-4 shrink-0" />
-            <span className="truncate">This file</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => redownloadStashed(id)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 font-bold text-xs sm:text-sm min-h-[44px]"
-            title={`Download ${packageLabel}`}
-          >
-            <Download className="w-4 h-4 shrink-0" />
-            <span className="truncate">{hasPackage ? 'Save ZIP' : 'Save'}</span>
-          </button>
+        <div className="grid grid-cols-2 gap-2 w-full max-w-lg mx-auto sm:max-w-none sm:mx-0 sm:flex sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={() => void onForward()}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-white/20 bg-white/5 hover:bg-white/10 font-bold text-xs sm:text-sm min-h-[44px]"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-emerald-400/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 font-bold text-sm min-h-[44px]"
             title="Forward / share"
           >
             <Share2 className="w-4 h-4 shrink-0" />
-            <span className="truncate">Forward</span>
+            Forward
+          </button>
+          <button
+            type="button"
+            onClick={() => (hasPackage ? redownloadStashed(id) : downloadActiveMember(id))}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 font-bold text-sm min-h-[44px]"
+            title={`Download ${packageLabel}`}
+          >
+            <Download className="w-4 h-4 shrink-0" />
+            Download
           </button>
         </div>
+        {hasPackage && members.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => downloadActiveMember(id)}
+            className="text-xs text-gray-400 hover:text-emerald-300 underline-offset-2 hover:underline self-center sm:self-end"
+          >
+            Download this page only
+          </button>
+        ) : null}
         {forwardNote ? (
           <p className="text-center text-xs text-emerald-300 font-semibold">{forwardNote}</p>
         ) : null}
@@ -181,7 +180,6 @@ export default function FileViewerPage() {
                       : 'border-white/10 bg-white/5 text-gray-300 hover:border-emerald-400/40'
                   }`}
                 >
-                  {m.previewKind === 'pdf' ? 'PDF · ' : m.previewKind === 'text' ? '' : ''}
                   {m.name.length > 36 ? `${m.name.slice(0, 34)}…` : m.name}
                 </button>
               );
@@ -198,30 +196,17 @@ export default function FileViewerPage() {
             className="flex-1 w-full min-h-[70vh] bg-white border-0"
           />
         ) : file.previewKind === 'text' ? (
-          <pre className="flex-1 overflow-auto p-4 sm:p-6 text-sm text-emerald-50/95 bg-[#0a1429] whitespace-pre-wrap break-words font-mono leading-relaxed">
+          <pre className="flex-1 overflow-auto p-4 text-sm text-gray-200 whitespace-pre-wrap font-mono bg-slate-950">
             {textBody ?? 'Loading…'}
           </pre>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center px-4 py-16 text-center">
-            {packageLabel.toLowerCase().endsWith('.zip') || file.mime.includes('zip') ? (
-              <FileArchive className="w-14 h-14 text-emerald-300 mb-4" />
-            ) : (
-              <FileText className="w-14 h-14 text-emerald-300 mb-4" />
-            )}
-            <h1 className="text-2xl font-black mb-2">Open on your device</h1>
-            <p className="text-gray-300 max-w-md mb-6 leading-relaxed">
-              This file type ({file.filename.split('.').pop()?.toUpperCase() || 'binary'}) needs an
-              office app. Save it, then open in Word / Excel / Finder. Prefer PDF members above when
-              listed.
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <FileArchive className="w-12 h-12 text-emerald-400" />
+            <p className="font-bold text-lg">Package ready</p>
+            <p className="text-gray-400 text-sm max-w-md">
+              This file type doesn&apos;t preview in-browser. Use Forward or Download.
             </p>
-            <button
-              type="button"
-              onClick={() => downloadActiveMember(id)}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 font-bold min-h-[48px]"
-            >
-              <Download className="w-5 h-5" />
-              Download {file.filename}
-            </button>
+            <FileText className="w-8 h-8 text-gray-500" />
           </div>
         )}
       </main>
