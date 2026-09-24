@@ -1,5 +1,5 @@
 /**
- * Open a file in the in-app viewer and force a disk download.
+ * Open a file in the in-app viewer and/or force a disk download.
  * Browsers often inline application/pdf — we download via octet-stream instead.
  */
 
@@ -38,7 +38,60 @@ type NavOpts = {
   navigate?: (to: string) => void;
 };
 
-/** Download + open in-app /view-file for a Blob already in hand. */
+async function fetchBlob(url: string): Promise<Blob> {
+  const res = await fetch(url, { credentials: 'omit' });
+  if (!res.ok) throw new Error(`Download failed (${res.status})`);
+  return res.blob();
+}
+
+function resolveFilename(url: string, filename: string | undefined, blob: Blob): string {
+  return (
+    filename ||
+    url.split('/').pop()?.split('?')[0] ||
+    (isPreviewableMime(blob.type, '') ? 'RegGuard_document.pdf' : 'RegGuard_file')
+  );
+}
+
+/** Open in-app /view-file only (no disk download). */
+export async function viewInAppBlob(
+  blob: Blob,
+  filename: string,
+  opts?: NavOpts
+): Promise<string> {
+  if (!blob || blob.size < 40) throw new Error('File was empty — try again.');
+  const id = stashFileBlob(blob, filename);
+  const to = `/view-file?id=${encodeURIComponent(id)}`;
+  if (opts?.navigate) opts.navigate(to);
+  else appNavigate(to);
+  return id;
+}
+
+/** Download to disk only (no navigation). */
+export async function downloadOnlyBlob(blob: Blob, filename: string): Promise<void> {
+  if (!blob || blob.size < 40) throw new Error('File was empty — try again.');
+  triggerBrowserDownload(blob, filename);
+}
+
+/** Fetch URL → open in-app viewer only. */
+export async function viewInAppUrl(
+  url: string,
+  filename?: string,
+  opts?: NavOpts
+): Promise<string> {
+  const blob = await fetchBlob(url);
+  return viewInAppBlob(blob, resolveFilename(url, filename, blob), opts);
+}
+
+/** Fetch URL → disk download only. */
+export async function downloadOnlyUrl(url: string, filename?: string): Promise<void> {
+  const blob = await fetchBlob(url);
+  await downloadOnlyBlob(blob, resolveFilename(url, filename, blob));
+}
+
+/**
+ * Legacy combined path (Results/Orders artifacts): open viewer + download.
+ * Prefer viewInApp* / downloadOnly* for sample CTAs.
+ */
 export async function openAndDownloadBlob(
   blob: Blob,
   filename: string,
@@ -52,7 +105,6 @@ export async function openAndDownloadBlob(
   if (!file) throw new Error('Could not prepare file viewer.');
 
   const to = `/view-file?id=${encodeURIComponent(id)}`;
-  // Navigate first so the app viewer mounts; then force disk download
   if (opts?.navigate) opts.navigate(to);
   else appNavigate(to);
 
@@ -64,29 +116,19 @@ export async function openAndDownloadBlob(
   return id;
 }
 
-/** Fetch a same-origin or absolute URL, then open + download. */
 export async function openAndDownloadUrl(
   url: string,
   filename?: string,
   opts?: NavOpts
 ): Promise<string> {
-  const res = await fetch(url, { credentials: 'omit' });
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
-  }
-  const blob = await res.blob();
-  const name =
-    filename ||
-    url.split('/').pop()?.split('?')[0] ||
-    (isPreviewableMime(blob.type, '') ? 'RegGuard_document.pdf' : 'RegGuard_file');
-  return openAndDownloadBlob(blob, name, opts);
+  const blob = await fetchBlob(url);
+  return openAndDownloadBlob(blob, resolveFilename(url, filename, blob), opts);
 }
 
 /** Re-download from an already-stashed viewer file. */
 export function redownloadStashed(id: string): void {
   const file = getStashedFile(id);
   if (!file) return;
-  // Fetch bytes back from the preview URL so we can re-wrap as octet-stream
   void fetch(file.blobUrl)
     .then((r) => r.blob())
     .then((b) => {
@@ -94,7 +136,6 @@ export function redownloadStashed(id: string): void {
       markStashedDownloaded(id);
     })
     .catch(() => {
-      // Fallback: try download attr on preview URL (may inline PDF on some browsers)
       const a = document.createElement('a');
       a.href = file.blobUrl;
       a.download = file.filename;

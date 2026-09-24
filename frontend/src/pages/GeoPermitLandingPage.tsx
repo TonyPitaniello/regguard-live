@@ -214,11 +214,7 @@ export default function GeoPermitLandingPage() {
             Run free {local.city} site lookup
           </button>
           {local.samplePdf && (
-            <SampleOpenButton
-              href="/sample/tier-ladder.pdf"
-              label="View and Download Sample Tier Ladder PDF"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-white/10 border border-purple-400/40 text-white font-semibold min-h-[44px] disabled:opacity-60"
-            />
+            <SampleOpenButton href="/sample/tier-ladder.pdf" label="Sample Tier Ladder PDF" />
           )}
         </div>
 

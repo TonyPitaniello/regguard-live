@@ -1,8 +1,7 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * Used on home (after intro) and /sample-report.
- *
- * Clicks: open in-app /view-file AND force a disk download. Never navigate to raw .pdf URLs.
+ * Eye = view in app. Download icon = save to disk.
+ * Icon columns align evenly down the list.
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -10,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Loader2 } from 'lucide-react';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
-import { openAndDownloadUrl } from '../openAndDownload';
+import { downloadOnlyUrl, viewInAppUrl } from '../openAndDownload';
 
 /** Same-origin static samples under /public/sample */
 export function sampleUrl(path: string): string {
@@ -32,84 +31,177 @@ function sampleFilename(path: string): string {
   return map[base] || `RegGuard_Sample_${base}`;
 }
 
-function viewAndDownloadLabel(shortName: string): string {
-  return `View and Download ${shortName}`;
-}
-
-export const SAMPLE_DOWNLOADS = [
+/** All sample rows — same layout so eye / download columns line up */
+export const SAMPLE_ROWS = [
   {
+    href: '/sample/tier-ladder.pdf',
+    title: 'Sample Tier Ladder PDF',
+    subtitle: 'Overview of Free / Partner / Pro / IC on one site',
+    tier: null as string | null,
+    price: null as string | null,
+    highlight: true,
+  },
+  {
+    href: '/sample/free-preview.pdf',
+    title: HABIT_TIERS.free.name,
+    subtitle: HABIT_TIERS.free.oneLiner,
     tier: HABIT_TIERS.free.name,
     price: HABIT_TIERS.free.priceLabel,
-    href: '/sample/free-preview.pdf',
-    label: viewAndDownloadLabel('Sample Free Preview PDF'),
-    detail: HABIT_TIERS.free.oneLiner,
+    highlight: false,
   },
   {
+    href: '/sample/partner-receipt.pdf',
+    title: HABIT_TIERS.partner.name,
+    subtitle: HABIT_TIERS.partner.oneLiner,
     tier: HABIT_TIERS.partner.name,
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
-    href: '/sample/partner-receipt.pdf',
-    label: viewAndDownloadLabel('Sample Full Bid Risk Receipt PDF'),
-    detail: HABIT_TIERS.partner.oneLiner,
+    highlight: false,
   },
   {
+    href: '/sample/pro-desk.zip',
+    title: HABIT_TIERS.contractor_pro.name,
+    subtitle: HABIT_TIERS.contractor_pro.oneLiner,
     tier: HABIT_TIERS.contractor_pro.name,
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
-    href: '/sample/pro-desk.zip',
-    label: viewAndDownloadLabel('Sample Pro Desk ZIP'),
-    detail: HABIT_TIERS.contractor_pro.oneLiner,
+    highlight: false,
   },
   {
+    href: '/sample/ic-diligence-bundle.zip',
+    title: IC_BUNDLE.tierName,
+    subtitle: IC_BUNDLE.cardDescription,
     tier: IC_BUNDLE.tierName,
     price: IC_BUNDLE.priceLabel,
-    href: '/sample/ic-diligence-bundle.zip',
-    label: viewAndDownloadLabel('Sample IC Diligence Bundle ZIP'),
-    detail: IC_BUNDLE.cardDescription,
+    highlight: false,
   },
 ] as const;
 
+/** @deprecated — use SAMPLE_ROWS */
+export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) => ({
+  tier: r.tier || r.title,
+  price: r.price || '',
+  href: r.href,
+  shortLabel: r.title,
+  detail: r.subtitle,
+}));
+
+const iconBtn =
+  'inline-flex items-center justify-center h-11 w-11 rounded-lg transition disabled:opacity-60 shrink-0';
+
+/** Fixed-width eye + download pair so every row aligns. */
 export function SampleOpenButton({
   href,
   label,
   className,
 }: {
   href: string;
-  label: string;
-  className: string;
+  label?: string;
+  className?: string;
 }) {
   const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [err, setErr] = useState('');
+  const title = label || sampleFilename(href).replace(/^RegGuard_/, '').replace(/_/g, ' ');
 
-  const onClick = async (e: MouseEvent) => {
+  const run = async (mode: 'view' | 'download', e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setBusy(true);
+    setBusy(mode);
     setErr('');
     try {
-      await openAndDownloadUrl(sampleUrl(href), sampleFilename(href), {
-        navigate: (to) => navigate(to),
-      });
+      const url = sampleUrl(href);
+      const name = sampleFilename(href);
+      if (mode === 'view') {
+        await viewInAppUrl(url, name, { navigate: (to) => navigate(to) });
+      } else {
+        await downloadOnlyUrl(url, name);
+      }
     } catch (errObj) {
-      setErr(errObj instanceof Error ? errObj.message : 'View / download failed');
+      setErr(errObj instanceof Error ? errObj.message : 'Action failed');
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
   return (
-    <div className="shrink-0">
-      <button type="button" onClick={(e) => void onClick(e)} disabled={busy} className={className}>
-        {busy ? (
-          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-        ) : (
-          <>
-            <Eye className="w-4 h-4 shrink-0" />
-            <Download className="w-4 h-4 shrink-0" />
-          </>
-        )}
-        {busy ? 'Opening…' : label}
-      </button>
-      {err ? <p className="text-amber-200 text-xs mt-1 max-w-xs">{err}</p> : null}
+    <div className={`shrink-0 ${className || ''}`}>
+      {/* Fixed track: [eye][gap][download] — same width on every row */}
+      <div
+        className="grid grid-cols-2 gap-2 w-[6.25rem]"
+        role="group"
+        aria-label={`${title}: view or download`}
+      >
+        <button
+          type="button"
+          title={`View ${title}`}
+          aria-label={`View ${title}`}
+          onClick={(e) => void run('view', e)}
+          disabled={busy !== null}
+          className={`${iconBtn} border border-emerald-400/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100`}
+        >
+          {busy === 'view' ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Eye className="w-5 h-5" />
+          )}
+        </button>
+        <button
+          type="button"
+          title={`Download ${title}`}
+          aria-label={`Download ${title}`}
+          onClick={(e) => void run('download', e)}
+          disabled={busy !== null}
+          className={`${iconBtn} border border-white/20 bg-white/5 hover:bg-white/10 text-white`}
+        >
+          {busy === 'download' ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Download className="w-5 h-5" />
+          )}
+        </button>
+      </div>
+      {err ? <p className="text-amber-200 text-xs mt-1 max-w-[6.25rem] text-center">{err}</p> : null}
+    </div>
+  );
+}
+
+function SampleRow({
+  href,
+  title,
+  subtitle,
+  price,
+  highlight,
+  compact,
+}: {
+  href: string;
+  title: string;
+  subtitle: string;
+  price: string | null;
+  highlight?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`grid grid-cols-[1fr_auto] items-center gap-3 rounded-xl border ${
+        highlight
+          ? 'border-emerald-500/30 bg-emerald-500/10'
+          : 'border-white/10 bg-slate-950/50'
+      } ${compact ? 'p-3.5' : 'p-4 sm:p-5'}`}
+    >
+      <div className="min-w-0 pr-2">
+        <p className={`text-white font-bold truncate ${compact ? 'text-sm' : 'text-sm sm:text-base'}`}>
+          {title}
+          {price ? (
+            <>
+              {' '}
+              <span className="text-emerald-300 font-semibold">· {price}</span>
+            </>
+          ) : null}
+        </p>
+        {!compact && subtitle ? (
+          <p className="text-gray-400 text-sm mt-1 leading-relaxed line-clamp-2">{subtitle}</p>
+        ) : null}
+      </div>
+      <SampleOpenButton href={href} label={title} />
     </div>
   );
 }
@@ -118,7 +210,6 @@ export function SampleReportBlock({
   compact = false,
   id = 'sample-report',
 }: {
-  /** Tighter layout for home (between intro and address form) */
   compact?: boolean;
   id?: string;
 }) {
@@ -140,42 +231,24 @@ export function SampleReportBlock({
         9999 Chapin School Road, Fort Worth, TX 76126 — large-load / data-center-adjacent
         screening with live Fort Worth Development Services cites.
       </p>
-      <p className={`text-gray-400 ${compact ? 'text-xs mb-4' : 'text-sm mb-8'}`}>
-        Planning aid only — not a quote, sealed bid, interconnection study, or AHJ filing. Each
-        button opens the file in Reg Guard and saves a copy to your Downloads.
+      <p className={`text-gray-400 ${compact ? 'text-xs mb-4' : 'text-sm mb-6'}`}>
+        Planning aid only — not a quote, sealed bid, interconnection study, or AHJ filing.{' '}
+        <span className="text-gray-300">
+          Eye = view in Reg Guard. Download = save to your device.
+        </span>
       </p>
 
-      <SampleOpenButton
-        href="/sample/tier-ladder.pdf"
-        label={viewAndDownloadLabel('Sample Tier Ladder PDF')}
-        className={`inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition min-h-[44px] disabled:opacity-60 ${
-          compact ? 'px-4 py-2.5 text-sm mb-4' : 'px-6 py-3 mb-10'
-        }`}
-      />
-
-      <div className={compact ? 'space-y-2.5' : 'space-y-4'}>
-        {SAMPLE_DOWNLOADS.map((s) => (
-          <div
-            key={s.href}
-            className={`rounded-xl border border-white/10 bg-slate-950/50 flex flex-col sm:flex-row sm:items-center gap-3 ${
-              compact ? 'p-3.5' : 'p-5 gap-4'
-            }`}
-          >
-            <div className="min-w-0 flex-1">
-              <p className={`text-white font-bold ${compact ? 'text-sm' : ''}`}>
-                {s.tier}{' '}
-                <span className="text-emerald-300 font-semibold">· {s.price}</span>
-              </p>
-              {!compact ? (
-                <p className="text-gray-400 text-sm mt-1 leading-relaxed">{s.detail}</p>
-              ) : null}
-            </div>
-            <SampleOpenButton
-              href={s.href}
-              label={s.label}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-emerald-400/40 hover:bg-emerald-500/15 text-emerald-100 font-semibold rounded-lg transition min-h-[44px] shrink-0 text-sm disabled:opacity-60"
-            />
-          </div>
+      <div className={compact ? 'space-y-2.5' : 'space-y-3'}>
+        {SAMPLE_ROWS.map((row) => (
+          <SampleRow
+            key={row.href}
+            href={row.href}
+            title={row.highlight ? row.title : row.tier || row.title}
+            subtitle={row.subtitle}
+            price={row.price}
+            highlight={row.highlight}
+            compact={compact}
+          />
         ))}
       </div>
     </div>

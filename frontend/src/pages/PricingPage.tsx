@@ -9,7 +9,7 @@ import { Check, ArrowLeft } from 'lucide-react';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
-import { SampleOpenButton } from '../components/SampleReportBlock';
+import { SampleReportBlock } from '../components/SampleReportBlock';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 
 const TIERS = [
@@ -199,35 +199,10 @@ export default function PricingPage() {
           <p className="text-gray-400 text-sm mb-6 text-center">
             9999 Chapin School Road, Fort Worth, TX 76126 (labeled SAMPLE). Live Fort Worth AHJ
             cites. Shows exactly what Free, Estimator/Permit Runner, Contractor Pro, and the IC
-            Diligence Bundle include — not a sealed bid or interconnect study.
+            Diligence Bundle include — not a sealed bid or interconnect study. Eye = view ·
+            Download = save.
           </p>
-          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 justify-center">
-            <SampleOpenButton
-              href="/sample/tier-ladder.pdf"
-              label="View and Download Sample Tier Ladder PDF"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
-            />
-            <SampleOpenButton
-              href="/sample/free-preview.pdf"
-              label="View and Download Sample Free Preview PDF"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
-            />
-            <SampleOpenButton
-              href="/sample/partner-receipt.pdf"
-              label="View and Download Sample Full Bid Risk Receipt PDF"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
-            />
-            <SampleOpenButton
-              href="/sample/pro-desk.zip"
-              label="View and Download Sample Pro Desk ZIP"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
-            />
-            <SampleOpenButton
-              href="/sample/ic-diligence-bundle.zip"
-              label="View and Download Sample IC Diligence Bundle ZIP"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
-            />
-          </div>
+          <SampleReportBlock compact />
         </div>
       </section>
 
