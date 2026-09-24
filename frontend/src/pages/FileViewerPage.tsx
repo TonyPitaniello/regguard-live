@@ -90,8 +90,8 @@ export default function FileViewerPage() {
         <div className="min-w-0 flex-1 text-center sm:text-left">
           <p className="font-bold text-sm sm:text-base truncate">{file.filename}</p>
           <p className="text-xs text-gray-400">
-            {formatBytes(file.size)}
-            {file.downloaded ? ' · Downloaded to your device' : ''}
+            Viewing in Reg Guard · {formatBytes(file.size)}
+            {file.downloaded ? ' · Also saved to Downloads' : ' · Saving to Downloads…'}
           </p>
         </div>
         <button

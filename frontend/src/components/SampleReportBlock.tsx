@@ -2,13 +2,12 @@
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
  * Used on home (after intro) and /sample-report.
  *
- * Files are served from frontend/public/sample/ (same-origin) so downloads
- * work even when the Render API is behind on deploys.
- * Clicks open the in-app viewer and download in the same action.
+ * Clicks: open in-app /view-file AND force a disk download. Never navigate to raw .pdf URLs.
  */
 
-import { useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { useState, type MouseEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Download, Eye, Loader2 } from 'lucide-react';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { openAndDownloadUrl } from '../openAndDownload';
@@ -33,38 +32,42 @@ function sampleFilename(path: string): string {
   return map[base] || `RegGuard_Sample_${base}`;
 }
 
+function viewAndDownloadLabel(shortName: string): string {
+  return `View and Download ${shortName}`;
+}
+
 export const SAMPLE_DOWNLOADS = [
   {
     tier: HABIT_TIERS.free.name,
     price: HABIT_TIERS.free.priceLabel,
     href: '/sample/free-preview.pdf',
-    label: 'Sample Free Preview PDF',
+    label: viewAndDownloadLabel('Sample Free Preview PDF'),
     detail: HABIT_TIERS.free.oneLiner,
   },
   {
     tier: HABIT_TIERS.partner.name,
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
     href: '/sample/partner-receipt.pdf',
-    label: 'Sample Full Bid Risk Receipt PDF',
+    label: viewAndDownloadLabel('Sample Full Bid Risk Receipt PDF'),
     detail: HABIT_TIERS.partner.oneLiner,
   },
   {
     tier: HABIT_TIERS.contractor_pro.name,
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
     href: '/sample/pro-desk.zip',
-    label: 'Sample Pro Desk ZIP',
+    label: viewAndDownloadLabel('Sample Pro Desk ZIP'),
     detail: HABIT_TIERS.contractor_pro.oneLiner,
   },
   {
     tier: IC_BUNDLE.tierName,
     price: IC_BUNDLE.priceLabel,
     href: '/sample/ic-diligence-bundle.zip',
-    label: 'Sample IC Diligence Bundle ZIP',
+    label: viewAndDownloadLabel('Sample IC Diligence Bundle ZIP'),
     detail: IC_BUNDLE.cardDescription,
   },
 ] as const;
 
-export export function SampleOpenButton({
+export function SampleOpenButton({
   href,
   label,
   className,
@@ -73,16 +76,21 @@ export export function SampleOpenButton({
   label: string;
   className: string;
 }) {
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  const onClick = async () => {
+  const onClick = async (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setBusy(true);
     setErr('');
     try {
-      await openAndDownloadUrl(sampleUrl(href), sampleFilename(href));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Open / download failed');
+      await openAndDownloadUrl(sampleUrl(href), sampleFilename(href), {
+        navigate: (to) => navigate(to),
+      });
+    } catch (errObj) {
+      setErr(errObj instanceof Error ? errObj.message : 'View / download failed');
     } finally {
       setBusy(false);
     }
@@ -90,11 +98,18 @@ export export function SampleOpenButton({
 
   return (
     <div className="shrink-0">
-      <button type="button" onClick={() => void onClick()} disabled={busy} className={className}>
-        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+      <button type="button" onClick={(e) => void onClick(e)} disabled={busy} className={className}>
+        {busy ? (
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+        ) : (
+          <>
+            <Eye className="w-4 h-4 shrink-0" />
+            <Download className="w-4 h-4 shrink-0" />
+          </>
+        )}
         {busy ? 'Opening…' : label}
       </button>
-      {err ? <p className="text-amber-200 text-xs mt-1">{err}</p> : null}
+      {err ? <p className="text-amber-200 text-xs mt-1 max-w-xs">{err}</p> : null}
     </div>
   );
 }
@@ -126,13 +141,13 @@ export function SampleReportBlock({
         screening with live Fort Worth Development Services cites.
       </p>
       <p className={`text-gray-400 ${compact ? 'text-xs mb-4' : 'text-sm mb-8'}`}>
-        Planning aid only — not a quote, sealed bid, interconnection study, or AHJ filing. Opens in
-        Reg Guard and downloads to your device.
+        Planning aid only — not a quote, sealed bid, interconnection study, or AHJ filing. Each
+        button opens the file in Reg Guard and saves a copy to your Downloads.
       </p>
 
       <SampleOpenButton
         href="/sample/tier-ladder.pdf"
-        label="Download Sample Tier Ladder PDF"
+        label={viewAndDownloadLabel('Sample Tier Ladder PDF')}
         className={`inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition min-h-[44px] disabled:opacity-60 ${
           compact ? 'px-4 py-2.5 text-sm mb-4' : 'px-6 py-3 mb-10'
         }`}

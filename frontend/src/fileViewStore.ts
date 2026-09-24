@@ -19,13 +19,19 @@ export function stashFileBlob(blob: Blob, filename: string): string {
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
       : `f-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const blobUrl = URL.createObjectURL(blob);
+  // Always use a typed blob so the in-app PDF iframe can render
+  const mime = blob.type || guessMime(filename);
+  const typed =
+    blob.type && blob.type !== 'application/octet-stream'
+      ? blob
+      : new Blob([blob], { type: mime });
+  const blobUrl = URL.createObjectURL(typed);
   stash.set(id, {
     id,
     blobUrl,
     filename: filename || 'RegGuard_file',
-    mime: blob.type || guessMime(filename),
-    size: blob.size,
+    mime,
+    size: typed.size,
     downloaded: false,
   });
   return id;
@@ -60,6 +66,7 @@ function guessMime(filename: string): string {
   if (n.endsWith('.xlsx'))
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
   if (n.endsWith('.csv')) return 'text/csv';
+  if (n.endsWith('.json')) return 'application/json';
   return 'application/octet-stream';
 }
 

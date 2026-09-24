@@ -204,27 +204,27 @@ export default function PricingPage() {
           <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 justify-center">
             <SampleOpenButton
               href="/sample/tier-ladder.pdf"
-              label="Download Sample Tier Ladder PDF"
+              label="View and Download Sample Tier Ladder PDF"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
             />
             <SampleOpenButton
               href="/sample/free-preview.pdf"
-              label="Sample Free Preview PDF"
+              label="View and Download Sample Free Preview PDF"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
             />
             <SampleOpenButton
               href="/sample/partner-receipt.pdf"
-              label="Sample Full Bid Risk Receipt PDF"
+              label="View and Download Sample Full Bid Risk Receipt PDF"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
             />
             <SampleOpenButton
               href="/sample/pro-desk.zip"
-              label="Sample Pro Desk ZIP"
+              label="View and Download Sample Pro Desk ZIP"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
             />
             <SampleOpenButton
               href="/sample/ic-diligence-bundle.zip"
-              label="Sample IC Diligence Bundle ZIP"
+              label="View and Download Sample IC Diligence Bundle ZIP"
               className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-white/10 hover:bg-white/15 border border-purple-400/40 text-white font-semibold rounded-xl transition min-h-[44px] disabled:opacity-60"
             />
           </div>

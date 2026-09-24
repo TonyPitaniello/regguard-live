@@ -115,7 +115,8 @@ export function PlatformLayout({
 
   // Hide desktop sidebar on public marketing home for unauthenticated users —
   // but always allow the mobile three-bar drawer (Launch app lives there).
-  const isPublicPage = location.pathname === '/';
+  const isPublicPage =
+    location.pathname === '/' || location.pathname.startsWith('/view-file');
   const isAuthenticated = isRealUserEmail(user?.email);
   const shouldShowDesktopSidebar = !isPublicPage || Boolean(isAuthenticated);
   const showSidebar = shouldShowDesktopSidebar || mobileMenuOpen;
