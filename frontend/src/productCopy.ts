@@ -30,7 +30,7 @@ export const PRODUCT_COPY = {
     'This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ approval. Confirm every item with the Authority Having Jurisdiction before you bid or file. Findings are labeled Source or Unverified.',
 
   /** Home hero */
-  heroHeadline: 'Citeable site diligence before you bid',
+  heroHeadline: 'Citeable Site Diligence Before You Bid',
   heroSubhead:
     'Enter a US address — get a forwardable Bid Risk Receipt. Source on every line, or an honest Unverified. No credit card to try it free.',
   seoTitle: 'Reg Guard — Bid Risk Receipt for contractors',
