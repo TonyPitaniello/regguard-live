@@ -5,9 +5,8 @@ This workspace is the **Reg Guard** project: an agentic compliance assistant for
 - **Backend** (`backend/`): FastAPI, API routes, compliance/research logic.
 - **Frontend** (`frontend/`): Vite, React, contractor-facing UI.
 
+**Production:** https://app.regguardagent.com — after every user-facing change, commit + `git push origin HEAD` so Vercel deploys immediately. Do not wait to be asked. Confirm the new build is live. Use `?forceclear=1` when PWA/cache bust is needed.
+
 **Dev servers:** Right after a Cursor window reload or when the workspace is first opened, proactively **suggest** (or offer to run) `npm run dev` from the **repository root** so both servers start (`start.sh` clears ports 8000/5173, then launches backend and Vite). Assume the stack may be down until that runs. Vite is configured with `strictPort: false` so a busy 5173 does not hard-fail the dev server.
 
 Match existing code style, keep changes focused, and prefer extending existing patterns over one-off abstractions.
-
-
-

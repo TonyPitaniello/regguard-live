@@ -1,0 +1,18 @@
+---
+description: Always ship user-facing changes to app.regguardagent.com
+alwaysApply: true
+---
+
+# Live deploy after every change
+
+Production URL: **https://app.regguardagent.com** (Vercel from `TonyPitaniello/regguard-live` `main`).
+
+After finishing any user-facing frontend/backend change in this repo:
+
+1. Commit the relevant files (skip backend runtime data dumps like `account_credits.json` / `*.jsonl` unless asked).
+2. `git push origin HEAD` immediately — do not wait for the user to ask.
+3. Bump the frontend cache-bust `BUILD` / `RG_BUILD_ID` when the UI must defeat stale PWA/Arc caches.
+4. Confirm live with a quick curl/check that the new BUILD (or change) is on `app.regguardagent.com`.
+5. Tell the user the live URL (include `?forceclear=1` when a hard refresh is needed).
+
+Do this after **each** change batch in the conversation, not only at the end.
