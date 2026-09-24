@@ -5,11 +5,14 @@
 
 import { useState, type MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { viewInAppUrl } from '../openAndDownload';
 import { PRODUCT_COPY } from '../productCopy';
+
+const VIEW_BTN_CLASS =
+  'inline-flex items-center justify-center min-h-[44px] px-5 rounded-lg font-bold text-sm transition disabled:opacity-60 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border border-emerald-400/30 shadow-md shadow-green-500/20';
 
 /** Same-origin static samples under /public/sample */
 export function sampleUrl(path: string): string {
@@ -164,14 +167,9 @@ export function SampleOpenButton({
         aria-label={`View ${title}`}
         onClick={(e) => void runView(e)}
         disabled={busy}
-        className="w-full md:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold text-sm transition disabled:opacity-60 border border-emerald-400/60 bg-[#0f1d38] hover:bg-emerald-500/20 text-emerald-300"
+        className={`w-full md:w-auto ${VIEW_BTN_CLASS}`}
       >
-        {busy ? (
-          <Loader2 className="w-5 h-5 animate-spin shrink-0" />
-        ) : (
-          <Eye className="w-5 h-5 shrink-0" strokeWidth={2.25} />
-        )}
-        View
+        {busy ? <Loader2 className="w-5 h-5 animate-spin shrink-0" /> : 'View'}
       </button>
       {err ? <p className="text-amber-200 text-xs mt-1 text-center md:text-left">{err}</p> : null}
     </div>
@@ -225,9 +223,8 @@ function SampleRow(row: SampleRowDef) {
           </p>
         ) : null}
       </div>
-      <span className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold text-sm border border-emerald-400/60 bg-[#0f1d38] text-emerald-300 shrink-0">
-        {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Eye className="w-5 h-5" strokeWidth={2.25} />}
-        View
+      <span className={`${VIEW_BTN_CLASS} shrink-0 pointer-events-none`}>
+        {busy ? <Loader2 className="w-5 h-5 animate-spin" /> : 'View'}
       </span>
     </button>
   );
