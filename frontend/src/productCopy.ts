@@ -41,7 +41,7 @@ export const PRODUCT_COPY = {
   sampleHeading: 'Sample Site Results',
   sampleBridge: 'Then run your own site below — same Bid Risk Receipt format.',
 
-  formHeading: 'Now run your site',
+  formHeading: 'Now Run Your Site',
   formClear: 'Clear & start over',
   freeCta: 'Get my Bid Risk Receipt',
   paidCta: 'Run deep research on this site',

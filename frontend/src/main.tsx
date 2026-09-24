@@ -13,7 +13,7 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260924-view-then-forward';
+const RG_BUILD_ID = 'launch-20260924-now-run-your-site';
 
 /**
  * Soft cache refresh on BUILD_ID change — do NOT unregister the service worker.
