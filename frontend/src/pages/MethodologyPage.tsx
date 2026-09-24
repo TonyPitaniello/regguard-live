@@ -26,13 +26,13 @@ export default function MethodologyPage() {
 
       <section className="px-4 py-16 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-5xl font-black text-white mb-6">How RegGuard Works</h1>
+          <h1 className="text-5xl font-black text-white mb-6">How Reg Guard Works</h1>
           <p className="text-xl text-gray-300">
             Free: enter an address and get an instant Bid Risk Receipt preview in the app. Paid:
-            Partner / Contractor Pro for bid-week habit, or the{' '}
+            Estimator / Permit Runner or Contractor Pro for bid-week habit, or the{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> — a
             counsel-ready ZIP (memo + DOCX + CSVs), not a longer PDF stack. Strongest citeable local
-            depth today is Dallas, Plano, and Austin.
+            depth today is Dallas, Plano, Austin, and Fort Worth.
           </p>
         </div>
       </section>
@@ -82,7 +82,8 @@ export default function MethodologyPage() {
                 <div>
                   <h3 className="text-lg font-bold text-white mb-2">Forward or upgrade</h3>
                   <p className="text-gray-300">
-                    Text / email the receipt, deepen with Partner or Pro for bid week, or buy the{' '}
+                    Text / email the receipt, deepen with Estimator / Permit Runner or Contractor Pro
+                    for bid week, or buy the{' '}
                     {IC_BUNDLE.productName} when counsel needs a citeable package for one site.
                   </p>
                 </div>
@@ -167,7 +168,7 @@ export default function MethodologyPage() {
             </div>
             <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-blue-500/30 rounded-xl p-6 text-center">
               <Clock className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-              <p className="text-sm font-bold text-white mb-2">Partner / Pro deepen</p>
+              <p className="text-sm font-bold text-white mb-2">Estimator / Pro deepen</p>
               <p className="text-2xl font-black text-blue-400">Minutes</p>
               <p className="text-xs text-gray-400 mt-2">Paid local confirm when available</p>
             </div>

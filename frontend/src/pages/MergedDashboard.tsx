@@ -1,6 +1,5 @@
 /**
- * RegGuard Landing Page — viral, brand-first, one job: site research fast.
- * Dark purple / slate / green aesthetic preserved.
+ * Reg Guard Landing Page — brand-first, estimator habit → IC after results.
  */
 
 import { useEffect, useState } from 'react';
@@ -12,6 +11,9 @@ import { backendUrl } from '../env';
 import { SeoHead } from '../SeoHead';
 import { isIosDevice, isStandaloneApp } from '../pwaInstall';
 import { showIosInstallInstructions } from '../components/IosInstantInstall';
+import { BRAND_LOCKUP, BRAND_PROSE, PRODUCT_COPY } from '../productCopy';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { HABIT_TIERS } from '../habitDeliverableLadder';
 
 export function PlatformDashboard() {
   const navigate = useNavigate();
@@ -41,13 +43,13 @@ export function PlatformDashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <SeoHead
-        title="Reg Guard — Bid Risk Receipt for contractors"
-        description="Pre-bid diligence for DFW and Austin. Forward the receipt to your GC. Planning aid — not a quote or sealed bid."
+        title={PRODUCT_COPY.seoTitle}
+        description={PRODUCT_COPY.seoDescription}
         canonical="https://app.regguardagent.com/"
       />
       <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">RegGuard</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{BRAND_LOCKUP}</h1>
           <div className="flex items-center gap-3 sm:gap-4">
             <button
               type="button"
@@ -82,39 +84,35 @@ export function PlatformDashboard() {
               onClick={scrollToFreeTrial}
               className="px-4 sm:px-5 py-2.5 min-h-[44px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition shadow-lg shadow-green-500/20 cursor-pointer text-sm"
             >
-              Try free
+              {PRODUCT_COPY.navTryFree}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Hero intro */}
       <section className="px-4 pt-10 pb-4 sm:px-6 lg:px-8 sm:pt-14">
         <div className="max-w-2xl mx-auto text-center">
           <p className="text-5xl sm:text-6xl md:text-7xl font-black text-white mb-4 tracking-tight">
-            RegGuard
+            {BRAND_LOCKUP}
           </p>
           <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-400 mb-3">
-            Pre-bid punch lists you can defend
+            {PRODUCT_COPY.heroHeadline}
           </h2>
           <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
-            Enter a US address — get a forwardable Bid Risk Receipt. Source on every line, or an
-            honest Unverified. No credit card required to try it free.
+            {PRODUCT_COPY.heroSubhead}
           </p>
         </div>
       </section>
 
-      {/* Sample report — before address intake (mobile-first card) */}
       <section className="px-3 pb-5 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-500/30 bg-[rgba(15,29,56,0.95)] p-3.5 sm:p-6 shadow-lg shadow-black/20">
           <SampleReportBlock compact />
           <p className="text-center text-[#b8c1d1] text-xs mt-4 px-1">
-            Then run your own site below — same receipt format.
+            {PRODUCT_COPY.sampleBridge}
           </p>
         </div>
       </section>
 
-      {/* Address intake */}
       <section className="px-4 pb-6 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
@@ -131,25 +129,22 @@ export function PlatformDashboard() {
       </section>
 
       <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
-        <div className="max-w-4xl mx-auto grid sm:grid-cols-4 gap-6 text-center">
+        <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-6 text-center">
           <div>
-            <p className="text-3xl font-black text-emerald-400 mb-1">$0</p>
-            <p className="text-gray-400 text-sm">Free punch-list preview</p>
+            <p className="text-3xl font-black text-emerald-400 mb-1">{HABIT_TIERS.free.priceLabel}</p>
+            <p className="text-gray-400 text-sm">{PRODUCT_COPY.homePriceStrip.free}</p>
           </div>
           <div>
-            <p className="text-3xl font-black text-white mb-1">$79/mo</p>
-            <p className="text-gray-400 text-sm">Estimator / Permit Runner</p>
+            <p className="text-3xl font-black text-white mb-1">{HABIT_TIERS.partner.priceLabel}/mo</p>
+            <p className="text-gray-400 text-sm">{PRODUCT_COPY.homePriceStrip.partner}</p>
           </div>
           <div>
-            <p className="text-3xl font-black text-white mb-1">$149/mo</p>
-            <p className="text-gray-400 text-sm">Contractor Pro desk</p>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-white mb-1">$1,500</p>
-            <p className="text-gray-400 text-sm">IC Diligence Bundle ZIP</p>
+            <p className="text-3xl font-black text-white mb-1">{HABIT_TIERS.contractor_pro.priceLabel}/mo</p>
+            <p className="text-gray-400 text-sm">{PRODUCT_COPY.homePriceStrip.pro}</p>
           </div>
         </div>
-        <div className="text-center mt-8">
+        <p className="text-center text-gray-500 text-sm mt-6">{PRODUCT_COPY.homePriceStrip.icAlso}</p>
+        <div className="text-center mt-6">
           <button
             type="button"
             onClick={() => navigate('/pricing')}
@@ -170,9 +165,7 @@ export function PlatformDashboard() {
                   Due diligence aid — independent verification required
                 </h3>
                 <p className="text-gray-300 text-sm sm:text-base">
-                  This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ
-                  approval. Confirm every item with the Authority Having Jurisdiction before you bid
-                  or file. Findings are labeled Source or Unverified. Questions:{' '}
+                  {PRODUCT_COPY.honestyLong} Questions:{' '}
                   <a href="mailto:support@regguardagent.com" className="text-emerald-300 underline">
                     support@regguardagent.com
                   </a>
@@ -213,14 +206,14 @@ export function PlatformDashboard() {
               onClick={() => navigate('/sample-report')}
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >
-              Sample PDF
+              Sample results
             </button>
             <button
               type="button"
               onClick={() => navigate('/jobs')}
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >
-              Saved Jobs
+              My Jobs
             </button>
             <a
               href="https://app.regguardagent.com/privacy"
@@ -242,13 +235,18 @@ export function PlatformDashboard() {
             </a>
           </div>
           <p className="text-xs">
-            RegGuard © 2026 · Pitaniello Perkins LLC ·{' '}
+            {BRAND_PROSE} © 2026 · Pitaniello Perkins LLC ·{' '}
             <a href="https://app.regguardagent.com/privacy" className="text-purple-400 hover:text-purple-300">
               Privacy Policy
             </a>
             {' · '}
             SMS: message frequency varies; message and data rates may apply. We do not share mobile
-            numbers or messaging consent with third parties or affiliates for marketing.
+            numbers with third parties or affiliates for marketing. Reply STOP to opt out; HELP for
+            help. Consent to SMS is not required to use {BRAND_PROSE}.
+          </p>
+          <p className="text-xs text-gray-500">
+            {IC_BUNDLE.productName} ({IC_BUNDLE.priceLabel}/site) is on Pricing and in results after
+            you run a site.
           </p>
         </div>
       </footer>

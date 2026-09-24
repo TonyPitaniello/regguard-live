@@ -1,6 +1,6 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * Includes the on-screen results panel (Your Site Diligence Analysis) + Executive Summary.
+ * Includes Site Diligence Results (on-screen panel) + Executive Summary.
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -9,6 +9,7 @@ import { Download, Eye, Loader2 } from 'lucide-react';
 import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { downloadOnlyUrl, viewInAppUrl } from '../openAndDownload';
+import { PRODUCT_COPY } from '../productCopy';
 
 /** Same-origin static samples under /public/sample */
 export function sampleUrl(path: string): string {
@@ -59,7 +60,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     href: '/sample-site-diligence',
     viewRoute: '/sample-site-diligence',
     downloadHref: '/sample/executive-summary.pdf',
-    title: 'Your Site Diligence Analysis',
+    title: PRODUCT_COPY.resultsPanelTitle,
     subtitle:
       'The long scrollable results panel after you enter an address — stamp, contingency, punch, and packs',
     price: null,
@@ -67,8 +68,8 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   },
   {
     href: '/sample/executive-summary.pdf',
-    title: 'Executive Summary',
-    subtitle: 'The amber summary card at the top of Your Site Diligence Analysis',
+    title: PRODUCT_COPY.executiveSummary,
+    subtitle: `The amber summary card at the top of ${PRODUCT_COPY.resultsPanelTitle}`,
     price: null,
     highlight: true,
   },
@@ -81,7 +82,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   {
     href: '/sample/free-preview.pdf',
     title: HABIT_TIERS.free.name,
-    subtitle: 'Sample Free Preview PDF',
+    subtitle: 'Sample free Bid Risk Receipt preview PDF',
     price: HABIT_TIERS.free.priceLabel,
   },
   {
@@ -95,7 +96,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     viewHref: '/sample/pro-desk-report.pdf',
     downloadHref: '/sample/pro-desk.zip',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle: 'Scrollable sample report · Save downloads the full Pro Desk ZIP',
+    subtitle: 'Scrollable sample report · Save downloads the full Pro package ZIP',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
@@ -103,7 +104,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     viewHref: '/sample/ic-project-report.pdf',
     downloadHref: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: 'Scrollable boardroom sample · Save downloads the full Diligence Bundle ZIP',
+    subtitle: `Scrollable boardroom sample · Save downloads the full ${IC_BUNDLE.productName} ZIP`,
     price: IC_BUNDLE.priceLabel,
   },
 ] as const;
@@ -273,7 +274,7 @@ export function SampleReportBlock({
             : 'text-emerald-300 text-base sm:text-lg font-semibold mb-2'
         }
       >
-        See what Reg Guard can do
+        {PRODUCT_COPY.sampleLead}
       </p>
       <h3
         className={
@@ -282,11 +283,11 @@ export function SampleReportBlock({
             : 'text-3xl sm:text-5xl font-black text-white mb-3 leading-tight'
         }
       >
-        Sample Site Results
+        {PRODUCT_COPY.sampleHeading}
       </h3>
       <p className="text-[#b8c1d1] text-sm leading-relaxed mb-3 break-words">
         9999 Chapin School Road, Fort Worth, TX 76126 — large-load / DC-adjacent screening with live
-        Fort Worth Development Services cites. Planning aid only — not a quote or sealed bid.
+        Fort Worth Development Services cites. {PRODUCT_COPY.honestyShort}
       </p>
 
       <div className="flex flex-col gap-2.5 rounded-xl border border-emerald-500/25 bg-[rgba(15,29,56,0.95)] px-3 py-3 mb-3 md:flex-row md:flex-wrap md:items-center md:gap-x-5 md:gap-y-2">
@@ -294,13 +295,13 @@ export function SampleReportBlock({
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
             <Eye className="w-4 h-4" strokeWidth={2.25} />
           </span>
-          View scrolls the report in Reg Guard
+          {PRODUCT_COPY.viewChrome}
         </span>
         <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
             <Download className="w-4 h-4" strokeWidth={2.25} />
           </span>
-          Save downloads to your phone
+          {PRODUCT_COPY.saveChrome}
         </span>
       </div>
 

@@ -1,6 +1,6 @@
 /**
  * Sample of the on-screen results panel after address entry:
- * "Your Site Diligence Analysis" (includes Executive summary).
+ * Site Diligence Results (includes Executive Summary).
  */
 
 import { useEffect, useState } from 'react';

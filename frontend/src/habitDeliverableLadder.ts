@@ -11,12 +11,12 @@ export const HABIT_TIERS = {
     priceLabel: '$0',
     billing: 'Free lead magnet',
     oneLiner:
-      'DFW/Austin-first punch list preview. Source or Unverified on every line. Forward to unlock more.',
+      'DFW/Austin-first Bid Risk Receipt preview. Source or Unverified on every line. Forward to unlock more.',
     features: [
-      'Free site diligence lookup',
+      'Free Site Diligence Results lookup',
       'Top punch-list actions (soft-locked preview — top ~5 lines)',
       'Source or Unverified on every visible line',
-      'Forward punch list to unlock the rest of the free list',
+      'Forward Bid Risk Receipt to unlock the rest of the free list',
       'Text or email your results',
     ] as const,
     notIncluded: [

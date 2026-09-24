@@ -285,7 +285,7 @@ export default function SharedReportPage() {
               to={`/checkout/partner${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
               className="inline-flex items-center rounded-lg border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-100"
             >
-              Partner $79/mo
+              Estimator / Permit Runner $79/mo
             </Link>
             <Link
               to={`/checkout/contractor_pro${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}

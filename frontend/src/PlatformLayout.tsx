@@ -68,7 +68,7 @@ const PLATFORM_ROUTES = [
     path: '/',
     icon: Home,
     category: 'Main',
-    description: 'RegGuard Site Diligence',
+    description: 'Reg Guard Site Diligence Results',
   },
   {
     name: 'My Jobs',

@@ -145,7 +145,7 @@ export const IC_BUNDLE = {
   /** Results — free locked */
   lockedHeadline: 'IC Diligence Bundle locked',
   lockedBody:
-    'Free preview shows the Bid Risk Receipt structure. Partner / Pro deepen monthly lookups. Only an IC Project run unlocks the counsel-ready ZIP for this site.',
+    'Free preview shows the Bid Risk Receipt structure. Estimator / Permit Runner and Contractor Pro deepen monthly lookups. Only an IC Project run unlocks the counsel-ready ZIP for this site.',
 
   /** Checkout / post-pay */
   deliveryHint:

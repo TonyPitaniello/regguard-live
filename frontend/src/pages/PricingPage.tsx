@@ -116,9 +116,10 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl font-black text-white mb-6">Plans that match how you bid</h1>
           <p className="text-xl text-gray-300">
-            Free citeable punch list → Partner / Pro for bid-week habit →{' '}
+            Free Bid Risk Receipt preview → Estimator / Permit Runner or Contractor Pro for bid-week
+            habit →{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
-            counsel-ready site packages. Beachhead: Dallas / Plano / Austin.
+            counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth.
           </p>
         </div>
       </section>
@@ -232,8 +233,10 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">What&apos;s free vs paid?</h3>
             <p className="text-gray-400">{IC_BUNDLE.faqWhatYouGet}</p>
             <p className="text-gray-400 mt-3">
-              Free lookups are the lead magnet. Partner ($79/mo) is for permit runners. Contractor
-              Pro ($149/mo) is for weekly bidders.
+              Free lookups are the lead magnet. Estimator / Permit Runner ($79/mo) is for permit
+              runners and client-site screening. Contractor Pro ($149/mo) is for weekly bidders who
+              need CSV + city pack. {IC_BUNDLE.productName} ({IC_BUNDLE.priceLabel}/site) is the
+              counsel-ready ZIP.
             </p>
           </div>
           <div>

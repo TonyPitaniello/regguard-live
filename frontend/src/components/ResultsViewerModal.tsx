@@ -1150,7 +1150,7 @@ export default function ResultsViewerModal({
     if (incompleteRun) {
       return (
         view.depth_badge ||
-        'Instant preview — deep research incomplete (not full Pro)'
+        'Free preview — not full Pro depth'
       );
     }
     const ultra =
@@ -1622,7 +1622,7 @@ export default function ResultsViewerModal({
                 ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
                 : isDeep
                   ? 'Upgrade to IC Project for the counsel-ready Diligence Bundle ZIP on this site.'
-                  : 'This is a free preview brief. Partner / Pro unlock more depth; IC Project unlocks the Diligence Bundle ZIP.'}
+                  : 'This is a free preview brief. Estimator / Permit Runner and Contractor Pro unlock more depth; IC Project unlocks the Diligence Bundle ZIP.'}
           </p>
         </section>
       );
@@ -2347,7 +2347,7 @@ export default function ResultsViewerModal({
         <div className="flex items-start justify-between gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90">
           <div>
             <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
-              Your Site Diligence Analysis
+              Site Diligence Results
             </h2>
             <p className="text-gray-400 text-sm mt-1">
               {(() => {
@@ -2381,7 +2381,7 @@ export default function ResultsViewerModal({
             )}
             {!isDeep && !depthBadgeLabel && (
               <p className="mt-2 inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
-                Free preview — citeable pack fees & top punch lines
+                Free preview — citeable fees & top punch lines
               </p>
             )}
           </div>
@@ -3149,7 +3149,7 @@ export default function ResultsViewerModal({
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
                       ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (more citeable sources than free).'
-                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list — or start Partner for more monthly lookups.'}
+                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list — or start Estimator / Permit Runner for more monthly lookups.'}
                   </p>
                 </div>
               </div>
@@ -3767,7 +3767,8 @@ export default function ResultsViewerModal({
                 <div className="px-4 py-4 space-y-2">
                   <h4 className="text-sm font-bold text-gray-200">Submit a local gotcha</h4>
                   <p className="text-xs text-gray-400">
-                    Partner / Pro emails get a $20 credit after ops verifies and cites the portal.
+                    Estimator / Permit Runner and Contractor Pro emails get a $20 credit after ops
+                    verifies and cites the portal.
                   </p>
                   <textarea
                     value={gotchaText}

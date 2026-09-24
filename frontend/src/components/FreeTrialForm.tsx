@@ -47,9 +47,9 @@ let homeHardReloadWiped = false;
 type ProgressStep = 'geocode' | 'screen' | 'punch';
 
 const PROGRESS_LABELS: Record<ProgressStep, string> = {
-  geocode: 'Geocoding site…',
-  screen: 'Screening permits & environment…',
-  punch: 'Building punch list…',
+  geocode: 'Finding the pin…',
+  screen: 'Checking permits & environment…',
+  punch: 'Building your Bid Risk Receipt…',
 };
 
 function usableLatLng(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
@@ -1120,17 +1120,19 @@ export default function FreeTrialForm({
 
       {!resultsOpen && showHero && (
         <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try RegGuard Free</h2>
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try Reg Guard free</h2>
           <p className="text-gray-300 text-base md:text-lg">
-            One site. Seconds to citeable pre-bid diligence you can forward — not a quote.
+            One site. Seconds to a forwardable Bid Risk Receipt — not a quote.
             Or tap the mic and say the address.
             {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
               <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">
-                Paid access active — Pro runs local confirm + light scout (may take ~1–2 min). IC adds full scout + PDFs.
+                Paid access active — Pro runs local confirm + light scout (may take ~1–2 min). IC adds
+                the Diligence Bundle ZIP.
               </span>
             ) : (
               <span className="block mt-1 text-gray-400 text-sm">
-                Free preview shows top actions — Pro adds citeable local confirm; IC adds full scout + PDFs.
+                Free preview shows top actions — Estimator / Permit Runner unlocks the full Receipt;
+                Contractor Pro adds CSV + city pack; IC unlocks the Diligence Bundle.
               </span>
             )}
           </p>
@@ -1199,7 +1201,7 @@ export default function FreeTrialForm({
       >
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
           <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
-            Now see results for your site
+            Now run your site
           </h2>
           <div className="flex justify-end">
             <button
@@ -1293,9 +1295,7 @@ export default function FreeTrialForm({
               disabled={loading}
             />
             <p className="text-xs text-gray-400 mt-2">
-              Email is required to run a lookup. SMS is never required — after results you may
-              optionally tap Text me (separate consent checkbox). Hard refresh starts a clean form;
-              typing email will not clear your address.
+              Email is required to run a lookup. SMS is optional after results (separate consent).
             </p>
           </div>
             </>
@@ -1386,7 +1386,7 @@ export default function FreeTrialForm({
                 : 'Analyzing site…'
               : paidEntitled
                 ? 'Run deep research on this site'
-                : 'Get Free Research Results'}
+                : 'Get my Bid Risk Receipt'}
           </button>
 
           <p className="text-gray-400 text-sm text-center leading-relaxed">

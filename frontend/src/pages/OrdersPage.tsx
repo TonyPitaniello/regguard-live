@@ -53,7 +53,7 @@ interface Order {
 function tierLabel(tier: string): string {
   switch ((tier || '').toLowerCase()) {
     case 'partner':
-      return 'Partner';
+      return 'Estimator / Permit Runner';
     case 'contractor_pro':
       return 'Contractor Pro';
     case 'ic_project':
@@ -485,8 +485,8 @@ export default function OrdersPage() {
                 <p className="font-bold">IC PDFs not ready yet</p>
                 <p className="mt-1 text-amber-100/90">
                   {savedSite
-                    ? `Click Generate to rebuild the Research Memo, Punch List, and Permit Package for ${savedSite.label}.`
-                    : 'Run a site lookup with this purchase email to generate your three PDFs.'}{' '}
+                    ? `Click Generate to rebuild the IC Diligence Bundle (decision memo, boardroom PDF, counsel DOCX, Excel) for ${savedSite.label}.`
+                    : 'Run a site lookup with this purchase email to generate your IC Diligence Bundle.'}{' '}
                   Payment stays completed — this only rebuilds the downloadable package.
                 </p>
               </div>
@@ -520,8 +520,9 @@ export default function OrdersPage() {
         {orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-teal-500/10 border border-teal-500/25 rounded-lg mb-8">
             <p className="text-teal-100 text-sm">
-              Prefer a lighter plan? Switch to Estimator / Permit Runner ($79/mo) for client screening — cancel Pro in
-              Stripe email receipts if you already subscribed, then start Partner here.
+              Prefer a lighter plan? Switch to Estimator / Permit Runner ($79/mo) for client
+              screening — cancel Pro in Stripe email receipts if you already subscribed, then start
+              Estimator / Permit Runner here.
             </p>
             <a
               href={`/checkout/partner${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
@@ -721,15 +722,15 @@ function OrderCard({
               <ul className="space-y-2 text-sm text-gray-300">
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Research Memo PDF
+                  Decision memo PDF (Bid Risk Receipt stamp)
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Contractor Punch List PDF
+                  Boardroom PDF
                 </li>
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  Permit Package Worksheet PDF
+                  Counsel DOCX + estimator Excel workbooks
                 </li>
               </ul>
             )}
@@ -745,8 +746,8 @@ function OrderCard({
             </p>
             <p className="text-gray-300 text-sm mt-1">
               {order.site_label || order.address
-                ? `Interactive Bid Risk Receipt for ${order.site_label || order.address} — stamp, fees, gotchas, and punch list.`
-                : 'Open the interactive Bid Risk Receipt (same diligence as the PDFs).'}
+                ? `Site Diligence Results for ${order.site_label || order.address} — stamp, fees, gotchas, and Bid Risk Receipt.`
+                : 'Open Site Diligence Results in the app (same diligence as the package files).'}
             </p>
             <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
               {order.research_id || (order.share_url || '').includes('/r/') ? (
