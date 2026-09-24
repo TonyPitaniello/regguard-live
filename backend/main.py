@@ -2267,6 +2267,33 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception as ladder_err:
             logger.warning("Depth ladder stamp failed: %s", ladder_err)
 
+        # Stamp access_tier from entitlement so live results blur Free→Estimator→Pro→IC
+        try:
+            from entitlement import access_summary
+
+            pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+            summary = access_summary(
+                getattr(request_body, "email", None),
+                address=str(pi.get("address") or ""),
+                city=str(pi.get("city") or ""),
+                state=str(pi.get("state") or ""),
+                zip_code=str(pi.get("zip") or ""),
+            )
+            tiers = [str(t).lower() for t in (summary.get("tiers") or [])]
+            if any(t in ("ic_project", "ic_consultant", "ic_annual", "sponsor") for t in tiers):
+                analysis["access_tier"] = "ic"
+            elif "contractor_pro" in tiers:
+                analysis["access_tier"] = "contractor_pro"
+            elif "partner" in tiers:
+                analysis["access_tier"] = "partner"
+            else:
+                analysis["access_tier"] = "free"
+            analysis["entitlement_tiers"] = tiers
+        except Exception as access_err:
+            logger.warning("access_tier stamp failed: %s", access_err)
+            if "access_tier" not in analysis:
+                analysis["access_tier"] = "free" if not paid else "contractor_pro"
+
     return {
         "trial_id": trial_id,
         "status": status,

@@ -24,7 +24,11 @@ import {
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 import { IcDiligenceBundlePitch } from './IcDiligenceBundlePitch';
 import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitDeliverableLadder';
-import { resolveResultsLadder } from '../resultsAccessLadder';
+import {
+  ladderUpsells,
+  resolveResultsLadder,
+  type CheckoutLadderTier,
+} from '../resultsAccessLadder';
 
 /** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
 const FREE_PUNCH_VISIBLE = 5;
@@ -1106,9 +1110,12 @@ export default function ResultsViewerModal({
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
+  const serverEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
+    ? ((view as { entitlement_tiers?: string[] }).entitlement_tiers as string[])
+    : entitlementTiers;
   const ladder = resolveResultsLadder({
     demoTier,
-    entitlementTiers,
+    entitlementTiers: serverEntitlements,
     accessTier: (view as { access_tier?: string }).access_tier || null,
     isDeep,
     isIcDepth,
@@ -1124,6 +1131,49 @@ export default function ResultsViewerModal({
   const allowProDeskDownloads = ladder.allowProDesk;
   const blurProDesk = ladder.blurProDesk;
   const proBlurPunchTeasers = ladder.proBlurPunchTeasers;
+  const ownsIcAnnual = ladder.ownsIcAnnual;
+  const ladderTier = ladder.tier;
+
+  const renderLadderUpsells = (opts?: { dense?: boolean; includeIcOnFree?: boolean }) => {
+    if (demoTier) {
+      return (
+        <p className="text-xs text-purple-200/90 mt-2">
+          SAMPLE — Free blurs most → Estimator unlocks more → Pro unlocks the desk → IC Bundle
+          separate ($1,500) / Annual ($15,000/yr).
+        </p>
+      );
+    }
+    const rows = ladderUpsells(ladderTier, {
+      ownsIcAnnual,
+      includeIcOnFree: opts?.includeIcOnFree,
+    }).filter((row) => {
+      if (row.tier === 'partner') return !ownsPartner;
+      if (row.tier === 'contractor_pro') return !ownsPro;
+      if (row.tier === 'ic_project') return !allowIcPackageDownload;
+      if (row.tier === 'ic_annual') return !ownsIcAnnual;
+      return true;
+    });
+    if (!rows.length) return null;
+    return (
+      <div className={`flex flex-col sm:flex-row flex-wrap gap-2 ${opts?.dense ? 'mt-2' : 'mt-3'} justify-center`}>
+        {rows.map((row) => (
+          <button
+            key={row.tier}
+            type="button"
+            onClick={() => goCheckout(row.tier)}
+            className={
+              row.primary
+                ? 'px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold'
+                : 'px-4 py-2.5 min-h-[44px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 text-sm font-semibold'
+            }
+          >
+            {row.label}
+          </button>
+        ))}
+      </div>
+    );
+  };
+
   // Keep IC package download only for real IC-depth completed runs (demo never IC).
   const allowIcPackageDownload =
     demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
@@ -1171,20 +1221,19 @@ export default function ResultsViewerModal({
     return null;
   })();
 
-  const checkoutTier = (
-    tier?: string | null
-  ): 'partner' | 'contractor_pro' | 'ic_project' | null => {
+  const checkoutTier = (tier?: string | null): CheckoutLadderTier | null => {
     const t = (tier || '').toLowerCase();
-    if (t === 'partner' || t === 'contractor_pro' || t === 'ic_project') return t;
-    if (t === 'ic_annual' || t === 'ic_consultant') return 'ic_project';
+    if (t === 'partner' || t === 'contractor_pro' || t === 'ic_project' || t === 'ic_annual') return t;
+    if (t === 'ic_consultant') return 'ic_project';
     return null;
   };
 
-  const alreadyOwnsCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project'): boolean => {
+  const alreadyOwnsCheckout = (tier: CheckoutLadderTier): boolean => {
     if (tier === 'partner') return ownsPartner && !incompleteRun;
     if (tier === 'contractor_pro') return ownsPro && !incompleteRun;
     // Never hide IC buy/upsell just because an old purchase is on file for another run
     if (tier === 'ic_project') return allowIcPackageDownload;
+    if (tier === 'ic_annual') return ownsIcAnnual;
     return false;
   };
 
@@ -1286,6 +1335,18 @@ export default function ResultsViewerModal({
                   {offer.secondary_cta_label}
                 </button>
               )}
+              {primary === 'ic_project' &&
+                !secondary &&
+                !ownsIcAnnual &&
+                !alreadyOwnsCheckout('ic_annual') && (
+                  <button
+                    type="button"
+                    onClick={() => goCheckout('ic_annual')}
+                    className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 font-semibold text-sm"
+                  >
+                    Or IC Annual — $15,000/yr (multi-site)
+                  </button>
+                )}
             </div>
           </div>
         </div>
@@ -2231,7 +2292,7 @@ export default function ResultsViewerModal({
     }
   };
 
-  const goCheckout = (tier: 'partner' | 'contractor_pro' | 'ic_project') => {
+  const goCheckout = (tier: CheckoutLadderTier) => {
     // Persist site so return after payment can deepen the same lookup
     try {
       const pi = view.project_info;
@@ -2245,7 +2306,7 @@ export default function ResultsViewerModal({
       });
       if (emailForCheckout) sessionStorage.setItem('userEmail', emailForCheckout);
       sessionStorage.setItem('pendingDeepUnlock', '1');
-      if (tier === 'ic_project') {
+      if (tier === 'ic_project' || tier === 'ic_annual') {
         setPendingIcReport(true);
       } else {
         setPendingIcReport(false);
@@ -2755,22 +2816,14 @@ export default function ResultsViewerModal({
                   </a>
                 )}
               </div>
-            ) : isDeep ? (
+            ) : ownsPro || isDeep ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
                   {IC_BUNDLE.upsellHeadline}
                 </p>
                 <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.upsellBody}</p>
                 <IcDiligenceBundlePitch variant="compact" />
-                {!alreadyOwnsCheckout('ic_project') && (
-                  <button
-                    type="button"
-                    onClick={() => goCheckout('ic_project')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-3.5 min-h-[48px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 text-base font-bold"
-                  >
-                    {IC_BUNDLE.ctaUnlock}
-                  </button>
-                )}
+                {renderLadderUpsells()}
               </div>
             ) : (
               <div className="space-y-3">
@@ -2779,37 +2832,23 @@ export default function ResultsViewerModal({
                 </p>
                 <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.lockedBody}</p>
                 <IcDiligenceBundlePitch variant="compact" showWhy={false} />
-                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                  {!alreadyOwnsCheckout('partner') && (
-                    <button
-                      type="button"
-                      onClick={() => goCheckout('partner')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
-                    >
-                      Start Estimator / Permit Runner — $79/mo
-                    </button>
-                  )}
-                  {!alreadyOwnsCheckout('contractor_pro') && (
-                    <button
-                      type="button"
-                      onClick={() => goCheckout('contractor_pro')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
-                    >
-                      {HABIT_TIERS.contractor_pro.name} — $149/mo
-                    </button>
-                  )}
-                  {!alreadyOwnsCheckout('ic_project') && (
-                    <button
-                      type="button"
-                      onClick={() => goCheckout('ic_project')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg border border-emerald-500/50 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-100 font-bold text-sm"
-                    >
-                      {IC_BUNDLE.ctaBuy}
-                    </button>
-                  )}
-                </div>
+                {renderLadderUpsells()}
               </div>
             )}
+            {ownsIc && !ownsIcAnnual && !demoTier ? (
+              <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-3 space-y-2">
+                <p className="text-sm text-amber-50 font-semibold">
+                  Running more sites? IC Annual regenerates the Diligence Bundle ZIP across addresses.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => goCheckout('ic_annual')}
+                  className="px-4 py-2.5 min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
+                >
+                  IC Annual — $15,000/yr
+                </button>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <a
                 href="/orders?from=results"
@@ -3320,6 +3359,16 @@ export default function ResultsViewerModal({
 
           {/* F1: exactly one primary paid CTA for this results view */}
           {renderPrimaryUpgrade()}
+          {(ladderTier === 'pro' || (ladderTier === 'ic' && !ownsIcAnnual)) && !offer?.message ? (
+            <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+              <p className="text-sm text-emerald-50 font-semibold mb-1">
+                {ladderTier === 'pro'
+                  ? 'Pro desk unlocked — add the IC Diligence Bundle for counsel ZIP, or IC Annual for multi-site.'
+                  : 'IC Bundle ready — IC Annual unlocks the same ZIP across more sites.'}
+              </p>
+              {renderLadderUpsells({ dense: true })}
+            </section>
+          ) : null}
 
           {(() => {
             const brief = extractScoutBriefing(view.pro_summary_markdown);
@@ -3466,38 +3515,38 @@ export default function ResultsViewerModal({
                         lines locked — forward the Bid Risk Receipt or upgrade to unlock.
                       </p>
                       {demoTier ? (
-                        <p className="text-xs text-purple-200/90">
-                          SAMPLE — Free shows the least. Estimator unlocks more. Pro unlocks the desk.
-                        </p>
+                        renderLadderUpsells({ dense: true })
                       ) : (
-                        <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                          <button
-                            type="button"
-                            onClick={() => void downloadBidReceipt()}
-                            disabled={packetLoading}
-                            className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
-                          >
-                            {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void copyShareText('text')}
-                            className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
-                          >
-                            Copy receipt text
-                          </button>
-                          {!alreadyOwnsCheckout('partner') && (
+                        <div className="space-y-2">
+                          <div className="flex flex-col sm:flex-row gap-2 justify-center">
                             <button
                               type="button"
-                              onClick={() => goCheckout('partner')}
-                              className="px-4 py-2 rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold"
+                              onClick={() => void downloadBidReceipt()}
+                              disabled={packetLoading}
+                              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
                             >
-                              Estimator / Permit Runner — $79/mo
+                              {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
                             </button>
-                          )}
+                            <button
+                              type="button"
+                              onClick={() => void copyShareText('text')}
+                              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+                            >
+                              Copy receipt text
+                            </button>
+                          </div>
+                          {renderLadderUpsells({ dense: true })}
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+                {ladderTier === 'free' && !softLocked && !demoTier && (
+                  <div className="mt-3 rounded-lg border border-dashed border-emerald-500/40 bg-emerald-500/10 p-4 text-center">
+                    <p className="text-sm text-emerald-50 mb-1 font-semibold">
+                      Free list unlocked — keep the habit on Estimator, or open the Pro desk.
+                    </p>
+                    {renderLadderUpsells({ dense: true })}
                   </div>
                 )}
                 {proBlurPunchTeasers > 0 &&
@@ -3522,11 +3571,14 @@ export default function ResultsViewerModal({
                             </div>
                           </div>
                         ))}
-                      <p className="text-xs text-amber-100/90 text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
-                        {demoTier
-                          ? 'SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on Contractor Pro.'
-                          : 'Estimator / Permit Runner unlocks punch + receipt. City pack / CSV / bid packet unlock on Contractor Pro ($149).'}
-                      </p>
+                      <div className="text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
+                        <p className="text-xs text-amber-100/90">
+                          {demoTier
+                            ? 'SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on Contractor Pro → IC Bundle / Annual.'
+                            : 'City pack / CSV / bid packet unlock on Contractor Pro. IC Diligence Bundle ($1,500) adds counsel ZIP; IC Annual ($15,000/yr) for multi-site.'}
+                        </p>
+                        {renderLadderUpsells({ dense: true })}
+                      </div>
                     </div>
                   )}
               </div>
@@ -3628,15 +3680,7 @@ export default function ResultsViewerModal({
                         Free — city pack fees & gotchas blurred. Forward the receipt or upgrade to
                         Estimator for more punch; Contractor Pro unlocks the full pack.
                       </p>
-                      {!demoTier ? (
-                        <button
-                          type="button"
-                          onClick={() => goCheckout('partner')}
-                          className="mt-2 px-3 py-1.5 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold"
-                        >
-                          Estimator / Permit Runner — $79
-                        </button>
-                      ) : null}
+                      {renderLadderUpsells({ dense: true })}
                     </div>
                   </div>
                 ) : blurProDesk ? (
@@ -3645,15 +3689,7 @@ export default function ResultsViewerModal({
                       Estimator — contingency & punch unlocked. Fee dollars and pack PDF stay on
                       Contractor Pro ($149).
                     </p>
-                    {!demoTier ? (
-                      <button
-                        type="button"
-                        onClick={() => goCheckout('contractor_pro')}
-                        className="mt-2 px-3 py-1.5 rounded-md bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold"
-                      >
-                        Unlock Contractor Pro
-                      </button>
-                    ) : null}
+                    {renderLadderUpsells({ dense: true })}
                   </div>
                 ) : null}
                 {view.contingency_band && (
@@ -3887,10 +3923,14 @@ export default function ResultsViewerModal({
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {!allowProDeskDownloads && (
-                      <p className="w-full text-xs text-amber-100/90 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
-                        Estimator / Permit Runner ($79): Receipt + punch + Saved Jobs. City pack PDF,
-                        bid sheet CSV/PDF, and bid packet unlock on Contractor Pro ($149).
-                      </p>
+                      <div className="w-full text-xs text-amber-100/90 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
+                        <p>
+                          {ladderTier === 'free'
+                            ? 'Free preview — Receipt soft-locked. Estimator unlocks habit desk; Pro unlocks city pack / CSV; IC Bundle is counsel ZIP.'
+                            : 'Estimator unlocks Receipt + punch + Saved Jobs. City pack PDF, bid sheet CSV/PDF, and bid packet unlock on Contractor Pro ($149). IC Bundle ($1,500) / Annual ($15,000/yr) next.'}
+                        </p>
+                        {renderLadderUpsells({ dense: true })}
+                      </div>
                     )}
                     <button
                       type="button"

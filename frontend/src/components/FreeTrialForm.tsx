@@ -32,6 +32,7 @@ import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode } from '../shareLinks';
 import { getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
 import { PRODUCT_COPY } from '../productCopy';
+import { accessTierFromEntitlements } from '../resultsAccessLadder';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -307,9 +308,25 @@ export default function FreeTrialForm({
         : rid && !rid.startsWith('ephemeral-')
           ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
           : shareFromPayload || undefined;
+    let sessionTiers: string[] = [];
+    try {
+      const raw = sessionStorage.getItem('regguardEntitlementTiers');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) sessionTiers = parsed.map((t) => String(t).toLowerCase());
+      }
+    } catch {
+      /* ignore */
+    }
+    const ladderTier =
+      accessTierFromEntitlements(sessionTiers.length ? sessionTiers : entitlementTiers) || 'free';
+    const stampedAccess =
+      analysisPayload.access_tier ||
+      (ladderTier === 'pro' ? 'contractor_pro' : ladderTier);
     const analysisWithId: AnalysisData = {
       ...analysisPayload,
       research_id: rid || analysisPayload.research_id,
+      access_tier: stampedAccess,
       ...(share ? { share_url: share } : {}),
     };
     const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();
@@ -406,9 +423,10 @@ export default function FreeTrialForm({
       meta: {
         depth: depth || 'instant',
         project_type: formDataRef.current.projectType || '',
+        access_tier: stampedAccess,
       },
     });
-  }, []);
+  }, [entitlementTiers]);
 
   const runResearch = useCallback(async () => {
     const data = formDataRef.current;

@@ -34,6 +34,7 @@ def test_free_dc_points_to_ic_bundle():
     )
     assert a["buyer_persona"] == PERSONA_DC_INFRA
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
     assert "Diligence Bundle" in (a["upgrade_offer"]["cta_label"] or "")
 
 
@@ -43,6 +44,7 @@ def test_pro_light_dc_warns_not_enough():
         depth_tier=DEPTH_PRO_LIGHT,
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
     assert "not enough" in (a["upgrade_offer"]["message"] or "").lower() or "IC" in (
         a["upgrade_offer"]["message"] or ""
     )
@@ -54,11 +56,13 @@ def test_pro_local_offer_points_to_ic():
         depth_tier=DEPTH_PRO_LOCAL,
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
 
 
 def test_ic_full_offer_another_site():
     a = stamp_upgrade_offer({}, depth_tier=DEPTH_IC_FULL)
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
     assert a["upgrade_offer"]["next_label"] is None
 
 
