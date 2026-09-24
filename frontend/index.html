@@ -58,7 +58,7 @@
     <!-- HARD cache break for Arc/PWA: unregister SW + clear Cache Storage before React -->
     <script>
       (function () {
-        var BUILD = 'launch-20260923-copy-ux';
+        var BUILD = 'launch-20260923-blank-fix';
         var KEY = 'rg_html_build_v';
         var force = false;
         try {
@@ -79,8 +79,12 @@
             var u = new URL(location.href);
             u.searchParams.delete('forceclear');
             u.searchParams.delete('rgbuild');
+            // Same-URL replace is a no-op in Arc → blank #root forever. Skip if already busted.
+            if (u.searchParams.get('v') === BUILD && !force) return;
             u.searchParams.set('v', BUILD);
-            location.replace(u.pathname + '?' + u.searchParams.toString());
+            var next = u.pathname + '?' + u.searchParams.toString();
+            if (next === location.pathname + location.search) return;
+            location.replace(next);
           } catch (e3) {
             location.reload();
           }

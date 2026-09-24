@@ -12,11 +12,13 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20260923-copy-ux';
+const RG_BUILD_ID = 'launch-20260923-blank-fix';
 
 /**
  * Purge poisoned caches whenever BUILD_ID changes — not only once per epoch key.
  * Do NOT re-register a service worker while Arc is holding stale shells.
+ * Critical: never return without mounting if replace would be a same-URL no-op
+ * (Arc/Chromium skip navigation → permanent blank #root).
  */
 async function migrateStalePwaCaches(): Promise<boolean> {
   let previous = '';
@@ -52,11 +54,19 @@ async function migrateStalePwaCaches(): Promise<boolean> {
     /* ignore */
   }
 
+  // Only hard-navigate when the bust query actually changes the URL.
   if (previous) {
-    const url = new URL(window.location.href);
-    url.searchParams.set('v', RG_BUILD_ID);
-    window.location.replace(url.toString());
-    return true;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('v') === RG_BUILD_ID) {
+        return false;
+      }
+      url.searchParams.set('v', RG_BUILD_ID);
+      window.location.replace(url.toString());
+      return true;
+    } catch {
+      return false;
+    }
   }
   return false;
 }
@@ -84,8 +94,19 @@ async function boot() {
   if (redirectHardRefreshToHome()) return;
 
   const reloading = await migrateStalePwaCaches();
-  if (reloading) return;
+  if (reloading) {
+    // Safety net: if replace was a silent no-op, still mount after a tick.
+    window.setTimeout(() => {
+      if (document.getElementById('root')?.childElementCount) return;
+      void mountApp();
+    }, 400);
+    return;
+  }
 
+  await mountApp();
+}
+
+async function mountApp() {
   // Strip one-time cache-bust query after successful boot
   try {
     const url = new URL(window.location.href);
@@ -108,7 +129,11 @@ async function boot() {
     /* ignore */
   }
 
-  createRoot(document.getElementById('root')!).render(
+  const rootEl = document.getElementById('root');
+  if (!rootEl) return;
+  if (rootEl.childElementCount > 0) return;
+
+  createRoot(rootEl).render(
     <ErrorBoundary>
       <AppRouter />
     </ErrorBoundary>
