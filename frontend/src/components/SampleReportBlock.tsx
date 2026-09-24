@@ -1,7 +1,6 @@
 /**
  * Sample tier downloads — Fort Worth Chapin DC-adjacent site at every tier.
- * Mobile-first: full titles (no ellipsis), View / Save actions with labels.
- * sm+: compact icon columns aligned on the right.
+ * View opens a scrollable PDF in-app; Save downloads the package (PDF or ZIP).
  */
 
 import { useState, type MouseEvent } from 'react';
@@ -24,20 +23,35 @@ function sampleFilename(path: string): string {
     'tier-ladder.pdf': 'RegGuard_Sample_Tier_Ladder.pdf',
     'free-preview.pdf': 'RegGuard_Sample_Free_Preview.pdf',
     'partner-receipt.pdf': 'RegGuard_Sample_Full_Bid_Risk_Receipt.pdf',
+    'pro-desk-report.pdf': 'RegGuard_Sample_Contractor_Pro_Report.pdf',
     'pro-desk.zip': 'RegGuard_Sample_Pro_Desk.zip',
+    'ic-project-report.pdf': 'RegGuard_Sample_IC_Project_Report.pdf',
     'ic-diligence-bundle.zip': 'RegGuard_Sample_IC_Diligence_Bundle.zip',
     'plano-punch-list.pdf': 'RegGuard_Sample_Estimator_Receipt.pdf',
   };
   return map[base] || `RegGuard_Sample_${base}`;
 }
 
-/** All sample rows — same actions so View / Save line up */
-export const SAMPLE_ROWS = [
+type SampleRowDef = {
+  /** Stable key / default path */
+  href: string;
+  /** Scrollable in-app PDF (defaults to href) */
+  viewHref?: string;
+  /** Disk download (defaults to href) */
+  downloadHref?: string;
+  title: string;
+  subtitle: string;
+  price: string | null;
+  highlight?: boolean;
+};
+
+/** All sample rows — Pro / IC View = PDF page; Save = full ZIP */
+export const SAMPLE_ROWS: readonly SampleRowDef[] = [
   {
     href: '/sample/tier-ladder.pdf',
     title: 'Sample Tier Ladder',
     subtitle: 'All tiers on one Fort Worth site',
-    price: null as string | null,
+    price: null,
     highlight: true,
   },
   {
@@ -45,28 +59,28 @@ export const SAMPLE_ROWS = [
     title: HABIT_TIERS.free.name,
     subtitle: 'Sample Free Preview PDF',
     price: HABIT_TIERS.free.priceLabel,
-    highlight: false,
   },
   {
     href: '/sample/partner-receipt.pdf',
     title: HABIT_TIERS.partner.name,
     subtitle: 'Sample Bid Risk Receipt PDF',
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
-    highlight: false,
   },
   {
     href: '/sample/pro-desk.zip',
+    viewHref: '/sample/pro-desk-report.pdf',
+    downloadHref: '/sample/pro-desk.zip',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle: 'Sample Pro Desk ZIP',
+    subtitle: 'Scrollable sample report · Save downloads the full Pro Desk ZIP',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
-    highlight: false,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
+    viewHref: '/sample/ic-project-report.pdf',
+    downloadHref: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: 'Sample IC Diligence Bundle ZIP',
+    subtitle: 'Scrollable boardroom sample · Save downloads the full Diligence Bundle ZIP',
     price: IC_BUNDLE.priceLabel,
-    highlight: false,
   },
 ] as const;
 
@@ -82,17 +96,23 @@ export const SAMPLE_DOWNLOADS = SAMPLE_ROWS.filter((r) => !r.highlight).map((r) 
 /** Eye = view in app; Download = save. Full-width on phones; icon track on sm+. */
 export function SampleOpenButton({
   href,
+  viewHref,
+  downloadHref,
   label,
   className,
 }: {
   href: string;
+  viewHref?: string;
+  downloadHref?: string;
   label?: string;
   className?: string;
 }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [err, setErr] = useState('');
-  const title = label || sampleFilename(href).replace(/^RegGuard_/, '').replace(/_/g, ' ');
+  const viewPath = viewHref || href;
+  const savePath = downloadHref || href;
+  const title = label || sampleFilename(viewPath).replace(/^RegGuard_/, '').replace(/_/g, ' ');
 
   const run = async (mode: 'view' | 'download', e: MouseEvent) => {
     e.preventDefault();
@@ -100,11 +120,13 @@ export function SampleOpenButton({
     setBusy(mode);
     setErr('');
     try {
-      const url = sampleUrl(href);
-      const name = sampleFilename(href);
       if (mode === 'view') {
+        const url = sampleUrl(viewPath);
+        const name = sampleFilename(viewPath);
         await viewInAppUrl(url, name, { navigate: (to) => navigate(to) });
       } else {
+        const url = sampleUrl(savePath);
+        const name = sampleFilename(savePath);
         await downloadOnlyUrl(url, name);
       }
     } catch (errObj) {
@@ -162,17 +184,13 @@ export function SampleOpenButton({
 
 function SampleRow({
   href,
+  viewHref,
+  downloadHref,
   title,
   subtitle,
   price,
   highlight,
-}: {
-  href: string;
-  title: string;
-  subtitle: string;
-  price: string | null;
-  highlight?: boolean;
-}) {
+}: SampleRowDef) {
   return (
     <div
       className={`flex flex-col gap-3 rounded-xl border p-3.5 md:p-4 md:flex-row md:items-center md:gap-4 ${
@@ -194,7 +212,12 @@ function SampleRow({
           </p>
         ) : null}
       </div>
-      <SampleOpenButton href={href} label={subtitle || title} />
+      <SampleOpenButton
+        href={href}
+        viewHref={viewHref}
+        downloadHref={downloadHref}
+        label={subtitle || title}
+      />
     </div>
   );
 }
@@ -211,6 +234,15 @@ export function SampleReportBlock({
       <p className="text-amber-300 text-xs font-bold uppercase tracking-wider mb-2">
         Labeled SAMPLE
       </p>
+      <p
+        className={
+          compact
+            ? 'text-emerald-300 text-sm font-semibold mb-1.5'
+            : 'text-emerald-300 text-base sm:text-lg font-semibold mb-2'
+        }
+      >
+        See what Reg Guard can do
+      </p>
       <h3
         className={
           compact
@@ -218,7 +250,7 @@ export function SampleReportBlock({
             : 'text-3xl sm:text-5xl font-black text-white mb-3 leading-tight'
         }
       >
-        Same site. Every tier.
+        Sample Site Results
       </h3>
       <p className="text-[#b8c1d1] text-sm leading-relaxed mb-3 break-words">
         9999 Chapin School Road, Fort Worth, TX 76126 — large-load / DC-adjacent screening with live
@@ -230,7 +262,7 @@ export function SampleReportBlock({
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-400/60 bg-[#0f1d38] text-emerald-300">
             <Eye className="w-4 h-4" strokeWidth={2.25} />
           </span>
-          View opens in Reg Guard
+          View scrolls the report in Reg Guard
         </span>
         <span className="inline-flex items-center gap-2 text-white font-semibold text-sm">
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white">
@@ -242,14 +274,7 @@ export function SampleReportBlock({
 
       <div className="space-y-2.5 md:space-y-3">
         {SAMPLE_ROWS.map((row) => (
-          <SampleRow
-            key={row.href}
-            href={row.href}
-            title={row.title}
-            subtitle={row.subtitle}
-            price={row.price}
-            highlight={row.highlight}
-          />
+          <SampleRow key={row.href} {...row} />
         ))}
       </div>
     </div>
