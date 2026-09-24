@@ -1057,7 +1057,7 @@ export function LocationPicker({
             id="job-site-address-label"
             className="block text-sm font-bold text-emerald-300"
           >
-            Optional: search address (Places)
+            Optional: Enter The Address
           </label>
           <AddressAutocomplete
             disabled={disabled}
