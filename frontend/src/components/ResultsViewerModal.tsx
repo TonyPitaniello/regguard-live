@@ -26,13 +26,12 @@ import { IcDiligenceBundlePitch } from './IcDiligenceBundlePitch';
 import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitDeliverableLadder';
 import { PRODUCT_COPY } from '../productCopy';
 import {
+  FREE_SOFT_PUNCH,
   ladderUpsells,
   resolveResultsLadder,
   type CheckoutLadderTier,
 } from '../resultsAccessLadder';
 
-/** Soft-lock: free users see this many punch lines; rest unlock via Pro/IC or share-to-unlock */
-const FREE_PUNCH_VISIBLE = 5;
 const FREE_FINDINGS_VISIBLE = 3;
 
 export type PunchListItemData = {
@@ -1640,7 +1639,12 @@ export default function ResultsViewerModal({
               </h4>
               <ol style={{ margin: 0, paddingLeft: 20 }}>
                 {priorityLines.map((item, i) => {
-                  const clearCount = softLocked ? 1 : blurProDesk ? 2 : priorityLines.length;
+                  // Free soft: 1 · Free unlocked: 2 · Estimator+: all (they paid for unlocked punch)
+                  const clearCount = softLocked
+                    ? 1
+                    : ownsPartner
+                      ? priorityLines.length
+                      : Math.min(2, priorityLines.length);
                   const locked = i >= clearCount;
                   return (
                     <li
@@ -1664,7 +1668,8 @@ export default function ResultsViewerModal({
                             color: '#94a3b8',
                             fontSize: 12,
                             margin: '4px 0 0',
-                            filter: softLocked || (blurProDesk && i >= 1) ? 'blur(4px)' : undefined,
+                            filter:
+                              softLocked || (!ownsPartner && i >= 1) ? 'blur(4px)' : undefined,
                           }}
                         >
                           {item.detail}
@@ -1689,7 +1694,7 @@ export default function ResultsViewerModal({
                             padding: '2px 6px',
                           }}
                         >
-                          {softLocked ? 'Free locked' : 'Pro'}
+                          {softLocked ? 'Free locked' : 'Estimator'}
                         </span>
                       ) : null}
                     </li>
@@ -1706,7 +1711,11 @@ export default function ResultsViewerModal({
               </h4>
               <ul style={{ margin: 0, paddingLeft: 18 }}>
                 {punch.map((p, i) => {
-                  const clearCount = softLocked ? 1 : blurProDesk ? 2 : punch.length;
+                  const clearCount = softLocked
+                    ? 1
+                    : ownsPartner
+                      ? punch.length
+                      : Math.min(2, punch.length);
                   const locked = i >= clearCount;
                   return (
                     <li
@@ -1750,9 +1759,11 @@ export default function ResultsViewerModal({
               ? 'Your IC Diligence Bundle ZIP is ready below — decision memo, boardroom PDF, counsel DOCX, estimator Excel, and optional CSVs. This brief is the forwardable stamp.'
               : ownsIc
                 ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
-                : isDeep
-                  ? 'Upgrade to IC Project for the counsel-ready Diligence Bundle ZIP on this site.'
-                  : 'This is a free preview brief. Estimator / Permit Runner and Contractor Pro unlock more depth; IC Project unlocks the Diligence Bundle ZIP.'}
+                : ownsPro
+                  ? 'Next: IC Diligence Bundle ($1,500) — counsel ZIP (memo · boardroom · DOCX · Excel) for this one site.'
+                  : ownsPartner
+                    ? 'Next: Contractor Pro ($149/mo) — deep scout, fee dollars, Full City Pack PDF, CSV, and bid packet.'
+                    : 'Free preview. Estimator ($79/mo) unlocks the full Receipt + punch habit; Pro adds deep scout + desk PDFs.'}
           </p>
         </section>
       );
@@ -3323,7 +3334,7 @@ export default function ResultsViewerModal({
                   <h3 className="text-white font-bold text-base">
                     {canUnlockDeeper
                       ? 'You are paid — unlock deeper research on this site'
-                      : `Free preview — top ${FREE_PUNCH_VISIBLE} punch lines`}
+                      : `Free preview — top ${FREE_SOFT_PUNCH} punch lines`}
                   </h3>
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
@@ -3593,8 +3604,8 @@ export default function ResultsViewerModal({
                       <div className="text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
                         <p className="text-xs text-amber-100/90">
                           {demoTier
-                            ? 'SAMPLE — next step is Contractor Pro ($149/mo): Full City Pack, CSV, bid packet. IC Diligence Bundle comes after Pro.'
-                            : 'Next: Contractor Pro ($149/mo) unlocks City Pack / CSV / bid packet. IC Diligence Bundle ($1,500) is the step after Pro.'}
+                            ? 'SAMPLE — fee dollars + City Pack PDF / CSV / bid packet unlock on Contractor Pro ($149/mo).'
+                            : 'Next: Contractor Pro ($149/mo) unlocks fee dollars, Full City Pack PDF, CSV, and bid packet.'}
                         </p>
                         {renderLadderUpsells({ dense: true })}
                       </div>
@@ -3973,11 +3984,18 @@ export default function ResultsViewerModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() => void forwardArtifact('Full City Pack PDF')}
+                      onClick={() => {
+                        if (!allowProDeskDownloads) {
+                          showToast(proDeskGateMessage('city_pack_pdf'));
+                          goCheckout('contractor_pro');
+                          return;
+                        }
+                        void forwardArtifact('Full City Pack PDF');
+                      }}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Text city pack
+                      {allowProDeskDownloads ? 'Text city pack' : 'Text pack — Pro $149'}
                     </button>
                     <button
                       type="button"

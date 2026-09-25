@@ -60,7 +60,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     viewRoute: '/sample-site-diligence?tier=free',
     title: HABIT_TIERS.free.name,
     subtitle:
-      'Bid Risk Receipt preview — stamp, contingency band, and top punch lines with Source or Unverified',
+      'Soft-locked Bid Risk Receipt preview — stamp + top 5 punch lines. Forward unlocks a bit more; Estimator unlocks the full habit.',
     price: HABIT_TIERS.free.priceLabel,
   },
   {
@@ -68,7 +68,7 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     viewRoute: '/sample-site-diligence?tier=partner',
     title: HABIT_TIERS.partner.name,
     subtitle:
-      'Full forwardable Bid Risk Receipt, unlocked punch list, and Saved Jobs habit for client sites',
+      'Full forwardable Bid Risk Receipt + unlocked punch + Saved Jobs. Fee dollars and City Pack PDF stay on Pro.',
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
   },
   {
@@ -76,13 +76,13 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     viewRoute: '/sample-site-diligence?tier=pro',
     title: HABIT_TIERS.contractor_pro.name,
     subtitle:
-      'Full City Pack, fee / punch CSV, bid packet, parcel GIS, and zoning Cite-or-Confirm desk',
+      'Deep scout + fee dollars + Full City Pack PDF, fee/punch CSV, and bid packet — the bid-week desk.',
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: `Counsel-ready ${IC_BUNDLE.productName} — decision memo, boardroom PDF, DOCX, and Excel workbooks`,
+    subtitle: `Counsel ZIP beyond Pro — decision memo, boardroom PDF, DOCX, and Excel evidence for one site`,
     price: IC_BUNDLE.priceLabel,
   },
 ] as const;

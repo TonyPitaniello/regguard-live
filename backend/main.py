@@ -1789,17 +1789,20 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     from free_pack_confirm import run_free_pack_confirm
     from instant_analysis import build_instant_fallback_analysis
     from jurisdiction import geocode_profile_from_address
-    from entitlement import has_paid_access
+    from entitlement import has_paid_access, has_pro_research_access
 
     trial_id = ""
     status = "success"
     message = "Analysis ready — results are displayed in the app."
-    paid = has_paid_access(getattr(request_body, "email", None))
-    research_depth = "pro" if paid else "free"
+    email_for_ent = getattr(request_body, "email", None)
+    habit_paid = has_paid_access(email_for_ent)  # Estimator+ (quota bypass)
+    pro_research = has_pro_research_access(email_for_ent)  # Pro / IC only
+    paid = pro_research  # paid_local / deep path — NOT Estimator
+    research_depth = "pro" if pro_research else ("partner" if habit_paid else "free")
 
-    # Free monthly scan cap (paid bypasses)
+    # Free monthly scan cap (Estimator+ bypasses)
     free_quota: Optional[Dict[str, Any]] = None
-    if not paid:
+    if not habit_paid:
         from free_scan_quota import consume_free_scan, get_free_scan_usage
 
         allowed, free_quota = consume_free_scan(getattr(request_body, "email", None) or "")
@@ -1815,8 +1818,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 status_code=429,
                 detail=(
                     f"Free scan limit reached ({usage.get('used')}/{usage.get('limit')} "
-                    f"this month). Upgrade to Partner ($79/mo) or Contractor Pro ($149/mo) "
-                    f"for deeper Universal Scout — or wait until next month."
+                    f"this month). Upgrade to Estimator / Permit Runner ($79/mo) for more lookups, "
+                    f"or Contractor Pro ($149/mo) for deep scout — or wait until next month."
                 ),
             )
 
@@ -1891,13 +1894,13 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception:
             pass
 
-        if paid:
+        if pro_research:
             from pro_deep_analysis import run_pro_deep_analysis
 
             # IC Project opt-in → force Universal Scout (premortem F2/F8)
             force_scout = bool(getattr(request_body, "generate_ic_report", False))
             logger.info(
-                "Paid entitlement — local confirm first (force_scout=%s)",
+                "Pro/IC research — local confirm first (force_scout=%s)",
                 force_scout,
             )
             # IC force_scout can exceed 120s; give more headroom (premortem F4)
@@ -1933,10 +1936,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     )
             research_depth = analysis.get("research_depth") or "pro"
         else:
-            # Free FinOps: pack + cheap confirm; allow enough time for confirm deadline
+            # Free + Estimator: same FinOps pack path. Estimator pays for habit unlocks
+            # (Receipt + punch + Saved Jobs), not Pro scout — premortem value ladder.
             free_timeout = float(os.getenv("FREE_TRIAL_ANALYSIS_TIMEOUT_SEC") or "14")
             logger.info(
-                "Free FinOps — pack + cheap confirm (timeout=%ss) city=%s state=%s zip=%s",
+                "%s FinOps — pack + cheap confirm (timeout=%ss) city=%s state=%s zip=%s",
+                "Estimator habit" if habit_paid else "Free",
                 max(8.0, free_timeout),
                 city,
                 state,
@@ -1954,19 +1959,33 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 ),
                 timeout=max(8.0, free_timeout),
             )
-            message = (
-                "Free Bid Risk preview ready — city pack"
-                + (
-                    " + cheap confirm."
-                    if (analysis or {}).get("free_confirm", {}).get("cheap_confirm") == "ok"
-                    else (
-                        " + allowlisted confirm."
-                        if (analysis or {}).get("free_confirm", {}).get("search_hits")
-                        else "."
+            if habit_paid:
+                research_depth = "partner"
+                if isinstance(analysis, dict):
+                    analysis["research_depth"] = "partner"
+                    analysis["depth_tier"] = "partner"
+                    analysis["depth_badge"] = (
+                        "Estimator / Permit Runner — Receipt habit · unlocked punch"
                     )
+                    analysis["scout_mode"] = "none"
+                message = (
+                    "Estimator / Permit Runner — Bid Risk Receipt habit ready. "
+                    "Contractor Pro adds deep scout + City Pack PDF / CSV / bid packet."
                 )
-                + " Upgrade for full Universal Scout."
-            )
+            else:
+                message = (
+                    "Free Bid Risk preview ready — city pack"
+                    + (
+                        " + cheap confirm."
+                        if (analysis or {}).get("free_confirm", {}).get("cheap_confirm") == "ok"
+                        else (
+                            " + allowlisted confirm."
+                            if (analysis or {}).get("free_confirm", {}).get("search_hits")
+                            else "."
+                        )
+                    )
+                    + " Estimator unlocks the full Receipt habit; Pro adds deep scout."
+                )
         status = "success"
     except asyncio.TimeoutError:
         logger.warning("Deep analysis timed out — using instant fallback")
@@ -1988,7 +2007,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         )
         message = "Instant preview ready in the app. Deeper research continues in the background."
         status = "success"
-        if paid:
+        if pro_research:
             # Keep soft-unlock semantics for punch visibility, but do not claim finished Pro depth
             analysis["research_depth"] = "pro_partial"
             analysis["preview"] = True
@@ -1998,6 +2017,13 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             analysis["depth_claim_note"] = (
                 "Instant preview — paid deep research did not finish. "
                 "Not full Contractor Pro depth until map pin + deep path complete."
+            )
+        elif habit_paid:
+            analysis["research_depth"] = "partner"
+            analysis["depth_tier"] = "partner"
+            analysis["preview"] = True
+            analysis["depth_claim_note"] = (
+                "Instant preview — Estimator habit research did not finish. Re-run with a clear pin."
             )
 
     # Absolute guarantee: never return without analysis_data
@@ -2120,8 +2146,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     except Exception as job_err:
         logger.warning(f"Free-trial auto-save job failed (non-blocking): {job_err}")
 
-    # Passive campaign: self-ref on share URL + free-run drip (skip paid emails)
-    if not paid:
+    # Passive campaign: self-ref on share URL + free-run drip (skip paid habit emails)
+    if not habit_paid:
         try:
             from affiliate_store import register_affiliate
             from nurture_store import schedule_free_run_drip
@@ -2299,7 +2325,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception as access_err:
             logger.warning("access_tier stamp failed: %s", access_err)
             if "access_tier" not in analysis:
-                analysis["access_tier"] = "free" if not paid else "contractor_pro"
+                if pro_research:
+                    analysis["access_tier"] = "contractor_pro"
+                elif habit_paid:
+                    analysis["access_tier"] = "partner"
+                else:
+                    analysis["access_tier"] = "free"
 
     return {
         "trial_id": trial_id,
@@ -2310,7 +2341,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "share_url": analysis.get("share_url"),
         "job_id": job_id,
         "research_depth": research_depth,
-        "paid": paid,
+        "paid": habit_paid,
+        "pro_research": pro_research,
         "ic_pdfs_ready": ic_pdfs_ready,
         "ic_pending": ic_pending,
         "free_scan_quota": free_quota,

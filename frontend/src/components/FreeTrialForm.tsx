@@ -179,6 +179,22 @@ export default function FreeTrialForm({
   const [paidEntitled, setPaidEntitled] = useState(
     () => typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1'
   );
+  /** Contractor Pro / IC research — NOT Estimator habit ($79) */
+  const [proResearchEntitled, setProResearchEntitled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const raw = sessionStorage.getItem('regguardEntitlementTiers');
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return false;
+      const tiers = parsed.map((t) => String(t).toLowerCase());
+      return tiers.some((t) =>
+        ['contractor_pro', 'ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].includes(t)
+      );
+    } catch {
+      return false;
+    }
+  });
   const [entitlementTiers, setEntitlementTiers] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
@@ -484,6 +500,7 @@ export default function FreeTrialForm({
 
     // Paid users get deeper research — allow longer wait
     let paid = sessionStorage.getItem('regguardPaid') === '1';
+    let deepResearch = false;
     let icReportPending = ['ic_project', 'ic_consultant', 'ic_annual'].includes(
       (sessionStorage.getItem('regguardTier') || '').toLowerCase()
     );
@@ -494,7 +511,8 @@ export default function FreeTrialForm({
       zip: fixed.zip,
     });
     if (entData) {
-      paid = Boolean(entData.paid || entData.deep_research);
+      paid = Boolean(entData.paid);
+      deepResearch = Boolean(entData.deep_research || entData.pro_research);
       const tiers = Array.isArray(entData.tiers)
         ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
         : [];
@@ -507,6 +525,7 @@ export default function FreeTrialForm({
       if (paid) {
         sessionStorage.setItem('regguardPaid', '1');
         setPaidEntitled(true);
+        setProResearchEntitled(deepResearch);
         const primary = String(entData.primary_tier || '').toLowerCase();
         const tier =
           tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) ||
@@ -519,6 +538,8 @@ export default function FreeTrialForm({
       } else {
         // Fresh free lookup — clear sticky Pro/IC flags from abandoned checkout
         setPaidEntitled(false);
+        setProResearchEntitled(false);
+        deepResearch = false;
         try {
           sessionStorage.removeItem('regguardPaid');
           sessionStorage.removeItem('regguardTier');
@@ -646,14 +667,14 @@ export default function FreeTrialForm({
     }
 
     const progressTimers = [
-      window.setTimeout(() => setProgressStep('screen'), paid ? 2000 : 900),
-      window.setTimeout(() => setProgressStep('punch'), paid ? 8000 : 2200),
+      window.setTimeout(() => setProgressStep('screen'), deepResearch ? 2000 : 900),
+      window.setTimeout(() => setProgressStep('punch'), deepResearch ? 8000 : 2200),
     ];
 
     try {
       const controller = new AbortController();
-      // Premortem F4: IC path needs more headroom than Pro deepen
-      const timeoutMs = generateIcReport ? 180000 : paid ? 130000 : 45000;
+      // Premortem F4: IC path needs more headroom than Pro deepen; Estimator uses free-pack timing
+      const timeoutMs = generateIcReport ? 180000 : deepResearch ? 130000 : 45000;
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
       const icKey = generateIcReport ? getOrCreateIcRunId() : undefined;
 
@@ -1424,18 +1445,24 @@ export default function FreeTrialForm({
             className="w-full px-6 py-4 min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
-              ? paidEntitled
+              ? proResearchEntitled
                 ? 'Running deep research…'
-                : 'Analyzing site…'
-              : paidEntitled
+                : paidEntitled
+                  ? 'Refreshing Receipt habit…'
+                  : 'Analyzing site…'
+              : proResearchEntitled
                 ? 'Run deep research on this site'
-                : PRODUCT_COPY.freeCta}
+                : paidEntitled
+                  ? 'Run Estimator Receipt for this site'
+                  : PRODUCT_COPY.freeCta}
           </button>
 
           <p className="text-gray-400 text-sm text-center leading-relaxed">
-            {paidEntitled
-              ? 'Paid access active for this email — results include deeper scout research.'
-              : 'No credit card stored by Reg Guard (Stripe handles paid upgrades). Results in seconds.'}
+            {proResearchEntitled
+              ? 'Contractor Pro / IC active — this run includes paid local confirm + scout depth.'
+              : paidEntitled
+                ? 'Estimator / Permit Runner active — full Receipt + unlocked punch habit (deep scout is Contractor Pro).'
+                : 'No credit card stored by Reg Guard (Stripe handles paid upgrades). Results in seconds.'}
           </p>
         </form>
       </div>
@@ -1468,7 +1495,7 @@ export default function FreeTrialForm({
             defaultEmail={formData.email}
             defaultPhone={formData.phone}
             canUnlockDeeper={
-              paidEntitled &&
+              proResearchEntitled &&
               analysis.research_depth !== 'pro' &&
               analysis.research_depth !== 'pro_partial' &&
               analysis.research_depth !== 'ic' &&

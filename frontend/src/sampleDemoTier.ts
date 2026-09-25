@@ -8,8 +8,8 @@ import type { AnalysisData } from './ResultsViewerModal';
 export type SampleDemoTier = 'free' | 'partner' | 'pro';
 
 export const SAMPLE_DEMO_PUNCH_VISIBLE: Record<SampleDemoTier, number> = {
-  free: 3,
-  partner: 8,
+  free: 5,
+  partner: 99,
   pro: 99,
 };
 
@@ -215,7 +215,9 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
 }
 
 export function sampleDemoLabel(tier: SampleDemoTier): string {
-  if (tier === 'free') return 'Free Lookups — next: Estimator / Permit Runner ($79/mo)';
-  if (tier === 'partner') return 'Estimator / Permit Runner — next: Contractor Pro ($149/mo)';
-  return 'Contractor Pro — next: IC Diligence Bundle ($1,500)';
+  if (tier === 'free')
+    return 'Free Lookups — soft-locked preview (top 5 punch) · next: Estimator $79 unlocks full punch + Receipt habit';
+  if (tier === 'partner')
+    return 'Estimator / Permit Runner — full punch unlocked · fee $ + City Pack PDF stay on Pro $149';
+  return 'Contractor Pro — desk unlocked (fee $ · City Pack · CSV · bid packet) · next: IC Bundle $1,500';
 }

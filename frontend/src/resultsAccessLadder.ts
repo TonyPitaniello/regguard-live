@@ -2,8 +2,17 @@
  * Free → Estimator → Pro → IC → IC Annual access ladder for Site Diligence Results.
  * Used by sample demos and live entitlement gating on every new scan.
  *
- * Upsell rule: each level points to the *next* level and what it unlocks —
- * never skip Free straight to IC Diligence Bundle.
+ * VALUE RULE (premortem): more pay ⇒ strictly more visible content + artifacts.
+ * Never let Free (even after share unlock) show ≥ Estimator punch/findings.
+ *
+ * Visibility matrix (canonical):
+ *   Free soft-lock:     5 punch · 3 findings · contingency blurred · fee $ blurred · no Pro desk
+ *   Free after share:   6 punch · 4 findings · contingency % on · fee $ still blurred · no Pro desk
+ *   Estimator ($79):    full punch · full habit findings · contingency % on · fee $ blurred · no Pro desk
+ *   Pro ($149):         full punch · full findings · fee $ on · City Pack PDF/CSV/bid packet
+ *   IC ($1,500):        Pro desk + counsel ZIP (memo · boardroom · DOCX · Excel)
+ *
+ * Upsell: each level points to the *next* level only — never Free → IC skip.
  */
 
 export type ResultsLadderTier = 'free' | 'partner' | 'pro' | 'ic';
@@ -12,7 +21,7 @@ export type CheckoutLadderTier = 'partner' | 'contractor_pro' | 'ic_project' | '
 
 export type ResultsLadder = {
   tier: ResultsLadderTier;
-  /** Free soft-lock: limited punch + blurred cost until share/upgrade */
+  /** Free soft-lock: limited punch + blurred contingency until share/upgrade */
   softLocked: boolean;
   punchVisible: number;
   findingsVisible: number;
@@ -21,9 +30,12 @@ export type ResultsLadder = {
   ownsIc: boolean;
   ownsIcAnnual: boolean;
   allowProDesk: boolean;
-  /** Blur Pro desk / city pack / CSV chrome */
+  /** Blur Pro desk dollars / CSV / city pack PDF chrome */
   blurProDesk: boolean;
-  /** How many trailing punch lines to show as Pro-blurred teasers (partner) */
+  /**
+   * Trailing punch lines shown as Pro-desk teasers.
+   * Only for Free (never for Estimator — they already paid for unlocked punch).
+   */
   proBlurPunchTeasers: number;
 };
 
@@ -35,10 +47,18 @@ export type LadderUpsell = {
   primary?: boolean;
 };
 
-const FREE_PUNCH = 3;
-const PARTNER_PUNCH = 8;
-const FREE_FINDINGS = 3;
-const PARTNER_FINDINGS = 8;
+/** Soft-locked Free — matches HABIT_TIERS.free “top ~5” */
+export const FREE_SOFT_PUNCH = 5;
+/** Free after share unlock — must stay strictly below Estimator */
+export const FREE_UNLOCKED_PUNCH = 6;
+/** Estimator paid for unlocked punch — full list */
+export const PARTNER_PUNCH = 99;
+export const PRO_PUNCH = 99;
+
+export const FREE_SOFT_FINDINGS = 3;
+export const FREE_UNLOCKED_FINDINGS = 4;
+export const PARTNER_FINDINGS = 12;
+export const PRO_FINDINGS = 99;
 
 export function normalizeAccessTier(raw?: string | null): ResultsLadderTier | null {
   const t = String(raw || '')
@@ -65,7 +85,6 @@ export function accessTierFromEntitlements(tiers: string[] | undefined | null): 
 /**
  * Next-step checkout CTAs for blurred / locked sections.
  * Free → Estimator → Pro → IC Project → IC Annual (one step at a time).
- * `nextOnly` (default true): only the immediate next tier.
  */
 export function ladderUpsells(
   tier: ResultsLadderTier,
@@ -77,7 +96,7 @@ export function ladderUpsells(
       {
         tier: 'partner',
         label: 'Estimator / Permit Runner — $79/mo',
-        offers: 'Full Bid Risk Receipt · unlocked punch · Saved Jobs',
+        offers: 'Full Bid Risk Receipt habit · unlocked punch · Saved Jobs',
         primary: true,
       },
     ];
@@ -85,7 +104,7 @@ export function ladderUpsells(
       rows.push({
         tier: 'contractor_pro',
         label: 'Contractor Pro — $149/mo',
-        offers: 'City Pack · CSV · bid packet · deeper scout',
+        offers: 'Deep scout · fee $ · City Pack PDF · CSV · bid packet',
       });
     }
     return rows;
@@ -95,7 +114,7 @@ export function ladderUpsells(
       {
         tier: 'contractor_pro',
         label: 'Contractor Pro — $149/mo',
-        offers: 'Full City Pack · fee/punch CSV · bid packet · deeper scout',
+        offers: 'Deep scout · fee dollars · City Pack PDF · CSV · bid packet',
         primary: true,
       },
     ];
@@ -105,7 +124,7 @@ export function ladderUpsells(
       {
         tier: 'ic_project',
         label: 'IC Diligence Bundle — $1,500',
-        offers: 'Counsel ZIP: memo · boardroom PDF · DOCX · Excel',
+        offers: 'Counsel ZIP: memo · boardroom PDF · DOCX · Excel evidence',
         primary: true,
       },
     ];
@@ -118,7 +137,6 @@ export function ladderUpsells(
     }
     return rows;
   }
-  // IC depth / IC Project owners
   if (opts?.ownsIcAnnual) {
     return [
       {
@@ -153,8 +171,7 @@ export function resolveResultsLadder(input: {
   );
   const stamped = normalizeAccessTier(input.accessTier);
 
-  // Never unlock from sessionStorage alone — abandoned checkout used to sticky-set
-  // regguardTier=contractor_pro and turn free lookups into Pro desk.
+  // Never unlock from sessionStorage alone — abandoned checkout sticky Pro bug.
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
@@ -172,7 +189,6 @@ export function resolveResultsLadder(input: {
     tier = 'free';
   }
 
-  // Never grant Pro desk from research depth alone — entitlement / stamp only.
   const ownsIc = tier === 'ic';
   const ownsPro = tier === 'pro' || ownsIc;
   const ownsPartner = tier === 'partner' || ownsPro;
@@ -180,7 +196,8 @@ export function resolveResultsLadder(input: {
   const blurProDesk = !allowProDesk;
   const ownsIcAnnual = owned.has('ic_annual');
 
-  // Free: most blur until share unlocks the rest of the free list (still no Pro desk).
+  // Sample Free stays soft-locked so the demo shows the paywall theater.
+  // Live Free soft-locks until share unlock.
   const softLocked =
     demo === 'free'
       ? true
@@ -188,22 +205,25 @@ export function resolveResultsLadder(input: {
         ? false
         : tier === 'free' && !input.shareUnlocked;
 
-  const punchVisible = softLocked
-    ? FREE_PUNCH
-    : tier === 'partner'
-      ? PARTNER_PUNCH
-      : ownsPro
-        ? 99
-        : // free after share unlock — full free punch list
-          99;
+  let punchVisible: number;
+  let findingsVisible: number;
+  if (softLocked) {
+    punchVisible = FREE_SOFT_PUNCH;
+    findingsVisible = FREE_SOFT_FINDINGS;
+  } else if (ownsPro) {
+    punchVisible = PRO_PUNCH;
+    findingsVisible = PRO_FINDINGS;
+  } else if (tier === 'partner') {
+    punchVisible = PARTNER_PUNCH;
+    findingsVisible = PARTNER_FINDINGS;
+  } else {
+    // Free after share — strictly less than Estimator
+    punchVisible = FREE_UNLOCKED_PUNCH;
+    findingsVisible = FREE_UNLOCKED_FINDINGS;
+  }
 
-  const findingsVisible = softLocked
-    ? FREE_FINDINGS
-    : tier === 'partner'
-      ? PARTNER_FINDINGS
-      : 12;
-
-  const proBlurPunchTeasers = tier === 'partner' && !ownsPro ? 2 : 0;
+  // Tease Pro desk formats on Free only — Estimator already owns unlocked punch.
+  const proBlurPunchTeasers = tier === 'free' && !softLocked && !ownsPro ? 2 : 0;
 
   return {
     tier,

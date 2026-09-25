@@ -14,9 +14,9 @@ export const HABIT_TIERS = {
       'DFW/Austin-first Bid Risk Receipt preview. Source or Unverified on every line. Forward to unlock more.',
     features: [
       'Free Site Diligence Results lookup',
-      'Top punch-list actions (soft-locked preview — top ~5 lines)',
+      'Top punch-list actions (soft-locked preview — top 5 lines)',
       'Source or Unverified on every visible line',
-      'Forward Bid Risk Receipt to unlock the rest of the free list',
+      'Forward Bid Risk Receipt to unlock 1 more free line (still less than Estimator)',
       'Text or email your results',
     ] as const,
     notIncluded: [

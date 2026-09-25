@@ -16,9 +16,35 @@ PAID_TIERS: Set[str] = {
     "sponsor",
 }
 
+# Research depth / paid_local_confirm — Estimator ($79) deliberately excluded.
+# $79 buys habit unlocks (Receipt + punch + Saved Jobs); $149 buys deep scout + desk PDFs.
+PRO_RESEARCH_TIERS: Set[str] = {
+    "contractor_pro",
+    "ic_project",
+    "ic_annual",
+    "ic_consultant",
+    "sponsor",
+}
+
 
 def _normalize_email(email: Optional[str]) -> str:
     return (email or "").strip().lower()
+
+
+def _order_tiers_for_email(email_l: str) -> list[str]:
+    tiers: list[str] = []
+    try:
+        from order_service import list_orders_for_email
+
+        for order in list_orders_for_email(email_l):
+            tier = (order.get("tier") or "").strip().lower()
+            status = (order.get("status") or "").strip().lower()
+            if tier in PAID_TIERS and status in ("completed", "active", "paid", ""):
+                if tier not in tiers:
+                    tiers.append(tier)
+    except Exception as e:
+        logger.warning("order tier list failed for %s: %s", email_l, e)
+    return tiers
 
 
 def _stripe_paid_for_email(email_l: str) -> bool:
@@ -50,25 +76,37 @@ def _stripe_paid_for_email(email_l: str) -> bool:
 
 
 def has_paid_access(email: Optional[str]) -> bool:
-    """True if this email has a completed paid order (Pro / IC / etc.)."""
+    """True if this email has any paid habit tier (Estimator / Pro / IC)."""
     email_l = _normalize_email(email)
     if not email_l or "@" not in email_l:
         return False
-    try:
-        from order_service import list_orders_for_email
-
-        for order in list_orders_for_email(email_l):
-            tier = (order.get("tier") or "").strip().lower()
-            status = (order.get("status") or "").strip().lower()
-            if tier in PAID_TIERS and status in ("completed", "active", "paid", ""):
-                return True
-    except Exception as e:
-        logger.warning("entitlement check failed for %s: %s", email_l, e)
-
+    if _order_tiers_for_email(email_l):
+        return True
     # Survive Render restarts when in-memory orders were cleared
     if _stripe_paid_for_email(email_l):
         return True
     return False
+
+
+def has_pro_research_access(email: Optional[str]) -> bool:
+    """
+    True only for Contractor Pro / IC / Sponsor — NOT Estimator ($79).
+
+    Premortem: Estimator must not get paid_local_confirm / light Universal Scout
+    or $149 collapses to “file formats only.”
+    """
+    email_l = _normalize_email(email)
+    if not email_l or "@" not in email_l:
+        return False
+    for tier in _order_tiers_for_email(email_l):
+        if tier in PRO_RESEARCH_TIERS:
+            return True
+    return False
+
+
+def has_partner_habit_access(email: Optional[str]) -> bool:
+    """Estimator / Permit Runner or higher — habit unlocks without Pro research."""
+    return has_paid_access(email)
 
 
 def analysis_is_ic_depth(analysis: Optional[Dict[str, Any]]) -> bool:
@@ -150,6 +188,7 @@ def access_summary(
 ) -> Dict[str, Any]:
     email_l = _normalize_email(email)
     paid = has_paid_access(email_l)
+    deep_research = has_pro_research_access(email_l)
     tiers: list[str] = []
     ic_report_pending = False
     has_ic = False
@@ -197,7 +236,9 @@ def access_summary(
     return {
         "email": email_l,
         "paid": paid,
-        "deep_research": paid,
+        "deep_research": deep_research,
+        "habit_access": paid,
+        "pro_research": deep_research,
         "tiers": tiers,
         "primary_tier": tiers[0] if tiers else ("free" if email_l else "anonymous"),
         "ic_report_pending": ic_report_pending,
