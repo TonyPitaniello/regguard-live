@@ -35,10 +35,10 @@ export const PRODUCT_COPY = {
   /** Home hero */
   heroHeadline: 'Citeable Site Diligence Before You Bid',
   heroSubhead:
-    'Enter a US address — get a forwardable Bid Risk Receipt. Source on every line, or get an honest "Unverified". No credit card to try it free.',
+    'Enter a US address — get a bid-or-walk Bid Risk Receipt preview. Source on every line, or get an honest "Unverified". No credit card to try it free.',
   seoTitle: 'Reg Guard — Bid Risk Receipt for Contractors',
   seoDescription:
-    'Citeable pre-bid site diligence for US addresses — strongest in DFW and Austin. Forward a Bid Risk Receipt to your GC. Planning aid — not a quote or sealed bid.',
+    'Bid-or-walk site diligence for US addresses — strongest in DFW and Austin. Forward a Bid Risk Receipt to your GC. Planning aid — not a quote or sealed bid.',
 
   sampleEyebrow: 'Labeled Sample',
   sampleLead: 'See What Reg Guard Can Do',
@@ -47,7 +47,7 @@ export const PRODUCT_COPY = {
 
   formHeading: 'Now Run Your Site',
   formClear: 'Clear & Start Over',
-  freeCta: 'Get My Bid Risk Receipt',
+  freeCta: 'Get My Free Bid-or-Walk Preview',
   paidCta: 'Run Deep Research on This Site',
   navTryFree: 'Try Free',
 

@@ -59,30 +59,27 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     href: '/sample-site-diligence?tier=free',
     viewRoute: '/sample-site-diligence?tier=free',
     title: HABIT_TIERS.free.name,
-    subtitle:
-      'Soft-locked Bid Risk Receipt preview — stamp + top 5 punch lines. Forward unlocks a bit more; Estimator unlocks the full habit.',
+    subtitle: HABIT_TIERS.free.oneLiner,
     price: HABIT_TIERS.free.priceLabel,
   },
   {
     href: '/sample-site-diligence?tier=partner',
     viewRoute: '/sample-site-diligence?tier=partner',
     title: HABIT_TIERS.partner.name,
-    subtitle:
-      'Full forwardable Bid Risk Receipt + unlocked punch + Saved Jobs. Fee dollars and City Pack PDF stay on Pro.',
+    subtitle: HABIT_TIERS.partner.oneLiner,
     price: `${HABIT_TIERS.partner.priceLabel}/mo`,
   },
   {
     href: '/sample-site-diligence?tier=pro',
     viewRoute: '/sample-site-diligence?tier=pro',
     title: HABIT_TIERS.contractor_pro.name,
-    subtitle:
-      'Deep scout + fee dollars + Full City Pack PDF, fee/punch CSV, and bid packet — the bid-week desk.',
+    subtitle: HABIT_TIERS.contractor_pro.oneLiner,
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
     href: '/sample/ic-diligence-bundle.zip',
     title: IC_BUNDLE.tierName,
-    subtitle: `Counsel ZIP beyond Pro — decision memo, boardroom PDF, DOCX, and Excel evidence for one site`,
+    subtitle: IC_BUNDLE.oneLiner,
     price: IC_BUNDLE.priceLabel,
   },
 ] as const;

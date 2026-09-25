@@ -11,12 +11,12 @@ export const HABIT_TIERS = {
     priceLabel: '$0',
     billing: 'Free lead magnet',
     oneLiner:
-      'DFW/Austin-first Bid Risk Receipt preview. Source or Unverified on every line. Forward to unlock more.',
+      'First look before you burn a bid day — bid-or-walk preview, Source or Unverified. No card.',
     features: [
-      'Free Site Diligence Results lookup',
-      'Top punch-list actions (soft-locked preview — top 5 lines)',
+      'Bid-or-walk preview for one US address — no card',
+      'Top punch-list risks (soft-locked — top 5 lines)',
       'Source or Unverified on every visible line',
-      'Forward Bid Risk Receipt to unlock 1 more free line (still less than Estimator)',
+      'Forward Bid Risk Receipt to unlock a bit more (still less than Estimator)',
       'Text or email your results',
     ] as const,
     notIncluded: [
@@ -32,7 +32,7 @@ export const HABIT_TIERS = {
     priceLabel: '$79',
     billing: 'per month',
     oneLiner:
-      'Client-site screening habit: full forwardable Bid Risk Receipt, unlocked punch list, Saved Jobs + weekly reminders. Not an estimator CSV desk.',
+      'Stop losing the thread with the GC — full forwardable Receipt + unlocked punch + Saved Jobs for client sites.',
     features: [
       'Full Bid Risk Receipt PDF — forward to GC / owner / client',
       'Unlocked punch list (owner · due window · Source or Unverified)',
@@ -54,12 +54,12 @@ export const HABIT_TIERS = {
     priceLabel: '$149',
     billing: 'per month',
     oneLiner:
-      'Your bid-week desk: everything in Estimator / Permit Runner, plus deep scout, fee/punch CSV to paste, full city pack PDF, and bid packet.',
+      'Bid-week desk if you own the number — City Pack, fee CSV, bid packet. One missed fee line pays for the month.',
     features: [
       'Everything in Estimator / Permit Runner',
-      'Deep scout / paid local confirm on every lookup',
+      'Paid local confirm / light scout on every lookup',
       'Fee / punch CSV — trade · owner · due window · source_url (estimator paste)',
-      'Full city pack PDF + bid sheet PDF + bid packet',
+      'Full City Pack PDF + bid sheet PDF + bid packet',
       'Day-7 re-check habit for live bids',
       'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     ] as const,
@@ -88,5 +88,5 @@ export function proDeskGateMessage(artifact: ProDeskArtifact): string {
     city_pack_pdf: 'Full city pack PDF',
     bid_packet_pdf: 'Full bid packet',
   };
-  return `${labels[artifact]} is a Contractor Pro ($149/mo) deliverable — Estimator / Permit Runner ($79) includes the Bid Risk Receipt + punch + Saved Jobs. Upgrade to paste into your estimate.`;
+  return `${labels[artifact]} is on the Contractor Pro bid desk ($149/mo) — Estimator ($79) is the Receipt you forward. Upgrade when you need fee dollars and City Pack on the estimate.`;
 }

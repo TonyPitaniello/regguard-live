@@ -14,7 +14,8 @@
 
 export const IC_BUNDLE = {
   productName: 'IC Diligence Bundle',
-  tierName: 'IC Project Report',
+  /** Same product name on cards / samples — “IC Project” is the checkout SKU key only */
+  tierName: 'IC Diligence Bundle',
   priceLabel: '$1,500',
   billing: 'one-time per site',
   segment: 'IC · Owner’s Rep · Sponsor · Lender',
@@ -24,19 +25,19 @@ export const IC_BUNDLE = {
 
   /** Hero / card one-liner — keep in lockstep with Pricing pitch */
   oneLiner:
-    'The diligence package counsel and lenders actually open — and estimators forward: a 1-page HOLD/CLEAR stamp you can text, a boardroom PDF, editable Word with exhibits, Excel workbooks (Cover · Fees · Punch · Evidence) built for their desk, and parallel clocks for AHJ vs interconnect vs water.',
+    'The package counsel and lenders open — memo, boardroom, editable Word with exhibits, Excel evidence — for one capital site. Not a bigger City Pack.',
 
   /** Slightly shorter for dense cards / IC Project tier card */
   cardDescription:
-    'Counsel-ready ZIP for one site — decision memo, full boardroom PDF, editable DOCX with evidence binder, estimator Excel (Fees · Punch · Evidence), optional CSV paste exports, and data-center parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
+    'Counsel-ready ZIP for one site — decision memo, boardroom PDF, editable DOCX with evidence binder, estimator Excel (Fees · Punch · Evidence), optional CSVs, and parallel clocks when it matters. Not a bigger City Pack. Not a quote, sealed bid, interconnection study, geotech, or AHJ filing.',
 
   /** Emotional draw — why buy */
   whyBuy:
-    'Stop forwarding screenshots that counsel rejects. Walk into the LOI / IC call with a citeable package: what to HOLD or CLEAR, why contingency exists, which exhibit backs each claim, and which clocks can slip independently.',
+    'Counsel won’t mark up a City Pack PDF. Walk into the LOI / IC call with a citeable ZIP: HOLD or CLEAR, why contingency exists, which exhibit backs each claim, and which clocks can slip independently — without spending half a day building Word and Excel by hand.',
 
   /** Who it’s for */
   forWhom:
-    'Built for independent consultants, owner’s reps, and permitting strategists screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin.',
+    'Built for IC consultants, owner’s reps, sponsors, and lenders screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin.',
 
   /**
    * What’s in the ZIP — benefit-led.
@@ -112,10 +113,11 @@ export const IC_BUNDLE = {
 
   /** Annual upsell */
   annualDescription:
-    'Regenerate the same IC Diligence Bundle ZIP for additional sites after your first IC Project.',
+    'Shop rate for the counsel ZIP — regenerate across sites after your first IC Project; ~10 addresses and you’ve covered the year vs $1,500/site.',
   annualFeatures: [
-    'Regenerate ZIP bundles for new site addresses',
+    'Regenerate Diligence Bundle ZIP for new bound addresses',
     'Same decision memo + boardroom PDF + counsel DOCX + Excel + optional CSV package',
+    'Break-even ~10 sites vs buying IC Project each time',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,
@@ -138,14 +140,14 @@ export const IC_BUNDLE = {
     'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP for this address: memo + boardroom PDF + DOCX + Excel. A different address needs a new $1,500 IC Project purchase.',
 
   /** Results — Pro upsell */
-  upsellHeadline: 'Need counsel-ready deliverables for this site?',
+  upsellHeadline: 'Counsel won’t mark up a City Pack PDF',
   upsellBody:
-    'Contractor Pro is for weekly bid habit. IC Project ($1,500) unlocks the Diligence Bundle ZIP — decision memo, boardroom PDF, editable DOCX with exhibits, estimator Excel, and parallel clocks — for this address.',
+    'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom brief, editable Word with exhibits, Excel evidence map. Same AHJ facts in counsel format — not a bigger City Pack.',
 
   /** Results — free locked */
-  lockedHeadline: 'IC Diligence Bundle locked',
+  lockedHeadline: 'Stop re-sending screenshots that fall apart in the GC thread',
   lockedBody:
-    'Free preview shows the Bid Risk Receipt structure. Estimator / Permit Runner and Contractor Pro deepen monthly lookups. Only an IC Project run unlocks the counsel-ready ZIP for this site.',
+    'Free shows the shape of risk. Estimator unlocks the Receipt habit; Pro opens the bid desk; IC ships the counsel ZIP for one capital site. Climb one step at a time.',
 
   /** Checkout / post-pay */
   deliveryHint:

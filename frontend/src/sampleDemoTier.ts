@@ -167,48 +167,49 @@ export function analysisForSampleDemo(
   return clone;
 }
 
-/** Sample / live-shaped next-step offer — Free→Estimator→Pro→IC */
+/** Sample / live-shaped next-step offer — from TIER_VOICE */
 export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisData['upgrade_offer']> {
+  // Keep samples in lockstep with frontend/src/tierVoice.ts
   if (tier === 'free') {
     return {
-      message: 'Unlock the next step — Estimator / Permit Runner',
+      message: 'Stop re-sending screenshots that fall apart in the GC thread',
       detail:
-        'Free is a soft-locked preview. Estimator / Permit Runner ($79/mo) unlocks the full forwardable Bid Risk Receipt, the rest of the punch list, and Saved Jobs for client sites.',
+        'You’re still on Free: shape of risk, nothing the GC can file. Estimator / Permit Runner ($79/mo) gives you the full Bid Risk Receipt you can forward, the rest of the punch list, and Saved Jobs.',
       cta_label: 'Start Estimator / Permit Runner — $79/mo',
       cta_tier: 'partner',
-      secondary_cta_label: 'See Contractor Pro — $149/mo',
-      secondary_cta_tier: 'contractor_pro',
+      secondary_cta_label: undefined,
+      secondary_cta_tier: undefined,
       current_label: 'Free Lookups',
-      next_label: 'Estimator / Permit Runner — full Receipt + unlocked punch + Saved Jobs',
+      next_label: 'Estimator — forwardable Receipt · full punch · Saved Jobs',
       primary_once: true,
-      honesty_note: 'Climb one level at a time — IC Diligence Bundle is after Contractor Pro.',
+      honesty_note: 'Climb one step — City Pack and counsel ZIP stay further up the ladder.',
     };
   }
   if (tier === 'partner') {
     return {
-      message: 'Next level — Contractor Pro desk',
+      message: 'Still hunting fee dollars and city schedules by hand?',
       detail:
-        'Estimator unlocked Receipt + punch. Contractor Pro ($149/mo) adds Full City Pack, fee/punch CSV, bid packet, and deeper scout. IC Diligence Bundle is the step after Pro.',
+        'Estimator got you a Receipt the GC can file. Contractor Pro ($149/mo) puts fee dollars, Full City Pack PDF, paste-ready CSV, and bid packet on the desk — for jobs where your number has to hold.',
       cta_label: 'Upgrade to Contractor Pro — $149/mo',
       cta_tier: 'contractor_pro',
       secondary_cta_label: undefined,
       secondary_cta_tier: undefined,
       current_label: 'Estimator / Permit Runner',
-      next_label: 'Contractor Pro — City Pack · CSV · bid packet · deeper scout',
+      next_label: 'Pro bid desk — fee dollars · City Pack PDF · CSV · bid packet',
       primary_once: true,
-      honesty_note: 'Pro adds desk formats — still confirm fees on the live AHJ schedule.',
+      honesty_note: 'Pro arms the estimate — still confirm dollars on the live AHJ schedule.',
     };
   }
   return {
-    message: 'Next level — IC Diligence Bundle for this site',
+    message: 'Counsel won’t mark up a City Pack PDF',
     detail:
-      'Pro unlocked the desk. IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom PDF, counsel DOCX, estimator Excel, and evidence binder for this one address.',
+      'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: memo, boardroom, Word with exhibits, Excel evidence. Not a bigger City Pack.',
     cta_label: 'Get IC Diligence Bundle — $1,500',
     cta_tier: 'ic_project',
     secondary_cta_label: 'Or IC Annual — $15,000/yr multi-site',
     secondary_cta_tier: 'ic_annual',
     current_label: 'Contractor Pro',
-    next_label: 'IC Diligence Bundle — counsel ZIP + full scout for one site',
+    next_label: 'Counsel ZIP — memo · boardroom · Word · Excel exhibits',
     primary_once: true,
     honesty_note: 'IC is counsel packaging for one site — not an AHJ filing.',
   };
@@ -216,8 +217,8 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
 
 export function sampleDemoLabel(tier: SampleDemoTier): string {
   if (tier === 'free')
-    return 'Free Lookups — soft-locked preview (top 5 punch) · next: Estimator $79 unlocks full punch + Receipt habit';
+    return 'Free — bid-or-walk preview · next: Estimator $79 (Receipt the GC can file)';
   if (tier === 'partner')
-    return 'Estimator / Permit Runner — full punch unlocked · fee $ + City Pack PDF stay on Pro $149';
-  return 'Contractor Pro — desk unlocked (fee $ · City Pack · CSV · bid packet) · next: IC Bundle $1,500';
+    return 'Estimator — Receipt habit · next: Pro $149 (fee dollars · City Pack · CSV)';
+  return 'Pro — bid desk · next: IC $1,500 (counsel ZIP — not a bigger City Pack)';
 }

@@ -15,6 +15,8 @@
  * Upsell: each level points to the *next* level only — never Free → IC skip.
  */
 
+import { TIER_VOICE, nextVoiceForLadderTier } from './tierVoice';
+
 export type ResultsLadderTier = 'free' | 'partner' | 'pro' | 'ic';
 
 export type CheckoutLadderTier = 'partner' | 'contractor_pro' | 'ic_project' | 'ic_annual';
@@ -82,9 +84,10 @@ export function accessTierFromEntitlements(tiers: string[] | undefined | null): 
   return 'free';
 }
 
+
+
 /**
- * Next-step checkout CTAs for blurred / locked sections.
- * Free → Estimator → Pro → IC Project → IC Annual (one step at a time).
+ * Next-step checkout CTAs — pain-first copy from TIER_VOICE (one step only).
  */
 export function ladderUpsells(
   tier: ResultsLadderTier,
@@ -92,57 +95,61 @@ export function ladderUpsells(
 ): LadderUpsell[] {
   const nextOnly = opts?.nextOnly !== false;
   if (tier === 'free') {
+    const v = TIER_VOICE.free;
     const rows: LadderUpsell[] = [
       {
         tier: 'partner',
-        label: 'Estimator / Permit Runner — $79/mo',
-        offers: 'Full Bid Risk Receipt habit · unlocked punch · Saved Jobs',
+        label: v.upsellCta,
+        offers: v.upsellOffers,
         primary: true,
       },
     ];
     if (!nextOnly) {
       rows.push({
         tier: 'contractor_pro',
-        label: 'Contractor Pro — $149/mo',
-        offers: 'Deep scout · fee $ · City Pack PDF · CSV · bid packet',
+        label: TIER_VOICE.partner.upsellCta,
+        offers: TIER_VOICE.partner.upsellOffers,
       });
     }
     return rows;
   }
   if (tier === 'partner') {
+    const v = TIER_VOICE.partner;
     return [
       {
         tier: 'contractor_pro',
-        label: 'Contractor Pro — $149/mo',
-        offers: 'Deep scout · fee dollars · City Pack PDF · CSV · bid packet',
+        label: v.upsellCta,
+        offers: v.upsellOffers,
         primary: true,
       },
     ];
   }
   if (tier === 'pro') {
+    const v = TIER_VOICE.pro;
     const rows: LadderUpsell[] = [
       {
         tier: 'ic_project',
-        label: 'IC Diligence Bundle — $1,500',
-        offers: 'Counsel ZIP: memo · boardroom PDF · DOCX · Excel evidence',
+        label: v.upsellCta,
+        offers: v.upsellOffers,
         primary: true,
       },
     ];
     if (!nextOnly && !opts?.ownsIcAnnual) {
       rows.push({
         tier: 'ic_annual',
-        label: 'IC Annual — $15,000/yr',
-        offers: 'Multi-site Diligence Bundle regenerations',
+        label: TIER_VOICE.ic.upsellCta,
+        offers: TIER_VOICE.ic.upsellOffers,
       });
     }
     return rows;
   }
+  const next = nextVoiceForLadderTier('ic', { ownsIcAnnual: opts?.ownsIcAnnual });
   if (opts?.ownsIcAnnual) {
     return [
       {
         tier: 'ic_project',
-        label: 'Another site IC Bundle — $1,500',
-        offers: 'Same counsel ZIP for a new bound address',
+        label: next.upsellCta,
+        offers: next.upsellOffers,
         primary: true,
       },
     ];
@@ -150,8 +157,8 @@ export function ladderUpsells(
   return [
     {
       tier: 'ic_annual',
-      label: 'IC Annual — multi-site — $15,000/yr',
-      offers: 'Regenerate Diligence Bundles across many sites',
+      label: TIER_VOICE.ic.upsellCta,
+      offers: TIER_VOICE.ic.upsellOffers,
       primary: true,
     },
   ];

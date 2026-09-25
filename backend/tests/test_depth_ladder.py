@@ -21,7 +21,7 @@ def test_free_bid_desk_points_to_partner():
     )
     assert a["buyer_persona"] == PERSONA_BID_DESK
     assert a["upgrade_offer"]["cta_tier"] == "partner"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "contractor_pro"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
     assert "accurate" not in (a["upgrade_offer"]["message"] or "").lower()
     assert "accurate" not in (a["upgrade_offer"]["detail"] or "").lower() or "not" in (
         a["upgrade_offer"]["detail"] or ""
@@ -36,7 +36,7 @@ def test_free_dc_points_to_estimator_not_ic():
     )
     assert a["buyer_persona"] == PERSONA_DC_INFRA
     assert a["upgrade_offer"]["cta_tier"] == "partner"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "contractor_pro"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
     assert "Estimator" in (a["upgrade_offer"]["cta_label"] or "")
 
 
@@ -78,9 +78,13 @@ def test_pro_local_offer_points_to_ic():
 
 def test_ic_full_offer_another_site():
     a = stamp_upgrade_offer({}, depth_tier=DEPTH_IC_FULL)
-    assert a["upgrade_offer"]["cta_tier"] == "ic_project"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
+    # Premortem: primary is Annual shop rate; secondary is another $1,500 site
+    assert a["upgrade_offer"]["cta_tier"] == "ic_annual"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_project"
     assert a["upgrade_offer"]["next_label"]
+    assert "10th" in (a["upgrade_offer"]["detail"] or "") or "10" in (
+        a["upgrade_offer"]["detail"] or ""
+    )
 
 
 def test_pro_delta_lists_uniqueness():

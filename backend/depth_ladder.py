@@ -141,49 +141,48 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _offer_free_next(ptype: str) -> Dict[str, Any]:
-    """Free → Estimator (never skip to IC). DC sites still climb the habit ladder first."""
+    """Free → Estimator (never skip to IC). Pain-first voice."""
+    site = f" for a {ptype} site" if ptype else ""
     return {
-        "message": "Unlock the next step — Estimator / Permit Runner",
+        "message": "Stop re-sending screenshots that fall apart in the GC thread",
         "detail": (
-            f"This free preview is a first look"
-            f"{f' for a {ptype} site' if ptype else ''}. "
-            "Estimator / Permit Runner ($79/mo) unlocks the full forwardable Bid Risk Receipt, "
-            "the rest of the punch list, and Saved Jobs for client sites. "
-            "Contractor Pro and IC Diligence Bundle stay one step further — climb one level at a time."
+            f"You're still on Free{site}: shape of risk, nothing the GC can file. "
+            "Estimator / Permit Runner ($79/mo) gives you the full Bid Risk Receipt you can forward, "
+            "the rest of the punch list, and Saved Jobs — stamp every client site without rebuilding the story."
         ),
         "cta_label": "Start Estimator / Permit Runner — $79/mo",
         "cta_tier": "partner",
-        "secondary_cta_label": "See Contractor Pro — $149/mo",
-        "secondary_cta_tier": "contractor_pro",
+        "secondary_cta_label": None,
+        "secondary_cta_tier": None,
         "current_label": "Free Lookups",
-        "next_label": "Estimator / Permit Runner — full Receipt + unlocked punch + Saved Jobs",
+        "next_label": "Estimator — forwardable Receipt · full punch · Saved Jobs",
         "primary_once": True,
         "honesty_note": (
-            "Deeper research adds sources and packaging. Always confirm fees on the official AHJ schedule."
+            "Planning aid — confirm fees on the official AHJ schedule before you bid."
         ),
     }
 
 
 def _offer_partner_next(ptype: str) -> Dict[str, Any]:
     """Estimator → Contractor Pro."""
+    site = f" on this {ptype} site" if ptype else ""
     return {
-        "message": "Next level — Contractor Pro desk",
+        "message": "Still hunting fee dollars and city schedules by hand?",
         "detail": (
-            f"Estimator unlocked Receipt + punch habit"
-            f"{f' on this {ptype} site' if ptype else ''}. "
-            "Contractor Pro ($149/mo) adds deep scout, Full City Pack PDF, fee/punch CSV, "
-            "and bid packet for your own bids. IC Diligence Bundle ($1,500) is the step after Pro "
-            "when you need counsel ZIP for one capital-sensitive address."
+            f"Estimator got you a Receipt the GC can file{site}. "
+            "You're still the one scraping portals for fee lines before every bid. "
+            "Contractor Pro ($149/mo) puts fee dollars, Full City Pack PDF, paste-ready CSV, "
+            "and bid packet on the desk — for jobs where your number has to hold."
         ),
         "cta_label": "Upgrade to Contractor Pro — $149/mo",
         "cta_tier": "contractor_pro",
         "secondary_cta_label": None,
         "secondary_cta_tier": None,
         "current_label": "Estimator / Permit Runner",
-        "next_label": "Contractor Pro — City Pack · CSV · bid packet · deeper scout",
+        "next_label": "Pro bid desk — fee dollars · City Pack PDF · CSV · bid packet",
         "primary_once": True,
         "honesty_note": (
-            "Pro adds desk formats and scout depth — still confirm fees on the live AHJ schedule."
+            "Pro arms the estimate — still confirm dollars on the live AHJ schedule."
         ),
     }
 
@@ -191,43 +190,44 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
 def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Dict[str, Any]:
     """Contractor Pro → IC Diligence Bundle."""
     desk = "Pro light scout" if light else "Contractor Pro"
+    site = f" for a {ptype} site" if ptype else ""
     return {
-        "message": "Next level — IC Diligence Bundle for this site",
+        "message": "Counsel won’t mark up a City Pack PDF",
         "detail": (
-            f"{desk} finished local confirm{partial}"
-            f"{f' for a {ptype} site' if ptype else ''}. "
-            "IC Diligence Bundle ($1,500, one site) runs full Universal Scout and ships the counsel ZIP: "
-            "decision memo, boardroom PDF, counsel DOCX, estimator Excel, and evidence binder. "
-            "IC Annual ($15,000/yr) is only for shops regenerating bundles across many sites."
+            f"{desk} is the bid desk{partial}{site}. "
+            "For one capital-sensitive address — LOI, IC call, owner’s rep, lender — "
+            "IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom brief, "
+            "editable Word with exhibits, Excel evidence map. Same AHJ facts in counsel format — "
+            "not a bigger City Pack."
         ),
         "cta_label": "Get IC Diligence Bundle — $1,500",
         "cta_tier": "ic_project",
         "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
         "secondary_cta_tier": "ic_annual",
         "current_label": desk,
-        "next_label": "IC Diligence Bundle — counsel ZIP + full scout for one site",
+        "next_label": "Counsel ZIP — memo · boardroom · Word · Excel exhibits",
         "primary_once": True,
         "honesty_note": (
-            "IC adds depth and counsel formats — still a planning aid; confirm with AHJ / utility before decisions."
+            "IC is counsel packaging for one site — still a planning aid; confirm with AHJ / utility."
         ),
     }
 
 
 def _offer_ic_next() -> Dict[str, Any]:
-    """IC → another site or Annual."""
+    """IC → Annual (shop rate) or another Project."""
     return {
-        "message": "Need the same package for another site?",
+        "message": "Still cutting a $1,500 PO every time a new address hits the pipeline?",
         "detail": (
-            "This is the fullest Reg Guard run for one bound address (full scout + counsel ZIP). "
-            "Buy another IC Project for a new site. "
-            "IC Annual ($15,000/yr) is only for shops that regenerate bundles across many sites."
+            "IC Project is one bound site. If your shop regenerates this Diligence Bundle across "
+            "addresses all year, IC Annual ($15,000/yr) pays for itself around the 10th site — "
+            "same counsel ZIP, new address, no rebuying the package shape."
         ),
-        "cta_label": "IC Diligence Bundle for another site — $1,500",
-        "cta_tier": "ic_project",
-        "secondary_cta_label": "IC Annual — $15,000/yr multi-site",
-        "secondary_cta_tier": "ic_annual",
+        "cta_label": "IC Annual — $15,000/yr",
+        "cta_tier": "ic_annual",
+        "secondary_cta_label": "Or another site IC Bundle — $1,500",
+        "secondary_cta_tier": "ic_project",
         "current_label": "IC Diligence Bundle",
-        "next_label": "Another site IC Bundle — or IC Annual for multi-site",
+        "next_label": "Shop rate — regenerate across sites (~10× to break even)",
         "primary_once": True,
         "honesty_note": (
             "You already have IC full depth on this site — planning diligence, not an AHJ filing."

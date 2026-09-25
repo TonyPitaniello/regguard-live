@@ -31,6 +31,7 @@ import {
   resolveResultsLadder,
   type CheckoutLadderTier,
 } from '../resultsAccessLadder';
+import { TIER_VOICE } from '../tierVoice';
 
 const FREE_FINDINGS_VISIBLE = 3;
 
@@ -1169,7 +1170,7 @@ export default function ResultsViewerModal({
             </button>
             {row.offers ? (
               <p className="text-xs text-emerald-100/85 sm:text-left text-center leading-snug">
-                Next unlocks: {row.offers}
+                {row.offers}
               </p>
             ) : null}
           </div>
@@ -1760,10 +1761,10 @@ export default function ResultsViewerModal({
               : ownsIc
                 ? 'Generate an IC Report for this site to unlock the Diligence Bundle ZIP download.'
                 : ownsPro
-                  ? 'Next: IC Diligence Bundle ($1,500) — counsel ZIP (memo · boardroom · DOCX · Excel) for this one site.'
+                  ? TIER_VOICE.pro.upsellBody
                   : ownsPartner
-                    ? 'Next: Contractor Pro ($149/mo) — deep scout, fee dollars, Full City Pack PDF, CSV, and bid packet.'
-                    : 'Free preview. Estimator ($79/mo) unlocks the full Receipt + punch habit; Pro adds deep scout + desk PDFs.'}
+                    ? TIER_VOICE.partner.upsellBody
+                    : TIER_VOICE.free.upsellBody}
           </p>
         </section>
       );
@@ -2843,39 +2844,30 @@ export default function ResultsViewerModal({
             ) : ownsPartner ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  Next level — Contractor Pro ($149/mo)
+                  {TIER_VOICE.partner.upsellHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  Estimator unlocked Receipt + punch habit. Contractor Pro adds Full City Pack PDF,
-                  fee/punch CSV, bid packet, and deeper scout. IC Diligence Bundle is the step after
-                  Pro — not the next click from here.
-                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">{TIER_VOICE.partner.upsellBody}</p>
                 {renderLadderUpsells()}
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  Next level — Estimator / Permit Runner ($79/mo)
+                  {TIER_VOICE.free.upsellHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">
-                  Free is a soft-locked preview. Estimator unlocks the full forwardable Bid Risk
-                  Receipt, the rest of the punch list, and Saved Jobs. Climb one step at a time —
-                  Contractor Pro and IC Diligence Bundle come after.
-                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">{TIER_VOICE.free.upsellBody}</p>
                 {renderLadderUpsells()}
               </div>
             )}
             {ownsIc && !ownsIcAnnual && !demoTier ? (
               <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-3 space-y-2">
-                <p className="text-sm text-amber-50 font-semibold">
-                  Running more sites? IC Annual regenerates the Diligence Bundle ZIP across addresses.
-                </p>
+                <p className="text-sm text-amber-50 font-semibold">{TIER_VOICE.ic.upsellHeadline}</p>
+                <p className="text-xs text-amber-100/90 leading-relaxed">{TIER_VOICE.ic.upsellBody}</p>
                 <button
                   type="button"
                   onClick={() => goCheckout('ic_annual')}
                   className="px-4 py-2.5 min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
                 >
-                  IC Annual — $15,000/yr
+                  {TIER_VOICE.ic.upsellCta}
                 </button>
               </div>
             ) : null}
