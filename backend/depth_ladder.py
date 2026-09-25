@@ -140,15 +140,146 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
     return analysis
 
 
+def _offer_free_next(ptype: str) -> Dict[str, Any]:
+    """Free → Estimator (never skip to IC). DC sites still climb the habit ladder first."""
+    return {
+        "message": "Unlock the next step — Estimator / Permit Runner",
+        "detail": (
+            f"This free preview is a first look"
+            f"{f' for a {ptype} site' if ptype else ''}. "
+            "Estimator / Permit Runner ($79/mo) unlocks the full forwardable Bid Risk Receipt, "
+            "the rest of the punch list, and Saved Jobs for client sites. "
+            "Contractor Pro and IC Diligence Bundle stay one step further — climb one level at a time."
+        ),
+        "cta_label": "Start Estimator / Permit Runner — $79/mo",
+        "cta_tier": "partner",
+        "secondary_cta_label": "See Contractor Pro — $149/mo",
+        "secondary_cta_tier": "contractor_pro",
+        "current_label": "Free Lookups",
+        "next_label": "Estimator / Permit Runner — full Receipt + unlocked punch + Saved Jobs",
+        "primary_once": True,
+        "honesty_note": (
+            "Deeper research adds sources and packaging. Always confirm fees on the official AHJ schedule."
+        ),
+    }
+
+
+def _offer_partner_next(ptype: str) -> Dict[str, Any]:
+    """Estimator → Contractor Pro."""
+    return {
+        "message": "Next level — Contractor Pro desk",
+        "detail": (
+            f"Estimator unlocked Receipt + punch habit"
+            f"{f' on this {ptype} site' if ptype else ''}. "
+            "Contractor Pro ($149/mo) adds deep scout, Full City Pack PDF, fee/punch CSV, "
+            "and bid packet for your own bids. IC Diligence Bundle ($1,500) is the step after Pro "
+            "when you need counsel ZIP for one capital-sensitive address."
+        ),
+        "cta_label": "Upgrade to Contractor Pro — $149/mo",
+        "cta_tier": "contractor_pro",
+        "secondary_cta_label": None,
+        "secondary_cta_tier": None,
+        "current_label": "Estimator / Permit Runner",
+        "next_label": "Contractor Pro — City Pack · CSV · bid packet · deeper scout",
+        "primary_once": True,
+        "honesty_note": (
+            "Pro adds desk formats and scout depth — still confirm fees on the live AHJ schedule."
+        ),
+    }
+
+
+def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Dict[str, Any]:
+    """Contractor Pro → IC Diligence Bundle."""
+    desk = "Pro light scout" if light else "Contractor Pro"
+    return {
+        "message": "Next level — IC Diligence Bundle for this site",
+        "detail": (
+            f"{desk} finished local confirm{partial}"
+            f"{f' for a {ptype} site' if ptype else ''}. "
+            "IC Diligence Bundle ($1,500, one site) runs full Universal Scout and ships the counsel ZIP: "
+            "decision memo, boardroom PDF, counsel DOCX, estimator Excel, and evidence binder. "
+            "IC Annual ($15,000/yr) is only for shops regenerating bundles across many sites."
+        ),
+        "cta_label": "Get IC Diligence Bundle — $1,500",
+        "cta_tier": "ic_project",
+        "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
+        "secondary_cta_tier": "ic_annual",
+        "current_label": desk,
+        "next_label": "IC Diligence Bundle — counsel ZIP + full scout for one site",
+        "primary_once": True,
+        "honesty_note": (
+            "IC adds depth and counsel formats — still a planning aid; confirm with AHJ / utility before decisions."
+        ),
+    }
+
+
+def _offer_ic_next() -> Dict[str, Any]:
+    """IC → another site or Annual."""
+    return {
+        "message": "Need the same package for another site?",
+        "detail": (
+            "This is the fullest Reg Guard run for one bound address (full scout + counsel ZIP). "
+            "Buy another IC Project for a new site. "
+            "IC Annual ($15,000/yr) is only for shops that regenerate bundles across many sites."
+        ),
+        "cta_label": "IC Diligence Bundle for another site — $1,500",
+        "cta_tier": "ic_project",
+        "secondary_cta_label": "IC Annual — $15,000/yr multi-site",
+        "secondary_cta_tier": "ic_annual",
+        "current_label": "IC Diligence Bundle",
+        "next_label": "Another site IC Bundle — or IC Annual for multi-site",
+        "primary_once": True,
+        "honesty_note": (
+            "You already have IC full depth on this site — planning diligence, not an AHJ filing."
+        ),
+    }
+
+
+def stamp_ladder_access_offer(
+    analysis: Dict[str, Any],
+    *,
+    access_tier: str,
+    ic_pending: bool = False,
+) -> Dict[str, Any]:
+    """
+    Stepwise entitlement ladder (authoritative for CTA):
+      Free → Estimator → Contractor Pro → IC Project → IC Annual
+    Never skip Free straight to IC — even on data-center persona.
+    """
+    if not isinstance(analysis, dict):
+        return analysis
+    ptype = _project_type_label(analysis)
+    t = (access_tier or "free").strip().lower()
+    if t in ("ic", "ic_project", "ic_consultant", "ic_annual", "sponsor"):
+        analysis["upgrade_offer"] = _offer_ic_next()
+    elif t in ("pro", "contractor_pro"):
+        analysis["upgrade_offer"] = _offer_pro_next(ptype)
+        if ic_pending:
+            offer = dict(analysis["upgrade_offer"])
+            offer["detail"] = (
+                (offer.get("detail") or "")
+                + " You already purchased IC — confirm Generate IC Report on the next run "
+                "to unlock the Diligence Bundle ZIP."
+            )
+            analysis["upgrade_offer"] = offer
+    elif t in ("partner", "estimator", "permit_runner"):
+        analysis["upgrade_offer"] = _offer_partner_next(ptype)
+    else:
+        analysis["upgrade_offer"] = _offer_free_next(ptype)
+    return analysis
+
+
 def stamp_upgrade_offer(
     analysis: Dict[str, Any],
     *,
     depth_tier: str,
     ic_pending: bool = False,
+    access_tier: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Mutate analysis with depth_tier + single upgrade_offer (F1: one primary CTA).
-    Persona-split copy (F3/F4). Honest depth language (F8).
+    Stepwise Free → Estimator → Pro → IC (never Free→IC skip).
+    When access_tier is set, entitlement ladder wins over research depth.
     """
     if not isinstance(analysis, dict):
         return analysis
@@ -159,170 +290,31 @@ def stamp_upgrade_offer(
     analysis["buyer_persona"] = persona
     ptype = _project_type_label(analysis)
 
-    # --- Free ---
+    # Entitlement ladder is authoritative when known (samples + live stamp)
+    if access_tier:
+        return stamp_ladder_access_offer(
+            analysis, access_tier=access_tier, ic_pending=ic_pending
+        )
+
+    # --- Free (all personas — climb habit ladder first) ---
     if tier == DEPTH_FREE:
-        if persona == PERSONA_DC_INFRA:
-            analysis["upgrade_offer"] = {
-                "message": "Need a site package you can attach?",
-                "detail": (
-                    f"This free preview is a first look for a {ptype} site. "
-                    "For FAST-41 / utility / moratorium-depth research plus the IC Diligence "
-                    "Bundle ZIP (memo + boardroom PDF + counsel DOCX + Excel workbooks), get an IC Project. "
-                    "More citeable sources — not a certified fee quote."
-                ),
-                "cta_label": "Get IC Diligence Bundle — $1,500",
-                "cta_tier": "ic_project",
-                "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
-                "secondary_cta_tier": "ic_annual",
-                "current_label": "Free preview",
-                "next_label": "IC Diligence Bundle ZIP",
-                "primary_once": True,
-                "honesty_note": (
-                    "Deeper research adds sources and packaging. Always confirm fees on the official AHJ schedule."
-                ),
-            }
-        else:
-            analysis["upgrade_offer"] = {
-                "message": "Make client-site screens a weekly habit",
-                "detail": (
-                    "Free is a soft-locked preview. Estimator / Permit Runner ($79/mo) unlocks the "
-                    "full Bid Risk Receipt + punch + Saved Jobs for client sites. Contractor Pro "
-                    "($149/mo) adds deep scout plus fee/punch CSV and city pack PDFs for your own bids."
-                ),
-                "cta_label": "Start Estimator / Permit Runner — $79/mo",
-                "cta_tier": "partner",
-                "secondary_cta_label": "Or Contractor Pro — $149/mo",
-                "secondary_cta_tier": "contractor_pro",
-                "current_label": "Free preview",
-                "next_label": "Estimator habit or Pro desk",
-                "primary_once": True,
-                "honesty_note": (
-                    "Deeper research adds sources and packaging. Always confirm fees on the official AHJ schedule."
-                ),
-            }
+        analysis["upgrade_offer"] = _offer_free_next(ptype)
 
-    # --- Pro local / partial ---
-    elif tier in (DEPTH_PRO_LOCAL, DEPTH_PRO_PARTIAL):
+    # --- Estimator-depth alias (samples / stamped partner runs) ---
+    elif tier in ("partner", "estimator"):
+        analysis["upgrade_offer"] = _offer_partner_next(ptype)
+
+    # --- Pro local / partial / light → IC ---
+    elif tier in (DEPTH_PRO_LOCAL, DEPTH_PRO_PARTIAL, DEPTH_PRO_LIGHT, "pro", "contractor_pro"):
         partial = " (partial / timed out)" if tier == DEPTH_PRO_PARTIAL else ""
-        if persona == PERSONA_DC_INFRA:
-            analysis["upgrade_offer"] = {
-                "message": "Data-center / infra depth needs IC — not Pro light",
-                "detail": (
-                    f"Pro finished paid local confirm{partial}. Light scout skips FAST-41, water, "
-                    "and moratorium passes. IC Project runs the full Universal Scout and delivers "
-                    "the Diligence Bundle ZIP (memo + boardroom PDF + counsel DOCX + Excel workbooks)."
-                ),
-                "cta_label": "Get IC Diligence Bundle — $1,500",
-                "cta_tier": "ic_project",
-                "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
-                "secondary_cta_tier": "ic_annual",
-                "current_label": "Pro local confirm",
-                "next_label": "IC Diligence Bundle ZIP",
-                "primary_once": True,
-                "honesty_note": (
-                    "IC adds depth and counsel formats — still a planning aid; confirm with AHJ / RTO before decisions."
-                ),
-            }
-        else:
-            analysis["upgrade_offer"] = {
-                "message": "Need a forwardable PDF package for this site?",
-                "detail": (
-                    f"Pro finished local confirm{partial} and unlocked estimator desk formats "
-                    "(CSV / city pack). IC Diligence Bundle adds counsel DOCX, evidence binder, "
-                    "and numbered exhibits for one capital-sensitive address."
-                ),
-                "cta_label": "Get IC Diligence Bundle — $1,500",
-                "cta_tier": "ic_project",
-                "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
-                "secondary_cta_tier": "ic_annual",
-                "current_label": "Pro local confirm",
-                "next_label": "IC Diligence Bundle ZIP",
-                "primary_once": True,
-                "honesty_note": (
-                    "More sources and formats — not a guarantee fees match the live schedule."
-                ),
-            }
-
-    # --- Pro light ---
-    elif tier == DEPTH_PRO_LIGHT:
-        if persona == PERSONA_DC_INFRA:
-            analysis["upgrade_offer"] = {
-                "message": "Pro light is not enough for this project type",
-                "detail": (
-                    f"You got AHJ / permits / codes light scout for a {ptype} site. "
-                    "FAST-41, water-use, and local moratorium depth require IC full Universal Scout "
-                    "plus the Diligence Bundle ZIP."
-                ),
-                "cta_label": "Upgrade to IC Diligence Bundle — $1,500",
-                "cta_tier": "ic_project",
-                "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
-                "secondary_cta_tier": "ic_annual",
-                "current_label": "Pro light scout",
-                "next_label": "IC Diligence Bundle ZIP",
-                "primary_once": True,
-                "honesty_note": (
-                    "IC is deeper packaging for one site — still confirm official schedules and utility rules."
-                ),
-            }
-        else:
-            analysis["upgrade_offer"] = {
-                "message": "Need PDFs + full scout for this one site?",
-                "detail": (
-                    "Pro light covered core AHJ / permits / codes and unlocked CSV / city pack. "
-                    "IC Diligence Bundle runs remaining federal/state/vertical passes and ships "
-                    "decision memo + counsel DOCX + evidence binder."
-                ),
-                "cta_label": "Get IC Diligence Bundle — $1,500",
-                "cta_tier": "ic_project",
-                "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
-                "secondary_cta_tier": "ic_annual",
-                "current_label": "Pro light scout",
-                "next_label": "IC Diligence Bundle ZIP",
-                "primary_once": True,
-                "honesty_note": (
-                    "More sources and counsel formats — not a certified fee quote."
-                ),
-            }
+        light = tier == DEPTH_PRO_LIGHT
+        analysis["upgrade_offer"] = _offer_pro_next(ptype, partial=partial, light=light)
 
     # --- IC full ---
     elif tier == DEPTH_IC_FULL:
-            analysis["upgrade_offer"] = {
-            "message": "Need the same package for another site?",
-            "detail": (
-                "This is the fullest Reg Guard run for one bound address (full scout + counsel ZIP). "
-                "Buy another IC Project for a new site. "
-                "IC Annual ($15,000/yr) is only for shops that regenerate bundles across many sites."
-            ),
-            "cta_label": "IC Diligence Bundle for another site — $1,500",
-            "cta_tier": "ic_project",
-            "secondary_cta_label": "IC Annual — $15,000/yr multi-site",
-            "secondary_cta_tier": "ic_annual",
-            "current_label": "IC full depth",
-            "next_label": None,
-            "primary_once": True,
-            "honesty_note": (
-                "You already have IC full depth on this site — planning diligence, not an AHJ filing."
-            ),
-        }
+        analysis["upgrade_offer"] = _offer_ic_next()
     else:
-        analysis["upgrade_offer"] = {
-            "message": "Get more citeable sources or a PDF package",
-            "detail": (
-                "Estimator / Permit Runner ($79) for Receipt + Saved Jobs habit, "
-                "Contractor Pro ($149) for CSV / city pack desk, or IC Diligence Bundle for counsel ZIP. "
-                "Deeper ≠ automatically more accurate fees."
-            ),
-            "cta_label": "Upgrade to Contractor Pro — $149/mo",
-            "cta_tier": "contractor_pro",
-            "secondary_cta_label": "IC Diligence Bundle — $1,500",
-            "secondary_cta_tier": "ic_project",
-            "current_label": "Current results",
-            "next_label": "Paid deepen",
-            "primary_once": True,
-            "honesty_note": (
-                "Always confirm fees and rules on official sources before you bid."
-            ),
-        }
+        analysis["upgrade_offer"] = _offer_free_next(ptype)
 
     if ic_pending and tier.startswith("pro"):
         offer = dict(analysis["upgrade_offer"])

@@ -159,13 +159,63 @@ export function analysisForSampleDemo(
 
   clone.research_id = `rg-sample-chapin-${tier}`;
   clone.sample_demo_tier = tier;
-  (clone as AnalysisData & { access_tier?: string }).access_tier =
+  const access =
     tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
+  (clone as AnalysisData & { access_tier?: string }).access_tier = access;
+  // Stepwise next-level CTA on every sample (never Free → IC)
+  clone.upgrade_offer = sampleUpgradeOffer(tier);
   return clone;
 }
 
+/** Sample / live-shaped next-step offer — Free→Estimator→Pro→IC */
+export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisData['upgrade_offer']> {
+  if (tier === 'free') {
+    return {
+      message: 'Unlock the next step — Estimator / Permit Runner',
+      detail:
+        'Free is a soft-locked preview. Estimator / Permit Runner ($79/mo) unlocks the full forwardable Bid Risk Receipt, the rest of the punch list, and Saved Jobs for client sites.',
+      cta_label: 'Start Estimator / Permit Runner — $79/mo',
+      cta_tier: 'partner',
+      secondary_cta_label: 'See Contractor Pro — $149/mo',
+      secondary_cta_tier: 'contractor_pro',
+      current_label: 'Free Lookups',
+      next_label: 'Estimator / Permit Runner — full Receipt + unlocked punch + Saved Jobs',
+      primary_once: true,
+      honesty_note: 'Climb one level at a time — IC Diligence Bundle is after Contractor Pro.',
+    };
+  }
+  if (tier === 'partner') {
+    return {
+      message: 'Next level — Contractor Pro desk',
+      detail:
+        'Estimator unlocked Receipt + punch. Contractor Pro ($149/mo) adds Full City Pack, fee/punch CSV, bid packet, and deeper scout. IC Diligence Bundle is the step after Pro.',
+      cta_label: 'Upgrade to Contractor Pro — $149/mo',
+      cta_tier: 'contractor_pro',
+      secondary_cta_label: undefined,
+      secondary_cta_tier: undefined,
+      current_label: 'Estimator / Permit Runner',
+      next_label: 'Contractor Pro — City Pack · CSV · bid packet · deeper scout',
+      primary_once: true,
+      honesty_note: 'Pro adds desk formats — still confirm fees on the live AHJ schedule.',
+    };
+  }
+  return {
+    message: 'Next level — IC Diligence Bundle for this site',
+    detail:
+      'Pro unlocked the desk. IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom PDF, counsel DOCX, estimator Excel, and evidence binder for this one address.',
+    cta_label: 'Get IC Diligence Bundle — $1,500',
+    cta_tier: 'ic_project',
+    secondary_cta_label: 'Or IC Annual — $15,000/yr multi-site',
+    secondary_cta_tier: 'ic_annual',
+    current_label: 'Contractor Pro',
+    next_label: 'IC Diligence Bundle — counsel ZIP + full scout for one site',
+    primary_once: true,
+    honesty_note: 'IC is counsel packaging for one site — not an AHJ filing.',
+  };
+}
+
 export function sampleDemoLabel(tier: SampleDemoTier): string {
-  if (tier === 'free') return 'Free Lookups — least shown · locked lines blurred';
-  if (tier === 'partner') return 'Estimator / Permit Runner — more unlocked · Pro desk still locked';
-  return 'Contractor Pro — full Pro desk unlocked (IC Bundle still separate)';
+  if (tier === 'free') return 'Free Lookups — next: Estimator / Permit Runner ($79/mo)';
+  if (tier === 'partner') return 'Estimator / Permit Runner — next: Contractor Pro ($149/mo)';
+  return 'Contractor Pro — next: IC Diligence Bundle ($1,500)';
 }

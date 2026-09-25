@@ -8,6 +8,7 @@ from depth_ladder import (
     PERSONA_BID_DESK,
     PERSONA_DC_INFRA,
     infer_persona,
+    stamp_ladder_access_offer,
     stamp_pro_delta,
     stamp_upgrade_offer,
 )
@@ -27,27 +28,43 @@ def test_free_bid_desk_points_to_partner():
     ).lower()
 
 
-def test_free_dc_points_to_ic_bundle():
+def test_free_dc_points_to_estimator_not_ic():
+    """Free never skips to IC — even on data-center persona."""
     a = stamp_upgrade_offer(
         {"project_info": {"type": "data-center"}},
         depth_tier=DEPTH_FREE,
     )
     assert a["buyer_persona"] == PERSONA_DC_INFRA
+    assert a["upgrade_offer"]["cta_tier"] == "partner"
+    assert a["upgrade_offer"]["secondary_cta_tier"] == "contractor_pro"
+    assert "Estimator" in (a["upgrade_offer"]["cta_label"] or "")
+
+
+def test_partner_access_points_to_pro():
+    a = stamp_ladder_access_offer(
+        {"project_info": {"type": "data-center"}},
+        access_tier="partner",
+    )
+    assert a["upgrade_offer"]["cta_tier"] == "contractor_pro"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
+
+
+def test_pro_access_points_to_ic():
+    a = stamp_ladder_access_offer(
+        {"project_info": {"type": "commercial"}},
+        access_tier="contractor_pro",
+    )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
     assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
-    assert "Diligence Bundle" in (a["upgrade_offer"]["cta_label"] or "")
 
 
-def test_pro_light_dc_warns_not_enough():
+def test_pro_light_points_to_ic():
     a = stamp_upgrade_offer(
         {"project_info": {"type": "data-center"}},
         depth_tier=DEPTH_PRO_LIGHT,
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
     assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
-    assert "not enough" in (a["upgrade_offer"]["message"] or "").lower() or "IC" in (
-        a["upgrade_offer"]["message"] or ""
-    )
 
 
 def test_pro_local_offer_points_to_ic():
@@ -63,7 +80,7 @@ def test_ic_full_offer_another_site():
     a = stamp_upgrade_offer({}, depth_tier=DEPTH_IC_FULL)
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
     assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
-    assert a["upgrade_offer"]["next_label"] is None
+    assert a["upgrade_offer"]["next_label"]
 
 
 def test_pro_delta_lists_uniqueness():

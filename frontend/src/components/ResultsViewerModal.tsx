@@ -95,6 +95,8 @@ export interface AnalysisData {
     source?: string;
     labels?: Record<string, string>;
   };
+  access_tier?: string;
+  entitlement_tiers?: string[];
   upgrade_offer?: {
     message?: string;
     detail?: string;
@@ -1135,19 +1137,15 @@ export default function ResultsViewerModal({
   const ownsIcAnnual = ladder.ownsIcAnnual;
   const ladderTier = ladder.tier;
 
-  const renderLadderUpsells = (opts?: { dense?: boolean; includeIcOnFree?: boolean }) => {
-    if (demoTier) {
-      return (
-        <p className="text-xs text-purple-200/90 mt-2">
-          SAMPLE — Free blurs most → Estimator unlocks more → Pro unlocks the desk → IC Bundle
-          separate ($1,500) / Annual ($15,000/yr).
-        </p>
-      );
-    }
+  const renderLadderUpsells = (opts?: { dense?: boolean; nextOnly?: boolean }) => {
     const rows = ladderUpsells(ladderTier, {
       ownsIcAnnual,
-      includeIcOnFree: opts?.includeIcOnFree,
+      nextOnly: opts?.nextOnly !== false,
     }).filter((row) => {
+      if (demoTier) {
+        // Samples always show the next-step CTA for this demo tier
+        return true;
+      }
       if (row.tier === 'partner') return !ownsPartner;
       if (row.tier === 'contractor_pro') return !ownsPro;
       if (row.tier === 'ic_project') return !allowIcPackageDownload;
@@ -1156,20 +1154,26 @@ export default function ResultsViewerModal({
     });
     if (!rows.length) return null;
     return (
-      <div className={`flex flex-col sm:flex-row flex-wrap gap-2 ${opts?.dense ? 'mt-2' : 'mt-3'} justify-center`}>
+      <div className={`flex flex-col gap-2 ${opts?.dense ? 'mt-2' : 'mt-3'} items-stretch sm:items-center`}>
         {rows.map((row) => (
-          <button
-            key={row.tier}
-            type="button"
-            onClick={() => goCheckout(row.tier)}
-            className={
-              row.primary
-                ? 'px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold'
-                : 'px-4 py-2.5 min-h-[44px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 text-sm font-semibold'
-            }
-          >
-            {row.label}
-          </button>
+          <div key={row.tier} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={() => goCheckout(row.tier)}
+              className={
+                row.primary
+                  ? 'px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold'
+                  : 'px-4 py-2.5 min-h-[44px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 text-sm font-semibold'
+              }
+            >
+              {demoTier ? `SAMPLE · ${row.label}` : row.label}
+            </button>
+            {row.offers ? (
+              <p className="text-xs text-emerald-100/85 sm:text-left text-center leading-snug">
+                Next unlocks: {row.offers}
+              </p>
+            ) : null}
+          </div>
         ))}
       </div>
     );
@@ -2816,7 +2820,7 @@ export default function ResultsViewerModal({
                   </a>
                 )}
               </div>
-            ) : ownsPro || isDeep ? (
+            ) : ownsPro ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
                   {IC_BUNDLE.upsellHeadline}
@@ -2825,13 +2829,28 @@ export default function ResultsViewerModal({
                 <IcDiligenceBundlePitch variant="compact" />
                 {renderLadderUpsells()}
               </div>
+            ) : ownsPartner ? (
+              <div className="space-y-3">
+                <p className="text-slate-200 font-bold text-sm sm:text-base">
+                  Next level — Contractor Pro ($149/mo)
+                </p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Estimator unlocked Receipt + punch habit. Contractor Pro adds Full City Pack PDF,
+                  fee/punch CSV, bid packet, and deeper scout. IC Diligence Bundle is the step after
+                  Pro — not the next click from here.
+                </p>
+                {renderLadderUpsells()}
+              </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  {IC_BUNDLE.lockedHeadline}
+                  Next level — Estimator / Permit Runner ($79/mo)
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.lockedBody}</p>
-                <IcDiligenceBundlePitch variant="compact" showWhy={false} />
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  Free is a soft-locked preview. Estimator unlocks the full forwardable Bid Risk
+                  Receipt, the rest of the punch list, and Saved Jobs. Climb one step at a time —
+                  Contractor Pro and IC Diligence Bundle come after.
+                </p>
                 {renderLadderUpsells()}
               </div>
             )}
@@ -3574,8 +3593,8 @@ export default function ResultsViewerModal({
                       <div className="text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
                         <p className="text-xs text-amber-100/90">
                           {demoTier
-                            ? 'SAMPLE — Estimator unlocks punch + receipt. City pack / CSV / bid packet stay on Contractor Pro → IC Bundle / Annual.'
-                            : 'City pack / CSV / bid packet unlock on Contractor Pro. IC Diligence Bundle ($1,500) adds counsel ZIP; IC Annual ($15,000/yr) for multi-site.'}
+                            ? 'SAMPLE — next step is Contractor Pro ($149/mo): Full City Pack, CSV, bid packet. IC Diligence Bundle comes after Pro.'
+                            : 'Next: Contractor Pro ($149/mo) unlocks City Pack / CSV / bid packet. IC Diligence Bundle ($1,500) is the step after Pro.'}
                         </p>
                         {renderLadderUpsells({ dense: true })}
                       </div>

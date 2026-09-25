@@ -320,13 +320,23 @@ export default function FreeTrialForm({
     }
     const ladderTier =
       accessTierFromEntitlements(sessionTiers.length ? sessionTiers : entitlementTiers) || 'free';
+    // Prefer server stamp; never invent Pro from sticky session alone
     const stampedAccess =
       analysisPayload.access_tier ||
-      (ladderTier === 'pro' ? 'contractor_pro' : ladderTier);
+      (ladderTier === 'ic'
+        ? 'ic'
+        : ladderTier === 'pro'
+          ? 'contractor_pro'
+          : ladderTier === 'partner'
+            ? 'partner'
+            : 'free');
     const analysisWithId: AnalysisData = {
       ...analysisPayload,
       research_id: rid || analysisPayload.research_id,
       access_tier: stampedAccess,
+      entitlement_tiers:
+        (analysisPayload as { entitlement_tiers?: string[] }).entitlement_tiers ||
+        (sessionTiers.length ? sessionTiers : entitlementTiers),
       ...(share ? { share_url: share } : {}),
     };
     const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();
@@ -485,10 +495,6 @@ export default function FreeTrialForm({
     });
     if (entData) {
       paid = Boolean(entData.paid || entData.deep_research);
-      if (paid) {
-        sessionStorage.setItem('regguardPaid', '1');
-        setPaidEntitled(true);
-      }
       const tiers = Array.isArray(entData.tiers)
         ? (entData.tiers as string[]).map((t) => String(t).toLowerCase())
         : [];
@@ -498,11 +504,29 @@ export default function FreeTrialForm({
       } catch {
         /* ignore */
       }
-      const primary = String(entData.primary_tier || '').toLowerCase();
-      const tier =
-        tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) || primary;
-      if (['ic_project', 'ic_consultant', 'ic_annual'].includes(tier)) {
-        sessionStorage.setItem('regguardTier', tier);
+      if (paid) {
+        sessionStorage.setItem('regguardPaid', '1');
+        setPaidEntitled(true);
+        const primary = String(entData.primary_tier || '').toLowerCase();
+        const tier =
+          tiers.find((t) => ['ic_project', 'ic_consultant', 'ic_annual'].includes(t)) ||
+          tiers.find((t) => t === 'contractor_pro') ||
+          tiers.find((t) => t === 'partner') ||
+          primary;
+        if (tier && tier !== 'free' && tier !== 'anonymous') {
+          sessionStorage.setItem('regguardTier', tier);
+        }
+      } else {
+        // Fresh free lookup — clear sticky Pro/IC flags from abandoned checkout
+        setPaidEntitled(false);
+        try {
+          sessionStorage.removeItem('regguardPaid');
+          sessionStorage.removeItem('regguardTier');
+          sessionStorage.setItem('regguardEntitlementTiers', '[]');
+        } catch {
+          /* ignore */
+        }
+        setEntitlementTiers([]);
       }
       // Site-bound: only pending when THIS site can use an IC credit
       const icSite = (entData.ic_site || {}) as Record<string, unknown>;

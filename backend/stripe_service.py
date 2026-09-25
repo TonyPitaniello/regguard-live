@@ -89,6 +89,35 @@ def _meta_trim(value: Optional[str], limit: int = 450) -> str:
     return (value or "").strip()[:limit]
 
 
+def _find_or_create_stripe_customer(email_clean: str, name: Optional[str] = None) -> Optional[str]:
+    """
+    Reuse Stripe Customer by email so returning buyers see saved cards
+    and can pay with one click (no re-typing card data).
+    """
+    if not email_clean or "@" not in email_clean:
+        return None
+    try:
+        existing = stripe.Customer.list(email=email_clean, limit=1)
+        if existing.data:
+            cust = existing.data[0]
+            # Keep name fresh when provided
+            if name and not getattr(cust, "name", None):
+                try:
+                    stripe.Customer.modify(cust.id, name=name.strip())
+                except Exception:
+                    pass
+            return str(cust.id)
+        created = stripe.Customer.create(
+            email=email_clean,
+            name=(name or "").strip() or None,
+            metadata={"regguard_email": email_clean},
+        )
+        return str(created.id)
+    except Exception as e:
+        logger.warning("Stripe customer lookup/create failed for %s: %s", email_clean, e)
+        return None
+
+
 async def create_checkout_session(
     user_id: str,
     tier: str,
@@ -111,6 +140,9 @@ async def create_checkout_session(
     Without price_id: one-time uses price_data; subscriptions use recurring price_data.
     Optional site_* fields bind the researched address into session metadata so
     IC auto-run survives cross-device / cleared sessionStorage (premortem F1/F10).
+
+    Returning customers: attaches Stripe Customer so Checkout shows saved cards
+    (payment button without re-entering card details).
     """
     if not is_stripe_configured():
         raise ValueError("Stripe is not configured. Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET.")
@@ -224,16 +256,36 @@ async def create_checkout_session(
             "cancel_url": cancel_url,
             "metadata": metadata,
         }
-        if email_clean:
+
+        customer_id = _find_or_create_stripe_customer(email_clean, name) if email_clean else None
+        if customer_id:
+            create_kwargs["customer"] = customer_id
+            # Returning buyers: show saved cards; first-time: offer to save for next run
+            create_kwargs["saved_payment_method_options"] = {
+                "payment_method_save": "enabled",
+            }
+        elif email_clean:
             create_kwargs["customer_email"] = email_clean
 
-        session = stripe.checkout.Session.create(**create_kwargs)
+        try:
+            session = stripe.checkout.Session.create(**create_kwargs)
+        except stripe.error.InvalidRequestError as e:
+            # Older Stripe accounts / API versions may reject saved_payment_method_options
+            logger.warning("Checkout create with saved PM options failed (%s); retrying plain", e)
+            create_kwargs.pop("saved_payment_method_options", None)
+            create_kwargs.pop("payment_method_collection", None)
+            session = stripe.checkout.Session.create(**create_kwargs)
 
-        logger.info(f"✅ Checkout session created: {session.id} for user {user_id} tier={tier} mode={mode}")
+        logger.info(
+            f"✅ Checkout session created: {session.id} for user {user_id} "
+            f"tier={tier} mode={mode} customer={customer_id or 'email'}"
+        )
 
         return {
             "checkout_url": session.url,
             "session_id": session.id,
+            "customer_id": customer_id,
+            "has_saved_customer": bool(customer_id),
         }
 
     except stripe.error.StripeError as e:

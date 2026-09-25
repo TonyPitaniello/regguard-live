@@ -1,6 +1,9 @@
 /**
  * Free → Estimator → Pro → IC → IC Annual access ladder for Site Diligence Results.
  * Used by sample demos and live entitlement gating on every new scan.
+ *
+ * Upsell rule: each level points to the *next* level and what it unlocks —
+ * never skip Free straight to IC Diligence Bundle.
  */
 
 export type ResultsLadderTier = 'free' | 'partner' | 'pro' | 'ic';
@@ -27,6 +30,8 @@ export type ResultsLadder = {
 export type LadderUpsell = {
   tier: CheckoutLadderTier;
   label: string;
+  /** Short “what you get” line for the next step */
+  offers?: string;
   primary?: boolean;
 };
 
@@ -59,41 +64,78 @@ export function accessTierFromEntitlements(tiers: string[] | undefined | null): 
 
 /**
  * Next-step checkout CTAs for blurred / locked sections.
- * Free → Estimator → Pro → IC Project → IC Annual.
+ * Free → Estimator → Pro → IC Project → IC Annual (one step at a time).
+ * `nextOnly` (default true): only the immediate next tier.
  */
 export function ladderUpsells(
   tier: ResultsLadderTier,
-  opts?: { ownsIcAnnual?: boolean; includeIcOnFree?: boolean }
+  opts?: { ownsIcAnnual?: boolean; nextOnly?: boolean }
 ): LadderUpsell[] {
+  const nextOnly = opts?.nextOnly !== false;
   if (tier === 'free') {
     const rows: LadderUpsell[] = [
-      { tier: 'partner', label: 'Estimator / Permit Runner — $79/mo', primary: true },
-      { tier: 'contractor_pro', label: 'Contractor Pro — $149/mo' },
+      {
+        tier: 'partner',
+        label: 'Estimator / Permit Runner — $79/mo',
+        offers: 'Full Bid Risk Receipt · unlocked punch · Saved Jobs',
+        primary: true,
+      },
     ];
-    if (opts?.includeIcOnFree !== false) {
-      rows.push({ tier: 'ic_project', label: 'IC Diligence Bundle — $1,500' });
+    if (!nextOnly) {
+      rows.push({
+        tier: 'contractor_pro',
+        label: 'Contractor Pro — $149/mo',
+        offers: 'City Pack · CSV · bid packet · deeper scout',
+      });
     }
     return rows;
   }
   if (tier === 'partner') {
     return [
-      { tier: 'contractor_pro', label: 'Contractor Pro — $149/mo', primary: true },
-      { tier: 'ic_project', label: 'IC Diligence Bundle — $1,500' },
+      {
+        tier: 'contractor_pro',
+        label: 'Contractor Pro — $149/mo',
+        offers: 'Full City Pack · fee/punch CSV · bid packet · deeper scout',
+        primary: true,
+      },
     ];
   }
   if (tier === 'pro') {
-    return [
-      { tier: 'ic_project', label: 'IC Diligence Bundle — $1,500', primary: true },
-      { tier: 'ic_annual', label: 'IC Annual — $15,000/yr' },
+    const rows: LadderUpsell[] = [
+      {
+        tier: 'ic_project',
+        label: 'IC Diligence Bundle — $1,500',
+        offers: 'Counsel ZIP: memo · boardroom PDF · DOCX · Excel',
+        primary: true,
+      },
     ];
+    if (!nextOnly && !opts?.ownsIcAnnual) {
+      rows.push({
+        tier: 'ic_annual',
+        label: 'IC Annual — $15,000/yr',
+        offers: 'Multi-site Diligence Bundle regenerations',
+      });
+    }
+    return rows;
   }
   // IC depth / IC Project owners
   if (opts?.ownsIcAnnual) {
-    return [{ tier: 'ic_project', label: 'Another site IC Bundle — $1,500', primary: true }];
+    return [
+      {
+        tier: 'ic_project',
+        label: 'Another site IC Bundle — $1,500',
+        offers: 'Same counsel ZIP for a new bound address',
+        primary: true,
+      },
+    ];
   }
   return [
-    { tier: 'ic_annual', label: 'IC Annual — multi-site — $15,000/yr', primary: true },
-    { tier: 'ic_project', label: 'Another site IC Bundle — $1,500' },
+    {
+      tier: 'ic_annual',
+      label: 'IC Annual — multi-site — $15,000/yr',
+      offers: 'Regenerate Diligence Bundles across many sites',
+      primary: true,
+    },
   ];
 }
 
@@ -109,30 +151,22 @@ export function resolveResultsLadder(input: {
   const owned = new Set(
     (input.entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
-  const sessionTier =
-    typeof window !== 'undefined'
-      ? (sessionStorage.getItem('regguardTier') || '').toLowerCase()
-      : '';
   const stamped = normalizeAccessTier(input.accessTier);
-  const ownsIcAnnual = owned.has('ic_annual') || sessionTier.includes('ic_annual');
 
+  // Never unlock from sessionStorage alone — abandoned checkout used to sticky-set
+  // regguardTier=contractor_pro and turn free lookups into Pro desk.
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
   else if (
-    input.isIcDepth ||
     stamped === 'ic' ||
     ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
   ) {
     tier = 'ic';
-  } else if (
-    stamped === 'pro' ||
-    owned.has('contractor_pro') ||
-    sessionTier.includes('contractor_pro')
-  ) {
+  } else if (stamped === 'pro' || owned.has('contractor_pro')) {
     tier = 'pro';
-  } else if (stamped === 'partner' || owned.has('partner') || sessionTier.includes('partner')) {
+  } else if (stamped === 'partner' || owned.has('partner')) {
     tier = 'partner';
   } else {
     tier = 'free';
@@ -144,6 +178,7 @@ export function resolveResultsLadder(input: {
   const ownsPartner = tier === 'partner' || ownsPro;
   const allowProDesk = ownsPro;
   const blurProDesk = !allowProDesk;
+  const ownsIcAnnual = owned.has('ic_annual');
 
   // Free: most blur until share unlocks the rest of the free list (still no Pro desk).
   const softLocked =

@@ -2270,6 +2270,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         # Stamp access_tier from entitlement so live results blur Free→Estimator→Pro→IC
         try:
             from entitlement import access_summary
+            from depth_ladder import stamp_ladder_access_offer
 
             pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
             summary = access_summary(
@@ -2289,6 +2290,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             else:
                 analysis["access_tier"] = "free"
             analysis["entitlement_tiers"] = tiers
+            # Stepwise CTA from entitlement — Free→Estimator→Pro→IC (never Free→IC skip)
+            stamp_ladder_access_offer(
+                analysis,
+                access_tier=str(analysis.get("access_tier") or "free"),
+                ic_pending=ic_pending,
+            )
         except Exception as access_err:
             logger.warning("access_tier stamp failed: %s", access_err)
             if "access_tier" not in analysis:

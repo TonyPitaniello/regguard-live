@@ -377,7 +377,9 @@ function PaymentForm({
       // Persist email so /checkout/success can load orders after Stripe redirect
       sessionStorage.setItem('userEmail', emailNorm);
       sessionStorage.setItem('pendingDeepUnlock', '1');
-      sessionStorage.setItem('regguardTier', tier);
+      // Do NOT set regguardTier / regguardPaid until payment confirms — sticky Pro
+      // from abandoned checkout was turning free lookups into Contractor Pro.
+      sessionStorage.setItem('pendingCheckoutTier', tier);
       if (tier === 'ic_project' || tier === 'ic_annual') {
         setPendingIcReport(true);
       } else if (hasValidPendingIcReport()) {
@@ -507,7 +509,9 @@ function PaymentForm({
 
       <div className="bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 text-sm text-gray-400">
         You will complete payment on Stripe Checkout. Reg Guard does not collect or store card
-        numbers. By continuing you agree to our Terms of Service.
+        numbers. If you have paid before with this email, Stripe will show your saved card so you
+        can pay with one tap — no re-typing card details. By continuing you agree to our Terms of
+        Service.
       </div>
 
       <button
