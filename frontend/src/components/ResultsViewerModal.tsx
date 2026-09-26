@@ -1349,7 +1349,7 @@ export default function ResultsViewerModal({
                     onClick={() => goCheckout('ic_annual')}
                     className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 font-semibold text-sm"
                   >
-                    Or IC Annual — $15,000/yr (multi-site)
+                    Or IC Annual — $15,000/yr (shop rate)
                   </button>
                 )}
             </div>
@@ -3387,8 +3387,8 @@ export default function ResultsViewerModal({
             <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
               <p className="text-sm text-emerald-50 font-semibold mb-1">
                 {ladderTier === 'pro'
-                  ? 'Pro desk unlocked — add the IC Diligence Bundle for counsel ZIP, or IC Annual for multi-site.'
-                  : 'IC Bundle ready — IC Annual unlocks the same ZIP across more sites.'}
+                  ? 'Pro desk unlocked — add the IC Diligence Bundle for counsel ZIP, or IC Annual for pipeline shop rate.'
+                  : 'IC Bundle ready — IC Annual is shop rate for counsel ZIPs on capital sites you brief counsel on.'}
               </p>
               {renderLadderUpsells({ dense: true })}
             </section>

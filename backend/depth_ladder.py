@@ -202,7 +202,7 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
         ),
         "cta_label": "Get IC Diligence Bundle — $1,500",
         "cta_tier": "ic_project",
-        "secondary_cta_label": "Or IC Annual — $15,000/yr multi-site",
+        "secondary_cta_label": "Or IC Annual — $15,000/yr shop rate",
         "secondary_cta_tier": "ic_annual",
         "current_label": desk,
         "next_label": "Counsel ZIP — memo · boardroom · Word · Excel exhibits",

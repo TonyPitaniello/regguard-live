@@ -39,7 +39,7 @@ PRODUCTS = {
     },
     "ic_annual": {
         "name": "IC Annual",
-        "description": "Unlimited IC project reports — $15,000/year",
+        "description": "Shop-rate Diligence Bundles for capital sites you brief counsel on — $15,000/year",
         "amount_cents": 1500000,
         "currency": "usd",
         "tier": "ic_annual",
@@ -64,7 +64,7 @@ PRODUCTS = {
     },
     "enterprise": {
         "name": "IC Annual",
-        "description": "Unlimited IC project reports — $15,000/year",
+        "description": "Shop-rate Diligence Bundles for capital sites you brief counsel on — $15,000/year",
         "amount_cents": 1500000,
         "currency": "usd",
         "tier": "ic_annual",
