@@ -221,7 +221,7 @@ def _offer_ic_next() -> Dict[str, Any]:
         "detail": (
             "You proved the package on one site. If you will package Diligence Bundles on more "
             "capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase "
-            "email — ahead of Project rate once you pass roughly ten sites. Built for deal-ready "
+            "email — ahead of Project rate once you pass about ~10 sites. Built for deal-ready "
             "IC / lender packages, not day-to-day Contractor Pro lookups."
         ),
         "cta_label": "IC Annual — $15,000/yr",

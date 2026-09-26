@@ -119,7 +119,7 @@ export const IC_BUNDLE = {
    *   - Speak to IC / owner’s rep / lender who *are* the diligence seat — not only “brief counsel”
    */
   annualDescription:
-    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first IC Project, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of Project rate once you pass roughly ten sites.',
+    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first IC Project, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of Project rate once you pass about ~10 sites.',
   annualFeatures: [
     'Same Diligence Bundle ZIP for each new bound capital site on this purchase email',
     'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',

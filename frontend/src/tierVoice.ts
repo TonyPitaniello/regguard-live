@@ -118,7 +118,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     cta: IC_BUNDLE.ctaBuy,
     upsellHeadline: 'Buying another $1,500 Project for the next capital site?',
     upsellBody:
-      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass roughly ten sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
+      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass about ~10 sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
     upsellOffers: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     upsellCta: 'IC Annual — $15,000/yr',
   },
@@ -130,7 +130,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'IC consultants, owner’s reps, sponsors, and lenders packaging multiple capital sites a year.',
     pain: 'Every new capital address means another $1,500 Project PO — while the package shape never changes.',
     promise:
-      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new Project PO. Ahead of Project rate once you pass roughly ten sites.',
+      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new Project PO. Ahead of Project rate once you pass about ~10 sites.',
     proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal needs the package.',
     vsBelow: 'IC Project proved the package. Annual covers more capital sites on the same purchase email.',
     notThis:
