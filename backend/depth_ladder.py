@@ -218,19 +218,20 @@ def _offer_ic_next() -> Dict[str, Any]:
     return {
         "message": "Still cutting a $1,500 PO every time a new address hits the pipeline?",
         "detail": (
-            "IC Project is one bound site. If your shop regenerates this Diligence Bundle across "
-            "addresses all year, IC Annual ($15,000/yr) pays for itself around the 10th site — "
-            "same counsel ZIP, new address, no rebuying the package shape."
+            "IC Project is one bound site. IC Annual ($15,000/yr) is shop rate for Diligence Bundle "
+            "ZIPs across bound addresses — break-even around the 10th site. Fair use: ~25 fresh "
+            "Pro scrapes/day; Generate IC still builds the counsel ZIP."
         ),
         "cta_label": "IC Annual — $15,000/yr",
         "cta_tier": "ic_annual",
         "secondary_cta_label": "Or another site IC Bundle — $1,500",
         "secondary_cta_tier": "ic_project",
         "current_label": "IC Diligence Bundle",
-        "next_label": "Shop rate — regenerate across sites (~10× to break even)",
+        "next_label": "Counsel ZIPs across sites · ~10× break-even · fair use ~25 scrapes/day",
         "primary_once": True,
         "honesty_note": (
-            "You already have IC full depth on this site — planning diligence, not an AHJ filing."
+            "Annual = multi-site counsel packages, not a firehose of uncapped Pro scrapes. "
+            "Planning diligence — not an AHJ filing."
         ),
     }
 

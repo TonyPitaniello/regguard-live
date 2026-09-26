@@ -111,16 +111,20 @@ export const IC_BUNDLE = {
     'Strongest citeable coverage today: Dallas / Plano / Austin TX',
   ] as const,
 
-  /** Annual upsell */
+  /** Annual upsell — lead with ZIPs, then fair-use (not a scan counter) */
   annualDescription:
-    'Shop rate for the counsel ZIP — regenerate across sites after your first IC Project; ~10 addresses and you’ve covered the year vs $1,500/site.',
+    'Shop rate for counsel ZIPs under one seat: regenerate the Diligence Bundle for each new bound address after your first IC Project. Break-even ~10 sites vs $1,500/Project. Fair use: ~25 fresh Pro-depth scrapes/day; IC Generate still builds the ZIP.',
   annualFeatures: [
-    'Regenerate Diligence Bundle ZIP for new bound addresses',
-    'Same decision memo + boardroom PDF + counsel DOCX + Excel + optional CSV package',
+    'Diligence Bundle ZIP per bound address — no new $1,500 PO each site',
+    'Same package every time: memo · boardroom PDF · counsel DOCX · Excel exhibits',
     'Break-even ~10 sites vs buying IC Project each time',
+    'Fair use: ~25 fresh local scrapes/day; after that you still run (pack/cache). IC Generate deepens for the ZIP',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,
+  /** Short honesty line for results / capped scrape banner when Annual seat is active */
+  annualFairUseNote:
+    'Annual seat: counsel ZIPs across sites. Fresh Pro scrapes soft-cap ~25/day; Generate IC still deepens the ZIP.',
 
   /** CTAs */
   ctaBuy: 'Get IC Diligence Bundle — $1,500',
