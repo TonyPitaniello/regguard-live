@@ -118,8 +118,8 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     cta: IC_BUNDLE.ctaBuy,
     upsellHeadline: 'Still cutting a $1,500 PO every time a new address hits the pipeline?',
     upsellBody:
-      'IC Project is one bound site. If your shop regenerates this Diligence Bundle across addresses all year, IC Annual ($15,000/yr) pays for itself around the 10th site — same counsel ZIP, new address, no rebuying the package shape.',
-    upsellOffers: 'Shop rate — regenerate Diligence Bundle across sites (~10× to break even)',
+      'IC Project is one bound site. IC Annual ($15,000/yr) is shop rate for Diligence Bundle ZIPs across your pipeline — break-even around the 10th site. Fair use: ~25 fresh Pro scrapes/day; Generate IC still builds the counsel ZIP.',
+    upsellOffers: 'Counsel ZIPs across sites · ~10× break-even · fair use ~25 scrapes/day',
     upsellCta: 'IC Annual — $15,000/yr',
   },
 
