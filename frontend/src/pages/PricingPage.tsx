@@ -254,9 +254,10 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
               Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s{' '}
-              {IC_BUNDLE.productName} ZIP. IC Annual ($15,000/year) unlocks after at least one IC
-              Project — counsel ZIPs across bound addresses under one seat (~10-site break-even).
-              Fair use: ~25 fresh Pro scrapes/day; Generate IC still deepens the ZIP.
+              {IC_BUNDLE.productName} ZIP. After that first Project, IC Annual ($15,000/year) is
+              shop rate for counsel ZIPs on the capital sites you actually brief counsel on —
+              typically pays for itself around the 10th site. Built for real pipeline diligence,
+              not unlimited Pro spray.
             </p>
           </div>
           <div>

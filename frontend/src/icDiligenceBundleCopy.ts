@@ -111,20 +111,24 @@ export const IC_BUNDLE = {
     'Strongest citeable coverage today: Dallas / Plano / Austin TX',
   ] as const,
 
-  /** Annual upsell — lead with ZIPs, then fair-use (not a scan counter) */
+  /**
+   * Annual upsell — sell the pipeline job, not a scan meter.
+   * Draw: escape $1,500/PO + ~10-site break-even.
+   * Guard: prestige pace (“capital sites you brief counsel on”), not “unlimited.”
+   */
   annualDescription:
-    'Shop rate for counsel ZIPs under one seat: regenerate the Diligence Bundle for each new bound address after your first IC Project. Break-even ~10 sites vs $1,500/Project. Fair use: ~25 fresh Pro-depth scrapes/day; IC Generate still builds the ZIP.',
+    'Stop cutting a $1,500 PO every time a new LOI hits the stack. After your first IC Project, IC Annual is shop rate for Diligence Bundle ZIPs on the capital sites you actually brief counsel on — typically pays for itself around the 10th site.',
   annualFeatures: [
-    'Diligence Bundle ZIP per bound address — no new $1,500 PO each site',
-    'Same package every time: memo · boardroom PDF · counsel DOCX · Excel exhibits',
-    'Break-even ~10 sites vs buying IC Project each time',
-    'Fair use: ~25 fresh local scrapes/day; after that you still run (pack/cache). IC Generate deepens for the ZIP',
+    'Counsel ZIP whenever a real capital site hits your pipeline — memo · boardroom · Word · Excel',
+    'Same package shape every address — no rebuying Project rate',
+    'Usually covers itself by ~10 sites vs $1,500/Project',
+    'Built for IC / lender diligence — not unlimited Pro spray',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,
-  /** Short honesty line for results / capped scrape banner when Annual seat is active */
+  /** Results / capped-scrape — quality pace, not an invite to burn Generate IC */
   annualFairUseNote:
-    'Annual seat: counsel ZIPs across sites. Fresh Pro scrapes soft-cap ~25/day; Generate IC still deepens the ZIP.',
+    'Annual is for capital sites you brief counsel on. Fresh scrapes pace for quality; Generate IC when this address needs the ZIP.',
 
   /** CTAs */
   ctaBuy: 'Get IC Diligence Bundle — $1,500',

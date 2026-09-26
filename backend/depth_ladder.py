@@ -214,24 +214,25 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
 
 
 def _offer_ic_next() -> Dict[str, Any]:
-    """IC → Annual (shop rate) or another Project."""
+    """IC → Annual (shop rate for real pipeline) or another Project."""
     return {
-        "message": "Still cutting a $1,500 PO every time a new address hits the pipeline?",
+        "message": "Still cutting a $1,500 PO every time a new LOI hits the stack?",
         "detail": (
-            "IC Project is one bound site. IC Annual ($15,000/yr) is shop rate for Diligence Bundle "
-            "ZIPs across bound addresses — break-even around the 10th site. Fair use: ~25 fresh "
-            "Pro scrapes/day; Generate IC still builds the counsel ZIP."
+            "IC Project proved the package on one site. If your shop briefs counsel on a real "
+            "pipeline of capital addresses, IC Annual ($15,000/yr) is shop rate for the same "
+            "Diligence Bundle ZIP — typically pays for itself around the 10th site. Built for "
+            "sites you put in front of counsel — not unlimited Pro spray."
         ),
         "cta_label": "IC Annual — $15,000/yr",
         "cta_tier": "ic_annual",
         "secondary_cta_label": "Or another site IC Bundle — $1,500",
         "secondary_cta_tier": "ic_project",
         "current_label": "IC Diligence Bundle",
-        "next_label": "Counsel ZIPs across sites · ~10× break-even · fair use ~25 scrapes/day",
+        "next_label": "Shop-rate counsel ZIPs · ~10-site break-even · pipeline pace",
         "primary_once": True,
         "honesty_note": (
-            "Annual = multi-site counsel packages, not a firehose of uncapped Pro scrapes. "
-            "Planning diligence — not an AHJ filing."
+            "Annual is shop rate for capital-site counsel packages — not unlimited Pro spray. "
+            "Planning diligence, not an AHJ filing."
         ),
     }
 

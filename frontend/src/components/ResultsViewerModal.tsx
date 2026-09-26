@@ -3313,9 +3313,8 @@ export default function ResultsViewerModal({
               <p className="text-sm text-amber-200 mt-3" role="status">
                 {view.paid_local.user_message ||
                   (ownsIcAnnual
-                    ? IC_BUNDLE.annualFairUseNote +
-                      ' Showing federal/state + pack/cache for this run — Generate IC still deepens the ZIP.'
-                    : 'Daily paid scrape soft-cap reached (~25/day). Showing federal/state + pack/cache. Try again tomorrow, or Generate IC Report for heavy research on a paid IC site.')}
+                    ? `${IC_BUNDLE.annualFairUseNote} Showing federal/state + pack/cache for this run.`
+                    : 'Fresh scrape budget paced for quality today. Showing federal/state + pack/cache — try again tomorrow, or Generate IC when this paid site needs the counsel ZIP.')}
               </p>
             )}
           </section>
