@@ -202,37 +202,38 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
         ),
         "cta_label": "Get IC Diligence Bundle — $1,500",
         "cta_tier": "ic_project",
-        "secondary_cta_label": "Or IC Annual — $15,000/yr shop rate",
+        "secondary_cta_label": "Or IC Annual after first Project — $15,000/yr",
         "secondary_cta_tier": "ic_annual",
         "current_label": desk,
         "next_label": "Counsel ZIP — memo · boardroom · Word · Excel exhibits",
         "primary_once": True,
         "honesty_note": (
-            "IC is counsel packaging for one site — still a planning aid; confirm with AHJ / utility."
+            "IC is counsel packaging for one site — still a planning aid; confirm with AHJ / utility. "
+            "Annual is for firms packaging many capital sites — gated until after IC Project."
         ),
     }
 
 
 def _offer_ic_next() -> Dict[str, Any]:
-    """IC → Annual (shop rate for real pipeline) or another Project."""
+    """IC → Annual (firm volume) or another Project."""
     return {
-        "message": "Still cutting a $1,500 PO every time a new LOI hits the stack?",
+        "message": "Buying another $1,500 Project for the next capital site?",
         "detail": (
-            "IC Project proved the package on one site. If your shop briefs counsel on a real "
-            "pipeline of capital addresses, IC Annual ($15,000/yr) is shop rate for the same "
-            "Diligence Bundle ZIP — typically pays for itself around the 10th site. Built for "
-            "sites you put in front of counsel — not unlimited Pro spray."
+            "You proved the package on one site. If you will package Diligence Bundles on more "
+            "capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase "
+            "email — ahead of Project rate once you pass roughly ten sites. Built for deal-ready "
+            "IC / lender packages, not day-to-day Contractor Pro lookups."
         ),
         "cta_label": "IC Annual — $15,000/yr",
         "cta_tier": "ic_annual",
         "secondary_cta_label": "Or another site IC Bundle — $1,500",
         "secondary_cta_tier": "ic_project",
         "current_label": "IC Diligence Bundle",
-        "next_label": "Shop-rate counsel ZIPs · ~10-site break-even · pipeline pace",
+        "next_label": "Same counsel ZIP · new capital site · no new $1,500 PO",
         "primary_once": True,
         "honesty_note": (
-            "Annual is shop rate for capital-site counsel packages — not unlimited Pro spray. "
-            "Planning diligence, not an AHJ filing."
+            "Annual covers capital-site Diligence Bundles on this purchase email — "
+            "not day-to-day Contractor Pro. Planning diligence, not an AHJ filing."
         ),
     }
 

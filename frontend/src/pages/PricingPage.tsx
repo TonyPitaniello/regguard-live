@@ -254,10 +254,10 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
               Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s{' '}
-              {IC_BUNDLE.productName} ZIP. After that first Project, IC Annual ($15,000/year) is
-              shop rate for counsel ZIPs on the capital sites you actually brief counsel on —
-              typically pays for itself around the 10th site. Built for real pipeline diligence,
-              not unlimited Pro spray.
+              {IC_BUNDLE.productName} ZIP. After that first Project, IC Annual ($15,000/year) covers
+              the same counsel ZIP for more bound capital sites on this purchase email — ahead of
+              Project rate once you pass roughly ten sites. Built for deal-ready IC / lender
+              packages, not day-to-day Contractor Pro lookups.
             </p>
           </div>
           <div>

@@ -112,23 +112,28 @@ export const IC_BUNDLE = {
   ] as const,
 
   /**
-   * Annual upsell — sell the pipeline job, not a scan meter.
-   * Draw: escape $1,500/PO + ~10-site break-even.
-   * Guard: prestige pace (“capital sites you brief counsel on”), not “unlimited.”
+   * Annual — sell firm volume on capital sites; soft-gate overuse without jargon.
+   * Premortem-hardened:
+   *   - No “Pro spray” / “shop rate” / “outside-seat” jargon
+   *   - ~10 is break-even math (when Annual wins), not a purchase minimum
+   *   - Speak to IC / owner’s rep / lender who *are* the diligence seat — not only “brief counsel”
    */
   annualDescription:
-    'Stop cutting a $1,500 PO every time a new LOI hits the stack. After your first IC Project, IC Annual is shop rate for Diligence Bundle ZIPs on the capital sites you actually brief counsel on — typically pays for itself around the 10th site.',
+    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first IC Project, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of Project rate once you pass roughly ten sites.',
   annualFeatures: [
-    'Counsel ZIP whenever a real capital site hits your pipeline — memo · boardroom · Word · Excel',
-    'Same package shape every address — no rebuying Project rate',
-    'Usually covers itself by ~10 sites vs $1,500/Project',
-    'Built for IC / lender diligence — not unlimited Pro spray',
+    'Same Diligence Bundle ZIP for each new bound capital site on this purchase email',
+    'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',
+    'Ahead of $1,500/Project once you pass ~10 sites in a year',
+    'For deal-ready IC / lender packages — not day-to-day Contractor Pro lookups',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
   ] as const,
-  /** Results / capped-scrape — quality pace, not an invite to burn Generate IC */
+  /** Results / capped-scrape — quality pace; no scrape counter, no firehose invite */
   annualFairUseNote:
-    'Annual is for capital sites you brief counsel on. Fresh scrapes pace for quality; Generate IC when this address needs the ZIP.',
+    'Annual covers Diligence Bundles for capital sites on this purchase email. Fresh scrapes pace for quality; Generate IC when this address needs the ZIP.',
+  /** Wrong-depth body when buyer already has Annual */
+  generateBodyAnnual:
+    'This run is still free / Pro depth. Re-run with Generate IC to unlock the counsel ZIP for this address under your Annual. Same Diligence Bundle — memo · boardroom · Word · Excel.',
 
   /** CTAs */
   ctaBuy: 'Get IC Diligence Bundle — $1,500',

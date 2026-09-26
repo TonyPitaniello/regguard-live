@@ -116,10 +116,10 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     oneLiner:
       'The package counsel and lenders open — memo, boardroom, editable Word with exhibits, Excel evidence — for one capital site. Not a bigger City Pack.',
     cta: IC_BUNDLE.ctaBuy,
-    upsellHeadline: 'Still cutting a $1,500 PO every time a new LOI hits the stack?',
+    upsellHeadline: 'Buying another $1,500 Project for the next capital site?',
     upsellBody:
-      'IC Project proved the package on one site. If your shop briefs counsel on a real pipeline of capital addresses, IC Annual ($15,000/yr) is shop rate for the same Diligence Bundle ZIP — typically pays for itself around the 10th site. Built for sites you put in front of counsel — not unlimited Pro spray.',
-    upsellOffers: 'Shop-rate counsel ZIPs · ~10-site break-even · pipeline pace',
+      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass roughly ten sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
+    upsellOffers: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     upsellCta: 'IC Annual — $15,000/yr',
   },
 
@@ -127,20 +127,20 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     key: 'ic_annual',
     name: 'IC Annual',
     price: '$15,000/yr',
-    who: 'IC / diligence shops that brief counsel on many capital sites a year.',
-    pain: 'Finance still treats every LOI like a one-off $1,500 PO — while your pipeline keeps stacking.',
+    who: 'IC consultants, owner’s reps, sponsors, and lenders packaging multiple capital sites a year.',
+    pain: 'Every new capital address means another $1,500 Project PO — while the package shape never changes.',
     promise:
-      'One Annual seat for the capital sites you actually put in front of counsel: Diligence Bundle ZIP each time — no new Project PO. Usually covers itself by ~10 real sites.',
-    proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal is real. ~10 sites ≈ year paid vs Project rate.',
-    vsBelow: 'IC Project proved the package. Annual is shop rate for the pipeline.',
+      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new Project PO. Ahead of Project rate once you pass roughly ten sites.',
+    proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal needs the package.',
+    vsBelow: 'IC Project proved the package. Annual covers more capital sites on the same purchase email.',
     notThis:
-      'Not unlimited Pro spray. Not a substitute for AHJ confirm. Outside-seat one-offs still need Project ($1,500).',
+      'Not day-to-day Contractor Pro. Not a substitute for AHJ confirm. A different purchase email still needs its own IC Project ($1,500).',
     oneLiner:
-      'Shop rate for counsel ZIPs on your real LOI pipeline — typically breaks even by the 10th site.',
+      'Annual for counsel ZIPs on capital sites — ahead of $1,500/Project past ~10 sites.',
     cta: 'Get IC Annual — $15,000/yr',
-    upsellHeadline: 'Need a one-off address outside your Annual seat?',
+    upsellHeadline: 'Need the ZIP under a different purchase email?',
     upsellBody:
-      'Annual covers Diligence Bundles for capital sites under your shop seat. For an address outside that seat, buy another IC Project ($1,500) — same counsel ZIP, separate PO.',
+      'Annual covers Diligence Bundles for capital sites on this purchase email. For a different buyer email, buy IC Project ($1,500) on that email — same counsel ZIP, separate PO.',
     upsellOffers: 'One more bound-address counsel ZIP — $1,500',
     upsellCta: 'IC Diligence Bundle for another site — $1,500',
   },

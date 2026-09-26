@@ -1268,7 +1268,7 @@ export default function ResultsViewerModal({
                 {IC_BUNDLE.generateHeadline}
               </h3>
               <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">
-                {IC_BUNDLE.generateBody}
+                {ownsIcAnnual ? IC_BUNDLE.generateBodyAnnual : IC_BUNDLE.generateBody}
               </p>
               {onUnlockDeeper ? (
                 <button
@@ -1349,7 +1349,7 @@ export default function ResultsViewerModal({
                     onClick={() => goCheckout('ic_annual')}
                     className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 font-semibold text-sm"
                   >
-                    Or IC Annual — $15,000/yr (shop rate)
+                    Or IC Annual after first Project — $15,000/yr
                   </button>
                 )}
             </div>
@@ -2812,7 +2812,9 @@ export default function ResultsViewerModal({
                 <p className="text-amber-100 font-bold text-sm sm:text-base">
                   {IC_BUNDLE.generateHeadline}
                 </p>
-                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.generateBody}</p>
+                <p className="text-gray-300 text-sm leading-relaxed">
+                  {ownsIcAnnual ? IC_BUNDLE.generateBodyAnnual : IC_BUNDLE.generateBody}
+                </p>
                 <IcDiligenceBundlePitch variant="compact" />
                 {onUnlockDeeper ? (
                   <button
@@ -3387,8 +3389,8 @@ export default function ResultsViewerModal({
             <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
               <p className="text-sm text-emerald-50 font-semibold mb-1">
                 {ladderTier === 'pro'
-                  ? 'Pro desk unlocked — add the IC Diligence Bundle for counsel ZIP, or IC Annual for pipeline shop rate.'
-                  : 'IC Bundle ready — IC Annual is shop rate for counsel ZIPs on capital sites you brief counsel on.'}
+                  ? 'Pro desk unlocked — add the IC Diligence Bundle for one capital site, or IC Annual after that first Project if you package many.'
+                  : 'IC Bundle ready — IC Annual covers more capital-site ZIPs on this purchase email (ahead of Project rate past ~10 sites).'}
               </p>
               {renderLadderUpsells({ dense: true })}
             </section>
