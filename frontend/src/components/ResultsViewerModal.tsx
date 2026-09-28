@@ -28,6 +28,7 @@ import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
   ladderUpsells,
+  normalizeAccessTier,
   resolveResultsLadder,
   type CheckoutLadderTier,
 } from '../resultsAccessLadder';
@@ -881,10 +882,7 @@ export default function ResultsViewerModal({
   const [copied, setCopied] = useState<'link' | 'text' | 'facebook' | 'instagram' | null>(null);
   const [sharePreviewOpen, setSharePreviewOpen] = useState(false);
   const [toast, setToast] = useState('');
-  const [shareUnlocked, setShareUnlocked] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('shareUnlocked') === '1';
-  });
+  const [shareUnlocked, setShareUnlocked] = useState(false);
   const [packetLoading, setPacketLoading] = useState(false);
   const [recheckLoading, setRecheckLoading] = useState(false);
   const [liveAnalysis, setLiveAnalysis] = useState<AnalysisData | null>(null);
@@ -981,7 +979,17 @@ export default function ResultsViewerModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    const rid = researchId || analysis?.research_id;
+    const rid = String(researchId || analysis?.research_id || '').trim();
+    // Reset unlock for each research — never inherit a global sticky flag
+    let localUnlock = false;
+    if (rid) {
+      try {
+        localUnlock = sessionStorage.getItem(`shareUnlocked:${rid}`) === '1';
+      } catch {
+        localUnlock = false;
+      }
+    }
+    setShareUnlocked(localUnlock);
     if (!rid) return;
     const email = (defaultEmail || '').trim();
     const q = email ? `?email=${encodeURIComponent(email)}` : '';
@@ -990,11 +998,20 @@ export default function ResultsViewerModal({
       .then((d) => {
         if (d?.unlocked) {
           try {
-            sessionStorage.setItem('shareUnlocked', '1');
+            sessionStorage.setItem(`shareUnlocked:${rid}`, '1');
+            sessionStorage.removeItem('shareUnlocked'); // drop legacy global key
           } catch {
             /* ignore */
           }
           setShareUnlocked(true);
+        } else {
+          try {
+            sessionStorage.removeItem(`shareUnlocked:${rid}`);
+            sessionStorage.removeItem('shareUnlocked');
+          } catch {
+            /* ignore */
+          }
+          setShareUnlocked(false);
         }
       })
       .catch(() => undefined);
@@ -1113,13 +1130,30 @@ export default function ResultsViewerModal({
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
-  const serverEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
+  // Prefer explicit stamp; free-depth runs without stamp must stay free (Chapin sticky-Pro bug)
+  const stampedAccessRaw = (view as { access_tier?: string }).access_tier || null;
+  const stampedAccess =
+    stampedAccessRaw ||
+    (depth === 'free' || depth === 'instant' || depth === 'preview'
+      ? 'free'
+      : depth === 'partner'
+        ? 'partner'
+        : null);
+  const stampedNorm = normalizeAccessTier(stampedAccess);
+  const rawEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
     ? ((view as { entitlement_tiers?: string[] }).entitlement_tiers as string[])
     : entitlementTiers;
+  // Free / Estimator stamp must ignore sticky higher entitlement arrays from prior checkouts
+  const entitlementForLadder =
+    stampedNorm === 'free'
+      ? []
+      : stampedNorm === 'partner'
+        ? ['partner']
+        : rawEntitlements;
   const ladder = resolveResultsLadder({
     demoTier,
-    entitlementTiers: serverEntitlements,
-    accessTier: (view as { access_tier?: string }).access_tier || null,
+    entitlementTiers: entitlementForLadder,
+    accessTier: stampedAccess,
     isDeep,
     isIcDepth,
     shareUnlocked,
@@ -2335,15 +2369,16 @@ export default function ResultsViewerModal({
   };
 
   const grantShareUnlock = (channel: string = 'share') => {
+    const rid = effectiveResearchId;
     try {
-      sessionStorage.setItem('shareUnlocked', '1');
+      if (rid) sessionStorage.setItem(`shareUnlocked:${rid}`, '1');
+      sessionStorage.removeItem('shareUnlocked');
     } catch {
       /* ignore */
     }
     setShareUnlocked(true);
-    setToast('Full free punch list unlocked — forward the Bid Risk Receipt next.');
+    setToast('Full free punch list unlocked — city pack stays locked until Estimator / Pro.');
     window.setTimeout(() => setToast(''), 4000);
-    const rid = effectiveResearchId;
     if (rid) {
       const referralCode =
         (typeof window !== 'undefined' &&
@@ -3321,8 +3356,8 @@ export default function ResultsViewerModal({
             )}
           </section>
 
-          {/* Free: share-to-unlock / paid deepen only — paid CTAs live in primary upgrade below (F1) */}
-          {!isDeep && (canUnlockDeeper || softLocked) && (
+          {/* Free: share-to-unlock + next-tier payment — always for free ladder, not only soft-lock */}
+          {!isDeep && (canUnlockDeeper || ladderTier === 'free') && (
             <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
               <div className="flex items-start gap-3 mb-3">
                 <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
@@ -3330,12 +3365,16 @@ export default function ResultsViewerModal({
                   <h3 className="text-white font-bold text-base">
                     {canUnlockDeeper
                       ? 'You are paid — unlock deeper research on this site'
-                      : `Free preview — top ${FREE_SOFT_PUNCH} punch lines`}
+                      : softLocked
+                        ? `Free preview — top ${FREE_SOFT_PUNCH} punch lines`
+                        : 'Free preview — punch unlocked; City Pack stays locked'}
                   </h3>
                   <p className="text-gray-300 text-sm mt-1">
                     {canUnlockDeeper
                       ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (more citeable sources than free).'
-                      : 'Forward this Bid Risk Receipt to unlock the rest of the free punch list — or start Estimator / Permit Runner for more monthly lookups.'}
+                      : softLocked
+                        ? 'Forward this Bid Risk Receipt to unlock more free punch lines — or start Estimator / Permit Runner for the forwardable Receipt habit.'
+                        : 'City Pack fees, gotchas, and Pro desk stay locked on Free. Start Estimator for the Receipt habit, or go Pro for fee dollars & pack PDF.'}
                   </p>
                 </div>
               </div>
@@ -3351,30 +3390,28 @@ export default function ResultsViewerModal({
                   </button>
                 ) : (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => void downloadBidReceipt()}
-                      disabled={packetLoading}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
-                    >
-                      {packetLoading ? 'Building receipt…' : 'Forward Bid Risk Receipt — unlock full free list'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void copyShareText('text')}
-                      className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
-                    >
-                      Copy receipt text
-                    </button>
-                    {!alreadyOwnsCheckout('partner') && (
-                      <button
-                        type="button"
-                        onClick={() => goCheckout('partner')}
-                        className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 font-bold text-sm"
-                      >
-                        Start Estimator / Permit Runner — $79/mo
-                      </button>
-                    )}
+                    {softLocked ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void downloadBidReceipt()}
+                          disabled={packetLoading}
+                          className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
+                        >
+                          {packetLoading
+                            ? 'Building receipt…'
+                            : 'Forward Bid Risk Receipt — unlock more free punch'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void copyShareText('text')}
+                          className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
+                        >
+                          Copy receipt text
+                        </button>
+                      </>
+                    ) : null}
+                    {renderLadderUpsells({ dense: true })}
                   </>
                 )}
               </div>
@@ -3698,13 +3735,13 @@ export default function ResultsViewerModal({
 
             {cityPackHasBody ? (
               <div id="bid-arbitrage" className="divide-y divide-emerald-500/20 relative">
-                {softLocked ? (
-                  <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end">
-                    <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/50" />
-                    <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center pointer-events-auto">
+                {ladderTier === 'free' ? (
+                  <div className="absolute inset-0 z-10 flex flex-col justify-end">
+                    <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
+                    <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
                       <p className="text-xs font-bold text-purple-50">
-                        Free — city pack fees & gotchas blurred. Forward the receipt or upgrade to
-                        Estimator for more punch; Contractor Pro unlocks the full pack.
+                        Free — Full City Pack fees & gotchas stay locked. Start Estimator for the
+                        forwardable Receipt habit; Contractor Pro unlocks fee dollars & the pack PDF.
                       </p>
                       {renderLadderUpsells({ dense: true })}
                     </div>
@@ -4712,6 +4749,30 @@ export default function ResultsViewerModal({
             )}
           </section>
         </div>
+
+        {/* Sticky next-tier payment — always reachable while scrolling results */}
+        {!demoTier &&
+          (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro') &&
+          !alreadyOwnsCheckout(
+            ladderTier === 'free'
+              ? 'partner'
+              : ladderTier === 'partner'
+                ? 'contractor_pro'
+                : 'ic_project'
+          ) && (
+            <div className="sticky bottom-0 z-30 border-t border-emerald-500/30 bg-slate-950/95 backdrop-blur-md px-4 py-3 sm:px-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 max-w-4xl mx-auto">
+                <p className="text-xs sm:text-sm text-emerald-50/90 font-semibold text-center sm:text-left">
+                  {ladderTier === 'free'
+                    ? TIER_VOICE.free.upsellHeadline
+                    : ladderTier === 'partner'
+                      ? TIER_VOICE.partner.upsellHeadline
+                      : TIER_VOICE.pro.upsellHeadline}
+                </p>
+                {renderLadderUpsells({ dense: true })}
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

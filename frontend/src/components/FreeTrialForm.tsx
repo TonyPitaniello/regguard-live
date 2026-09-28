@@ -325,34 +325,55 @@ export default function FreeTrialForm({
           ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
           : shareFromPayload || undefined;
     let sessionTiers: string[] = [];
+    let sessionEntKeyPresent = false;
     try {
       const raw = sessionStorage.getItem('regguardEntitlementTiers');
-      if (raw) {
+      if (raw !== null) {
+        sessionEntKeyPresent = true;
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) sessionTiers = parsed.map((t) => String(t).toLowerCase());
       }
     } catch {
       /* ignore */
     }
+    const unpaidSession = sessionStorage.getItem('regguardPaid') !== '1';
+    // Unpaid: never fall through to stale React entitlementTiers when session is []
+    const tiersForLadder = unpaidSession
+      ? sessionEntKeyPresent
+        ? sessionTiers
+        : []
+      : sessionTiers.length
+        ? sessionTiers
+        : entitlementTiers;
+    const payloadEnt = (analysisPayload as { entitlement_tiers?: string[] }).entitlement_tiers;
     const ladderTier =
-      accessTierFromEntitlements(sessionTiers.length ? sessionTiers : entitlementTiers) || 'free';
-    // Prefer server stamp; never invent Pro from sticky session alone
-    const stampedAccess =
-      analysisPayload.access_tier ||
-      (ladderTier === 'ic'
-        ? 'ic'
-        : ladderTier === 'pro'
-          ? 'contractor_pro'
-          : ladderTier === 'partner'
-            ? 'partner'
-            : 'free');
+      accessTierFromEntitlements(
+        Array.isArray(payloadEnt) ? payloadEnt : tiersForLadder
+      ) || 'free';
+    // Prefer server stamp; unpaid free runs must stay free even if React state is sticky Pro
+    const stampedAccess = unpaidSession
+      ? analysisPayload.access_tier || 'free'
+      : analysisPayload.access_tier ||
+        (ladderTier === 'ic'
+          ? 'ic'
+          : ladderTier === 'pro'
+            ? 'contractor_pro'
+            : ladderTier === 'partner'
+              ? 'partner'
+              : 'free');
     const analysisWithId: AnalysisData = {
       ...analysisPayload,
       research_id: rid || analysisPayload.research_id,
       access_tier: stampedAccess,
-      entitlement_tiers:
-        (analysisPayload as { entitlement_tiers?: string[] }).entitlement_tiers ||
-        (sessionTiers.length ? sessionTiers : entitlementTiers),
+      entitlement_tiers: unpaidSession
+        ? Array.isArray(payloadEnt)
+          ? payloadEnt
+          : []
+        : Array.isArray(payloadEnt)
+          ? payloadEnt
+          : sessionTiers.length
+            ? sessionTiers
+            : entitlementTiers,
       ...(share ? { share_url: share } : {}),
     };
     const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();
@@ -544,6 +565,12 @@ export default function FreeTrialForm({
           sessionStorage.removeItem('regguardPaid');
           sessionStorage.removeItem('regguardTier');
           sessionStorage.setItem('regguardEntitlementTiers', '[]');
+          // Global share unlock must not bleed into the next free run
+          sessionStorage.removeItem('shareUnlocked');
+          for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('shareUnlocked:')) sessionStorage.removeItem(k);
+          }
         } catch {
           /* ignore */
         }
@@ -890,6 +917,18 @@ export default function FreeTrialForm({
       sessionStorage.removeItem('icForceOnce');
       sessionStorage.removeItem('icPdfsReady');
       sessionStorage.removeItem('resultsOpen');
+      sessionStorage.removeItem('shareUnlocked');
+      sessionStorage.removeItem('regguardPaid');
+      sessionStorage.removeItem('regguardTier');
+      sessionStorage.removeItem('regguardEntitlementTiers');
+      try {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith('shareUnlocked:')) sessionStorage.removeItem(k);
+        }
+      } catch {
+        /* ignore */
+      }
     } catch {
       /* ignore */
     }

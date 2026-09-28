@@ -179,11 +179,15 @@ export function resolveResultsLadder(input: {
   const stamped = normalizeAccessTier(input.accessTier);
 
   // Never unlock from sessionStorage alone — abandoned checkout sticky Pro bug.
+  // Prefer an explicit server stamp: access_tier "free" must win over sticky entitlements.
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
-  else if (
+  else if (stamped === 'free') {
+    // Live free run — ignore sticky partner/pro/ic entitlement arrays
+    tier = 'free';
+  } else if (
     stamped === 'ic' ||
     ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
   ) {

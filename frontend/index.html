@@ -58,7 +58,7 @@
     <!-- Cache bust without polluting the address bar; then keep URL clean -->
     <script>
       (function () {
-        var BUILD = 'launch-20260925-annual-premortem';
+        var BUILD = 'launch-20260928-free-ladder-blur';
         var KEY = 'rg_html_build_v';
         var RELOAD_KEY = 'rg_bust_reload_' + BUILD;
         var VANITY = ['v', 'forceclear', 'rgbuild', 'source', 'repaired'];
@@ -150,6 +150,16 @@
             sessionStorage.removeItem('pendingDeepUnlock');
             sessionStorage.removeItem('icForceOnce');
             sessionStorage.removeItem('icPdfsReady');
+            sessionStorage.removeItem('shareUnlocked');
+            sessionStorage.removeItem('regguardPaid');
+            sessionStorage.removeItem('regguardTier');
+            sessionStorage.removeItem('regguardEntitlementTiers');
+            try {
+              for (var i = sessionStorage.length - 1; i >= 0; i--) {
+                var sk = sessionStorage.key(i);
+                if (sk && sk.indexOf('shareUnlocked:') === 0) sessionStorage.removeItem(sk);
+              }
+            } catch (e2) {}
           }
         } catch (e) {}
       })();
