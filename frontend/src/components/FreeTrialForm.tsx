@@ -32,7 +32,10 @@ import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode } from '../shareLinks';
 import { getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
 import { PRODUCT_COPY } from '../productCopy';
-import { accessTierFromEntitlements } from '../resultsAccessLadder';
+import {
+  accessTierFromEntitlements,
+  ladderTierFromResearchDepth,
+} from '../resultsAccessLadder';
 
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -324,12 +327,12 @@ export default function FreeTrialForm({
         : rid && !rid.startsWith('ephemeral-')
           ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
           : shareFromPayload || undefined;
-    const depthRaw = String(analysisPayload.research_depth || '').toLowerCase().trim();
-    const freeDepth =
-      Boolean(analysisPayload.preview) ||
-      depthRaw === 'free' ||
-      depthRaw === 'instant' ||
-      depthRaw === 'preview';
+    const depthCap = ladderTierFromResearchDepth(
+      analysisPayload.research_depth,
+      Boolean(analysisPayload.preview)
+    );
+    const freeDepth = depthCap === 'free';
+    const partnerDepth = depthCap === 'partner';
     // Free FinOps depth always wins — never invent Pro from sticky regguardPaid
     if (freeDepth) {
       try {
@@ -343,6 +346,16 @@ export default function FreeTrialForm({
       setPaidEntitled(false);
       setProResearchEntitled(false);
       setEntitlementTiers([]);
+    } else if (partnerDepth) {
+      // Estimator-depth: strip sticky Pro/IC so desk stays blurred like sample Estimator
+      try {
+        sessionStorage.setItem('regguardEntitlementTiers', JSON.stringify(['partner']));
+        sessionStorage.setItem('regguardTier', 'partner');
+      } catch {
+        /* ignore */
+      }
+      setProResearchEntitled(false);
+      setEntitlementTiers(['partner']);
     }
     let sessionTiers: string[] = [];
     let sessionEntKeyPresent = false;
@@ -362,42 +375,48 @@ export default function FreeTrialForm({
       ? sessionEntKeyPresent
         ? sessionTiers
         : []
-      : sessionTiers.length
-        ? sessionTiers
-        : entitlementTiers;
+      : partnerDepth
+        ? ['partner']
+        : sessionTiers.length
+          ? sessionTiers
+          : entitlementTiers;
     const payloadEnt = (analysisPayload as { entitlement_tiers?: string[] }).entitlement_tiers;
     const ladderTier =
       accessTierFromEntitlements(
-        Array.isArray(payloadEnt) ? payloadEnt : tiersForLadder
+        Array.isArray(payloadEnt) && !freeDepth && !partnerDepth ? payloadEnt : tiersForLadder
       ) || 'free';
-    // Prefer server stamp; free-depth runs must stay free even if React state is sticky Pro
+    // Depth cap beats sticky invent — matches sample Free / Estimator / Pro
     const stampedAccess = freeDepth
       ? 'free'
-      : unpaidSession
-        ? analysisPayload.access_tier || 'free'
-        : analysisPayload.access_tier ||
-          (ladderTier === 'ic'
-            ? 'ic'
-            : ladderTier === 'pro'
-              ? 'contractor_pro'
-              : ladderTier === 'partner'
-                ? 'partner'
-                : 'free');
+      : partnerDepth
+        ? 'partner'
+        : unpaidSession
+          ? analysisPayload.access_tier || 'free'
+          : analysisPayload.access_tier ||
+            (ladderTier === 'ic'
+              ? 'ic'
+              : ladderTier === 'pro'
+                ? 'contractor_pro'
+                : ladderTier === 'partner'
+                  ? 'partner'
+                  : 'free');
     const analysisWithId: AnalysisData = {
       ...analysisPayload,
       research_id: rid || analysisPayload.research_id,
       access_tier: stampedAccess,
       entitlement_tiers: freeDepth
         ? []
-        : unpaidSession
-          ? Array.isArray(payloadEnt)
-            ? payloadEnt
-            : []
-          : Array.isArray(payloadEnt)
-            ? payloadEnt
-            : sessionTiers.length
-              ? sessionTiers
-              : entitlementTiers,
+        : partnerDepth
+          ? ['partner']
+          : unpaidSession
+            ? Array.isArray(payloadEnt)
+              ? payloadEnt
+              : []
+            : Array.isArray(payloadEnt)
+              ? payloadEnt
+              : sessionTiers.length
+                ? sessionTiers
+                : entitlementTiers,
       ...(share ? { share_url: share } : {}),
     };
     const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();

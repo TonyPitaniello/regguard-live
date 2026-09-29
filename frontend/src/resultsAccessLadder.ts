@@ -84,6 +84,32 @@ export function isFreeResearchDepth(depth?: string | null, preview?: boolean): b
   return d === 'free' || d === 'instant' || d === 'preview';
 }
 
+/**
+ * Map research_depth → ladder tier for hard caps.
+ * Live UI must match sample demos: depth cannot be unlocked by sticky higher entitlements.
+ */
+export function ladderTierFromResearchDepth(
+  depth?: string | null,
+  preview?: boolean
+): ResultsLadderTier | null {
+  if (isFreeResearchDepth(depth, preview)) return 'free';
+  const d = String(depth || '')
+    .toLowerCase()
+    .trim();
+  if (d === 'partner' || d === 'estimator') return 'partner';
+  if (
+    d === 'pro' ||
+    d === 'pro_partial' ||
+    d === 'pro_light' ||
+    d === 'pro_local' ||
+    d.startsWith('pro_')
+  ) {
+    return 'pro';
+  }
+  if (d === 'ic' || d === 'ic_full') return 'ic';
+  return null;
+}
+
 /** Highest entitlement wins — used when stamping live scan results. */
 export function accessTierFromEntitlements(tiers: string[] | undefined | null): ResultsLadderTier {
   const owned = new Set((tiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean));
@@ -189,17 +215,31 @@ export function resolveResultsLadder(input: {
     (input.entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
   const stamped = normalizeAccessTier(input.accessTier);
-  const freeDepth = isFreeResearchDepth(input.researchDepth, input.preview);
+  const depthCap = ladderTierFromResearchDepth(input.researchDepth, input.preview);
 
   // Never unlock from sessionStorage alone — abandoned checkout sticky Pro bug.
-  // Prefer an explicit server stamp: access_tier "free" must win over sticky entitlements.
-  // Free research depth always wins — sticky invent of contractor_pro must not unlock City Pack.
+  // Research depth hard-caps the UI to match sample demos (Free / Estimator / Pro).
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
-  else if (freeDepth || stamped === 'free') {
+  else if (depthCap === 'free' || stamped === 'free') {
     tier = 'free';
+  } else if (depthCap === 'partner') {
+    // Estimator-depth run — sticky contractor_pro must not unlock Pro desk
+    tier = 'partner';
+  } else if (depthCap === 'pro') {
+    // Pro-depth: Pro desk; IC only when stamp/entitlement says IC
+    if (
+      stamped === 'ic' ||
+      ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
+    ) {
+      tier = 'ic';
+    } else {
+      tier = 'pro';
+    }
+  } else if (depthCap === 'ic') {
+    tier = 'ic';
   } else if (
     stamped === 'ic' ||
     ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
@@ -220,14 +260,13 @@ export function resolveResultsLadder(input: {
   const blurProDesk = !allowProDesk;
   const ownsIcAnnual = owned.has('ic_annual');
 
-  // Sample Free stays soft-locked so the demo shows the paywall theater.
-  // Live Free soft-locks until share unlock.
+  // Match sample Free: always soft-locked paywall theater (share unlock does not clear blur).
   const softLocked =
     demo === 'free'
       ? true
       : demo === 'partner' || demo === 'pro'
         ? false
-        : tier === 'free' && !input.shareUnlocked;
+        : tier === 'free';
 
   let punchVisible: number;
   let findingsVisible: number;

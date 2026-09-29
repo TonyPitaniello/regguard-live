@@ -28,6 +28,7 @@ import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
   isFreeResearchDepth,
+  ladderTierFromResearchDepth,
   ladderUpsells,
   normalizeAccessTier,
   resolveResultsLadder,
@@ -1131,22 +1132,31 @@ export default function ResultsViewerModal({
   const offer = view.upgrade_offer;
   const proDelta = view.pro_delta;
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
-  // Prefer explicit stamp; free-depth runs without stamp must stay free (Chapin sticky-Pro bug)
+  // Prefer explicit stamp; depth hard-caps match sample Free / Estimator / Pro
   const stampedAccessRaw = (view as { access_tier?: string }).access_tier || null;
-  const freeDepth = isFreeResearchDepth(depth, Boolean(view.preview));
-  const stampedAccess = freeDepth
-    ? 'free'
-    : stampedAccessRaw ||
-      (depth === 'partner' ? 'partner' : null);
+  const depthCap = ladderTierFromResearchDepth(depth, Boolean(view.preview));
+  const freeDepth = depthCap === 'free';
+  const partnerDepth = depthCap === 'partner';
+  const stampedAccess =
+    freeDepth
+      ? 'free'
+      : partnerDepth
+        ? 'partner'
+        : stampedAccessRaw ||
+          (depthCap === 'pro'
+            ? 'contractor_pro'
+            : depthCap === 'ic'
+              ? 'ic'
+              : null);
   const stampedNorm = normalizeAccessTier(stampedAccess);
   const rawEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
     ? ((view as { entitlement_tiers?: string[] }).entitlement_tiers as string[])
     : entitlementTiers;
-  // Free / Estimator stamp must ignore sticky higher entitlement arrays from prior checkouts
+  // Depth must ignore sticky higher entitlement arrays from prior checkouts
   const entitlementForLadder =
-    stampedNorm === 'free' || freeDepth
+    freeDepth || stampedNorm === 'free'
       ? []
-      : stampedNorm === 'partner'
+      : partnerDepth || stampedNorm === 'partner'
         ? ['partner']
         : rawEntitlements;
   const ladder = resolveResultsLadder({
@@ -1183,6 +1193,8 @@ export default function ResultsViewerModal({
       }
       // Free UI: only Estimator — never IC / Pro skip
       if (ladderTier === 'free') return row.tier === 'partner';
+      if (ladderTier === 'partner') return row.tier === 'contractor_pro';
+      if (ladderTier === 'pro') return row.tier === 'ic_project' || row.tier === 'ic_annual';
       if (row.tier === 'partner') return !ownsPartner;
       if (row.tier === 'contractor_pro') return !ownsPro;
       if (row.tier === 'ic_project') return !allowIcPackageDownload;
@@ -1283,13 +1295,18 @@ export default function ResultsViewerModal({
     return false;
   };
 
-  /** F1: one primary upgrade block — hide CTAs for tiers already owned */
+  /** F1: one primary upgrade block — next step only, matching sample ladder */
   const renderPrimaryUpgrade = () => {
     // IC-depth results: no further product upsell in the primary slot
     if (allowIcPackageDownload) return null;
-    // Free runs: always Estimator next — ignore sticky ownership / missing offer
-    if (ladderTier === 'free' && !demoTier) {
-      const v = TIER_VOICE.free;
+    // Live Free / Estimator / Pro: always next-tier voice (match samples)
+    if (!demoTier && (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro')) {
+      const v =
+        ladderTier === 'free'
+          ? TIER_VOICE.free
+          : ladderTier === 'partner'
+            ? TIER_VOICE.partner
+            : TIER_VOICE.pro;
       return (
         <section
           id="rg-primary-upgrade"
