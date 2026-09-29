@@ -27,7 +27,6 @@ import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitD
 import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
-  isFreeResearchDepth,
   ladderTierFromResearchDepth,
   ladderUpsells,
   normalizeAccessTier,
