@@ -27,6 +27,7 @@ import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitD
 import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
+  isFreeResearchDepth,
   ladderUpsells,
   normalizeAccessTier,
   resolveResultsLadder,
@@ -1132,20 +1133,18 @@ export default function ResultsViewerModal({
   const buyerPersona = (view.buyer_persona || '').toLowerCase();
   // Prefer explicit stamp; free-depth runs without stamp must stay free (Chapin sticky-Pro bug)
   const stampedAccessRaw = (view as { access_tier?: string }).access_tier || null;
-  const stampedAccess =
-    stampedAccessRaw ||
-    (depth === 'free' || depth === 'instant' || depth === 'preview'
-      ? 'free'
-      : depth === 'partner'
-        ? 'partner'
-        : null);
+  const freeDepth = isFreeResearchDepth(depth, Boolean(view.preview));
+  const stampedAccess = freeDepth
+    ? 'free'
+    : stampedAccessRaw ||
+      (depth === 'partner' ? 'partner' : null);
   const stampedNorm = normalizeAccessTier(stampedAccess);
   const rawEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
     ? ((view as { entitlement_tiers?: string[] }).entitlement_tiers as string[])
     : entitlementTiers;
   // Free / Estimator stamp must ignore sticky higher entitlement arrays from prior checkouts
   const entitlementForLadder =
-    stampedNorm === 'free'
+    stampedNorm === 'free' || freeDepth
       ? []
       : stampedNorm === 'partner'
         ? ['partner']
@@ -1157,6 +1156,8 @@ export default function ResultsViewerModal({
     isDeep,
     isIcDepth,
     shareUnlocked,
+    researchDepth: depth,
+    preview: Boolean(view.preview),
   });
   const softLocked = ladder.softLocked;
   const punchVisible = ladder.punchVisible;
@@ -1180,6 +1181,8 @@ export default function ResultsViewerModal({
         // Samples always show the next-step CTA for this demo tier
         return true;
       }
+      // Free UI: only Estimator — never IC / Pro skip
+      if (ladderTier === 'free') return row.tier === 'partner';
       if (row.tier === 'partner') return !ownsPartner;
       if (row.tier === 'contractor_pro') return !ownsPro;
       if (row.tier === 'ic_project') return !allowIcPackageDownload;
@@ -1268,6 +1271,10 @@ export default function ResultsViewerModal({
   };
 
   const alreadyOwnsCheckout = (tier: CheckoutLadderTier): boolean => {
+    // Free-depth UI must never suppress Estimator CTA because sticky Pro "owns" partner
+    if (ladderTier === 'free') {
+      if (tier === 'partner' || tier === 'contractor_pro' || tier === 'ic_project') return false;
+    }
     if (tier === 'partner') return ownsPartner && !incompleteRun;
     if (tier === 'contractor_pro') return ownsPro && !incompleteRun;
     // Never hide IC buy/upsell just because an old purchase is on file for another run
@@ -1278,9 +1285,28 @@ export default function ResultsViewerModal({
 
   /** F1: one primary upgrade block — hide CTAs for tiers already owned */
   const renderPrimaryUpgrade = () => {
-    if (!offer?.message) return null;
     // IC-depth results: no further product upsell in the primary slot
     if (allowIcPackageDownload) return null;
+    // Free runs: always Estimator next — ignore sticky ownership / missing offer
+    if (ladderTier === 'free' && !demoTier) {
+      const v = TIER_VOICE.free;
+      return (
+        <section
+          id="rg-primary-upgrade"
+          className="rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-slate-900/70 to-blue-500/10 p-4 sm:p-5"
+        >
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <h3 className="text-white font-bold text-sm sm:text-base">{v.upsellHeadline}</h3>
+              <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{v.upsellBody}</p>
+              {renderLadderUpsells()}
+            </div>
+          </div>
+        </section>
+      );
+    }
+    if (!offer?.message) return null;
     const primaryRaw = checkoutTier(offer.cta_tier);
     const secondaryRaw = checkoutTier(offer.secondary_cta_tier);
     const primary = primaryRaw && !alreadyOwnsCheckout(primaryRaw) ? primaryRaw : null;

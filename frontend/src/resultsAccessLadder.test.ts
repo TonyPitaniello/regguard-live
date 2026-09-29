@@ -12,6 +12,19 @@ function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
 }
 
+// Sticky Pro invent must NOT unlock a free-depth run
+{
+  const ladder = resolveResultsLadder({
+    accessTier: 'contractor_pro',
+    entitlementTiers: ['contractor_pro', 'partner'],
+    shareUnlocked: true,
+    researchDepth: 'free',
+  });
+  assert(ladder.tier === 'free', 'free research_depth must beat sticky Pro access_tier');
+  assert(ladder.blurProDesk === true, 'free depth must blur Pro desk');
+  assert(ladder.allowProDesk === false, 'free depth must not allow Pro desk');
+}
+
 // Sticky Pro entitlements must NOT unlock a server-stamped free run
 {
   const ladder = resolveResultsLadder({

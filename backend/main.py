@@ -2293,30 +2293,49 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception as ladder_err:
             logger.warning("Depth ladder stamp failed: %s", ladder_err)
 
-        # Stamp access_tier from entitlement so live results blur Free→Estimator→Pro→IC
+        # Stamp access_tier from THIS run's research path first (not sticky email alone).
+        # Free FinOps depth must always emit access_tier=free so the UI blurs City Pack.
         try:
             from entitlement import access_summary
             from depth_ladder import stamp_ladder_access_offer
 
+            run_depth = str(
+                (analysis.get("research_depth") if isinstance(analysis, dict) else None)
+                or research_depth
+                or ""
+            ).strip().lower()
             pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
-            summary = access_summary(
-                getattr(request_body, "email", None),
-                address=str(pi.get("address") or ""),
-                city=str(pi.get("city") or ""),
-                state=str(pi.get("state") or ""),
-                zip_code=str(pi.get("zip") or ""),
-            )
-            tiers = [str(t).lower() for t in (summary.get("tiers") or [])]
-            if any(t in ("ic_project", "ic_consultant", "ic_annual", "sponsor") for t in tiers):
-                analysis["access_tier"] = "ic"
-            elif "contractor_pro" in tiers:
-                analysis["access_tier"] = "contractor_pro"
-            elif "partner" in tiers:
-                analysis["access_tier"] = "partner"
-            else:
+
+            if run_depth in ("free", "instant", "preview") or (
+                not pro_research and not habit_paid
+            ):
                 analysis["access_tier"] = "free"
-            analysis["entitlement_tiers"] = tiers
-            # Stepwise CTA from entitlement — Free→Estimator→Pro→IC (never Free→IC skip)
+                analysis["entitlement_tiers"] = []
+            elif habit_paid and not pro_research:
+                analysis["access_tier"] = "partner"
+                analysis["entitlement_tiers"] = ["partner"]
+            else:
+                summary = access_summary(
+                    getattr(request_body, "email", None),
+                    address=str(pi.get("address") or ""),
+                    city=str(pi.get("city") or ""),
+                    state=str(pi.get("state") or ""),
+                    zip_code=str(pi.get("zip") or ""),
+                )
+                tiers = [str(t).lower() for t in (summary.get("tiers") or [])]
+                if any(
+                    t in ("ic_project", "ic_consultant", "ic_annual", "sponsor") for t in tiers
+                ):
+                    analysis["access_tier"] = "ic"
+                elif "contractor_pro" in tiers or pro_research:
+                    analysis["access_tier"] = "contractor_pro"
+                elif "partner" in tiers or habit_paid:
+                    analysis["access_tier"] = "partner"
+                else:
+                    analysis["access_tier"] = "free"
+                analysis["entitlement_tiers"] = tiers
+
+            # Stepwise CTA from access — Free→Estimator→Pro→IC (never Free→IC skip)
             stamp_ladder_access_offer(
                 analysis,
                 access_tier=str(analysis.get("access_tier") or "free"),
@@ -2325,12 +2344,18 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception as access_err:
             logger.warning("access_tier stamp failed: %s", access_err)
             if "access_tier" not in analysis:
-                if pro_research:
+                if isinstance(analysis, dict) and str(
+                    analysis.get("research_depth") or research_depth or ""
+                ).lower() in ("free", "instant", "preview"):
+                    analysis["access_tier"] = "free"
+                    analysis["entitlement_tiers"] = []
+                elif pro_research:
                     analysis["access_tier"] = "contractor_pro"
                 elif habit_paid:
                     analysis["access_tier"] = "partner"
                 else:
                     analysis["access_tier"] = "free"
+                    analysis["entitlement_tiers"] = []
 
     return {
         "trial_id": trial_id,

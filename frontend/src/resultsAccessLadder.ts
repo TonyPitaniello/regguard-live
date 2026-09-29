@@ -75,6 +75,15 @@ export function normalizeAccessTier(raw?: string | null): ResultsLadderTier | nu
   return null;
 }
 
+/** True when this analysis was a Free FinOps / instant preview run — UI must blur like Free. */
+export function isFreeResearchDepth(depth?: string | null, preview?: boolean): boolean {
+  if (preview === true) return true;
+  const d = String(depth || '')
+    .toLowerCase()
+    .trim();
+  return d === 'free' || d === 'instant' || d === 'preview';
+}
+
 /** Highest entitlement wins — used when stamping live scan results. */
 export function accessTierFromEntitlements(tiers: string[] | undefined | null): ResultsLadderTier {
   const owned = new Set((tiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean));
@@ -171,21 +180,25 @@ export function resolveResultsLadder(input: {
   isDeep?: boolean;
   isIcDepth?: boolean;
   shareUnlocked?: boolean;
+  /** When free/instant/preview, hard-cap UI to Free — beats sticky Pro invent */
+  researchDepth?: string | null;
+  preview?: boolean;
 }): ResultsLadder {
   const demo = input.demoTier || null;
   const owned = new Set(
     (input.entitlementTiers || []).map((t) => String(t || '').toLowerCase()).filter(Boolean)
   );
   const stamped = normalizeAccessTier(input.accessTier);
+  const freeDepth = isFreeResearchDepth(input.researchDepth, input.preview);
 
   // Never unlock from sessionStorage alone — abandoned checkout sticky Pro bug.
   // Prefer an explicit server stamp: access_tier "free" must win over sticky entitlements.
+  // Free research depth always wins — sticky invent of contractor_pro must not unlock City Pack.
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
-  else if (stamped === 'free') {
-    // Live free run — ignore sticky partner/pro/ic entitlement arrays
+  else if (freeDepth || stamped === 'free') {
     tier = 'free';
   } else if (
     stamped === 'ic' ||

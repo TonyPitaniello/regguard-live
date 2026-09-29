@@ -324,6 +324,26 @@ export default function FreeTrialForm({
         : rid && !rid.startsWith('ephemeral-')
           ? `https://app.regguardagent.com/r/${encodeURIComponent(rid)}`
           : shareFromPayload || undefined;
+    const depthRaw = String(analysisPayload.research_depth || '').toLowerCase().trim();
+    const freeDepth =
+      Boolean(analysisPayload.preview) ||
+      depthRaw === 'free' ||
+      depthRaw === 'instant' ||
+      depthRaw === 'preview';
+    // Free FinOps depth always wins — never invent Pro from sticky regguardPaid
+    if (freeDepth) {
+      try {
+        sessionStorage.removeItem('regguardPaid');
+        sessionStorage.removeItem('regguardTier');
+        sessionStorage.setItem('regguardEntitlementTiers', '[]');
+        sessionStorage.removeItem('shareUnlocked');
+      } catch {
+        /* ignore */
+      }
+      setPaidEntitled(false);
+      setProResearchEntitled(false);
+      setEntitlementTiers([]);
+    }
     let sessionTiers: string[] = [];
     let sessionEntKeyPresent = false;
     try {
@@ -336,8 +356,8 @@ export default function FreeTrialForm({
     } catch {
       /* ignore */
     }
-    const unpaidSession = sessionStorage.getItem('regguardPaid') !== '1';
-    // Unpaid: never fall through to stale React entitlementTiers when session is []
+    const unpaidSession = freeDepth || sessionStorage.getItem('regguardPaid') !== '1';
+    // Unpaid / free-depth: never fall through to stale React entitlementTiers
     const tiersForLadder = unpaidSession
       ? sessionEntKeyPresent
         ? sessionTiers
@@ -350,30 +370,34 @@ export default function FreeTrialForm({
       accessTierFromEntitlements(
         Array.isArray(payloadEnt) ? payloadEnt : tiersForLadder
       ) || 'free';
-    // Prefer server stamp; unpaid free runs must stay free even if React state is sticky Pro
-    const stampedAccess = unpaidSession
-      ? analysisPayload.access_tier || 'free'
-      : analysisPayload.access_tier ||
-        (ladderTier === 'ic'
-          ? 'ic'
-          : ladderTier === 'pro'
-            ? 'contractor_pro'
-            : ladderTier === 'partner'
-              ? 'partner'
-              : 'free');
+    // Prefer server stamp; free-depth runs must stay free even if React state is sticky Pro
+    const stampedAccess = freeDepth
+      ? 'free'
+      : unpaidSession
+        ? analysisPayload.access_tier || 'free'
+        : analysisPayload.access_tier ||
+          (ladderTier === 'ic'
+            ? 'ic'
+            : ladderTier === 'pro'
+              ? 'contractor_pro'
+              : ladderTier === 'partner'
+                ? 'partner'
+                : 'free');
     const analysisWithId: AnalysisData = {
       ...analysisPayload,
       research_id: rid || analysisPayload.research_id,
       access_tier: stampedAccess,
-      entitlement_tiers: unpaidSession
-        ? Array.isArray(payloadEnt)
-          ? payloadEnt
-          : []
-        : Array.isArray(payloadEnt)
-          ? payloadEnt
-          : sessionTiers.length
-            ? sessionTiers
-            : entitlementTiers,
+      entitlement_tiers: freeDepth
+        ? []
+        : unpaidSession
+          ? Array.isArray(payloadEnt)
+            ? payloadEnt
+            : []
+          : Array.isArray(payloadEnt)
+            ? payloadEnt
+            : sessionTiers.length
+              ? sessionTiers
+              : entitlementTiers,
       ...(share ? { share_url: share } : {}),
     };
     const refCode = String((analysisPayload as { referral_code?: string }).referral_code || '').trim();
@@ -1092,7 +1116,7 @@ export default function FreeTrialForm({
       try {
         setPendingIcReport(true);
         sessionStorage.setItem('icForceOnce', '1');
-        sessionStorage.setItem('regguardPaid', '1');
+        // Do NOT set regguardPaid here — that invented Pro UI on free-depth runs
         sessionStorage.setItem('pendingDeepUnlock', '1');
         if (email) sessionStorage.setItem('userEmail', email);
       } catch {
