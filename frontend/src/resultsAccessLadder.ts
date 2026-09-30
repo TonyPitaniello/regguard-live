@@ -13,6 +13,9 @@
  *   IC ($1,500):        Pro desk + counsel ZIP (memo · boardroom · DOCX · Excel)
  *
  * Upsell: each level points to the *next* level only — never Free → IC skip.
+ *
+ * HARD RULE: display tier comes from THIS run's research_depth / demoTier.
+ * Sticky entitlements must NEVER invent Pro/IC on a free or missing-depth run.
  */
 
 import { TIER_VOICE, nextVoiceForLadderTier } from './tierVoice';
@@ -39,6 +42,8 @@ export type ResultsLadder = {
    * Only for Free (never for Estimator — they already paid for unlocked punch).
    */
   proBlurPunchTeasers: number;
+  /** How many synthetic locked punch rows to paint when the list is short (sample theater) */
+  syntheticBlurTeasers: number;
 };
 
 export type LadderUpsell = {
@@ -62,6 +67,9 @@ export const FREE_UNLOCKED_FINDINGS = 4;
 export const PARTNER_FINDINGS = 12;
 export const PRO_FINDINGS = 99;
 
+/** Always show ≥ this many locked blur rows on Free soft-lock (sample parity) */
+export const FREE_SYNTHETIC_BLUR_TEASERS = 3;
+
 export function normalizeAccessTier(raw?: string | null): ResultsLadderTier | null {
   const t = String(raw || '')
     .toLowerCase()
@@ -75,23 +83,42 @@ export function normalizeAccessTier(raw?: string | null): ResultsLadderTier | nu
   return null;
 }
 
-/** True when this analysis was a Free FinOps / instant preview run — UI must blur like Free. */
+/**
+ * True when this analysis was a Free FinOps / instant preview run — UI must blur like Free.
+ * Explicit partner/pro/ic depth always wins over a leftover preview flag.
+ */
 export function isFreeResearchDepth(depth?: string | null, preview?: boolean): boolean {
-  if (preview === true) return true;
   const d = String(depth || '')
     .toLowerCase()
     .trim();
-  return d === 'free' || d === 'instant' || d === 'preview';
+  if (
+    d === 'partner' ||
+    d === 'estimator' ||
+    d === 'pro' ||
+    d === 'pro_partial' ||
+    d === 'pro_light' ||
+    d === 'pro_local' ||
+    d.startsWith('pro_') ||
+    d === 'ic' ||
+    d === 'ic_full'
+  ) {
+    return false;
+  }
+  if (d === 'free' || d === 'instant' || d === 'preview') return true;
+  // Missing depth: preview flag or empty → Free soft-lock (never invent Pro)
+  if (preview === true) return true;
+  return !d;
 }
 
 /**
  * Map research_depth → ladder tier for hard caps.
  * Live UI must match sample demos: depth cannot be unlocked by sticky higher entitlements.
+ * Empty / unknown depth hard-caps to Free.
  */
 export function ladderTierFromResearchDepth(
   depth?: string | null,
   preview?: boolean
-): ResultsLadderTier | null {
+): ResultsLadderTier {
   if (isFreeResearchDepth(depth, preview)) return 'free';
   const d = String(depth || '')
     .toLowerCase()
@@ -107,7 +134,7 @@ export function ladderTierFromResearchDepth(
     return 'pro';
   }
   if (d === 'ic' || d === 'ic_full') return 'ic';
-  return null;
+  return 'free';
 }
 
 /** Highest entitlement wins — used when stamping live scan results. */
@@ -118,8 +145,6 @@ export function accessTierFromEntitlements(tiers: string[] | undefined | null): 
   if (owned.has('partner')) return 'partner';
   return 'free';
 }
-
-
 
 /**
  * Next-step checkout CTAs — pain-first copy from TIER_VOICE (one step only).
@@ -206,7 +231,7 @@ export function resolveResultsLadder(input: {
   isDeep?: boolean;
   isIcDepth?: boolean;
   shareUnlocked?: boolean;
-  /** When free/instant/preview, hard-cap UI to Free — beats sticky Pro invent */
+  /** When free/instant/preview/missing, hard-cap UI to Free — beats sticky Pro invent */
   researchDepth?: string | null;
   preview?: boolean;
 }): ResultsLadder {
@@ -217,39 +242,27 @@ export function resolveResultsLadder(input: {
   const stamped = normalizeAccessTier(input.accessTier);
   const depthCap = ladderTierFromResearchDepth(input.researchDepth, input.preview);
 
-  // Never unlock from sessionStorage alone — abandoned checkout sticky Pro bug.
-  // Research depth hard-caps the UI to match sample demos (Free / Estimator / Pro).
+  // Display tier = THIS run's depth (sample parity). Sticky entitlements never invent higher.
   let tier: ResultsLadderTier = 'free';
   if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
-  else if (depthCap === 'free' || stamped === 'free') {
+  else if (depthCap === 'free') {
     tier = 'free';
   } else if (depthCap === 'partner') {
-    // Estimator-depth run — sticky contractor_pro must not unlock Pro desk
     tier = 'partner';
   } else if (depthCap === 'pro') {
-    // Pro-depth: Pro desk; IC only when stamp/entitlement says IC
-    if (
-      stamped === 'ic' ||
-      ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
-    ) {
+    // Pro-depth desk. IC package only when this run is actually IC depth (isIcDepth),
+    // not merely because email has an old IC purchase stamp.
+    if (input.isIcDepth && (stamped === 'ic' || ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t)))) {
       tier = 'ic';
     } else {
       tier = 'pro';
     }
   } else if (depthCap === 'ic') {
     tier = 'ic';
-  } else if (
-    stamped === 'ic' ||
-    ['ic_project', 'ic_consultant', 'ic_annual', 'sponsor'].some((t) => owned.has(t))
-  ) {
-    tier = 'ic';
-  } else if (stamped === 'pro' || owned.has('contractor_pro')) {
-    tier = 'pro';
-  } else if (stamped === 'partner' || owned.has('partner')) {
-    tier = 'partner';
   } else {
+    // Unknown → Free soft-lock (never invent Pro/IC from entitlements alone)
     tier = 'free';
   }
 
@@ -287,6 +300,7 @@ export function resolveResultsLadder(input: {
 
   // Tease Pro desk formats on Free only — Estimator already owns unlocked punch.
   const proBlurPunchTeasers = tier === 'free' && !softLocked && !ownsPro ? 2 : 0;
+  const syntheticBlurTeasers = softLocked ? FREE_SYNTHETIC_BLUR_TEASERS : 0;
 
   return {
     tier,
@@ -300,5 +314,6 @@ export function resolveResultsLadder(input: {
     allowProDesk,
     blurProDesk,
     proBlurPunchTeasers,
+    syntheticBlurTeasers,
   };
 }

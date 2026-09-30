@@ -27,6 +27,7 @@ import { HABIT_TIERS, proDeskGateMessage, type ProDeskArtifact } from '../habitD
 import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
+  FREE_SYNTHETIC_BLUR_TEASERS,
   ladderTierFromResearchDepth,
   ladderUpsells,
   normalizeAccessTier,
@@ -1136,17 +1137,17 @@ export default function ResultsViewerModal({
   const depthCap = ladderTierFromResearchDepth(depth, Boolean(view.preview));
   const freeDepth = depthCap === 'free';
   const partnerDepth = depthCap === 'partner';
+  // Display access stamp follows THIS run's depth — never sticky Pro/IC on free
   const stampedAccess =
     freeDepth
       ? 'free'
       : partnerDepth
         ? 'partner'
-        : stampedAccessRaw ||
-          (depthCap === 'pro'
-            ? 'contractor_pro'
-            : depthCap === 'ic'
-              ? 'ic'
-              : null);
+        : depthCap === 'pro'
+          ? 'contractor_pro'
+          : depthCap === 'ic'
+            ? 'ic'
+            : stampedAccessRaw || 'free';
   const stampedNorm = normalizeAccessTier(stampedAccess);
   const rawEntitlements = Array.isArray((view as { entitlement_tiers?: string[] }).entitlement_tiers)
     ? ((view as { entitlement_tiers?: string[] }).entitlement_tiers as string[])
@@ -1165,19 +1166,24 @@ export default function ResultsViewerModal({
     isDeep,
     isIcDepth,
     shareUnlocked,
-    researchDepth: depth,
-    preview: Boolean(view.preview),
+    researchDepth: depth || (freeDepth ? 'free' : depthCap),
+    preview: Boolean(view.preview) || freeDepth,
   });
   const softLocked = ladder.softLocked;
   const punchVisible = ladder.punchVisible;
   const findingsVisible = ladder.findingsVisible;
   const ownsIc = ladder.ownsIc && isIcDepth && !incompleteRun;
-  const canGenerateIcForSite = Boolean(icReportPending) && !ownsIc;
+  // Never offer Generate-IC / IC buy on Free or Estimator — next step only
+  const canGenerateIcForSite =
+    Boolean(icReportPending) &&
+    !ownsIc &&
+    (ladder.tier === 'pro' || ladder.tier === 'ic');
   const ownsPro = ladder.ownsPro;
   const ownsPartner = ladder.ownsPartner;
   const allowProDeskDownloads = ladder.allowProDesk;
   const blurProDesk = ladder.blurProDesk;
   const proBlurPunchTeasers = ladder.proBlurPunchTeasers;
+  const syntheticBlurTeasers = ladder.syntheticBlurTeasers || (softLocked ? FREE_SYNTHETIC_BLUR_TEASERS : 0);
   const ownsIcAnnual = ladder.ownsIcAnnual;
   const ladderTier = ladder.tier;
 
@@ -2911,7 +2917,7 @@ export default function ResultsViewerModal({
                   </a>
                 )}
               </div>
-            ) : ownsPro ? (
+            ) : ladderTier === 'pro' ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
                   {IC_BUNDLE.upsellHeadline}
@@ -2920,7 +2926,7 @@ export default function ResultsViewerModal({
                 <IcDiligenceBundlePitch variant="compact" />
                 {renderLadderUpsells()}
               </div>
-            ) : ownsPartner ? (
+            ) : ladderTier === 'partner' ? (
               <div className="space-y-3">
                 <p className="text-slate-200 font-bold text-sm sm:text-base">
                   {TIER_VOICE.partner.upsellHeadline}
@@ -3591,59 +3597,83 @@ export default function ResultsViewerModal({
                     );
                   });
                 })()}
-                {softLocked && (view.punch_list?.punch_list || []).length > punchVisible && (
+                {softLocked && (
                   <div className="space-y-2">
-                    {(view.punch_list?.punch_list || [])
-                      .slice(punchVisible, punchVisible + 3)
-                      .map((item, idx) => (
-                        <div
-                          key={`blur-punch-${idx}`}
-                          className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-slate-800/40 p-3 select-none"
-                          aria-hidden
-                        >
-                          <div className="blur-sm opacity-70 pointer-events-none">
-                            <p className="text-white text-sm font-semibold">{item.task}</p>
-                            <p className="text-xs text-gray-400 mt-1">
-                              {item.timeline} • {item.responsible_party || 'Owner'}
+                    {(() => {
+                      const all = view.punch_list?.punch_list || [];
+                      const leftover = all.slice(punchVisible, punchVisible + syntheticBlurTeasers);
+                      const placeholdersNeeded = Math.max(
+                        0,
+                        syntheticBlurTeasers - leftover.length
+                      );
+                      const placeholders = Array.from({ length: placeholdersNeeded }, (_, i) => ({
+                        task: `Confirm additional AHJ fee / inspection line ${i + 1} before bid`,
+                        timeline: 'Pre-bid',
+                        responsible_party: 'Estimator',
+                      }));
+                      const rows = [
+                        ...leftover.map((item) => ({
+                          task: item.task,
+                          timeline: item.timeline,
+                          responsible_party: item.responsible_party || 'Owner',
+                        })),
+                        ...placeholders,
+                      ];
+                      if (!rows.length) return null;
+                      return (
+                        <>
+                          {rows.map((item, idx) => (
+                            <div
+                              key={`blur-punch-${idx}`}
+                              className="relative overflow-hidden rounded-lg border border-purple-500/30 bg-slate-800/40 p-3 select-none"
+                              aria-hidden
+                            >
+                              <div className="blur-sm opacity-70 pointer-events-none">
+                                <p className="text-white text-sm font-semibold">{item.task}</p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  {item.timeline} • {item.responsible_party}
+                                </p>
+                              </div>
+                              <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
+                                <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
+                                  Locked
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                          <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
+                            <p className="text-sm text-purple-100 mb-3">
+                              More punch lines locked — forward the Bid Risk Receipt or start
+                              Estimator / Permit Runner for the full forwardable habit.
                             </p>
+                            {demoTier ? (
+                              renderLadderUpsells({ dense: true })
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => void downloadBidReceipt()}
+                                    disabled={packetLoading}
+                                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
+                                  >
+                                    {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void copyShareText('text')}
+                                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
+                                  >
+                                    Copy receipt text
+                                  </button>
+                                </div>
+                                {renderLadderUpsells({ dense: true })}
+                              </div>
+                            )}
                           </div>
-                          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
-                            <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
-                              Locked
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
-                      <p className="text-sm text-purple-100 mb-3">
-                        {(view.punch_list?.punch_list || []).length - punchVisible} more punch
-                        lines locked — forward the Bid Risk Receipt or upgrade to unlock.
-                      </p>
-                      {demoTier ? (
-                        renderLadderUpsells({ dense: true })
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                            <button
-                              type="button"
-                              onClick={() => void downloadBidReceipt()}
-                              disabled={packetLoading}
-                              className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
-                            >
-                              {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void copyShareText('text')}
-                              className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
-                            >
-                              Copy receipt text
-                            </button>
-                          </div>
-                          {renderLadderUpsells({ dense: true })}
-                        </div>
-                      )}
-                    </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 )}
                 {ladderTier === 'free' && !softLocked && !demoTier && (
@@ -3777,7 +3807,7 @@ export default function ResultsViewerModal({
 
             {cityPackHasBody ? (
               <div id="bid-arbitrage" className="divide-y divide-emerald-500/20 relative">
-                {ladderTier === 'free' ? (
+                {ladderTier === 'free' || softLocked ? (
                   <div className="absolute inset-0 z-10 flex flex-col justify-end">
                     <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                     <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
@@ -4228,6 +4258,24 @@ export default function ResultsViewerModal({
                     )}
                   </div>
                 )}
+              </div>
+            ) : ladderTier === 'free' || softLocked ? (
+              <div className="relative px-4 py-8 min-h-[140px]">
+                <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
+                <div className="relative z-10 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
+                  <p className="text-xs font-bold text-purple-50 mb-2">
+                    Free — Full City Pack fees & gotchas stay locked. Start Estimator for the
+                    forwardable Receipt habit.
+                  </p>
+                  {renderLadderUpsells({ dense: true })}
+                </div>
+              </div>
+            ) : blurProDesk ? (
+              <div className="px-4 py-3 border-t border-amber-500/30 bg-amber-500/10">
+                <p className="text-xs font-bold text-amber-50 mb-2">
+                  Estimator — fee dollars and pack PDF stay on Contractor Pro ($149).
+                </p>
+                {renderLadderUpsells({ dense: true })}
               </div>
             ) : (
               <p className="text-sm text-amber-100/90 px-4 py-3 leading-relaxed">

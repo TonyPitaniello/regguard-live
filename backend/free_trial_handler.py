@@ -32,6 +32,9 @@ class FreeTrialRequest(BaseModel):
     ic_idempotency_key: Optional[str] = None
     # Device id so Saved Jobs can list this run even if email lookup is skipped
     owner_key: Optional[str] = None
+    # free | partner | pro | ic — Free Preview button always sends "free" so paid
+    # emails still get Free soft-lock theater (sample parity). Unlock-deeper sends pro/partner.
+    research_mode: Optional[str] = None
 
 
 class FreeTrialResponse(BaseModel):

@@ -1797,6 +1797,30 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     email_for_ent = getattr(request_body, "email", None)
     habit_paid = has_paid_access(email_for_ent)  # Estimator+ (quota bypass)
     pro_research = has_pro_research_access(email_for_ent)  # Pro / IC only
+    # Free Preview button forces free FinOps even for paid emails (sample-parity blur).
+    # Unlock-deeper / IC generate opts into paid depth via research_mode or generate_ic_report.
+    mode_raw = str(getattr(request_body, "research_mode", None) or "").strip().lower()
+    force_free = mode_raw in ("free", "preview", "instant")
+    force_partner = mode_raw in ("partner", "estimator")
+    force_pro = mode_raw in ("pro", "contractor_pro", "deep")
+    want_ic = bool(getattr(request_body, "generate_ic_report", False))
+    if force_free and not want_ic:
+        habit_paid = False
+        pro_research = False
+    elif force_partner and not want_ic:
+        # Estimator habit path — even if email also has Pro
+        pro_research = False
+        habit_paid = True
+    elif force_pro or want_ic:
+        # Explicit deepen / IC — use email entitlements (or require Pro)
+        if want_ic:
+            pro_research = True
+        elif not pro_research and habit_paid:
+            # Partner-only email asked for pro mode — stay partner
+            pro_research = False
+        elif not pro_research and not habit_paid:
+            # Unpaid asked for pro — stay free
+            pass
     paid = pro_research  # paid_local / deep path — NOT Estimator
     research_depth = "pro" if pro_research else ("partner" if habit_paid else "free")
 
@@ -1973,6 +1997,11 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     "Contractor Pro adds deep scout + City Pack PDF / CSV / bid packet."
                 )
             else:
+                if isinstance(analysis, dict):
+                    analysis["research_depth"] = "free"
+                    analysis["depth_tier"] = "free"
+                    analysis["access_tier"] = "free"
+                    analysis["entitlement_tiers"] = []
                 message = (
                     "Free Bid Risk preview ready — city pack"
                     + (
@@ -2024,6 +2053,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             analysis["preview"] = True
             analysis["depth_claim_note"] = (
                 "Instant preview — Estimator habit research did not finish. Re-run with a clear pin."
+            )
+        else:
+            # Unpaid free timeout — always stamp free so UI soft-locks like samples
+            analysis["research_depth"] = "free"
+            analysis["depth_tier"] = "free"
+            analysis["preview"] = True
+            analysis["access_tier"] = "free"
+            analysis["entitlement_tiers"] = []
+            analysis["depth_claim_note"] = (
+                "Free Bid Risk preview — deepen with Estimator or Contractor Pro."
             )
 
     # Absolute guarantee: never return without analysis_data

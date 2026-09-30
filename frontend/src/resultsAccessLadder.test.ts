@@ -5,7 +5,9 @@
 import {
   resolveResultsLadder,
   ladderUpsells,
+  ladderTierFromResearchDepth,
   FREE_SOFT_PUNCH,
+  FREE_SYNTHETIC_BLUR_TEASERS,
 } from './resultsAccessLadder';
 
 function assert(cond: unknown, msg: string) {
@@ -25,6 +27,34 @@ function assert(cond: unknown, msg: string) {
   assert(ladder.allowProDesk === false, 'free depth must not allow Pro desk');
   assert(ladder.softLocked === true, 'live free always soft-locked like sample');
   assert(ladder.punchVisible === FREE_SOFT_PUNCH, 'free soft punch');
+  assert(ladder.syntheticBlurTeasers === FREE_SYNTHETIC_BLUR_TEASERS, 'free synthetic blur');
+}
+
+// Missing depth + sticky IC must NOT invent IC (was Free→IC skip bug)
+{
+  const ladder = resolveResultsLadder({
+    accessTier: 'ic',
+    entitlementTiers: ['ic_project', 'contractor_pro'],
+    shareUnlocked: true,
+    researchDepth: '',
+    preview: false,
+  });
+  assert(ladder.tier === 'free', 'missing depth defaults to free — never invent IC');
+  assert(ladder.softLocked === true, 'missing depth soft-locks');
+  assert(ladder.blurProDesk === true, 'missing depth blurs desk');
+  const rows = ladderUpsells(ladder.tier, { nextOnly: true });
+  assert(rows.length === 1 && rows[0].tier === 'partner', 'missing depth next = Estimator only');
+}
+
+// Sticky IC stamp on free preview flag
+{
+  const ladder = resolveResultsLadder({
+    accessTier: 'ic_project',
+    entitlementTiers: ['ic_project'],
+    preview: true,
+  });
+  assert(ladder.tier === 'free', 'preview flag caps at free over IC stamp');
+  assert(ladderUpsells(ladder.tier)[0].tier === 'partner', 'preview free → Estimator');
 }
 
 // Estimator-depth must NOT unlock Pro desk from sticky contractor_pro
@@ -38,16 +68,18 @@ function assert(cond: unknown, msg: string) {
   assert(ladder.blurProDesk === true, 'Estimator blurs Pro desk');
   assert(ladder.allowProDesk === false, 'Estimator no Pro desk downloads');
   assert(ladder.softLocked === false, 'Estimator not soft-locked');
+  assert(ladderUpsells('partner')[0].tier === 'contractor_pro', 'Estimator next = Pro');
 }
 
-// Pro-depth unlocks desk; next upsell is IC
+// Pro-depth unlocks desk; next upsell is IC — sticky IC stamp alone does not flip display to IC
 {
   const ladder = resolveResultsLadder({
-    accessTier: 'contractor_pro',
-    entitlementTiers: ['contractor_pro'],
+    accessTier: 'ic',
+    entitlementTiers: ['ic_project', 'contractor_pro'],
     researchDepth: 'pro',
+    isIcDepth: false,
   });
-  assert(ladder.tier === 'pro', 'pro depth');
+  assert(ladder.tier === 'pro', 'pro depth stays Pro without isIcDepth');
   assert(ladder.allowProDesk === true, 'Pro allows desk');
   assert(ladder.blurProDesk === false, 'Pro no desk blur');
   const rows = ladderUpsells('pro', { nextOnly: true });
@@ -113,6 +145,16 @@ function assert(cond: unknown, msg: string) {
 {
   const rows = ladderUpsells('partner', { nextOnly: true });
   assert(rows.length === 1 && rows[0].tier === 'contractor_pro', 'partner next = pro');
+}
+
+// Explicit partner depth is not free even with preview leftover
+{
+  assert(
+    ladderTierFromResearchDepth('partner', true) === 'partner',
+    'partner depth beats preview flag'
+  );
+  assert(ladderTierFromResearchDepth('pro', true) === 'pro', 'pro depth beats preview flag');
+  assert(ladderTierFromResearchDepth('', false) === 'free', 'empty depth = free');
 }
 
 console.log('resultsAccessLadder.test.ts OK');

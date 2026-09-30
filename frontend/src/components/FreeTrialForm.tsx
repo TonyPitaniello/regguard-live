@@ -346,6 +346,7 @@ export default function FreeTrialForm({
       setPaidEntitled(false);
       setProResearchEntitled(false);
       setEntitlementTiers([]);
+      setIcReportPending(false);
     } else if (partnerDepth) {
       // Estimator-depth: strip sticky Pro/IC so desk stays blurred like sample Estimator
       try {
@@ -747,6 +748,23 @@ export default function FreeTrialForm({
       const timeoutMs = generateIcReport ? 180000 : deepResearch ? 130000 : 45000;
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
       const icKey = generateIcReport ? getOrCreateIcRunId() : undefined;
+      let pendingDeep = false;
+      try {
+        pendingDeep = sessionStorage.getItem('pendingDeepUnlock') === '1';
+      } catch {
+        pendingDeep = false;
+      }
+      // Free Preview button always requests free FinOps (sample-parity blur + Estimator CTA).
+      // Unlock-deeper / post-checkout uses pendingDeepUnlock; IC uses generate_ic_report.
+      const researchMode = generateIcReport
+        ? 'ic'
+        : pendingDeep
+          ? deepResearch
+            ? 'pro'
+            : paid
+              ? 'partner'
+              : 'free'
+          : 'free';
 
       const response = await fetch(backendUrl('/free-trial'), {
         method: 'POST',
@@ -763,6 +781,7 @@ export default function FreeTrialForm({
           generate_ic_report: generateIcReport,
           ic_idempotency_key: icKey,
           owner_key: getOwnerKey() || undefined,
+          research_mode: researchMode,
           ...(dataForApi.lat != null && dataForApi.lng != null
             ? { latitude: dataForApi.lat, longitude: dataForApi.lng }
             : {}),
@@ -771,6 +790,14 @@ export default function FreeTrialForm({
       window.clearTimeout(timeoutId);
       if (generateIcReport) {
         clearIcRunId();
+      }
+      if (researchMode === 'free') {
+        try {
+          sessionStorage.removeItem('pendingDeepUnlock');
+        } catch {
+          /* ignore */
+        }
+        setIcReportPending(false);
       }
 
       let payload: Record<string, unknown> = {};
@@ -814,8 +841,17 @@ export default function FreeTrialForm({
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
         const analysis = payload.analysis_data as AnalysisData;
-        if (payload.research_depth && !analysis.research_depth) {
-          analysis.research_depth = String(payload.research_depth);
+        // Prefer top-level research_depth from the run (authoritative for soft-lock)
+        const topDepth = String(payload.research_depth || '').toLowerCase();
+        if (topDepth) {
+          analysis.research_depth = topDepth;
+        } else if (!analysis.research_depth) {
+          analysis.research_depth = 'free';
+        }
+        if (topDepth === 'free' || analysis.research_depth === 'free') {
+          analysis.preview = true;
+          (analysis as AnalysisData & { access_tier?: string }).access_tier = 'free';
+          (analysis as AnalysisData & { entitlement_tiers?: string[] }).entitlement_tiers = [];
         }
         if (payload.ic_pdfs_ready) {
           (analysis as AnalysisData & { ic_pdfs_ready?: boolean }).ic_pdfs_ready = true;
@@ -1588,6 +1624,8 @@ export default function FreeTrialForm({
             }
             onUnlockDeeper={() => {
               try {
+                // Paid deepen path — do not force free FinOps on this re-run
+                sessionStorage.setItem('pendingDeepUnlock', '1');
                 // Only skip Checkout when THIS site still has an unused / same-site IC credit
                 if (icReportPending) {
                   sessionStorage.setItem('icForceOnce', '1');
