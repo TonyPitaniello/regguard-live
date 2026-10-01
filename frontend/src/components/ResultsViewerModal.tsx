@@ -36,6 +36,7 @@ import {
   type CheckoutLadderTier,
 } from '../resultsAccessLadder';
 import { TIER_VOICE } from '../tierVoice';
+import TierUpgradeStack from './TierUpgradeStack';
 
 const FREE_FINDINGS_VISIBLE = 3;
 
@@ -1212,30 +1213,10 @@ export default function ResultsViewerModal({
       return true;
     });
     if (!rows.length) return null;
-    return (
-      <div className={`flex flex-col gap-2 ${opts?.dense ? 'mt-2' : 'mt-3'} items-stretch sm:items-center`}>
-        {rows.map((row) => (
-          <div key={row.tier} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => goCheckout(row.tier)}
-              className={
-                row.primary
-                  ? 'px-4 py-2.5 min-h-[44px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold'
-                  : 'px-4 py-2.5 min-h-[44px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 text-sm font-semibold'
-              }
-            >
-              {row.label}
-            </button>
-            {row.offers ? (
-              <p className="text-xs text-emerald-100/85 sm:text-left text-center leading-snug">
-                {row.offers}
-              </p>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    );
+    if (!opts?.dense) {
+      return <TierUpgradeStack rows={rows} onCheckout={goCheckout} variant="cards" />;
+    }
+    return <TierUpgradeStack rows={rows} onCheckout={goCheckout} variant="buttons" />;
   };
 
   const icPdfsReady =
@@ -1300,31 +1281,33 @@ export default function ResultsViewerModal({
     return false;
   };
 
-  /** F1: one primary upgrade block — next step only, matching sample ladder */
+  /** Same upgrade stack on samples and live runs */
   const renderPrimaryUpgrade = () => {
-    // IC-depth results: no further product upsell in the primary slot
     if (allowIcPackageDownload) return null;
-    // Live Free / Estimator / Pro: always next-tier voice (match samples)
-    if (!demoTier && (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro')) {
+    if (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro') {
       const v =
         ladderTier === 'free'
           ? TIER_VOICE.free
           : ladderTier === 'partner'
             ? TIER_VOICE.partner
             : TIER_VOICE.pro;
+      const here =
+        ladderTier === 'free'
+          ? 'Free Lookups'
+          : ladderTier === 'partner'
+            ? 'Estimator / Permit Runner'
+            : 'Contractor Pro';
       return (
         <section
           id="rg-primary-upgrade"
-          className="rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-500/10 via-slate-900/70 to-blue-500/10 p-4 sm:p-5"
+          className="rounded-xl border border-emerald-500/35 bg-slate-900/70 p-4 sm:p-5"
         >
-          <div className="flex items-start gap-3">
-            <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
-            <div className="min-w-0 flex-1">
-              <h3 className="text-white font-bold text-sm sm:text-base">{v.upsellHeadline}</h3>
-              <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{v.upsellBody}</p>
-              {renderLadderUpsells()}
-            </div>
-          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-300/90">
+            You are on {here}
+          </p>
+          <h3 className="text-white font-bold text-sm sm:text-base mt-1">{v.upsellHeadline}</h3>
+          <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{v.upsellBody}</p>
+          {renderLadderUpsells()}
         </section>
       );
     }

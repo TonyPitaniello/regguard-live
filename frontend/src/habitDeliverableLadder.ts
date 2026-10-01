@@ -37,7 +37,7 @@ export const HABIT_TIERS = {
       'Full Bid Risk Receipt PDF — forward to GC / owner / client',
       'Unlocked punch list (owner · due window · Source or Unverified)',
       'Saved Jobs + weekly email reminders for client pipeline',
-      'In-app city pack slice for beachhead AHJs',
+      'AHJ names and portal links in the app — Full City Pack PDF stays on Contractor Pro',
       'More monthly lookups than Free (habit quota)',
       'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     ] as const,

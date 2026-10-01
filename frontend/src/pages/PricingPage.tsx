@@ -179,11 +179,11 @@ export default function PricingPage() {
 
               <button
                 onClick={() => handleCta(tier.key)}
-                className={`w-full px-6 py-3 font-bold rounded-lg transition cursor-pointer ${
-                  tier.highlight
-                    ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg shadow-green-500/20'
-                    : 'border border-purple-500/50 hover:border-purple-500 text-white bg-slate-900/50 hover:bg-slate-900'
-                }`}
+                className={
+                  tier.key === 'free'
+                    ? 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer border border-emerald-400/50 text-emerald-50 hover:bg-emerald-500/10'
+                    : 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white'
+                }
               >
                 {tier.cta}
               </button>

@@ -50,10 +50,90 @@ export type ResultsLadder = {
 export type LadderUpsell = {
   tier: CheckoutLadderTier;
   label: string;
-  /** Short “what you get” line for the next step */
+  /** Short “what you get” line */
   offers?: string;
+  name: string;
+  price: string;
+  /** One compelling, accurate sentence */
+  summary: string;
+  /** What this level includes — buyer language, not a SKU dump */
+  features: readonly string[];
+  /** Honest boundary so the next level stays distinct */
+  notThis: string;
   primary?: boolean;
 };
+
+const UPSELL_PACK: Record<
+  CheckoutLadderTier,
+  Pick<LadderUpsell, 'name' | 'price' | 'summary' | 'features' | 'notThis' | 'label' | 'offers'>
+> = {
+  partner: {
+    name: 'Estimator / Permit Runner',
+    price: '$79/mo',
+    summary:
+      'The Receipt the GC can actually file — full punch, Saved Jobs, and a stamp you can forward every client site.',
+    features: [
+      'Full Bid Risk Receipt PDF — forward to GC, owner, or client',
+      'Unlocked punch list (owner, due window, Source or Unverified)',
+      'Saved Jobs and reminders so the site doesn’t vanish in the thread',
+      'More monthly lookups than Free',
+    ],
+    notThis: 'Not included: Full City Pack PDF, fee/punch CSV, bid packet, or counsel ZIP.',
+    label: TIER_VOICE.free.upsellCta,
+    offers: TIER_VOICE.free.upsellOffers,
+  },
+  contractor_pro: {
+    name: 'Contractor Pro',
+    price: '$149/mo',
+    summary:
+      'The bid desk when your number has to hold — fee dollars, Full City Pack PDF, CSV, and bid packet beside the Receipt.',
+    features: [
+      'Everything in Estimator / Permit Runner',
+      'Full City Pack PDF — fees, gotchas, AHJ links',
+      'Fee/punch CSV, bid sheet, and bid packet',
+      'Paid local confirm on lookups (planning aid — confirm the live schedule)',
+    ],
+    notThis: 'Not included: counsel ZIP (memo, boardroom, Word, Excel). City Pack is not that package.',
+    label: TIER_VOICE.partner.upsellCta,
+    offers: TIER_VOICE.partner.upsellOffers,
+  },
+  ic_project: {
+    name: 'IC Diligence Bundle',
+    price: '$1,500',
+    summary:
+      'The ZIP counsel and lenders open for one capital site — memo, boardroom, editable Word with exhibits, Excel evidence. Not a bigger City Pack.',
+    features: [
+      'Decision memo — HOLD or CLEAR you can forward',
+      'Boardroom PDF plus editable counsel Word with exhibits',
+      'Excel: Fees, Punch, Evidence, and an evidence index',
+      'One bound address. A different site is a new purchase.',
+    ],
+    notThis: 'Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
+    label: TIER_VOICE.pro.upsellCta,
+    offers: TIER_VOICE.pro.upsellOffers,
+  },
+  ic_annual: {
+    name: 'IC Annual',
+    price: '$15,000/yr',
+    summary:
+      'Same counsel ZIP for more capital sites on this purchase email — ahead of $1,500 per site once you pass about ~10.',
+    features: [
+      'Diligence Bundle ZIP for each new bound capital site on this email',
+      'Memo, boardroom, Word, and Excel — same shape, new address',
+      'Ahead of Project rate past about ~10 sites in a year',
+      'Built for IC, owner’s rep, sponsor, and lender packages',
+    ],
+    notThis:
+      'Not day-to-day Contractor Pro. A different purchase email still needs its own $1,500 Project.',
+    label: TIER_VOICE.ic.upsellCta,
+    offers: TIER_VOICE.ic.upsellOffers,
+  },
+};
+
+function pushUpsell(rows: LadderUpsell[], tier: CheckoutLadderTier, primary: boolean) {
+  const pack = UPSELL_PACK[tier];
+  rows.push({ tier, primary, ...pack });
+}
 
 /** Soft-locked Free — matches HABIT_TIERS.free “top ~5” */
 export const FREE_SOFT_PUNCH = 5;
@@ -158,65 +238,33 @@ export function ladderUpsells(
   const nextOnly = opts?.nextOnly === true;
   const rows: LadderUpsell[] = [];
 
-  const pushPartner = (primary: boolean) => {
-    rows.push({
-      tier: 'partner',
-      label: TIER_VOICE.free.upsellCta,
-      offers: TIER_VOICE.free.upsellOffers,
-      primary,
-    });
-  };
-  const pushPro = (primary: boolean) => {
-    rows.push({
-      tier: 'contractor_pro',
-      label: TIER_VOICE.partner.upsellCta,
-      offers: TIER_VOICE.partner.upsellOffers,
-      primary,
-    });
-  };
-  const pushIc = (primary: boolean) => {
-    rows.push({
-      tier: 'ic_project',
-      label: TIER_VOICE.pro.upsellCta,
-      offers: TIER_VOICE.pro.upsellOffers,
-      primary,
-    });
-  };
-  const pushAnnual = (primary: boolean) => {
-    rows.push({
-      tier: 'ic_annual',
-      label: TIER_VOICE.ic.upsellCta,
-      offers: TIER_VOICE.ic.upsellOffers,
-      primary,
-    });
-  };
-
   if (tier === 'free') {
-    pushPartner(true);
+    pushUpsell(rows, 'partner', true);
     if (!nextOnly) {
-      pushPro(false);
-      pushIc(false);
-      if (!opts?.ownsIcAnnual) pushAnnual(false);
+      pushUpsell(rows, 'contractor_pro', false);
+      pushUpsell(rows, 'ic_project', false);
+      if (!opts?.ownsIcAnnual) pushUpsell(rows, 'ic_annual', false);
     }
     return rows;
   }
   if (tier === 'partner') {
-    pushPro(true);
+    pushUpsell(rows, 'contractor_pro', true);
     if (!nextOnly) {
-      pushIc(false);
-      if (!opts?.ownsIcAnnual) pushAnnual(false);
+      pushUpsell(rows, 'ic_project', false);
+      if (!opts?.ownsIcAnnual) pushUpsell(rows, 'ic_annual', false);
     }
     return rows;
   }
   if (tier === 'pro') {
-    pushIc(true);
-    if (!nextOnly && !opts?.ownsIcAnnual) pushAnnual(false);
+    pushUpsell(rows, 'ic_project', true);
+    if (!nextOnly && !opts?.ownsIcAnnual) pushUpsell(rows, 'ic_annual', false);
     return rows;
   }
-  // IC depth
   if (opts?.ownsIcAnnual) {
     const next = nextVoiceForLadderTier('ic', { ownsIcAnnual: true });
+    const pack = UPSELL_PACK.ic_project;
     rows.push({
+      ...pack,
       tier: 'ic_project',
       label: next.upsellCta,
       offers: next.upsellOffers,
@@ -224,7 +272,7 @@ export function ladderUpsells(
     });
     return rows;
   }
-  pushAnnual(true);
+  pushUpsell(rows, 'ic_annual', true);
   return rows;
 }
 

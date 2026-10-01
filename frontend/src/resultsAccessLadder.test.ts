@@ -50,6 +50,8 @@ function assert(cond: unknown, msg: string) {
   const rows = ladderUpsells('free');
   assert(rows.length >= 3, 'free lists multiple higher tiers');
   assert(rows[0].tier === 'partner' && rows[0].primary, 'free primary = Estimator');
+  assert(rows[0].features.length >= 3, 'estimator checklist');
+  assert(/City Pack/.test(rows[0].notThis), 'estimator states City Pack is not included');
   assert(rows.some((r) => r.tier === 'contractor_pro'), 'free includes Pro');
   assert(rows.some((r) => r.tier === 'ic_project'), 'free includes IC Project');
   assert(rows.some((r) => r.tier === 'ic_annual'), 'free includes IC Annual');
