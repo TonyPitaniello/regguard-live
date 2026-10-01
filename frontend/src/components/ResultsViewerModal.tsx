@@ -1220,7 +1220,7 @@ export default function ResultsViewerModal({
                   : 'px-4 py-2.5 min-h-[44px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 text-sm font-semibold'
               }
             >
-              {demoTier ? `SAMPLE · ${row.label}` : row.label}
+              {row.label}
             </button>
             {row.offers ? (
               <p className="text-xs text-emerald-100/85 sm:text-left text-center leading-snug">
