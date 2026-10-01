@@ -1283,20 +1283,29 @@ export default function ResultsViewerModal({
 
   /** Same upgrade stack on samples and live runs */
   const renderPrimaryUpgrade = () => {
-    if (allowIcPackageDownload) return null;
-    if (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro') {
+    if (allowIcPackageDownload && ownsIcAnnual) return null;
+    if (
+      ladderTier === 'free' ||
+      ladderTier === 'partner' ||
+      ladderTier === 'pro' ||
+      (ladderTier === 'ic' && !ownsIcAnnual)
+    ) {
       const v =
         ladderTier === 'free'
           ? TIER_VOICE.free
           : ladderTier === 'partner'
             ? TIER_VOICE.partner
-            : TIER_VOICE.pro;
+            : ladderTier === 'pro'
+              ? TIER_VOICE.pro
+              : TIER_VOICE.ic;
       const here =
         ladderTier === 'free'
           ? 'Free Lookups'
           : ladderTier === 'partner'
             ? 'Estimator / Permit Runner'
-            : 'Contractor Pro';
+            : ladderTier === 'pro'
+              ? 'Contractor Pro'
+              : 'IC Diligence Bundle';
       return (
         <section
           id="rg-primary-upgrade"
@@ -2900,44 +2909,6 @@ export default function ResultsViewerModal({
                   </a>
                 )}
               </div>
-            ) : ladderTier === 'pro' ? (
-              <div className="space-y-3">
-                <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  {IC_BUNDLE.upsellHeadline}
-                </p>
-                <p className="text-gray-300 text-sm leading-relaxed">{IC_BUNDLE.upsellBody}</p>
-                <IcDiligenceBundlePitch variant="compact" />
-                {renderLadderUpsells()}
-              </div>
-            ) : ladderTier === 'partner' ? (
-              <div className="space-y-3">
-                <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  {TIER_VOICE.partner.upsellHeadline}
-                </p>
-                <p className="text-gray-300 text-sm leading-relaxed">{TIER_VOICE.partner.upsellBody}</p>
-                {renderLadderUpsells()}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-slate-200 font-bold text-sm sm:text-base">
-                  {TIER_VOICE.free.upsellHeadline}
-                </p>
-                <p className="text-gray-300 text-sm leading-relaxed">{TIER_VOICE.free.upsellBody}</p>
-                {renderLadderUpsells()}
-              </div>
-            )}
-            {ownsIc && !ownsIcAnnual && !demoTier ? (
-              <div className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-3 space-y-2">
-                <p className="text-sm text-amber-50 font-semibold">{TIER_VOICE.ic.upsellHeadline}</p>
-                <p className="text-xs text-amber-100/90 leading-relaxed">{TIER_VOICE.ic.upsellBody}</p>
-                <button
-                  type="button"
-                  onClick={() => goCheckout('ic_annual')}
-                  className="px-4 py-2.5 min-h-[44px] rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold"
-                >
-                  {TIER_VOICE.ic.upsellCta}
-                </button>
-              </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
               <a
@@ -3404,65 +3375,20 @@ export default function ResultsViewerModal({
             )}
           </section>
 
-          {/* Free: share-to-unlock + next-tier payment — always for free ladder, not only soft-lock */}
-          {!isDeep && (canUnlockDeeper || ladderTier === 'free') && (
-            <section className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-slate-900/80 to-emerald-500/10 p-4 sm:p-5">
-              <div className="flex items-start gap-3 mb-3">
-                <Sparkles className="w-5 h-5 text-amber-300 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="text-white font-bold text-base">
-                    {canUnlockDeeper
-                      ? 'You are paid — unlock deeper research on this site'
-                      : softLocked
-                        ? `Free preview — top ${FREE_SOFT_PUNCH} punch lines`
-                        : 'Free preview — punch unlocked; City Pack stays locked'}
-                  </h3>
-                  <p className="text-gray-300 text-sm mt-1">
-                    {canUnlockDeeper
-                      ? 'Re-run with your paid email for Contractor Pro local confirm + light scout (more citeable sources than free).'
-                      : softLocked
-                        ? 'Forward this Bid Risk Receipt to unlock more free punch lines — or start Estimator / Permit Runner for the forwardable Receipt habit.'
-                        : 'City Pack fees, gotchas, and Pro desk stay locked on Free. Start Estimator for the Receipt habit, or go Pro for fee dollars & pack PDF.'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                {canUnlockDeeper && onUnlockDeeper ? (
-                  <button
-                    type="button"
-                    onClick={onUnlockDeeper}
-                    disabled={unlockLoading}
-                    className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
-                  >
-                    {unlockLoading ? 'Running deep research…' : 'Unlock deeper results on this site'}
-                  </button>
-                ) : (
-                  <>
-                    {softLocked ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => void downloadBidReceipt()}
-                          disabled={packetLoading}
-                          className="px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
-                        >
-                          {packetLoading
-                            ? 'Building receipt…'
-                            : 'Forward Bid Risk Receipt — unlock more free punch'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void copyShareText('text')}
-                          className="px-4 py-3 min-h-[48px] rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm"
-                        >
-                          Copy receipt text
-                        </button>
-                      </>
-                    ) : null}
-                    {renderLadderUpsells({ dense: true })}
-                  </>
-                )}
-              </div>
+          {canUnlockDeeper && onUnlockDeeper && !softLocked && ladderTier !== 'free' && (
+            <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 sm:p-5">
+              <h3 className="text-white font-bold text-base">Unlock deeper research on this site</h3>
+              <p className="text-gray-300 text-sm mt-1">
+                Re-run with your paid email for Contractor Pro local confirm. This does not change a Free preview.
+              </p>
+              <button
+                type="button"
+                onClick={onUnlockDeeper}
+                disabled={unlockLoading}
+                className="mt-3 px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm disabled:opacity-60"
+              >
+                {unlockLoading ? 'Running deep research…' : 'Unlock deeper results on this site'}
+              </button>
             </section>
           )}
 
@@ -3470,16 +3396,6 @@ export default function ResultsViewerModal({
 
           {/* F1: exactly one primary paid CTA for this results view */}
           {renderPrimaryUpgrade()}
-          {(ladderTier === 'pro' || (ladderTier === 'ic' && !ownsIcAnnual)) && !offer?.message ? (
-            <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-              <p className="text-sm text-emerald-50 font-semibold mb-1">
-                {ladderTier === 'pro'
-                  ? 'Pro desk unlocked — add the IC Diligence Bundle for one capital site, or IC Annual after that first Project if you package many.'
-                  : 'IC Bundle ready — IC Annual covers more capital-site ZIPs on this purchase email (ahead of Project rate past ~10 sites).'}
-              </p>
-              {renderLadderUpsells({ dense: true })}
-            </section>
-          ) : null}
 
           {(() => {
             const brief = extractScoutBriefing(view.pro_summary_markdown);
@@ -3641,47 +3557,12 @@ export default function ResultsViewerModal({
                               </div>
                             </div>
                           ))}
-                          <div className="rounded-lg border border-dashed border-purple-500/40 bg-purple-500/10 p-4 text-center">
-                            <p className="text-sm text-purple-100 mb-3">
-                              More punch lines locked — forward the Bid Risk Receipt or start
-                              Estimator / Permit Runner for the full forwardable habit.
-                            </p>
-                            {demoTier ? (
-                              renderLadderUpsells({ dense: true })
-                            ) : (
-                              <div className="space-y-2">
-                                <div className="flex flex-col sm:flex-row gap-2 justify-center">
-                                  <button
-                                    type="button"
-                                    onClick={() => void downloadBidReceipt()}
-                                    disabled={packetLoading}
-                                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold disabled:opacity-60"
-                                  >
-                                    {packetLoading ? 'Building…' : 'Export Receipt — unlock'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => void copyShareText('text')}
-                                    className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold"
-                                  >
-                                    Copy receipt text
-                                  </button>
-                                </div>
-                                {renderLadderUpsells({ dense: true })}
-                              </div>
-                            )}
-                          </div>
+                          <p className="text-sm text-purple-100">
+                            More punch lines stay locked on Free. Estimator unlocks the full list.
+                          </p>
                         </>
                       );
                     })()}
-                  </div>
-                )}
-                {ladderTier === 'free' && !softLocked && !demoTier && (
-                  <div className="mt-3 rounded-lg border border-dashed border-emerald-500/40 bg-emerald-500/10 p-4 text-center">
-                    <p className="text-sm text-emerald-50 mb-1 font-semibold">
-                      Free list unlocked — keep the habit on Estimator, or open the Pro desk.
-                    </p>
-                    {renderLadderUpsells({ dense: true })}
                   </div>
                 )}
                 {proBlurPunchTeasers > 0 &&
@@ -3708,11 +3589,8 @@ export default function ResultsViewerModal({
                         ))}
                       <div className="text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
                         <p className="text-xs text-amber-100/90">
-                          {demoTier
-                            ? 'SAMPLE — fee dollars + City Pack PDF / CSV / bid packet unlock on Contractor Pro ($149/mo).'
-                            : 'Next: Contractor Pro ($149/mo) unlocks fee dollars, Full City Pack PDF, CSV, and bid packet.'}
+                          Contractor Pro unlocks fee dollars, Full City Pack PDF, CSV, and bid packet.
                         </p>
-                        {renderLadderUpsells({ dense: true })}
                       </div>
                     </div>
                   )}
@@ -3731,19 +3609,14 @@ export default function ResultsViewerModal({
             </div>
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5 relative overflow-hidden">
               <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.estimatedCost}</h3>
-              {softLocked ? (
+              {softLocked || blurProDesk ? (
                 <>
                   <p className="text-2xl font-black text-green-400 blur-sm select-none">$••,•••</p>
                   <p className="text-xs text-amber-200/90 mt-2">
-                    Full cost rollup unlocks when you forward the punch list or upgrade.
+                    {softLocked
+                      ? 'Cost rollup stays locked on Free.'
+                      : 'Fee dollars stay locked until Contractor Pro.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => void copyShareText('text')}
-                    className="mt-3 text-sm font-bold text-emerald-300 underline"
-                  >
-                    Forward to reveal estimate
-                  </button>
                 </>
               ) : (
                 <>
@@ -3812,19 +3685,15 @@ export default function ResultsViewerModal({
                     <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                     <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
                       <p className="text-xs font-bold text-purple-50">
-                        Free — Full City Pack fees & gotchas stay locked. Start Estimator for the
-                        forwardable Receipt habit; Contractor Pro unlocks fee dollars & the pack PDF.
+                        Free — Full City Pack fees and gotchas stay locked.
                       </p>
-                      {renderLadderUpsells({ dense: true })}
                     </div>
                   </div>
                 ) : blurProDesk ? (
                   <div className="px-4 py-3 border-b border-amber-500/30 bg-amber-500/10">
                     <p className="text-xs font-bold text-amber-50">
-                      Estimator — contingency & punch unlocked. Fee dollars and pack PDF stay on
-                      Contractor Pro ($149).
+                      Estimator — fee dollars and the pack PDF stay blurred until Contractor Pro.
                     </p>
-                    {renderLadderUpsells({ dense: true })}
                   </div>
                 ) : null}
                 {view.contingency_band && (
@@ -4077,7 +3946,6 @@ export default function ResultsViewerModal({
                               ? 'Included: Receipt + City Pack PDF / CSV / bid packet. Locked: IC Diligence Bundle counsel ZIP ($1,500).'
                               : 'Included: Receipt + Pro desk + IC Diligence Bundle ZIP.'}
                       </p>
-                      {!allowIcPackageDownload ? renderLadderUpsells({ dense: true }) : null}
                     </div>
                     <button
                       type="button"
@@ -4302,19 +4170,16 @@ export default function ResultsViewerModal({
               <div className="relative px-4 py-8 min-h-[140px]">
                 <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                 <div className="relative z-10 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
-                  <p className="text-xs font-bold text-purple-50 mb-2">
-                    Free — Full City Pack fees & gotchas stay locked. Start Estimator for the
-                    forwardable Receipt habit.
+                  <p className="text-xs font-bold text-purple-50">
+                    Free — Full City Pack stays locked.
                   </p>
-                  {renderLadderUpsells({ dense: true })}
                 </div>
               </div>
             ) : blurProDesk ? (
               <div className="px-4 py-3 border-t border-amber-500/30 bg-amber-500/10">
-                <p className="text-xs font-bold text-amber-50 mb-2">
-                  Estimator — fee dollars and pack PDF stay on Contractor Pro ($149).
+                <p className="text-xs font-bold text-amber-50">
+                  Estimator — fee dollars and the pack PDF stay locked until Contractor Pro.
                 </p>
-                {renderLadderUpsells({ dense: true })}
               </div>
             ) : (
               <p className="text-sm text-amber-100/90 px-4 py-3 leading-relaxed">
@@ -4878,30 +4743,6 @@ export default function ResultsViewerModal({
             )}
           </section>
         </div>
-
-        {/* Sticky next-tier payment — always reachable while scrolling results */}
-        {!demoTier &&
-          (ladderTier === 'free' || ladderTier === 'partner' || ladderTier === 'pro') &&
-          !alreadyOwnsCheckout(
-            ladderTier === 'free'
-              ? 'partner'
-              : ladderTier === 'partner'
-                ? 'contractor_pro'
-                : 'ic_project'
-          ) && (
-            <div className="sticky bottom-0 z-30 border-t border-emerald-500/30 bg-slate-950/95 backdrop-blur-md px-4 py-3 sm:px-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 max-w-4xl mx-auto">
-                <p className="text-xs sm:text-sm text-emerald-50/90 font-semibold text-center sm:text-left">
-                  {ladderTier === 'free'
-                    ? TIER_VOICE.free.upsellHeadline
-                    : ladderTier === 'partner'
-                      ? TIER_VOICE.partner.upsellHeadline
-                      : TIER_VOICE.pro.upsellHeadline}
-                </p>
-                {renderLadderUpsells({ dense: true })}
-              </div>
-            </div>
-          )}
       </div>
     </div>
   );

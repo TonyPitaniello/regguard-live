@@ -841,17 +841,23 @@ export default function FreeTrialForm({
 
       if (payload.analysis_data && typeof payload.analysis_data === 'object') {
         const analysis = payload.analysis_data as AnalysisData;
-        // Prefer top-level research_depth from the run (authoritative for soft-lock)
-        const topDepth = String(payload.research_depth || '').toLowerCase();
-        if (topDepth) {
-          analysis.research_depth = topDepth;
-        } else if (!analysis.research_depth) {
+        // Free Preview button always displays Free soft-lock, even if a paid email
+        // would otherwise stamp Pro and skip the blur.
+        if (researchMode === 'free') {
           analysis.research_depth = 'free';
-        }
-        if (topDepth === 'free' || analysis.research_depth === 'free') {
+          analysis.depth_tier = 'free';
           analysis.preview = true;
+          analysis.depth_badge = 'Free Lookups — bid-or-walk preview';
           (analysis as AnalysisData & { access_tier?: string }).access_tier = 'free';
           (analysis as AnalysisData & { entitlement_tiers?: string[] }).entitlement_tiers = [];
+          analysis.ic_package = false;
+        } else {
+          const topDepth = String(payload.research_depth || '').toLowerCase();
+          if (topDepth) {
+            analysis.research_depth = topDepth;
+          } else if (!analysis.research_depth) {
+            analysis.research_depth = 'free';
+          }
         }
         if (payload.ic_pdfs_ready) {
           (analysis as AnalysisData & { ic_pdfs_ready?: boolean }).ic_pdfs_ready = true;
