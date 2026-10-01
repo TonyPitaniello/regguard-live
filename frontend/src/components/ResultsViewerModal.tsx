@@ -3373,17 +3373,34 @@ export default function ResultsViewerModal({
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => void downloadCityPackPdf()}
+                onClick={() => {
+                  if (!allowProDeskDownloads) {
+                    showToast(proDeskGateMessage('city_pack_pdf'));
+                    goCheckout('contractor_pro');
+                    return;
+                  }
+                  void downloadCityPackPdf();
+                }}
                 disabled={packetLoading}
                 className={`inline-flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-lg text-xs font-bold tracking-wide border disabled:opacity-60 ${
-                  coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
-                    ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
-                    : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
+                  allowProDeskDownloads
+                    ? coverage.tier === 'full_pack' || coverage.tier === 'paid_local'
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-400/50'
+                      : 'bg-slate-800 hover:bg-slate-700 text-gray-100 border-slate-500'
+                    : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-50 border-amber-500/40'
                 }`}
-                title="Download Full City Pack PDF — contingency, fees, gotchas, AHJ links"
+                title={
+                  allowProDeskDownloads
+                    ? 'Download Full City Pack PDF — contingency, fees, gotchas, AHJ links'
+                    : 'Full City Pack PDF unlocks on Contractor Pro ($149/mo)'
+                }
               >
                 <Download className="w-3.5 h-3.5" />
-                {packetLoading ? 'Building city pack…' : 'Download Full City Pack PDF'}
+                {packetLoading
+                  ? 'Building city pack…'
+                  : allowProDeskDownloads
+                    ? 'Download Full City Pack PDF'
+                    : 'City pack — Pro $149'}
               </button>
               <p className="text-sm text-gray-200 flex-1 min-w-[12rem]">{coverage.warning}</p>
               <button

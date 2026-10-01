@@ -128,6 +128,66 @@ def analysis_is_ic_depth(analysis: Optional[Dict[str, Any]]) -> bool:
     return depth_tier == "ic_full" or research_depth in ("ic", "ic_full")
 
 
+def analysis_is_pro_desk_depth(analysis: Optional[Dict[str, Any]]) -> bool:
+    """
+    True when THIS run earned the Contractor Pro desk (City Pack / CSV / bid packet).
+    Free FinOps and Estimator habit runs must never unlock desk PDFs.
+    """
+    if not isinstance(analysis, dict):
+        return False
+    depth = str(analysis.get("research_depth") or "").strip().lower()
+    tier = str(analysis.get("depth_tier") or "").strip().lower()
+    access = str(analysis.get("access_tier") or "").strip().lower()
+    if depth in ("free", "instant", "preview") or tier in ("free", "instant", "preview"):
+        return False
+    if depth in ("partner", "estimator") or tier in ("partner", "estimator"):
+        return False
+    if access in ("free", "partner", "estimator"):
+        # Stamp wins when depth missing/ambiguous — never invent Pro desk on Free/Estimator
+        if depth in ("",) and tier in ("",):
+            return False
+        if depth in ("free", "instant", "preview", "partner", "estimator"):
+            return False
+    if depth in ("pro", "pro_partial", "pro_light", "pro_local", "ic", "ic_full") or depth.startswith(
+        "pro_"
+    ):
+        return True
+    if tier in ("pro_light", "pro_local", "pro_partial", "ic_full") or tier.startswith("pro_"):
+        return True
+    if access in ("contractor_pro", "pro", "ic", "ic_project", "ic_consultant", "ic_annual", "sponsor"):
+        # Only if depth isn't explicitly free/partner (handled above)
+        return depth not in ("free", "instant", "preview", "partner", "estimator", "")
+    return False
+
+
+def assert_pro_desk_access(analysis: Optional[Dict[str, Any]], *, artifact: str = "City Pack") -> None:
+    """Hard paywall: Full City Pack / fee CSV / bid packet require Pro-depth (or IC) results."""
+    from fastapi import HTTPException
+
+    if analysis_is_pro_desk_depth(analysis):
+        return
+    depth = ""
+    if isinstance(analysis, dict):
+        depth = str(analysis.get("research_depth") or analysis.get("depth_tier") or "free").strip().lower()
+    if depth in ("partner", "estimator"):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                f"{artifact} is on the Contractor Pro bid desk ($149/mo). "
+                "Estimator ($79) includes the forwardable Receipt and unlocked punch — "
+                "upgrade to Pro for Full City Pack PDF, fee/punch CSV, and bid packet."
+            ),
+        )
+    raise HTTPException(
+        status_code=403,
+        detail=(
+            f"{artifact} is not included on Free Lookups. "
+            "Start Estimator / Permit Runner ($79/mo) for the Receipt habit, or "
+            "Contractor Pro ($149/mo) for Full City Pack PDF, CSV, and bid packet."
+        ),
+    )
+
+
 def assert_ic_artifact_access(email: Optional[str], analysis: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Hard paywall for IC Diligence Bundle / boardroom / DOCX / evidence exports.

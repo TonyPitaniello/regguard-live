@@ -4713,8 +4713,10 @@ async def post_bid_sheet_csv(body: BidSheetRequest):
     from fastapi.responses import Response
 
     from bid_sheet_export import analysis_to_bid_csv
+    from entitlement import assert_pro_desk_access
 
     analysis = _resolve_export_analysis(body)
+    assert_pro_desk_access(analysis, artifact="Fee / punch CSV")
     csv_text = analysis_to_bid_csv(analysis)
     return Response(
         content=csv_text,
@@ -4729,8 +4731,10 @@ async def post_bid_sheet_pdf(body: BidSheetRequest):
     from fastapi.responses import Response
 
     from bid_sheet_pdf import analysis_to_bid_sheet_pdf
+    from entitlement import assert_pro_desk_access
 
     analysis = _resolve_export_analysis(body)
+    assert_pro_desk_access(analysis, artifact="Bid sheet PDF")
     try:
         data = analysis_to_bid_sheet_pdf(analysis)
     except Exception as e:
@@ -4749,8 +4753,10 @@ async def post_city_pack_pdf(body: BidSheetRequest):
     from fastapi.responses import Response
 
     from city_pack_pdf import generate_city_pack_pdf_bytes
+    from entitlement import assert_pro_desk_access
 
     analysis = _resolve_export_analysis(body)
+    assert_pro_desk_access(analysis, artifact="Full City Pack PDF")
     try:
         data = generate_city_pack_pdf_bytes(analysis)
     except Exception as e:
@@ -6004,6 +6010,9 @@ async def create_bid_packet_pdf(analysis_data: Dict[str, Any] = Body(...)):
         data = enrich_analysis_with_arbitrage(data)
 
     if mode in ("full", "packet", "bid_packet"):
+        from entitlement import assert_pro_desk_access
+
+        assert_pro_desk_access(data, artifact="Full Bid Packet PDF")
         try:
             pdf_bytes = generate_bid_packet_pdf_bytes(data)
         except Exception as e:
