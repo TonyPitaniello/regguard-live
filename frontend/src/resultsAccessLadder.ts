@@ -12,10 +12,11 @@
  *   Pro ($149):         full punch · full findings · fee $ on · City Pack PDF/CSV/bid packet
  *   IC ($1,500):        Pro desk + counsel ZIP (memo · boardroom · DOCX · Excel)
  *
- * Upsell: each level points to the *next* level only — never Free → IC skip.
+ * Upsell: each level lists every higher SKU — next step first (primary), then up to highest cost.
  *
  * HARD RULE: display tier comes from THIS run's research_depth / demoTier.
  * Sticky entitlements must NEVER invent Pro/IC on a free or missing-depth run.
+ * Downloads unlock only for what this tier has paid for (see downloadsAllowedForTier).
  */
 
 import { TIER_VOICE, nextVoiceForLadderTier } from './tierVoice';
@@ -147,81 +148,104 @@ export function accessTierFromEntitlements(tiers: string[] | undefined | null): 
 }
 
 /**
- * Next-step checkout CTAs — pain-first copy from TIER_VOICE (one step only).
+ * Higher-tier checkout CTAs — next step first, then every step up to highest cost.
+ * Free → Estimator → Pro → IC Project → IC Annual
  */
 export function ladderUpsells(
   tier: ResultsLadderTier,
   opts?: { ownsIcAnnual?: boolean; nextOnly?: boolean }
 ): LadderUpsell[] {
-  const nextOnly = opts?.nextOnly !== false;
+  const nextOnly = opts?.nextOnly === true;
+  const rows: LadderUpsell[] = [];
+
+  const pushPartner = (primary: boolean) => {
+    rows.push({
+      tier: 'partner',
+      label: TIER_VOICE.free.upsellCta,
+      offers: TIER_VOICE.free.upsellOffers,
+      primary,
+    });
+  };
+  const pushPro = (primary: boolean) => {
+    rows.push({
+      tier: 'contractor_pro',
+      label: TIER_VOICE.partner.upsellCta,
+      offers: TIER_VOICE.partner.upsellOffers,
+      primary,
+    });
+  };
+  const pushIc = (primary: boolean) => {
+    rows.push({
+      tier: 'ic_project',
+      label: TIER_VOICE.pro.upsellCta,
+      offers: TIER_VOICE.pro.upsellOffers,
+      primary,
+    });
+  };
+  const pushAnnual = (primary: boolean) => {
+    rows.push({
+      tier: 'ic_annual',
+      label: TIER_VOICE.ic.upsellCta,
+      offers: TIER_VOICE.ic.upsellOffers,
+      primary,
+    });
+  };
+
   if (tier === 'free') {
-    const v = TIER_VOICE.free;
-    const rows: LadderUpsell[] = [
-      {
-        tier: 'partner',
-        label: v.upsellCta,
-        offers: v.upsellOffers,
-        primary: true,
-      },
-    ];
+    pushPartner(true);
     if (!nextOnly) {
-      rows.push({
-        tier: 'contractor_pro',
-        label: TIER_VOICE.partner.upsellCta,
-        offers: TIER_VOICE.partner.upsellOffers,
-      });
+      pushPro(false);
+      pushIc(false);
+      if (!opts?.ownsIcAnnual) pushAnnual(false);
     }
     return rows;
   }
   if (tier === 'partner') {
-    const v = TIER_VOICE.partner;
-    return [
-      {
-        tier: 'contractor_pro',
-        label: v.upsellCta,
-        offers: v.upsellOffers,
-        primary: true,
-      },
-    ];
-  }
-  if (tier === 'pro') {
-    const v = TIER_VOICE.pro;
-    const rows: LadderUpsell[] = [
-      {
-        tier: 'ic_project',
-        label: v.upsellCta,
-        offers: v.upsellOffers,
-        primary: true,
-      },
-    ];
-    if (!nextOnly && !opts?.ownsIcAnnual) {
-      rows.push({
-        tier: 'ic_annual',
-        label: TIER_VOICE.ic.upsellCta,
-        offers: TIER_VOICE.ic.upsellOffers,
-      });
+    pushPro(true);
+    if (!nextOnly) {
+      pushIc(false);
+      if (!opts?.ownsIcAnnual) pushAnnual(false);
     }
     return rows;
   }
-  const next = nextVoiceForLadderTier('ic', { ownsIcAnnual: opts?.ownsIcAnnual });
-  if (opts?.ownsIcAnnual) {
-    return [
-      {
-        tier: 'ic_project',
-        label: next.upsellCta,
-        offers: next.upsellOffers,
-        primary: true,
-      },
-    ];
+  if (tier === 'pro') {
+    pushIc(true);
+    if (!nextOnly && !opts?.ownsIcAnnual) pushAnnual(false);
+    return rows;
   }
-  return [
-    {
-      tier: 'ic_annual',
-      label: TIER_VOICE.ic.upsellCta,
-      offers: TIER_VOICE.ic.upsellOffers,
+  // IC depth
+  if (opts?.ownsIcAnnual) {
+    const next = nextVoiceForLadderTier('ic', { ownsIcAnnual: true });
+    rows.push({
+      tier: 'ic_project',
+      label: next.upsellCta,
+      offers: next.upsellOffers,
       primary: true,
-    },
-  ];
+    });
+    return rows;
+  }
+  pushAnnual(true);
+  return rows;
+}
+
+/** Which bid-time downloads this ladder tier has paid for (display + gate). */
+export function downloadsAllowedForTier(tier: ResultsLadderTier): {
+  receiptPreview: boolean;
+  receiptHabit: boolean;
+  proDesk: boolean;
+  icBundle: boolean;
+} {
+  if (tier === 'ic') {
+    return { receiptPreview: true, receiptHabit: true, proDesk: true, icBundle: true };
+  }
+  if (tier === 'pro') {
+    return { receiptPreview: true, receiptHabit: true, proDesk: true, icBundle: false };
+  }
+  if (tier === 'partner') {
+    return { receiptPreview: true, receiptHabit: true, proDesk: false, icBundle: false };
+  }
+  // free
+  return { receiptPreview: true, receiptHabit: false, proDesk: false, icBundle: false };
 }
 
 export function resolveResultsLadder(input: {

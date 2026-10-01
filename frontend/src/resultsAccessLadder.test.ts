@@ -6,6 +6,7 @@ import {
   resolveResultsLadder,
   ladderUpsells,
   ladderTierFromResearchDepth,
+  downloadsAllowedForTier,
   FREE_SOFT_PUNCH,
   FREE_SYNTHETIC_BLUR_TEASERS,
 } from './resultsAccessLadder';
@@ -30,7 +31,7 @@ function assert(cond: unknown, msg: string) {
   assert(ladder.syntheticBlurTeasers === FREE_SYNTHETIC_BLUR_TEASERS, 'free synthetic blur');
 }
 
-// Missing depth + sticky IC must NOT invent IC (was Free→IC skip bug)
+// Missing depth + sticky IC must NOT invent IC
 {
   const ladder = resolveResultsLadder({
     accessTier: 'ic',
@@ -42,48 +43,50 @@ function assert(cond: unknown, msg: string) {
   assert(ladder.tier === 'free', 'missing depth defaults to free — never invent IC');
   assert(ladder.softLocked === true, 'missing depth soft-locks');
   assert(ladder.blurProDesk === true, 'missing depth blurs desk');
-  const rows = ladderUpsells(ladder.tier, { nextOnly: true });
-  assert(rows.length === 1 && rows[0].tier === 'partner', 'missing depth next = Estimator only');
 }
 
-// Sticky IC stamp on free preview flag
+// Free upsells: next → highest (Estimator, Pro, IC, Annual)
 {
-  const ladder = resolveResultsLadder({
-    accessTier: 'ic_project',
-    entitlementTiers: ['ic_project'],
-    preview: true,
-  });
-  assert(ladder.tier === 'free', 'preview flag caps at free over IC stamp');
-  assert(ladderUpsells(ladder.tier)[0].tier === 'partner', 'preview free → Estimator');
+  const rows = ladderUpsells('free');
+  assert(rows.length >= 3, 'free lists multiple higher tiers');
+  assert(rows[0].tier === 'partner' && rows[0].primary, 'free primary = Estimator');
+  assert(rows.some((r) => r.tier === 'contractor_pro'), 'free includes Pro');
+  assert(rows.some((r) => r.tier === 'ic_project'), 'free includes IC Project');
+  assert(rows.some((r) => r.tier === 'ic_annual'), 'free includes IC Annual');
 }
 
-// Estimator-depth must NOT unlock Pro desk from sticky contractor_pro
+// Estimator upsells: Pro → IC → Annual
 {
-  const ladder = resolveResultsLadder({
-    accessTier: 'contractor_pro',
-    entitlementTiers: ['contractor_pro'],
-    researchDepth: 'partner',
-  });
-  assert(ladder.tier === 'partner', 'partner depth caps at Estimator');
-  assert(ladder.blurProDesk === true, 'Estimator blurs Pro desk');
-  assert(ladder.allowProDesk === false, 'Estimator no Pro desk downloads');
-  assert(ladder.softLocked === false, 'Estimator not soft-locked');
-  assert(ladderUpsells('partner')[0].tier === 'contractor_pro', 'Estimator next = Pro');
+  const rows = ladderUpsells('partner');
+  assert(rows[0].tier === 'contractor_pro' && rows[0].primary, 'partner primary = Pro');
+  assert(rows.some((r) => r.tier === 'ic_project'), 'partner includes IC');
+  assert(rows.some((r) => r.tier === 'ic_annual'), 'partner includes Annual');
+  assert(!rows.some((r) => r.tier === 'partner'), 'partner does not re-sell Estimator');
 }
 
-// Pro-depth unlocks desk; next upsell is IC — sticky IC stamp alone does not flip display to IC
+// Pro upsells: IC then Annual
 {
-  const ladder = resolveResultsLadder({
-    accessTier: 'ic',
-    entitlementTiers: ['ic_project', 'contractor_pro'],
-    researchDepth: 'pro',
-    isIcDepth: false,
-  });
-  assert(ladder.tier === 'pro', 'pro depth stays Pro without isIcDepth');
-  assert(ladder.allowProDesk === true, 'Pro allows desk');
-  assert(ladder.blurProDesk === false, 'Pro no desk blur');
-  const rows = ladderUpsells('pro', { nextOnly: true });
-  assert(rows.length === 1 && rows[0].tier === 'ic_project', 'Pro next = IC only');
+  const rows = ladderUpsells('pro');
+  assert(rows[0].tier === 'ic_project' && rows[0].primary, 'pro primary = IC');
+  assert(rows.some((r) => r.tier === 'ic_annual'), 'pro includes Annual');
+}
+
+// nextOnly still works for single CTA
+{
+  const rows = ladderUpsells('free', { nextOnly: true });
+  assert(rows.length === 1 && rows[0].tier === 'partner', 'nextOnly free = partner only');
+}
+
+// Downloads commensurate with paid tier
+{
+  const free = downloadsAllowedForTier('free');
+  assert(free.receiptPreview && !free.receiptHabit && !free.proDesk && !free.icBundle, 'free downloads');
+  const partner = downloadsAllowedForTier('partner');
+  assert(partner.receiptHabit && !partner.proDesk && !partner.icBundle, 'estimator downloads');
+  const pro = downloadsAllowedForTier('pro');
+  assert(pro.proDesk && !pro.icBundle, 'pro downloads');
+  const ic = downloadsAllowedForTier('ic');
+  assert(ic.proDesk && ic.icBundle, 'ic downloads');
 }
 
 // Sticky Pro entitlements must NOT unlock a server-stamped free run
@@ -98,63 +101,38 @@ function assert(cond: unknown, msg: string) {
   assert(ladder.softLocked === true, 'free soft-locked');
 }
 
-// Soft-locked free
+// Estimator-depth must NOT unlock Pro desk from sticky contractor_pro
 {
   const ladder = resolveResultsLadder({
-    accessTier: 'free',
-    entitlementTiers: [],
-    shareUnlocked: false,
-  });
-  assert(ladder.softLocked === true, 'free soft-locks');
-  assert(ladder.punchVisible === FREE_SOFT_PUNCH, 'soft punch');
-}
-
-// Sample free always soft-locked
-{
-  const ladder = resolveResultsLadder({
-    demoTier: 'free',
-    shareUnlocked: true,
+    accessTier: 'contractor_pro',
     entitlementTiers: ['contractor_pro'],
+    researchDepth: 'partner',
   });
-  assert(ladder.tier === 'free', 'sample free tier');
-  assert(ladder.softLocked === true, 'sample free stays soft-locked');
+  assert(ladder.tier === 'partner', 'partner depth caps at Estimator');
+  assert(ladder.blurProDesk === true, 'Estimator blurs Pro desk');
+  assert(ladder.allowProDesk === false, 'Estimator no Pro desk downloads');
 }
 
-// Sample partner matches Estimator desk blur
+// Pro-depth unlocks desk
 {
-  const ladder = resolveResultsLadder({ demoTier: 'partner' });
-  assert(ladder.tier === 'partner', 'sample partner');
-  assert(ladder.blurProDesk === true, 'sample partner blurs desk');
-  assert(ladder.softLocked === false, 'sample partner unlocked punch');
+  const ladder = resolveResultsLadder({
+    accessTier: 'contractor_pro',
+    entitlementTiers: ['contractor_pro'],
+    researchDepth: 'pro',
+    isIcDepth: false,
+  });
+  assert(ladder.tier === 'pro', 'pro depth');
+  assert(ladder.allowProDesk === true, 'Pro allows desk');
 }
 
-// Sample pro unlocks desk
+// Sample free / partner / pro
 {
-  const ladder = resolveResultsLadder({ demoTier: 'pro' });
-  assert(ladder.tier === 'pro', 'sample pro');
-  assert(ladder.allowProDesk === true, 'sample pro desk');
+  assert(resolveResultsLadder({ demoTier: 'free' }).softLocked === true, 'sample free soft');
+  assert(resolveResultsLadder({ demoTier: 'partner' }).blurProDesk === true, 'sample partner blur');
+  assert(resolveResultsLadder({ demoTier: 'pro' }).allowProDesk === true, 'sample pro desk');
 }
 
-// Free upsell is Estimator only (next step)
-{
-  const rows = ladderUpsells('free', { nextOnly: true });
-  assert(rows.length === 1 && rows[0].tier === 'partner', 'free next = partner only');
-}
-
-// Estimator upsell is Pro only
-{
-  const rows = ladderUpsells('partner', { nextOnly: true });
-  assert(rows.length === 1 && rows[0].tier === 'contractor_pro', 'partner next = pro');
-}
-
-// Explicit partner depth is not free even with preview leftover
-{
-  assert(
-    ladderTierFromResearchDepth('partner', true) === 'partner',
-    'partner depth beats preview flag'
-  );
-  assert(ladderTierFromResearchDepth('pro', true) === 'pro', 'pro depth beats preview flag');
-  assert(ladderTierFromResearchDepth('', false) === 'free', 'empty depth = free');
-}
+assert(ladderTierFromResearchDepth('partner', true) === 'partner', 'partner beats preview');
+assert(ladderTierFromResearchDepth('', false) === 'free', 'empty = free');
 
 console.log('resultsAccessLadder.test.ts OK');

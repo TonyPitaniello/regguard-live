@@ -28,6 +28,7 @@ import { PRODUCT_COPY } from '../productCopy';
 import {
   FREE_SOFT_PUNCH,
   FREE_SYNTHETIC_BLUR_TEASERS,
+  downloadsAllowedForTier,
   ladderTierFromResearchDepth,
   ladderUpsells,
   normalizeAccessTier,
@@ -1180,28 +1181,32 @@ export default function ResultsViewerModal({
     (ladder.tier === 'pro' || ladder.tier === 'ic');
   const ownsPro = ladder.ownsPro;
   const ownsPartner = ladder.ownsPartner;
-  const allowProDeskDownloads = ladder.allowProDesk;
   const blurProDesk = ladder.blurProDesk;
   const proBlurPunchTeasers = ladder.proBlurPunchTeasers;
   const syntheticBlurTeasers = ladder.syntheticBlurTeasers || (softLocked ? FREE_SYNTHETIC_BLUR_TEASERS : 0);
   const ownsIcAnnual = ladder.ownsIcAnnual;
   const ladderTier = ladder.tier;
 
+  // Keep IC package download only for real IC-depth completed runs (demo never IC).
+  const allowIcPackageDownload =
+    demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
+      ? false
+      : isIcDepth && !incompleteRun && ladder.ownsIc;
+  const downloadRights = downloadsAllowedForTier(ladderTier);
+  // Paid-depth desk only — free/estimator never get City Pack / CSV / bid packet
+  const allowProDeskDownloads = ladder.allowProDesk && downloadRights.proDesk;
+  const allowReceiptHabit = downloadRights.receiptHabit;
+
   const renderLadderUpsells = (opts?: { dense?: boolean; nextOnly?: boolean }) => {
+    // Default: every higher tier (next → highest). Pass nextOnly:true for a single CTA.
     const rows = ladderUpsells(ladderTier, {
       ownsIcAnnual,
-      nextOnly: opts?.nextOnly !== false,
+      nextOnly: opts?.nextOnly === true,
     }).filter((row) => {
-      if (demoTier) {
-        // Samples always show the next-step CTA for this demo tier
-        return true;
-      }
-      // Free UI: only Estimator — never IC / Pro skip
-      if (ladderTier === 'free') return row.tier === 'partner';
-      if (ladderTier === 'partner') return row.tier === 'contractor_pro';
-      if (ladderTier === 'pro') return row.tier === 'ic_project' || row.tier === 'ic_annual';
-      if (row.tier === 'partner') return !ownsPartner;
-      if (row.tier === 'contractor_pro') return !ownsPro;
+      if (demoTier) return true;
+      // Hide SKUs already owned for this results view
+      if (row.tier === 'partner') return ladderTier === 'free';
+      if (row.tier === 'contractor_pro') return ladderTier === 'free' || ladderTier === 'partner';
       if (row.tier === 'ic_project') return !allowIcPackageDownload;
       if (row.tier === 'ic_annual') return !ownsIcAnnual;
       return true;
@@ -1233,11 +1238,6 @@ export default function ResultsViewerModal({
     );
   };
 
-  // Keep IC package download only for real IC-depth completed runs (demo never IC).
-  const allowIcPackageDownload =
-    demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
-      ? false
-      : isIcDepth && !incompleteRun && ladder.ownsIc;
   const icPdfsReady =
     allowIcPackageDownload &&
     (Boolean(view.ic_pdfs_ready) ||
@@ -4057,16 +4057,28 @@ export default function ResultsViewerModal({
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {!allowProDeskDownloads && (
-                      <div className="w-full text-xs text-amber-100/90 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
-                        <p>
-                          {ladderTier === 'free'
-                            ? 'Free preview — Receipt soft-locked. Estimator unlocks habit desk; Pro unlocks city pack / CSV; IC Bundle is counsel ZIP.'
-                            : 'Estimator unlocks Receipt + punch + Saved Jobs. City pack PDF, bid sheet CSV/PDF, and bid packet unlock on Contractor Pro ($149). IC Bundle ($1,500) / Annual ($15,000/yr) next.'}
-                        </p>
-                        {renderLadderUpsells({ dense: true })}
-                      </div>
-                    )}
+                    <div className="w-full text-xs text-amber-100/90 border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10 space-y-1.5">
+                      <p className="font-semibold text-amber-50">
+                        Downloads at your level
+                        {ladderTier === 'free'
+                          ? ' (Free)'
+                          : ladderTier === 'partner'
+                            ? ' (Estimator)'
+                            : ladderTier === 'pro'
+                              ? ' (Contractor Pro)'
+                              : ' (IC)'}
+                      </p>
+                      <p>
+                        {ladderTier === 'free'
+                          ? 'Included: preview Receipt / forward. Locked: full Receipt habit (Estimator), City Pack / CSV / bid packet (Pro), counsel ZIP (IC).'
+                          : ladderTier === 'partner'
+                            ? 'Included: full Receipt PDF + unlocked punch. Locked: City Pack / CSV / bid packet (Pro), counsel ZIP (IC).'
+                            : ladderTier === 'pro'
+                              ? 'Included: Receipt + City Pack PDF / CSV / bid packet. Locked: IC Diligence Bundle counsel ZIP ($1,500).'
+                              : 'Included: Receipt + Pro desk + IC Diligence Bundle ZIP.'}
+                      </p>
+                      {!allowIcPackageDownload ? renderLadderUpsells({ dense: true }) : null}
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
@@ -4109,7 +4121,11 @@ export default function ResultsViewerModal({
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
                     >
                       <Download className="w-4 h-4" />
-                      {packetLoading ? 'Building…' : 'Download Receipt PDF'}
+                      {packetLoading
+                        ? 'Building…'
+                        : allowReceiptHabit
+                          ? 'Download Receipt PDF'
+                          : 'Receipt preview PDF'}
                     </button>
                     <button
                       type="button"
@@ -4126,15 +4142,22 @@ export default function ResultsViewerModal({
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold disabled:opacity-50 min-h-[44px]"
                     >
                       <Download className="w-4 h-4" />
-                      Bid sheet PDF
+                      {allowProDeskDownloads ? 'Bid sheet PDF' : 'Bid sheet — Pro $149'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => void forwardArtifact('Bid Sheet PDF')}
+                      onClick={() => {
+                        if (!allowProDeskDownloads) {
+                          showToast(proDeskGateMessage('bid_sheet_pdf'));
+                          goCheckout('contractor_pro');
+                          return;
+                        }
+                        void forwardArtifact('Bid Sheet PDF');
+                      }}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-400/40 text-blue-100 text-sm font-semibold min-h-[44px]"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Text bid sheet
+                      {allowProDeskDownloads ? 'Text bid sheet' : 'Text sheet — Pro $149'}
                     </button>
                     <button
                       type="button"
@@ -4142,7 +4165,7 @@ export default function ResultsViewerModal({
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-blue-400/40 text-blue-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
                     >
-                      Bid sheet CSV
+                      {allowProDeskDownloads ? 'Bid sheet CSV' : 'CSV — Pro $149'}
                     </button>
                     <button
                       type="button"
@@ -4150,16 +4173,32 @@ export default function ResultsViewerModal({
                       disabled={packetLoading}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 border border-emerald-400/40 text-emerald-100 text-sm font-semibold disabled:opacity-50 min-h-[44px]"
                     >
-                      Full Bid Packet PDF
+                      {allowProDeskDownloads ? 'Full Bid Packet PDF' : 'Bid packet — Pro $149'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => void forwardArtifact('Full Bid Packet PDF')}
+                      onClick={() => {
+                        if (!allowProDeskDownloads) {
+                          showToast(proDeskGateMessage('bid_packet_pdf'));
+                          goCheckout('contractor_pro');
+                          return;
+                        }
+                        void forwardArtifact('Full Bid Packet PDF');
+                      }}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-400/40 text-emerald-100 text-sm font-semibold min-h-[44px]"
                     >
                       <MessageSquare className="w-4 h-4" />
-                      Text bid packet
+                      {allowProDeskDownloads ? 'Text bid packet' : 'Text packet — Pro $149'}
                     </button>
+                    {!allowIcPackageDownload ? (
+                      <button
+                        type="button"
+                        onClick={() => goCheckout('ic_project')}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/45 bg-amber-500/10 text-amber-50 text-sm font-semibold min-h-[44px]"
+                      >
+                        IC Bundle ZIP — $1,500
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void runRecheck()}
