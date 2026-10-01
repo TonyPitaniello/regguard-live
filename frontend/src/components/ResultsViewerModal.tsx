@@ -1174,7 +1174,7 @@ export default function ResultsViewerModal({
   const punchVisible = ladder.punchVisible;
   const findingsVisible = ladder.findingsVisible;
   const ownsIc = ladder.ownsIc && isIcDepth && !incompleteRun;
-  // Never offer Generate-IC / IC buy on Free or Estimator — next step only
+  // Generate-IC only on Pro/IC depth when a site credit is pending
   const canGenerateIcForSite =
     Boolean(icReportPending) &&
     !ownsIc &&
