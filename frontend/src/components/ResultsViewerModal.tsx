@@ -161,7 +161,11 @@ export interface AnalysisData {
     milestones: Array<{ week: string; milestone: string }>;
     who_to_call: Record<string, string>;
     estimates_verified?: boolean;
+    /** Estimator habit unlock stamp — Free keeps false so soft-lock theater can tease. */
+    habit_unlocked?: boolean;
   };
+  receipt_mode?: 'free_preview' | 'estimator_habit' | string;
+  soft_lock_contingency?: boolean;
   summary?: {
     total_environmental_risks: number;
     high_risk_count: number;

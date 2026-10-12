@@ -122,6 +122,14 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'none';
+    clone.preview = true;
+    (clone as AnalysisData & { receipt_mode?: string }).receipt_mode = 'free_preview';
+    (clone as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = true;
+    if (clone.punch_list) {
+      clone.punch_list = { ...clone.punch_list, habit_unlocked: false };
+    }
+    clone.depth_claim_note =
+      'Free preview — shape of risk only. Estimator unlocks contingency + full punch you can forward.';
   } else if (tier === 'partner') {
     clone.depth_tier = 'partner';
     clone.research_depth = 'partner';
@@ -130,6 +138,14 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'none';
+    clone.preview = false;
+    (clone as AnalysisData & { receipt_mode?: string }).receipt_mode = 'estimator_habit';
+    (clone as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = false;
+    if (clone.punch_list) {
+      clone.punch_list = { ...clone.punch_list, habit_unlocked: true };
+    }
+    clone.depth_claim_note =
+      'Estimator habit Receipt — full contingency + unlocked punch. Contractor Pro adds fee dollars and City Pack PDF.';
   } else if (tier === 'pro') {
     clone.depth_tier = 'pro_light';
     clone.research_depth = 'pro';

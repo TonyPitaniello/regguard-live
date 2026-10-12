@@ -8,6 +8,8 @@ from city_pack_pdf import generate_city_pack_pdf_bytes
 
 SAMPLE = {
     "project_info": {"address": "100 Main", "city": "Plano", "state": "TX", "zip": "75074"},
+    "research_depth": "partner",
+    "receipt_mode": "estimator_habit",
     "coverage": {"badge": "Full city pack", "tier": "full_pack"},
     "regguard_stamp": {
         "grade": "FAIL",

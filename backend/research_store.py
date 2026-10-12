@@ -154,10 +154,37 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
     depth = str(analysis.get("research_depth") or "").strip().lower()
     tier = str(analysis.get("depth_tier") or "").strip().lower()
     scout = str(analysis.get("scout_mode") or "").strip().lower()
+    receipt_mode = str(analysis.get("receipt_mode") or "").strip().lower()
     instant = is_instant_preview_payload(analysis)
     coords_ok = has_usable_coords(analysis)
+    # Habit ladder notes (Free vs Estimator) must survive badge stamping.
+    habit_note = str(analysis.get("depth_claim_note") or "").strip()
 
-    if tier == "ic_full" and not instant:
+    # Estimator habit is a finished Free-pack product — never demote to Instant Preview.
+    if (
+        depth in ("partner", "estimator")
+        or tier in ("partner", "estimator")
+        or receipt_mode == "estimator_habit"
+    ):
+        label = "Estimator / Permit Runner — Receipt habit · unlocked punch"
+        analysis["depth_claim_honest"] = True
+        analysis["preview"] = False
+        analysis["research_incomplete"] = False
+        analysis["depth_tier"] = "partner"
+        analysis["research_depth"] = "partner"
+        analysis["receipt_mode"] = analysis.get("receipt_mode") or "estimator_habit"
+    # Free Lookups is an intentional bid-or-walk preview — do not demote to Instant incomplete.
+    elif (
+        depth in ("free", "instant", "preview")
+        or tier in ("free", "instant", "preview")
+        or receipt_mode == "free_preview"
+    ):
+        label = "Free Lookups — bid-or-walk preview"
+        analysis["depth_claim_honest"] = True
+        analysis["research_depth"] = "free"
+        analysis["depth_tier"] = "free"
+        analysis["receipt_mode"] = analysis.get("receipt_mode") or "free_preview"
+    elif tier == "ic_full" and not instant:
         if str(analysis.get("scout_locality_depth") or "") == "local_ultralocal" or (
             isinstance(analysis.get("ultralocal_scout"), dict)
             and analysis.get("ultralocal_scout", {}).get("enabled")
@@ -182,7 +209,7 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
         label = "Contractor Pro — deep research"
         analysis["depth_claim_honest"] = True
     else:
-        label = "Free preview"
+        label = "Free Lookups — bid-or-walk preview"
         analysis["depth_claim_honest"] = True
 
     analysis["depth_badge"] = label
@@ -204,7 +231,9 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
             analysis["honesty"] = honesty
     else:
         analysis.pop("research_incomplete", None)
-        if not analysis.get("depth_claim_note"):
+        if habit_note:
+            analysis["depth_claim_note"] = habit_note
+        elif not analysis.get("depth_claim_note"):
             analysis.pop("depth_claim_note", None)
     return analysis
 

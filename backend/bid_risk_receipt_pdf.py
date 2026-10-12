@@ -281,9 +281,16 @@ def generate_bid_risk_receipt_pdf(
     high_s = _fmt_pct(band.get("pct_high"))
 
     from artifact_naming import document_display_title, site_line_from_analysis
+    from habit_ladder_shape import is_free_preview_receipt
 
+    free_preview = is_free_preview_receipt(data)
     site_line = site_line_from_analysis(data)
-    doc_title = document_display_title(site_line, "BID RISK RECEIPT")
+    receipt_label = (
+        "BID RISK RECEIPT - FREE PREVIEW"
+        if free_preview
+        else "BID RISK RECEIPT - ESTIMATOR HABIT"
+    )
+    doc_title = document_display_title(site_line, receipt_label)
 
     pdf = BidRiskReceiptPDF()
     try:
@@ -295,14 +302,19 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_margins(MARGIN, MARGIN, MARGIN)
     pdf.set_y(8)
 
-    # Brand bar
-    pdf.set_fill_color(*EMERALD)
+    # Brand bar — amber for Free preview, emerald for Estimator habit
+    pdf.set_fill_color(*(AMBER if free_preview else EMERALD))
     pdf.rect(0, 0, PAGE_W, 3.2, "F")
 
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(CONTENT_W, 6, "FLAGGED BEFORE BID DAY", ln=1)
+    pdf.set_text_color(*(AMBER_SOFT if free_preview else EMERALD_SOFT))
+    pdf.cell(
+        CONTENT_W,
+        6,
+        "FREE LOOKUPS PREVIEW" if free_preview else "ESTIMATOR / PERMIT RUNNER - FORWARDABLE",
+        ln=1,
+    )
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*WHITE)
@@ -313,7 +325,11 @@ def generate_bid_risk_receipt_pdf(
     pdf.multi_cell(
         CONTENT_W,
         3.5,
-        _ascii("I flagged risk on THIS site. Forward so the GC/owner sees it before bid."),
+        _ascii(
+            "Bid-or-walk preview only - contingency and most punch lines stay locked until Estimator."
+            if free_preview
+            else "Full Bid Risk Receipt habit - forward to GC / owner / client before bid."
+        ),
     )
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 7)
@@ -321,9 +337,9 @@ def generate_bid_risk_receipt_pdf(
     pdf.multi_cell(
         CONTENT_W,
         3.2,
-        _ascii(
-            "SCREENING MEMO — not an interconnection study, Phase I ESA, geotech, or AHJ approval."
-        ),
+            _ascii(
+                "SCREENING MEMO - not an interconnection study, Phase I ESA, geotech, or AHJ approval."
+            ),
     )
     pdf.ln(1)
 
@@ -456,18 +472,35 @@ def generate_bid_risk_receipt_pdf(
             )
     pdf.ln(1.5)
 
-    # BIG contingency
+    # BIG contingency — Free preview keeps the band locked; Estimator unlocks it.
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 5, "CONTINGENCY (screenshot this)", ln=1)
+    pdf.set_text_color(*(AMBER if free_preview else EMERALD))
+    pdf.cell(
+        CONTENT_W,
+        5,
+        "CONTINGENCY (locked on Free)" if free_preview else "CONTINGENCY (screenshot this)",
+        ln=1,
+    )
 
     y1 = pdf.get_y()
     pdf.set_fill_color(*CARD)
-    pdf.set_draw_color(*EMERALD)
+    pdf.set_draw_color(*(AMBER if free_preview else EMERALD))
     pdf.rect(MARGIN, y1, CONTENT_W, 24, "DF")
     pdf.set_xy(MARGIN + 4, y1 + 3)
-    if low_s and high_s:
+    if free_preview:
+        pdf.set_font("Helvetica", "B", 26)
+        pdf.set_text_color(*AMBER_SOFT)
+        pdf.cell(CONTENT_W - 8, 11, "+##%  to  +##%", ln=1)
+        pdf.set_x(MARGIN + 4)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*AMBER)
+        pdf.multi_cell(
+            CONTENT_W - 8,
+            4.5,
+            _ascii("Locked on Free - Estimator / Permit Runner ($79/mo) unlocks the band you can forward."),
+        )
+    elif low_s and high_s:
         pdf.set_font("Helvetica", "B", 26)
         pdf.set_text_color(*EMERALD_SOFT)
         pdf.cell(CONTENT_W - 8, 11, f"+{low_s}%  to  +{high_s}%", ln=1)
@@ -508,7 +541,7 @@ def generate_bid_risk_receipt_pdf(
             lp_fees = (data.get("local_pack") or {}).get("fees")
             if isinstance(lp_fees, list):
                 fee_rows = lp_fees
-    if fee_rows:
+    if fee_rows and not free_preview:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_text_color(*AMBER)
@@ -533,24 +566,54 @@ def generate_bid_risk_receipt_pdf(
                 str(row.get("trade") or ""),
             )
             amt = row.get("amount_usd")
-            amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm schedule"
+            # Estimator shows kinds + labels; dollar amounts stay a Pro desk unlock.
+            amt_s = "confirm on AHJ schedule"
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 8)
             pdf.set_text_color(*WHITE)
-            pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"[{kind}] {label} — {amt_s}"))
+            pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"[{kind}] {label} - {amt_s}"))
+        pdf.ln(0.5)
+    elif fee_rows and free_preview:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*AMBER)
+        pdf.cell(CONTENT_W, 5, "FEE SCHEDULE (locked on Free)", ln=1)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*DIM)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.2,
+            _ascii("Estimator unlocks fee types on the Receipt. Contractor Pro adds dollar lines."),
+        )
         pdf.ln(0.5)
 
-    # Top risk flags — always try for 3 (killers + stamp drivers + gotchas)
+    # Top risk flags — Free shows 1 clear + locked teasers; Estimator shows full top 3
     risk_flags = _top_risk_flags(data, list(killers) if isinstance(killers, list) else [])
+    clear_n = 1 if free_preview else 3
+    try:
+        clear_n = max(1, min(3, int(data.get("receipt_risk_clear") or clear_n)))
+    except (TypeError, ValueError):
+        pass
     if risk_flags and _ensure_space(pdf, 48):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*EMERALD)
-        pdf.cell(CONTENT_W, 5, "TOP 3 RISK FLAGS  (Source or Unverified)", ln=1)
+        pdf.set_text_color(*(AMBER if free_preview else EMERALD))
+        pdf.cell(
+            CONTENT_W,
+            5,
+            (
+                "TOP RISK (1 of 3 clear - Estimator unlocks the rest)"
+                if free_preview
+                else "TOP 3 RISK FLAGS  (Source or Unverified)"
+            ),
+            ln=1,
+        )
 
         for i, k in enumerate(risk_flags[:3], 1):
             if not isinstance(k, dict):
                 continue
+            locked = free_preview and i > clear_n
             ver_tier = str(k.get("citation_tier") or "").lower()
             if not ver_tier:
                 if k.get("verified") and k.get("source_url"):
@@ -564,15 +627,20 @@ def generate_bid_risk_receipt_pdf(
             title = _soft_cut(str(k.get("title") or "Item"), 72)
             detail = _soft_cut(str(k.get("detail") or ""), 110)
             pe = k.get("planning_exposure") or {}
+            if locked:
+                title = "Additional punch / risk line locked on Free"
+                detail = "Estimator unlocks the rest of the punch list with owner · due · Source or Unverified."
+                pe = {}
+                ver = "LOCKED"
 
             box_h = 14 + (3.2 if detail else 0)
-            if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+            if isinstance(pe, dict) and pe.get("usd_mid") is not None and not free_preview:
                 box_h += 3.2
             if not _ensure_space(pdf, box_h + 14):
                 break
             y = pdf.get_y()
             pdf.set_fill_color(*CARD)
-            pdf.set_draw_color(*CARD_EDGE)
+            pdf.set_draw_color(*(AMBER if locked else CARD_EDGE))
             pdf.rect(MARGIN, y, CONTENT_W, box_h, "DF")
             bx, by = MARGIN + 4, y + 2
 
@@ -581,7 +649,9 @@ def generate_bid_risk_receipt_pdf(
             pdf.set_text_color(*WHITE)
             pdf.cell(8, 4.5, f"{i}.", ln=0)
             bx2 = bx + 8
-            if pri in ("CRITICAL", "HIGH"):
+            if locked:
+                bx2 += _badge(pdf, "LOCKED", fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
+            elif pri in ("CRITICAL", "HIGH"):
                 bx2 += _badge(
                     pdf,
                     pri,
@@ -593,12 +663,13 @@ def generate_bid_risk_receipt_pdf(
             else:
                 bx2 += _badge(pdf, pri, fg=WHITE, bg=CARD_EDGE, x=bx2, y=by)
             bx2 += 2
-            if ver == "UNVERIFIED":
-                _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
-            elif ver == "LINK":
-                _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
-            else:
-                _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
+            if not locked:
+                if ver == "UNVERIFIED":
+                    _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
+                elif ver == "LINK":
+                    _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
+                else:
+                    _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
 
             pdf.set_xy(bx, by + 5)
             pdf.set_font("Helvetica", "B", 8)
@@ -609,7 +680,11 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*MUTED)
                 pdf.multi_cell(CONTENT_W - 12, 3.0, detail)
-            if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+            if (
+                not free_preview
+                and isinstance(pe, dict)
+                and pe.get("usd_mid") is not None
+            ):
                 pdf.set_x(bx)
                 pdf.set_font("Helvetica", "B", 7)
                 pdf.set_text_color(*EMERALD_SOFT)
@@ -623,6 +698,30 @@ def generate_bid_risk_receipt_pdf(
                 )
             pdf.set_y(y + box_h + 1.5)
 
+    if not free_preview:
+        punch = ((data.get("punch_list") or {}).get("punch_list") or [])[:5]
+        if punch and _ensure_space(pdf, 28):
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_text_color(*EMERALD)
+            pdf.cell(CONTENT_W, 5, "UNLOCKED PUNCH (owner · due · Source or Unverified)", ln=1)
+            for item in punch:
+                if not isinstance(item, dict):
+                    continue
+                if not _ensure_space(pdf, 8):
+                    break
+                task = _soft_cut(str(item.get("task") or "Punch line"), 70)
+                owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 18)
+                due = _soft_cut(str(item.get("due_window") or item.get("timeline") or "Pre-bid"), 14)
+                src = "SOURCE" if item.get("verified") and item.get("source_url") else (
+                    "LINK" if item.get("source_url") else "UNVERIFIED"
+                )
+                pdf.set_x(MARGIN)
+                pdf.set_font("Helvetica", "", 7)
+                pdf.set_text_color(*WHITE)
+                pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"- {task}  [{owner} · {due} · {src}]"))
+            pdf.ln(0.5)
+
     # Compact footer — stamp already shown above the fold (no duplicate HOLD / drivers)
     rg = data.get("regguard_stamp") or {}
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
@@ -633,6 +732,11 @@ def generate_bid_risk_receipt_pdf(
         f"Date: {stamp_date} UTC"
         + (f"  |  Valid until {valid}" if valid else "")
         + (f"  |  fp {fp}" if fp else ""),
+        (
+            "FREE PREVIEW - Estimator / Permit Runner ($79/mo) unlocks contingency + full punch habit."
+            if free_preview
+            else "ESTIMATOR HABIT - forward this Receipt. Contractor Pro adds City Pack / fee dollars."
+        ),
         "Re-run before you submit the bid. Fees and portal asks move.",
     ]
     if rg.get("is_stale") and rg.get("stale_reason"):

@@ -1986,22 +1986,18 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             if habit_paid:
                 research_depth = "partner"
                 if isinstance(analysis, dict):
-                    analysis["research_depth"] = "partner"
-                    analysis["depth_tier"] = "partner"
-                    analysis["depth_badge"] = (
-                        "Estimator / Permit Runner — Receipt habit · unlocked punch"
-                    )
-                    analysis["scout_mode"] = "none"
+                    from habit_ladder_shape import shape_free_vs_estimator
+
+                    analysis = shape_free_vs_estimator(analysis, habit_paid=True)
                 message = (
                     "Estimator / Permit Runner — Bid Risk Receipt habit ready. "
                     "Contractor Pro adds deep scout + City Pack PDF / CSV / bid packet."
                 )
             else:
                 if isinstance(analysis, dict):
-                    analysis["research_depth"] = "free"
-                    analysis["depth_tier"] = "free"
-                    analysis["access_tier"] = "free"
-                    analysis["entitlement_tiers"] = []
+                    from habit_ladder_shape import shape_free_vs_estimator
+
+                    analysis = shape_free_vs_estimator(analysis, habit_paid=False)
                 message = (
                     "Free Bid Risk preview ready — city pack"
                     + (
@@ -2098,6 +2094,15 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             cost_verified=bool((analysis.get("honesty") or {}).get("cost_verified")),
             timeline_verified=bool((analysis.get("honesty") or {}).get("timeline_verified")),
         )
+
+    # Honesty can flip preview=True on the free pack path — re-assert Free vs Estimator shape.
+    if not pro_research and isinstance(analysis, dict):
+        try:
+            from habit_ladder_shape import shape_free_vs_estimator
+
+            analysis = shape_free_vs_estimator(analysis, habit_paid=bool(habit_paid))
+        except Exception as shape_err:
+            logger.warning("habit ladder shape failed (non-blocking): %s", shape_err)
 
     # Persist so shareable /r/{id} works even if the client never calls /research/persist
     research_id = trial_id or analysis.get("research_id") or analysis.get("timestamp", "preview")
