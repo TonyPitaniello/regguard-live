@@ -848,9 +848,41 @@ export default function FreeTrialForm({
           analysis.depth_tier = 'free';
           analysis.preview = true;
           analysis.depth_badge = 'Free Lookups — bid-or-walk preview';
+          analysis.depth_claim_note =
+            'Free preview — shape of risk only. Estimator / Permit Runner ($79/mo) unlocks the full Bid Risk Receipt, contingency band, and punch list you can forward.';
+          analysis.research_incomplete = false;
+          analysis.depth_claim_honest = true;
           (analysis as AnalysisData & { access_tier?: string }).access_tier = 'free';
           (analysis as AnalysisData & { entitlement_tiers?: string[] }).entitlement_tiers = [];
+          (analysis as AnalysisData & { receipt_mode?: string }).receipt_mode = 'free_preview';
+          (analysis as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = true;
+          if (analysis.punch_list) {
+            analysis.punch_list = { ...analysis.punch_list, habit_unlocked: false };
+          }
           analysis.ic_package = false;
+        } else if (researchMode === 'partner') {
+          // Estimator habit must never look like Free — stamp even if API is behind.
+          analysis.research_depth = 'partner';
+          analysis.depth_tier = 'partner';
+          analysis.preview = false;
+          analysis.depth_badge = 'Estimator / Permit Runner — Receipt habit · unlocked punch';
+          analysis.depth_claim_note =
+            'Estimator habit Receipt — full contingency + unlocked punch you can forward. Contractor Pro adds fee dollars, Full City Pack PDF, CSV, and bid packet.';
+          analysis.research_incomplete = false;
+          analysis.depth_claim_honest = true;
+          (analysis as AnalysisData & { access_tier?: string }).access_tier = 'partner';
+          (analysis as AnalysisData & { entitlement_tiers?: string[] }).entitlement_tiers = ['partner'];
+          (analysis as AnalysisData & { receipt_mode?: string }).receipt_mode = 'estimator_habit';
+          (analysis as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = false;
+          if (analysis.punch_list) {
+            analysis.punch_list = { ...analysis.punch_list, habit_unlocked: true };
+          }
+          analysis.ic_package = false;
+          // Drop Free→Estimator CTA leftover from a free-pack payload
+          const offer = analysis.upgrade_offer;
+          if (offer && String(offer.cta_tier || '').toLowerCase() === 'partner') {
+            delete analysis.upgrade_offer;
+          }
         } else {
           const topDepth = String(payload.research_depth || '').toLowerCase();
           if (topDepth) {
