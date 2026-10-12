@@ -8,8 +8,6 @@ import {
   FREE_SOFT_PUNCH,
   PARTNER_PUNCH,
   PRO_PUNCH,
-  resolveResultsLadder,
-  type ResultsLadder,
 } from './resultsAccessLadder';
 
 export type SampleDemoTier = 'free' | 'partner' | 'pro' | 'ic';
@@ -21,36 +19,6 @@ export const SAMPLE_DEMO_PUNCH_VISIBLE: Record<SampleDemoTier, number> = {
   pro: PRO_PUNCH,
   ic: PRO_PUNCH,
 };
-
-/** Canonical sample ↔ live visibility matrix (demoTier and researchDepth must agree). */
-export function ladderVisibilityForSampleTier(tier: SampleDemoTier): ResultsLadder {
-  return resolveResultsLadder({ demoTier: tier });
-}
-
-export function ladderVisibilityForLiveDepth(tier: SampleDemoTier): ResultsLadder {
-  const depth =
-    tier === 'free'
-      ? 'free'
-      : tier === 'partner'
-        ? 'partner'
-        : tier === 'pro'
-          ? 'pro'
-          : 'ic';
-  return resolveResultsLadder({
-    researchDepth: depth,
-    preview: tier === 'free',
-    isDeep: tier === 'pro' || tier === 'ic',
-    isIcDepth: tier === 'ic',
-    accessTier:
-      tier === 'free'
-        ? 'free'
-        : tier === 'partner'
-          ? 'partner'
-          : tier === 'pro'
-            ? 'contractor_pro'
-            : 'ic',
-  });
-}
 
 const EXTRA_PUNCH = [
   {

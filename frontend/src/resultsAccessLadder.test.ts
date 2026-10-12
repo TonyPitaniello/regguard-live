@@ -10,10 +10,6 @@ import {
   FREE_SOFT_PUNCH,
   FREE_SYNTHETIC_BLUR_TEASERS,
 } from './resultsAccessLadder';
-import {
-  ladderVisibilityForLiveDepth,
-  ladderVisibilityForSampleTier,
-} from './sampleDemoTier';
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -154,8 +150,17 @@ assert(ladderTierFromResearchDepth('', false) === 'free', 'empty = free');
 // Sample demoTier matrix must match live researchDepth matrix field-for-field
 {
   for (const tier of ['free', 'partner', 'pro', 'ic'] as const) {
-    const sample = ladderVisibilityForSampleTier(tier);
-    const live = ladderVisibilityForLiveDepth(tier);
+    const sample = resolveResultsLadder({ demoTier: tier });
+    const depth =
+      tier === 'free' ? 'free' : tier === 'partner' ? 'partner' : tier === 'pro' ? 'pro' : 'ic';
+    const live = resolveResultsLadder({
+      researchDepth: depth,
+      preview: tier === 'free',
+      isDeep: tier === 'pro' || tier === 'ic',
+      isIcDepth: tier === 'ic',
+      accessTier:
+        tier === 'free' ? 'free' : tier === 'partner' ? 'partner' : tier === 'pro' ? 'contractor_pro' : 'ic',
+    });
     for (const key of [
       'tier',
       'softLocked',
