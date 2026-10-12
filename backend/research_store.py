@@ -155,16 +155,38 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
     tier = str(analysis.get("depth_tier") or "").strip().lower()
     scout = str(analysis.get("scout_mode") or "").strip().lower()
     receipt_mode = str(analysis.get("receipt_mode") or "").strip().lower()
+    access = str(analysis.get("access_tier") or "").strip().lower()
     instant = is_instant_preview_payload(analysis)
     coords_ok = has_usable_coords(analysis)
     # Habit ladder notes (Free vs Estimator) must survive badge stamping.
     habit_note = str(analysis.get("depth_claim_note") or "").strip()
 
+    paid_ic = (
+        tier == "ic_full"
+        or depth in ("ic", "ic_full")
+        or access in ("ic", "ic_project", "ic_consultant", "ic_annual", "sponsor")
+        or analysis.get("ic_package") is True
+    )
+    paid_pro = access in ("contractor_pro", "pro") or (
+        not instant
+        and (
+            depth in ("pro", "pro_partial", "pro_light", "pro_local")
+            or depth.startswith("pro_")
+            or tier in ("pro_light", "pro_partial", "pro_local", "pro")
+            or scout in ("light", "full")
+        )
+    )
+
     # Estimator habit is a finished Free-pack product — never demote to Instant Preview.
     if (
-        depth in ("partner", "estimator")
-        or tier in ("partner", "estimator")
-        or receipt_mode == "estimator_habit"
+        not paid_ic
+        and not paid_pro
+        and access not in ("contractor_pro", "ic", "ic_project", "sponsor")
+        and (
+            depth in ("partner", "estimator")
+            or tier in ("partner", "estimator")
+            or (receipt_mode == "estimator_habit" and access in ("", "partner", "free"))
+        )
     ):
         label = "Estimator / Permit Runner — Receipt habit · unlocked punch"
         analysis["depth_claim_honest"] = True
@@ -175,39 +197,57 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
         analysis["receipt_mode"] = analysis.get("receipt_mode") or "estimator_habit"
     # Free Lookups is an intentional bid-or-walk preview — do not demote to Instant incomplete.
     elif (
-        depth in ("free", "instant", "preview")
-        or tier in ("free", "instant", "preview")
-        or receipt_mode == "free_preview"
+        not paid_ic
+        and not paid_pro
+        and access in ("", "free")
+        and (
+            depth in ("free", "instant", "preview")
+            or tier in ("free", "instant", "preview")
+            or receipt_mode == "free_preview"
+        )
     ):
         label = "Free Lookups — bid-or-walk preview"
         analysis["depth_claim_honest"] = True
         analysis["research_depth"] = "free"
         analysis["depth_tier"] = "free"
         analysis["receipt_mode"] = analysis.get("receipt_mode") or "free_preview"
-    elif tier == "ic_full" and not instant:
+    # Paid IC / Pro desk — keep ladder unlocks even when scout/geocode was partial.
+    elif paid_ic:
         if str(analysis.get("scout_locality_depth") or "") == "local_ultralocal" or (
             isinstance(analysis.get("ultralocal_scout"), dict)
             and analysis.get("ultralocal_scout", {}).get("enabled")
         ):
             label = "IC Project — full federal / state / local + ultralocal scout"
+        elif instant or not coords_ok:
+            label = "IC Project — counsel package (scout partial — confirm pin)"
         else:
             label = "IC Project — full federal / state / local scout"
+        analysis["depth_claim_honest"] = True
+        analysis["preview"] = False
+        analysis["research_incomplete"] = False
+        analysis["depth_tier"] = analysis.get("depth_tier") or "ic_full"
+        if depth not in ("ic", "ic_full"):
+            analysis["research_depth"] = "ic"
+        analysis["receipt_mode"] = analysis.get("receipt_mode") or "estimator_habit"
+    elif paid_pro:
+        if tier == "pro_light" or scout == "light":
+            label = "Contractor Pro — local confirm + light scout"
+        elif depth == "pro_partial" or tier == "pro_partial" or not coords_ok:
+            label = "Contractor Pro — partial deep research"
+        elif tier == "pro_local" or (depth == "pro" and scout in ("", "none")):
+            label = "Contractor Pro — paid local confirm"
+        else:
+            label = "Contractor Pro — deep research"
+        analysis["depth_claim_honest"] = True
+        analysis["preview"] = False
+        analysis["research_incomplete"] = False
+        if not str(analysis.get("research_depth") or "").lower().startswith("pro"):
+            analysis["research_depth"] = "pro_partial" if not coords_ok else "pro"
+        analysis["receipt_mode"] = analysis.get("receipt_mode") or "estimator_habit"
     elif instant or (depth in ("pro", "pro_partial") and not coords_ok):
         label = "Instant preview — deep research incomplete (not full Pro)"
         # Keep entitlement unlock semantics, but surface honesty
         analysis["depth_claim_honest"] = False
-    elif tier == "pro_light" or scout == "light":
-        label = "Contractor Pro — local confirm + light scout"
-        analysis["depth_claim_honest"] = True
-    elif depth == "pro_partial" or tier == "pro_partial":
-        label = "Contractor Pro — partial deep research"
-        analysis["depth_claim_honest"] = True
-    elif tier == "pro_local" or (depth == "pro" and scout in ("", "none")):
-        label = "Contractor Pro — paid local confirm"
-        analysis["depth_claim_honest"] = True
-    elif depth == "pro":
-        label = "Contractor Pro — deep research"
-        analysis["depth_claim_honest"] = True
     else:
         label = "Free Lookups — bid-or-walk preview"
         analysis["depth_claim_honest"] = True

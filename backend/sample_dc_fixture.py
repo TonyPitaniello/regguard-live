@@ -370,29 +370,58 @@ def analysis_for_tier(tier: str) -> Dict[str, Any]:
     if t in ("free", "free_preview"):
         out["depth_tier"] = "free"
         out["research_depth"] = "free"
+        out["access_tier"] = "free"
+        out["entitlement_tiers"] = []
+        out["preview"] = True
+        out["receipt_mode"] = "free_preview"
+        out["soft_lock_contingency"] = True
         out["ic_package"] = False
         out["depth_badge"] = "Free preview (SAMPLE)"
-        # Soft-lock honesty: free shows structure; full punch lives behind forward / paid
-        punch = (out.get("punch_list") or {}).get("punch_list") or []
+        # Keep full punch in JSON — UI soft-lock teases locked lines (sample-parity with live Free).
+        punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
+        punch = list(punch_block.get("punch_list") or [])
         out["punch_list"] = {
-            **(out.get("punch_list") or {}),
-            "punch_list": punch[:5],
+            **punch_block,
+            "punch_list": punch,
+            "habit_unlocked": False,
             "soft_locked": True,
-            "soft_lock_note": "SAMPLE Free preview — top 5 punch lines; forward or upgrade unlocks the rest on a live run.",
+            "soft_lock_note": "SAMPLE Free preview — top punch clear; Estimator unlocks the rest on a live run.",
         }
     elif t in ("partner", "estimator", "permit_runner"):
-        out["depth_tier"] = "pro_light"
+        # Must stay partner — never pro_light (that invents Pro desk on the sample ladder).
+        out["depth_tier"] = "partner"
         out["research_depth"] = "partner"
+        out["access_tier"] = "partner"
+        out["entitlement_tiers"] = ["partner"]
+        out["preview"] = False
+        out["receipt_mode"] = "estimator_habit"
+        out["soft_lock_contingency"] = False
         out["ic_package"] = False
         out["depth_badge"] = "Estimator / Permit Runner (SAMPLE)"
+        punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
+        out["punch_list"] = {**punch_block, "habit_unlocked": True}
     elif t in ("pro", "contractor_pro", "contractor"):
-        out["depth_tier"] = "pro_local"
+        out["depth_tier"] = "pro_light"
         out["research_depth"] = "pro"
+        out["access_tier"] = "contractor_pro"
+        out["entitlement_tiers"] = ["contractor_pro", "partner"]
+        out["preview"] = False
+        out["receipt_mode"] = "estimator_habit"
+        out["soft_lock_contingency"] = False
         out["ic_package"] = False
         out["depth_badge"] = "Contractor Pro (SAMPLE)"
+        punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
+        out["punch_list"] = {**punch_block, "habit_unlocked": True}
     else:
         out["depth_tier"] = "ic_full"
         out["research_depth"] = "ic"
+        out["access_tier"] = "ic"
+        out["entitlement_tiers"] = ["ic_project", "contractor_pro", "partner"]
+        out["preview"] = False
+        out["receipt_mode"] = "estimator_habit"
+        out["soft_lock_contingency"] = False
         out["ic_package"] = True
         out["depth_badge"] = "IC PROJECT (SAMPLE)"
+        punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
+        out["punch_list"] = {**punch_block, "habit_unlocked": True}
     return out

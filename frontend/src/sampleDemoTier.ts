@@ -4,15 +4,53 @@
  */
 
 import type { AnalysisData } from './ResultsViewerModal';
+import {
+  FREE_SOFT_PUNCH,
+  PARTNER_PUNCH,
+  PRO_PUNCH,
+  resolveResultsLadder,
+  type ResultsLadder,
+} from './resultsAccessLadder';
 
 export type SampleDemoTier = 'free' | 'partner' | 'pro' | 'ic';
 
+/** Must stay identical to resolveResultsLadder punchVisible for each demo tier. */
 export const SAMPLE_DEMO_PUNCH_VISIBLE: Record<SampleDemoTier, number> = {
-  free: 5,
-  partner: 99,
-  pro: 99,
-  ic: 99,
+  free: FREE_SOFT_PUNCH,
+  partner: PARTNER_PUNCH,
+  pro: PRO_PUNCH,
+  ic: PRO_PUNCH,
 };
+
+/** Canonical sample ↔ live visibility matrix (demoTier and researchDepth must agree). */
+export function ladderVisibilityForSampleTier(tier: SampleDemoTier): ResultsLadder {
+  return resolveResultsLadder({ demoTier: tier });
+}
+
+export function ladderVisibilityForLiveDepth(tier: SampleDemoTier): ResultsLadder {
+  const depth =
+    tier === 'free'
+      ? 'free'
+      : tier === 'partner'
+        ? 'partner'
+        : tier === 'pro'
+          ? 'pro'
+          : 'ic';
+  return resolveResultsLadder({
+    researchDepth: depth,
+    preview: tier === 'free',
+    isDeep: tier === 'pro' || tier === 'ic',
+    isIcDepth: tier === 'ic',
+    accessTier:
+      tier === 'free'
+        ? 'free'
+        : tier === 'partner'
+          ? 'partner'
+          : tier === 'pro'
+            ? 'contractor_pro'
+            : 'ic',
+  });
+}
 
 const EXTRA_PUNCH = [
   {
@@ -154,6 +192,14 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'light';
+    clone.preview = false;
+    (clone as AnalysisData & { receipt_mode?: string }).receipt_mode = 'estimator_habit';
+    (clone as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = false;
+    if (clone.punch_list) {
+      clone.punch_list = { ...clone.punch_list, habit_unlocked: true };
+    }
+    clone.depth_claim_note =
+      'Contractor Pro — fee dollars and City Pack open. IC Diligence Bundle adds the counsel ZIP.';
   } else {
     clone.depth_tier = 'ic_full';
     clone.research_depth = 'ic';
@@ -162,6 +208,14 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'full';
+    clone.preview = false;
+    (clone as AnalysisData & { receipt_mode?: string }).receipt_mode = 'estimator_habit';
+    (clone as AnalysisData & { soft_lock_contingency?: boolean }).soft_lock_contingency = false;
+    if (clone.punch_list) {
+      clone.punch_list = { ...clone.punch_list, habit_unlocked: true };
+    }
+    clone.depth_claim_note =
+      'IC Diligence Bundle — counsel ZIP open (memo, boardroom, Word, Excel). Same Pro desk underneath.';
   }
 
   clone.research_id = `rg-sample-chapin-${tier}`;
@@ -169,6 +223,14 @@ export function analysisForSampleDemo(
   const access =
     tier === 'ic' ? 'ic' : tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
   (clone as AnalysisData & { access_tier?: string }).access_tier = access;
+  (clone as AnalysisData & { entitlement_tiers?: string[] }).entitlement_tiers =
+    tier === 'free'
+      ? []
+      : tier === 'partner'
+        ? ['partner']
+        : tier === 'pro'
+          ? ['contractor_pro', 'partner']
+          : ['ic_project', 'contractor_pro', 'partner'];
   // Stepwise next-level CTA on every sample (never Free → IC)
   clone.upgrade_offer = sampleUpgradeOffer(tier);
   return clone;

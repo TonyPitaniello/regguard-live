@@ -10,6 +10,10 @@ import {
   FREE_SOFT_PUNCH,
   FREE_SYNTHETIC_BLUR_TEASERS,
 } from './resultsAccessLadder';
+import {
+  ladderVisibilityForLiveDepth,
+  ladderVisibilityForSampleTier,
+} from './sampleDemoTier';
 
 function assert(cond: unknown, msg: string) {
   if (!cond) throw new Error(msg);
@@ -146,5 +150,35 @@ function assert(cond: unknown, msg: string) {
 
 assert(ladderTierFromResearchDepth('partner', true) === 'partner', 'partner beats preview');
 assert(ladderTierFromResearchDepth('', false) === 'free', 'empty = free');
+
+// Sample demoTier matrix must match live researchDepth matrix field-for-field
+{
+  for (const tier of ['free', 'partner', 'pro', 'ic'] as const) {
+    const sample = ladderVisibilityForSampleTier(tier);
+    const live = ladderVisibilityForLiveDepth(tier);
+    for (const key of [
+      'tier',
+      'softLocked',
+      'punchVisible',
+      'findingsVisible',
+      'ownsPartner',
+      'ownsPro',
+      'ownsIc',
+      'blurProDesk',
+      'allowProDesk',
+      'proBlurPunchTeasers',
+      'syntheticBlurTeasers',
+      'packBody',
+      'dcBody',
+      'counselBody',
+      'playbookClear',
+    ] as const) {
+      assert(
+        sample[key] === live[key],
+        `sample↔live mismatch on ${tier}.${key}: sample=${sample[key]} live=${live[key]}`
+      );
+    }
+  }
+}
 
 console.log('resultsAccessLadder.test.ts OK');
