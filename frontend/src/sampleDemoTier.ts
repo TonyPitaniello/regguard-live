@@ -5,12 +5,13 @@
 
 import type { AnalysisData } from './ResultsViewerModal';
 
-export type SampleDemoTier = 'free' | 'partner' | 'pro';
+export type SampleDemoTier = 'free' | 'partner' | 'pro' | 'ic';
 
 export const SAMPLE_DEMO_PUNCH_VISIBLE: Record<SampleDemoTier, number> = {
   free: 5,
   partner: 99,
   pro: 99,
+  ic: 99,
 };
 
 const EXTRA_PUNCH = [
@@ -82,9 +83,10 @@ const EXTRA_PUNCH = [
 
 export function parseSampleDemoTier(raw: string | null | undefined): SampleDemoTier | null {
   const t = String(raw || '').toLowerCase().trim();
-  if (t === 'free' || t === 'partner' || t === 'pro') return t;
+  if (t === 'free' || t === 'partner' || t === 'pro' || t === 'ic') return t;
   if (t === 'estimator' || t === 'permit' || t === 'permit_runner') return 'partner';
   if (t === 'contractor_pro' || t === 'contractor-pro') return 'pro';
+  if (t === 'ic_project' || t === 'diligence' || t === 'counsel') return 'ic';
   return null;
 }
 
@@ -120,15 +122,6 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'none';
-    // Free: keep stamp + thin env headline, hide Pro playbook / pro_delta
-    delete clone.vertical_playbook;
-    delete clone.pro_delta;
-    if (clone.environmental_screening?.findings) {
-      clone.environmental_screening = {
-        ...clone.environmental_screening,
-        findings: clone.environmental_screening.findings.slice(0, 2),
-      };
-    }
   } else if (tier === 'partner') {
     clone.depth_tier = 'partner';
     clone.research_depth = 'partner';
@@ -137,16 +130,7 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'none';
-    // Estimator: env + receipt unlocked; Pro playbook still teaser-level
-    delete clone.pro_delta;
-    if (clone.vertical_playbook?.items) {
-      clone.vertical_playbook = {
-        ...clone.vertical_playbook,
-        items: clone.vertical_playbook.items.slice(0, 3),
-        stats: { completeness_pct: 38, cited: 2, confirm: 1 },
-      };
-    }
-  } else {
+  } else if (tier === 'pro') {
     clone.depth_tier = 'pro_light';
     clone.research_depth = 'pro';
     clone.depth_badge = 'SAMPLE — Contractor Pro — Local Confirm + Light Scout';
@@ -154,13 +138,20 @@ export function analysisForSampleDemo(
     clone.research_incomplete = false;
     clone.depth_claim_honest = true;
     clone.scout_mode = 'light';
-    // Full env + zoning playbook + Pro delta stay on the clone from the fixture
+  } else {
+    clone.depth_tier = 'ic_full';
+    clone.research_depth = 'ic';
+    clone.depth_badge = 'SAMPLE — IC Diligence Bundle';
+    clone.ic_package = true;
+    clone.research_incomplete = false;
+    clone.depth_claim_honest = true;
+    clone.scout_mode = 'full';
   }
 
   clone.research_id = `rg-sample-chapin-${tier}`;
   clone.sample_demo_tier = tier;
   const access =
-    tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
+    tier === 'ic' ? 'ic' : tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
   (clone as AnalysisData & { access_tier?: string }).access_tier = access;
   // Stepwise next-level CTA on every sample (never Free → IC)
   clone.upgrade_offer = sampleUpgradeOffer(tier);
@@ -200,18 +191,33 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
       honesty_note: 'Pro arms the estimate — still confirm dollars on the live AHJ schedule.',
     };
   }
+  if (tier === 'pro') {
+    return {
+      message: 'Counsel won’t mark up a City Pack PDF',
+      detail:
+        'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: memo, boardroom, Word with exhibits, Excel evidence. Not a bigger City Pack.',
+      cta_label: 'Get IC Diligence Bundle — $1,500',
+      cta_tier: 'ic_project',
+      secondary_cta_label: undefined,
+      secondary_cta_tier: undefined,
+      current_label: 'Contractor Pro',
+      next_label: 'Counsel ZIP — memo · boardroom · Word · Excel exhibits',
+      primary_once: true,
+      honesty_note: 'IC is counsel packaging for one site — not an AHJ filing.',
+    };
+  }
   return {
-    message: 'Counsel won’t mark up a City Pack PDF',
+    message: 'Buying another $1,500 Project for the next capital site?',
     detail:
-      'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: memo, boardroom, Word with exhibits, Excel evidence. Not a bigger City Pack.',
-    cta_label: 'Get IC Diligence Bundle — $1,500',
-    cta_tier: 'ic_project',
-    secondary_cta_label: 'Or IC Annual after first Project — $15,000/yr',
-    secondary_cta_tier: 'ic_annual',
-    current_label: 'Contractor Pro',
-    next_label: 'Counsel ZIP — memo · boardroom · Word · Excel exhibits',
+      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass about ~10 sites.',
+    cta_label: 'IC Annual — $15,000/yr',
+    cta_tier: 'ic_annual',
+    secondary_cta_label: undefined,
+    secondary_cta_tier: undefined,
+    current_label: 'IC Diligence Bundle',
+    next_label: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     primary_once: true,
-    honesty_note: 'IC is counsel packaging for one site — not an AHJ filing.',
+    honesty_note: 'Annual covers capital-site counsel ZIPs on this purchase email — not day-to-day Contractor Pro.',
   };
 }
 
@@ -220,5 +226,7 @@ export function sampleDemoLabel(tier: SampleDemoTier): string {
     return 'Free — bid-or-walk preview · next: Estimator $79 (Receipt the GC can file)';
   if (tier === 'partner')
     return 'Estimator — Receipt habit · next: Pro $149 (fee dollars · City Pack · CSV)';
-  return 'Pro — bid desk · next: IC $1,500 (counsel ZIP — not a bigger City Pack)';
+  if (tier === 'pro')
+    return 'Pro — bid desk · next: IC $1,500 (counsel ZIP — not a bigger City Pack)';
+  return 'IC Diligence Bundle — counsel ZIP open · next: Annual $15,000 after about ~10 sites';
 }

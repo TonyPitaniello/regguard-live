@@ -541,7 +541,7 @@ interface ResultsViewerModalProps {
    * Labeled sample ladder override — Free (blur), Estimator (partial), Pro (full desk).
    * When set, gating ignores share-unlock and paid entitlements.
    */
-  demoTier?: 'free' | 'partner' | 'pro' | null;
+  demoTier?: 'free' | 'partner' | 'pro' | 'ic' | null;
 }
 
 /** Canonical shareable report link for social + clipboard + PDF/email CTAs. Never homepage. */
@@ -1187,12 +1187,18 @@ export default function ResultsViewerModal({
   const syntheticBlurTeasers = ladder.syntheticBlurTeasers || (softLocked ? FREE_SYNTHETIC_BLUR_TEASERS : 0);
   const ownsIcAnnual = ladder.ownsIcAnnual;
   const ladderTier = ladder.tier;
+  const packBody = ladder.packBody;
+  const dcBody = ladder.dcBody;
+  const counselBody = ladder.counselBody;
+  const playbookClear = ladder.playbookClear;
 
-  // Keep IC package download only for real IC-depth completed runs (demo never IC).
+  // IC package download only on a real IC-depth run (or the labeled IC sample).
   const allowIcPackageDownload =
     demoTier === 'free' || demoTier === 'partner' || demoTier === 'pro'
       ? false
-      : isIcDepth && !incompleteRun && ladder.ownsIc;
+      : demoTier === 'ic'
+        ? true
+        : isIcDepth && !incompleteRun && ladder.ownsIc;
   const downloadRights = downloadsAllowedForTier(ladderTier);
   // Paid-depth desk only — free/estimator never get City Pack / CSV / bid packet
   const allowProDeskDownloads = ladder.allowProDesk && downloadRights.proDesk;
@@ -1316,7 +1322,7 @@ export default function ResultsViewerModal({
           </p>
           <h3 className="text-white font-bold text-sm sm:text-base mt-1">{v.upsellHeadline}</h3>
           <p className="text-gray-300 text-sm mt-1.5 leading-relaxed">{v.upsellBody}</p>
-          {renderLadderUpsells()}
+          {renderLadderUpsells({ nextOnly: true })}
         </section>
       );
     }
@@ -1728,7 +1734,7 @@ export default function ResultsViewerModal({
                         color: '#e2e8f0',
                         fontSize: 14,
                         marginBottom: 8,
-                        filter: locked ? 'blur(5px)' : undefined,
+                        filter: locked ? 'blur(8px)' : undefined,
                         userSelect: locked ? 'none' : undefined,
                         position: 'relative',
                       }}
@@ -1799,7 +1805,7 @@ export default function ResultsViewerModal({
                         color: '#e2e8f0',
                         fontSize: 14,
                         marginBottom: 6,
-                        filter: locked ? 'blur(5px)' : undefined,
+                        filter: locked ? 'blur(8px)' : undefined,
                         userSelect: locked ? 'none' : undefined,
                       }}
                     >
@@ -2637,10 +2643,12 @@ export default function ResultsViewerModal({
           <div className="px-5 sm:px-8 py-3 border-b border-emerald-500/30 bg-emerald-500/10">
             <p className="text-sm font-bold text-emerald-100">
               {demoTier === 'free'
-                ? 'SAMPLE Free Lookups — fewest lines · locked sections blurred'
+                ? 'SAMPLE Free Lookups — bid-or-walk preview · next tier teased · everything else blurred'
                 : demoTier === 'partner'
-                  ? 'SAMPLE Estimator / Permit Runner — more unlocked · Pro desk still locked'
-                  : 'SAMPLE Contractor Pro — full Pro desk unlocked'}
+                  ? 'SAMPLE Estimator — Receipt and punch open · City Pack teased · counsel locked'
+                  : demoTier === 'pro'
+                    ? 'SAMPLE Contractor Pro — City Pack open · counsel ZIP teased'
+                    : 'SAMPLE IC Diligence Bundle — counsel ZIP open · Annual is the next step'}
             </p>
           </div>
         ) : null}
@@ -2908,6 +2916,27 @@ export default function ResultsViewerModal({
                     {IC_BUNDLE.ctaGenerate}
                   </a>
                 )}
+              </div>
+            ) : counselBody === 'tease' ? (
+              <div className="relative overflow-hidden rounded-lg border border-amber-500/40 bg-slate-950/50 min-h-[148px]">
+                <div className="blur-sm select-none pointer-events-none opacity-70 p-3 space-y-1.5" aria-hidden>
+                  <p className="text-sm font-semibold text-white">Decision memo — HOLD or CLEAR</p>
+                  <p className="text-sm text-gray-200">Boardroom PDF</p>
+                  <p className="text-sm text-gray-200">Counsel Word with exhibits</p>
+                  <p className="text-sm text-gray-200">Excel — Fees, Punch, Evidence</p>
+                </div>
+                <div className="absolute inset-0 flex flex-col items-center justify-end gap-2 bg-slate-950/45 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-amber-100">
+                    IC Diligence Bundle
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => goCheckout('ic_project')}
+                    className="inline-flex items-center justify-center px-3 py-2 min-h-[40px] rounded-lg bg-amber-500/20 border border-amber-400/50 text-amber-50 text-sm font-bold"
+                  >
+                    {TIER_VOICE.pro.upsellCta}
+                  </button>
+                </div>
               </div>
             ) : null}
             <div className="flex flex-wrap gap-2">
@@ -3551,9 +3580,9 @@ export default function ResultsViewerModal({
                                 </p>
                               </div>
                               <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
-                                <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
-                                  Locked
-                                </span>
+                              <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
+                                Estimator
+                              </span>
                               </div>
                             </div>
                           ))}
@@ -3651,9 +3680,13 @@ export default function ResultsViewerModal({
                   : ''}
               </p>
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
-                {packFees.length || packGotchas.length || view.contingency_band
-                  ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Download this pack as a PDF, or use the bid downloads below.`
-                  : 'Download the Full City Pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
+                {packBody === 'locked'
+                  ? 'Fee schedule, gotchas, and the contingency band stay locked on Free.'
+                  : packBody === 'tease'
+                    ? 'Contingency band and AHJ links are open. Fee dollars and the rest of the City Pack unlock on Contractor Pro.'
+                    : packFees.length || packGotchas.length || view.contingency_band
+                      ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Download this pack as a PDF, or use the bid downloads below.`
+                      : 'Download the Full City Pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
               </p>
               </div>
               <button
@@ -3685,14 +3718,14 @@ export default function ResultsViewerModal({
                     <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                     <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
                       <p className="text-xs font-bold text-purple-50">
-                        Free — Full City Pack fees and gotchas stay locked.
+                        Free — fee schedule and City Pack stay locked. Estimator unlocks the full punch and a Receipt you can file.
                       </p>
                     </div>
                   </div>
                 ) : blurProDesk ? (
                   <div className="px-4 py-3 border-b border-amber-500/30 bg-amber-500/10">
                     <p className="text-xs font-bold text-amber-50">
-                      Estimator — fee dollars and the pack PDF stay blurred until Contractor Pro.
+                      Estimator — two fee lines are the teaser. Dollars and the rest of the City Pack stay locked until Contractor Pro.
                     </p>
                   </div>
                 ) : null}
@@ -3755,7 +3788,7 @@ export default function ResultsViewerModal({
                       </p>
                     ) : (
                       <ul className="space-y-2">
-                        {packFees.slice(0, 10).map((f, i) => (
+                        {packFees.slice(0, packBody === 'tease' ? 2 : 10).map((f, i) => (
                           <li key={i} className="text-sm text-gray-300">
                             {(() => {
                               const kind = classifyFeeKind(f.label, f.detail, f.trade);
@@ -3777,7 +3810,7 @@ export default function ResultsViewerModal({
                             {typeof f.amount_usd === 'number' ? (
                               <span
                                 className={
-                                  softLocked || blurProDesk ? 'blur-sm select-none inline-block' : undefined
+                                  softLocked || blurProDesk ? 'blur-md select-none inline-block' : undefined
                                 }
                               >
                                 {` — $${f.amount_usd.toLocaleString()}`}
@@ -3792,11 +3825,13 @@ export default function ResultsViewerModal({
                               view.fee_card?.paid_local_confirm) && (
                               <span className="ml-1 text-xs text-amber-300/90">(planning aid)</span>
                             )}
-                            <CitationBadge
-                              verified={Boolean(f.verified)}
-                              source_url={f.source_url || f.citation_url}
-                              source_label={f.source_label || f.citation_note || 'Confirm with AHJ'}
-                            />
+                            {packBody === 'open' ? (
+                              <CitationBadge
+                                verified={Boolean(f.verified)}
+                                source_url={f.source_url || f.citation_url}
+                                source_label={f.source_label || f.citation_note || 'Confirm with AHJ'}
+                              />
+                            ) : null}
                           </li>
                         ))}
                       </ul>
@@ -3818,14 +3853,22 @@ export default function ResultsViewerModal({
                       {view.gotcha_watchlist?.title || PRODUCT_COPY.sections.localGotchaWatchlist}
                     </h4>
                     <ul className="space-y-3">
-                      {packGotchas.slice(0, 8).map((g) => (
+                      {packGotchas.slice(0, packBody === 'tease' ? 1 : 8).map((g) => (
                         <li key={g.id || g.title} className="text-sm text-gray-300">
                           <span className="text-amber-200 font-semibold text-xs uppercase mr-1.5">
                             {formatStampSeverity(g.priority)}
                           </span>
                           <span className="text-white font-medium">{g.title}</span>
-                          {g.detail ? <p className="text-gray-400 text-xs mt-1">{g.detail}</p> : null}
-                          {(g.source_url || g.source_label) && (
+                          {g.detail ? (
+                            <p
+                              className={`text-gray-400 text-xs mt-1 ${
+                                packBody === 'open' ? '' : 'blur-sm select-none'
+                              }`}
+                            >
+                              {g.detail}
+                            </p>
+                          ) : null}
+                          {packBody === 'open' && (g.source_url || g.source_label) && (
                             <CitationBadge
                               verified={Boolean(g.source_url)}
                               source_url={g.source_url}
@@ -3837,6 +3880,45 @@ export default function ResultsViewerModal({
                     </ul>
                   </div>
                 )}
+
+                {packBody === 'tease' &&
+                  (packFees.length > 2 ||
+                    packGotchas.length > 1 ||
+                    (view.inspection_sequence_card?.steps || []).length > 0 ||
+                    (view.document_checklist?.items || []).length > 0) && (
+                    <div className="relative overflow-hidden min-h-[132px]">
+                      <div
+                        className="blur-sm select-none pointer-events-none opacity-70 px-4 py-4 space-y-2"
+                        aria-hidden
+                      >
+                        {packFees.slice(2, 6).map((f, i) => (
+                          <p key={`fee-lock-${i}`} className="text-sm text-white">
+                            {f.label || 'Fee line'} — $••,•••
+                          </p>
+                        ))}
+                        {packGotchas.slice(1, 4).map((g, i) => (
+                          <p key={`gotcha-lock-${i}`} className="text-sm text-gray-200">
+                            {g.title || 'Local gotcha'}
+                          </p>
+                        ))}
+                        {(view.inspection_sequence_card?.steps || []).slice(0, 3).map((step, i) => (
+                          <p key={`insp-lock-${i}`} className="text-sm text-gray-200">
+                            {step}
+                          </p>
+                        ))}
+                        {(view.document_checklist?.items || []).slice(0, 3).map((d, i) => (
+                          <p key={`doc-lock-${i}`} className="text-sm text-gray-200">
+                            {d.task}
+                          </p>
+                        ))}
+                      </div>
+                      <div className="absolute inset-0 z-10 flex items-end justify-center bg-slate-950/75 p-3 backdrop-blur-md">
+                        <p className="text-xs font-bold text-amber-50 text-center">
+                          Contractor Pro — the rest of the fee schedule, gotchas, and inspections stay locked.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                 {view.ahj_card && (
                   <div className="px-4 py-4">
@@ -3894,12 +3976,19 @@ export default function ResultsViewerModal({
                       )}
                     </div>
                     {view.ahj_card.notes && (
-                      <p className="text-gray-400 text-xs mt-2">{view.ahj_card.notes}</p>
+                      <p
+                        className={`text-gray-400 text-xs mt-2 ${
+                          packBody === 'open' ? '' : 'blur-sm select-none'
+                        }`}
+                      >
+                        {view.ahj_card.notes}
+                      </p>
                     )}
                   </div>
                 )}
 
-                {view.inspection_sequence_card &&
+                {packBody === 'open' &&
+                  view.inspection_sequence_card &&
                   (view.inspection_sequence_card.steps || []).length > 0 && (
                     <div className="px-4 py-4">
                       <h4 className="text-sm font-bold text-indigo-300 mb-2">
@@ -4058,15 +4147,6 @@ export default function ResultsViewerModal({
                       <MessageSquare className="w-4 h-4" />
                       {allowProDeskDownloads ? 'Text bid packet' : 'Text packet — Pro $149'}
                     </button>
-                    {!allowIcPackageDownload ? (
-                      <button
-                        type="button"
-                        onClick={() => goCheckout('ic_project')}
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-500/45 bg-amber-500/10 text-amber-50 text-sm font-semibold min-h-[44px]"
-                      >
-                        IC Bundle ZIP — $1,500
-                      </button>
-                    ) : null}
                     <button
                       type="button"
                       onClick={() => void runRecheck()}
@@ -4148,7 +4228,7 @@ export default function ResultsViewerModal({
                   {gotchaMsg && <p className="text-xs text-amber-200">{gotchaMsg}</p>}
                 </div>
 
-                {view.document_checklist && (
+                {packBody === 'open' && view.document_checklist && (
                   <div className="px-4 py-4">
                     <h4 className="text-sm font-bold text-purple-300 mb-2">
                       {view.document_checklist.title || 'Document checklist'}
@@ -4171,14 +4251,14 @@ export default function ResultsViewerModal({
                 <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                 <div className="relative z-10 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
                   <p className="text-xs font-bold text-purple-50">
-                    Free — Full City Pack stays locked.
+                    Free — City Pack stays locked. Next step is Estimator.
                   </p>
                 </div>
               </div>
             ) : blurProDesk ? (
               <div className="px-4 py-3 border-t border-amber-500/30 bg-amber-500/10">
                 <p className="text-xs font-bold text-amber-50">
-                  Estimator — fee dollars and the pack PDF stay locked until Contractor Pro.
+                  Estimator — fee dollars and the rest of the City Pack stay locked until Contractor Pro.
                 </p>
               </div>
             ) : (
@@ -4193,7 +4273,7 @@ export default function ResultsViewerModal({
 
           {/* Community friction signals */}
           {view.community_friction && (
-            <section className="rounded-xl border border-slate-600 bg-slate-800/40 p-4 sm:p-5 space-y-3">
+            <section className="relative overflow-hidden rounded-xl border border-slate-600 bg-slate-800/40 p-4 sm:p-5 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-lg font-bold text-white">
                   {view.community_friction.title || 'Community friction signals'}
@@ -4231,6 +4311,14 @@ export default function ResultsViewerModal({
                 ))}
               </ul>
               <p className="text-xs text-amber-200/90">{view.community_friction.disclaimer}</p>
+              {ladderTier === 'free' ? (
+                <div className="absolute inset-0 z-10">
+                  <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
+                  <div className="relative z-10 flex h-full items-end justify-center p-3">
+                    <p className="text-xs font-bold text-purple-50">Locked</p>
+                  </div>
+                </div>
+              ) : null}
             </section>
           )}
 
@@ -4247,12 +4335,14 @@ export default function ResultsViewerModal({
                 <h3 className="text-lg font-bold text-white">
                   {view.dc_positioning?.headline || 'Data-center diligence'}
                 </h3>
-                {view.dc_positioning?.pitch ? (
+                {view.dc_positioning?.pitch && dcBody !== 'locked' ? (
                   <p className="text-sm text-gray-300 mt-1">{view.dc_positioning.pitch}</p>
                 ) : null}
               </div>
 
-              {view.vertical_playbook && (view.vertical_playbook.items || []).length > 0 ? (
+              {dcBody !== 'locked' &&
+              view.vertical_playbook &&
+              (view.vertical_playbook.items || []).length > 0 ? (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h4 className="text-sm font-bold tracking-wide text-cyan-200">
@@ -4278,7 +4368,7 @@ export default function ResultsViewerModal({
                     <p className="text-xs text-gray-400">{view.vertical_playbook.beachhead_hint}</p>
                   ) : null}
                   <ul className="space-y-2">
-                    {(view.vertical_playbook.items || []).map((it) => (
+                    {(view.vertical_playbook.items || []).slice(0, playbookClear).map((it) => (
                       <li
                         key={it.id || it.task}
                         className="text-sm border border-slate-700/70 rounded-lg p-3 bg-slate-900/40"
@@ -4314,12 +4404,46 @@ export default function ResultsViewerModal({
                       </li>
                     ))}
                   </ul>
+                  {ladderTier === 'partner' &&
+                    (view.vertical_playbook.items || []).length > playbookClear && (
+                      <div className="relative overflow-hidden rounded-lg min-h-[72px]">
+                        <div className="blur-sm select-none pointer-events-none opacity-70 space-y-2" aria-hidden>
+                          {(view.vertical_playbook.items || [])
+                            .slice(playbookClear, playbookClear + 2)
+                            .map((it) => (
+                              <p key={it.id || it.task} className="text-sm text-white">
+                                {it.task}
+                              </p>
+                            ))}
+                        </div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50">
+                          <span className="text-[11px] font-bold uppercase tracking-wide text-amber-100 px-2 py-1 rounded bg-amber-600/40 border border-amber-400/40">
+                            Contractor Pro
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   {view.vertical_playbook.disclaimer ? (
                     <p className="text-xs text-gray-500">{view.vertical_playbook.disclaimer}</p>
                   ) : null}
                 </div>
               ) : null}
 
+              <div
+                className={
+                  dcBody === 'open'
+                    ? 'space-y-5'
+                    : 'relative space-y-5 overflow-hidden rounded-lg min-h-[140px]'
+                }
+              >
+              <div
+                className={
+                  dcBody === 'open'
+                    ? 'space-y-5'
+                    : 'space-y-5 blur-md select-none pointer-events-none'
+                }
+                aria-hidden={dcBody !== 'open'}
+              >
               {view.parallel_clocks && (
                 <div className="space-y-2">
                   <h4 className="text-sm font-bold tracking-wide text-cyan-200">
@@ -4525,7 +4649,19 @@ export default function ResultsViewerModal({
                   ) : null}
                 </div>
               )}
+              </div>
+              {dcBody !== 'open' ? (
+                <div className="absolute inset-0 z-10 flex items-end justify-center bg-slate-950/75 p-3 backdrop-blur-md">
+                  <p className="text-xs font-bold text-center text-amber-50">
+                    {ladderTier === 'pro'
+                      ? 'IC Diligence Bundle — parallel clocks, FAST-41, water, and moratorium stay in the counsel package.'
+                      : 'Locked'}
+                  </p>
+                </div>
+              ) : null}
+              </div>
 
+              {dcBody === 'open' ? (
               <div className="flex flex-wrap gap-2 pt-1">
                 <button
                   type="button"
@@ -4557,6 +4693,7 @@ export default function ResultsViewerModal({
                   Open moratorium radar
                 </a>
               </div>
+              ) : null}
             </section>
           )}
 
@@ -4713,7 +4850,7 @@ export default function ResultsViewerModal({
                   </div>
                   );
                 })}
-                {softLocked &&
+                {(softLocked || ladderTier === 'partner') &&
                   (view.environmental_screening?.findings || []).length > findingsVisible && (
                     <div className="space-y-2">
                       {(view.environmental_screening?.findings || [])
@@ -4732,7 +4869,7 @@ export default function ResultsViewerModal({
                             </div>
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/55">
                               <span className="text-[11px] font-bold uppercase tracking-wide text-purple-100 px-2 py-1 rounded bg-purple-600/40 border border-purple-400/40">
-                                Locked
+                                {softLocked ? 'Estimator' : 'Contractor Pro'}
                               </span>
                             </div>
                           </div>

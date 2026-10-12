@@ -5,14 +5,20 @@
  * VALUE RULE (premortem): more pay ⇒ strictly more visible content + artifacts.
  * Never let Free (even after share unlock) show ≥ Estimator punch/findings.
  *
- * Visibility matrix (canonical):
- *   Free soft-lock:     5 punch · 3 findings · contingency blurred · fee $ blurred · no Pro desk
- *   Free after share:   6 punch · 4 findings · contingency % on · fee $ still blurred · no Pro desk
- *   Estimator ($79):    full punch · full habit findings · contingency % on · fee $ blurred · no Pro desk
- *   Pro ($149):         full punch · full findings · fee $ on · City Pack PDF/CSV/bid packet
- *   IC ($1,500):        Pro desk + counsel ZIP (memo · boardroom · DOCX · Excel)
+ * Visibility matrix (canonical — sample demos and live scans use the same fields):
+ *   Free:       bid-or-walk (top punch, stamp, thin findings). Contingency % blurred.
+ *               City Pack, fee dollars, DC capital cards, and counsel ZIP locked.
+ *               Teaser = remaining punch (Estimator).
+ *   Estimator:  full punch, contingency %, Receipt, AHJ links, short cite/confirm list.
+ *               Fee dollars and the rest of the City Pack blurred.
+ *               Teaser = a couple of fee lines (Contractor Pro). Counsel stays locked.
+ *   Pro:        full City Pack, fee dollars, CSV, bid packet, playbook.
+ *               Parallel clocks / FAST-41 / water stay blurred.
+ *               Teaser = counsel ZIP file names (IC Diligence Bundle).
+ *   IC:         Pro desk + DC capital cards + counsel ZIP. Teaser = IC Annual only.
  *
- * Upsell: each level lists every higher SKU — next step first (primary), then up to highest cost.
+ * Upsell in the results panel is the next tier only. ladderUpsells() can still list
+ * the full climb for pricing pages.
  *
  * HARD RULE: display tier comes from THIS run's research_depth / demoTier.
  * Sticky entitlements must NEVER invent Pro/IC on a free or missing-depth run.
@@ -22,6 +28,9 @@
 import { TIER_VOICE, nextVoiceForLadderTier } from './tierVoice';
 
 export type ResultsLadderTier = 'free' | 'partner' | 'pro' | 'ic';
+
+/** locked = overlay blur, tease = a short blurred preview of the next tier, open = paid content */
+export type LadderBodyMode = 'locked' | 'tease' | 'open';
 
 export type CheckoutLadderTier = 'partner' | 'contractor_pro' | 'ic_project' | 'ic_annual';
 
@@ -45,6 +54,14 @@ export type ResultsLadder = {
   proBlurPunchTeasers: number;
   /** How many synthetic locked punch rows to paint when the list is short (sample theater) */
   syntheticBlurTeasers: number;
+  /** City Pack fees / gotchas / inspections */
+  packBody: LadderBodyMode;
+  /** Data-center capital cards (clocks, FAST-41, water, moratorium) */
+  dcBody: LadderBodyMode;
+  /** Counsel ZIP (memo, boardroom, Word, Excel) */
+  counselBody: LadderBodyMode;
+  /** Vertical playbook rows left readable. 0 = inside the DC lock. */
+  playbookClear: number;
 };
 
 export type LadderUpsell = {
@@ -297,7 +314,7 @@ export function downloadsAllowedForTier(tier: ResultsLadderTier): {
 }
 
 export function resolveResultsLadder(input: {
-  demoTier?: 'free' | 'partner' | 'pro' | null;
+  demoTier?: 'free' | 'partner' | 'pro' | 'ic' | null;
   entitlementTiers?: string[];
   accessTier?: string | null;
   isDeep?: boolean;
@@ -316,7 +333,8 @@ export function resolveResultsLadder(input: {
 
   // Display tier = THIS run's depth (sample parity). Sticky entitlements never invent higher.
   let tier: ResultsLadderTier = 'free';
-  if (demo === 'pro') tier = 'pro';
+  if (demo === 'ic') tier = 'ic';
+  else if (demo === 'pro') tier = 'pro';
   else if (demo === 'partner') tier = 'partner';
   else if (demo === 'free') tier = 'free';
   else if (depthCap === 'free') {
@@ -349,7 +367,7 @@ export function resolveResultsLadder(input: {
   const softLocked =
     demo === 'free'
       ? true
-      : demo === 'partner' || demo === 'pro'
+      : demo === 'partner' || demo === 'pro' || demo === 'ic'
         ? false
         : tier === 'free';
 
@@ -373,6 +391,10 @@ export function resolveResultsLadder(input: {
   // Tease Pro desk formats on Free only — Estimator already owns unlocked punch.
   const proBlurPunchTeasers = tier === 'free' && !softLocked && !ownsPro ? 2 : 0;
   const syntheticBlurTeasers = softLocked ? FREE_SYNTHETIC_BLUR_TEASERS : 0;
+  const packBody: LadderBodyMode = tier === 'free' ? 'locked' : tier === 'partner' ? 'tease' : 'open';
+  const dcBody: LadderBodyMode = tier === 'free' ? 'locked' : tier === 'ic' ? 'open' : 'tease';
+  const counselBody: LadderBodyMode = tier === 'ic' ? 'open' : tier === 'pro' ? 'tease' : 'locked';
+  const playbookClear = tier === 'free' ? 0 : tier === 'partner' ? 3 : 99;
 
   return {
     tier,
@@ -387,5 +409,9 @@ export function resolveResultsLadder(input: {
     blurProDesk,
     proBlurPunchTeasers,
     syntheticBlurTeasers,
+    packBody,
+    dcBody,
+    counselBody,
+    playbookClear,
   };
 }

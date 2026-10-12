@@ -77,7 +77,8 @@ export const SAMPLE_ROWS: readonly SampleRowDef[] = [
     price: `${HABIT_TIERS.contractor_pro.priceLabel}/mo`,
   },
   {
-    href: '/sample/ic-diligence-bundle.zip',
+    href: '/sample-site-diligence?tier=ic',
+    viewRoute: '/sample-site-diligence?tier=ic',
     title: IC_BUNDLE.tierName,
     subtitle: IC_BUNDLE.oneLiner,
     price: IC_BUNDLE.priceLabel,

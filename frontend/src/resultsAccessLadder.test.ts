@@ -132,6 +132,16 @@ function assert(cond: unknown, msg: string) {
   assert(resolveResultsLadder({ demoTier: 'free' }).softLocked === true, 'sample free soft');
   assert(resolveResultsLadder({ demoTier: 'partner' }).blurProDesk === true, 'sample partner blur');
   assert(resolveResultsLadder({ demoTier: 'pro' }).allowProDesk === true, 'sample pro desk');
+  assert(resolveResultsLadder({ demoTier: 'pro' }).counselBody === 'tease', 'sample pro teases counsel');
+  assert(resolveResultsLadder({ demoTier: 'pro' }).dcBody === 'tease', 'sample pro blurs DC capital');
+  assert(resolveResultsLadder({ demoTier: 'ic' }).counselBody === 'open', 'sample ic opens counsel');
+  assert(resolveResultsLadder({ demoTier: 'ic' }).packBody === 'open', 'sample ic opens pack');
+  assert(resolveResultsLadder({ demoTier: 'free' }).packBody === 'locked', 'sample free locks pack');
+  assert(resolveResultsLadder({ demoTier: 'partner' }).packBody === 'tease', 'sample estimator teases pack');
+  assert(resolveResultsLadder({ researchDepth: 'free' }).counselBody === 'locked', 'live free locks counsel');
+  assert(resolveResultsLadder({ researchDepth: 'partner' }).dcBody === 'tease', 'live estimator teases DC');
+  assert(resolveResultsLadder({ researchDepth: 'pro' }).counselBody === 'tease', 'live pro teases counsel');
+  assert(resolveResultsLadder({ researchDepth: 'ic', isIcDepth: true }).counselBody === 'open', 'live ic opens counsel');
 }
 
 assert(ladderTierFromResearchDepth('partner', true) === 'partner', 'partner beats preview');

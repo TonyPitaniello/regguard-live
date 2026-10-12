@@ -1,6 +1,6 @@
 /**
  * Sample of the on-screen results panel after address entry.
- * ?tier=free|partner|pro shows progressive unlock + blur ladder.
+ * ?tier=free|partner|pro|ic shows progressive unlock + blur ladder.
  */
 
 import { useEffect, useMemo, useState } from 'react';
