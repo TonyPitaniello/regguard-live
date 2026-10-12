@@ -243,6 +243,8 @@ def generate_bid_risk_receipt_pdf(
         or not data.get("margin_killers")
         or not data.get("ahj_card")
     ):
+        from arbitrage_enrichment import enrich_analysis_with_arbitrage
+
         data = enrich_analysis_with_arbitrage(data)
 
     pi = data.get("project_info") or {}

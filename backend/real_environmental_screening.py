@@ -227,7 +227,7 @@ class EnvironmentalScreeningEngine:
     """
     
     def __init__(self):
-        self.firecrawl_api_key = os.getenv("FIRECRAWL_API_KEY")
+        self.firecrawl_api_key = (os.getenv("FIRECRAWL_API_KEY") or "").strip()
         self.firecrawl_base_url = "https://api.firecrawl.dev/v1"
         
     async def screen_site(self, address: str, latitude: float, longitude: float, city: str, state: str, zip_code: str) -> Dict[str, Any]:
