@@ -33,12 +33,12 @@ export const PRODUCT_COPY = {
     'This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ approval. Confirm every item with the Authority Having Jurisdiction before you bid or file. Findings are labeled Source or Unverified.',
 
   /** Home hero */
-  heroHeadline: 'Citeable Site Diligence Before You Bid',
+  heroHeadline: 'Send the GC a HOLD they can open on a phone',
   heroSubhead:
-    'Enter a US address — get a bid-or-walk Bid Risk Receipt preview. Source on every line, or get an honest "Unverified". No credit card to try it free.',
-  seoTitle: 'Reg Guard — Bid Risk Receipt for Contractors',
+    'Enter a US address. In minutes: bid or walk — stamp, top risks, Source or Unverified. The clear contingency % stays on Estimator ($79/mo). No card to try it.',
+  seoTitle: 'Reg Guard — HOLD or walk before you price the site',
   seoDescription:
-    'Bid-or-walk site diligence for US addresses — strongest in DFW and Austin. Forward a Bid Risk Receipt to your GC. Planning aid — not a quote or sealed bid.',
+    'Forward a Bid Risk Receipt to your GC. Free shows HOLD and top risks. Estimator unlocks the contingency % for the bid file. Strongest in DFW and Austin. Planning aid — not a quote.',
 
   sampleEyebrow: 'Labeled Sample',
   sampleLead: 'See What Reg Guard Can Do',

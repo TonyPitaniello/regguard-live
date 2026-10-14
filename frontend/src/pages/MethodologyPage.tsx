@@ -68,8 +68,9 @@ export default function MethodologyPage() {
                     <strong className="text-amber-200">Unverified</strong>.
                   </p>
                   <p className="text-gray-400 text-sm">
-                    Soft-locked lines unlock when you forward the receipt (SMS / email / copy) or
-                    upgrade. Contingency is a planning aid — not a bid quote.
+                    On Free, the clear contingency stays blurred even after you forward the
+                    preview. Estimator ($79/mo) unlocks that number. Contingency is a planning
+                    aid — not a bid quote.
                   </p>
                 </div>
               </div>

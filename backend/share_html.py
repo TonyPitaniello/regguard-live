@@ -110,6 +110,28 @@ def render_share_html(
     if killers:
         desc_bits.append(str(killers[0].get("title") or "")[:80])
     description = " · ".join(x for x in desc_bits if x)[:200]
+    share_tier = str(analysis.get("share_tier") or "free").lower()
+    if share_tier == "partner":
+        next_paid = (
+            f"<p><a class='btn ghost' href='{_esc(pro)}'>Contractor Pro $149/mo</a></p>"
+        )
+    elif share_tier.startswith("pro"):
+        ic = with_share_params(
+            f"{base}/checkout/ic_project",
+            ref=ref,
+            utm={"utm_source": "sharepage", "utm_medium": "cta", "utm_campaign": "bid_risk_receipt"},
+        )
+        next_paid = (
+            f"<p><a class='btn ghost' href='{_esc(ic)}'>IC Diligence Bundle $1,500</a></p>"
+        )
+    elif share_tier == "ic":
+        next_paid = ""
+    else:
+        next_paid = (
+            f"<p class='fine'>Estimator ($79/mo) unlocks the clear contingency on runs you pay for. "
+            f"Forwarding this page does not. "
+            f"<a href='{_esc(partner)}' style='color:#34d399'>Estimator $79/mo</a></p>"
+        )
     og_image = f"{base}/icons/apple-touch-icon.png"
     killer_html = ""
     if killers:
@@ -203,12 +225,9 @@ def render_share_html(
     {fee_html}
     <p>
       <a class="btn primary" href="{_esc(run_url)}">Run my address</a>
-      <a class="btn ghost" href="{_esc(spa_url)}">Open full receipt</a>
     </p>
-    <p>
-      <a class="btn ghost" href="{_esc(partner)}">Partner $79/mo</a>
-      <a class="btn ghost" href="{_esc(pro)}">Contractor Pro $149/mo</a>
-    </p>
+    <p class="fine">This receipt is for this address. Your next site takes 60 seconds. No card.</p>
+    {next_paid}
     <p class="fine">
       Confirm fees and timelines with the AHJ before you bid. We do not store cards — Stripe handles payment.
       Source: <a href="{_esc(APP_HOST)}" style="color:#34d399">app.regguardagent.com</a>

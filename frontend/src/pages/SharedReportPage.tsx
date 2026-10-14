@@ -276,49 +276,14 @@ export default function SharedReportPage() {
         canonical={`https://app.regguardagent.com/r/${id}`}
       />
       <div className="max-w-3xl mx-auto px-4 py-10 sm:px-6 space-y-8">
-        <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 sm:p-5 space-y-3">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-300">
-            Run your address
-          </p>
-          <p className="text-sm text-gray-200">
-            This receipt is a planning aid — not a quote. Estimators attach it to a bid. GCs open it
-            on a phone. Your next site takes 60 seconds.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              to={`/?utm_source=sharepage&utm_medium=cta&utm_campaign=bid_risk_receipt${storedReferralCode() ? `&ref=${encodeURIComponent(storedReferralCode())}` : ''}#free-trial-form`}
-              className="inline-flex items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white"
-            >
-              Run my address
-            </Link>
-            <Link
-              to={`/checkout/partner${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
-              className="inline-flex items-center rounded-lg border border-emerald-400/40 px-4 py-2.5 text-sm font-semibold text-emerald-100"
-            >
-              Estimator / Permit Runner $79/mo
-            </Link>
-            <Link
-              to={`/checkout/contractor_pro${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
-              className="inline-flex items-center rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-gray-200"
-            >
-              Contractor Pro $149/mo
-            </Link>
-          </div>
-        </section>
-
         <header className="space-y-3 border-b border-slate-800 pb-6">
           <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
             RegGuard Bid Risk Receipt
           </p>
-          <h1 className="text-3xl font-black">Forwardable site diligence</h1>
-          <p className="text-gray-300">
-            {street}
-            {place ? (
-              <>
-                <br />
-                {place}
-              </>
-            ) : null}
+          <h1 className="text-3xl font-black">{street || 'Bid Risk Receipt'}</h1>
+          {place ? <p className="text-gray-300">{place}</p> : null}
+          <p className="text-sm text-gray-400">
+            Planning aid for this address — not a quote. Confirm with the AHJ before you bid.
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
             {depthBadge && (
@@ -458,19 +423,7 @@ export default function SharedReportPage() {
           )}
         </section>
 
-        {freeShare ? (
-          <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-200 mb-1">
-              Suggested bid contingency
-            </p>
-            <p className="text-3xl font-black text-amber-200/40 tracking-tight blur-md select-none" aria-hidden>
-              +••.•% – +••.•%
-            </p>
-            <p className="text-sm text-amber-100/90 mt-1">
-              Blurred on Free. Estimator / Permit Runner ($79/mo) unlocks the clear band you can forward.
-            </p>
-          </section>
-        ) : band?.pct_low != null && band?.pct_high != null ? (
+        {!freeShare && band?.pct_low != null && band?.pct_high != null ? (
           <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300 mb-1">
               {band.label || 'Suggested bid contingency'}
@@ -527,6 +480,49 @@ export default function SharedReportPage() {
             </p>
           </section>
         )}
+
+        <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 sm:p-5 space-y-3">
+          <p className="text-sm text-gray-100">
+            This receipt is for this address. Your next site takes 60 seconds. No card.
+          </p>
+          <Link
+            to={`/?utm_source=sharepage&utm_medium=cta&utm_campaign=bid_risk_receipt${storedReferralCode() ? `&ref=${encodeURIComponent(storedReferralCode())}` : ''}#free-trial-form`}
+            className="inline-flex items-center rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-bold text-white"
+          >
+            Run my address
+          </Link>
+          {freeShare ? (
+            <p className="text-xs text-emerald-100/90">
+              <Link
+                to={`/checkout/partner${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
+                className="underline font-semibold"
+              >
+                Estimator ($79/mo)
+              </Link>{' '}
+              unlocks the clear contingency on runs you pay for. Forwarding this page does not.
+            </p>
+          ) : shareTier === 'partner' ? (
+            <p className="text-xs text-emerald-100/90">
+              <Link
+                to={`/checkout/contractor_pro${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
+                className="underline font-semibold"
+              >
+                Contractor Pro ($149/mo)
+              </Link>{' '}
+              adds the City Pack, fee CSV, and bid packet.
+            </p>
+          ) : shareTier.startsWith('pro') ? (
+            <p className="text-xs text-emerald-100/90">
+              <Link
+                to={`/checkout/ic_project${storedReferralCode() ? `?ref=${encodeURIComponent(storedReferralCode())}` : ''}`}
+                className="underline font-semibold"
+              >
+                IC Diligence Bundle ($1,500)
+              </Link>{' '}
+              is the counsel ZIP for one capital site.
+            </p>
+          ) : null}
+        </section>
 
         {(analysis.fee_card?.fees || []).length > 0 && (
           <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">
@@ -697,18 +693,9 @@ export default function SharedReportPage() {
 
         <section className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/40 p-5">
           <h2 className="text-xl font-bold">Bid-file notes</h2>
-          <p className="text-xs text-gray-400">
-            Owner / IC / GC / utility / counsel can leave notes on this shared receipt. Not a chat
-            product — keep comments bid-file useful.
-            {wrMeta.durable_backend
-              ? ` Storage: ${wrMeta.durable_backend}.`
-              : ''}
-            {wrMeta.stamp_grade
-              ? ` Stamp frozen: ${wrMeta.stamp_grade}${
-                  wrMeta.stamp_fingerprint ? ` · fp ${wrMeta.stamp_fingerprint}` : ''
-                }.`
-              : ''}
-          </p>
+            <p className="text-xs text-gray-400">
+              Leave a note the next person on this bid can read. Keep it about this address.
+            </p>
           {wrMeta.writes_enabled === false ? (
             <p className="text-xs text-amber-200">
               Writes disabled until durable storage (Supabase) is configured.
@@ -762,15 +749,15 @@ export default function SharedReportPage() {
             onClick={() => void postWarRoom()}
             className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50"
           >
-            {wrBusy ? 'Posting…' : 'Post war-room note'}
+            {wrBusy ? 'Posting…' : 'Post note'}
           </button>
         </section>
 
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Sources</h2>
           <p className="text-xs text-gray-500">
-            SOURCE = parcel/scout verified. LINK = official portal URL to confirm yourself. Unverified =
-            no defendable URL yet.
+            SOURCE = a named origin you can open. PORTAL = the official page to confirm yourself.
+            UNVERIFIED = no defendable URL yet.
           </p>
           {sources.length === 0 ? (
             <p className="text-sm text-gray-400">

@@ -814,6 +814,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
     '',
     `Prepared for ${who}`,
     'Confirm with the AHJ before bid or filing. Not a sealed bid or official filing.',
+    'Next site: open the link, then tap Run my address — 60 seconds, no card.',
     link || 'Open your Reg Guard results to copy the receipt link.',
   ]
     .filter((line) => line != null)
@@ -1728,7 +1729,7 @@ export default function ResultsViewerModal({
               </div>
               {softLocked ? (
                 <p style={{ fontSize: 12, color: '#fde68a', margin: '10px 0 0', fontWeight: 700 }}>
-                  Free — contingency unlocks when you forward the Bid Risk Receipt or upgrade.
+                  Free — the clear % stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
                 </p>
               ) : blurProDesk ? (
                 <p style={{ fontSize: 12, color: '#fcd34d', margin: '10px 0 0' }}>
@@ -3246,7 +3247,7 @@ export default function ResultsViewerModal({
                   </p>
                   {softLocked ? (
                     <p className="text-xs text-purple-100 mt-2 font-semibold">
-                      Free — forward the receipt or upgrade to reveal the contingency band.
+                      Free — Estimator ($79/mo) unlocks this band. Forwarding the preview leaves it blurred.
                     </p>
                   ) : null}
                 </div>

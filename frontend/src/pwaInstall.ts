@@ -19,7 +19,7 @@ const BOOT_OK_KEY = 'rg_boot_ok';
 const APP_ORIGIN = 'https://app.regguardagent.com';
 const SHARE_TITLE = 'Reg Guard';
 const SHARE_TEXT =
-  'Citeable Site Diligence Before You Bid — Forwardable Bid Risk Receipt.';
+  'HOLD or walk before you price the site. Open the Bid Risk Receipt, then run your own address.';
 
 function notify() {
   listeners.forEach((fn) => {
