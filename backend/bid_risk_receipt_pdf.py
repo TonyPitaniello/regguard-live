@@ -343,15 +343,33 @@ def generate_bid_risk_receipt_pdf(
     )
     pdf.ln(1)
 
-    # HOLD/CLEAR stamp up front (counsel density)
-    rg = data.get("regguard_stamp") or {}
+    # HOLD/CLEAR stamp up front (counsel density) — never print FAIL
+    from pdf_stamp_helpers import (
+        citation_badge_and_url,
+        draw_frosted_contingency,
+        stamp_display_grade,
+        stamp_plain_text,
+    )
+
+    rg = data.get("regguard_stamp") if isinstance(data.get("regguard_stamp"), dict) else {}
+    if not rg.get("grade"):
+        try:
+            from regguard_stamp import apply_regguard_stamp
+
+            data = apply_regguard_stamp(dict(data))
+            rg = data.get("regguard_stamp") or {}
+        except Exception:
+            pass
     grade = str(rg.get("grade") or data.get("stamp_grade") or "").upper()
-    display = {"FAIL": "HOLD", "PASS": "CLEAR"}.get(grade, grade or "—")
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 14)
-    stamp_color = AMBER if display == "HOLD" else (AMBER_SOFT if display == "CAUTION" else EMERALD_SOFT)
-    pdf.set_text_color(*stamp_color)
-    pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {display}"), ln=1)
+    display = stamp_display_grade(grade)
+    if display and display not in ("—", "-", ""):
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 14)
+        stamp_color = AMBER if display == "HOLD" else (AMBER_SOFT if display == "CAUTION" else EMERALD_SOFT)
+        pdf.set_text_color(*stamp_color)
+        pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {display}"), ln=1)
+    else:
+        display = ""
     if _stamp_is_stale(rg):
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
@@ -364,15 +382,12 @@ def generate_bid_risk_receipt_pdf(
                 "forwarding or locking a number."
             ),
         )
-    if rg.get("headline") or rg.get("plain"):
+    plain = stamp_plain_text(rg, grade=grade)
+    if plain:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*DIM)
-        pdf.multi_cell(
-            CONTENT_W,
-            3.2,
-            _ascii(_soft_cut(str(rg.get("headline") or rg.get("plain") or "").replace("FAIL", "HOLD"), 200)),
-        )
+        pdf.multi_cell(CONTENT_W, 3.2, _ascii(_soft_cut(plain, 200)))
     # AHJ portal / fee schedule / Accela — citeable links above the fold
     fees_u = str(ahj.get("fees_url") or "").strip()
     portal_u = str(ahj.get("portal_url") or "").strip()
@@ -394,15 +409,16 @@ def generate_bid_risk_receipt_pdf(
         pdf.cell(CONTENT_W, 4, "AHJ LINKS (confirm before bid)", ln=1)
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*MUTED)
-        if portal_u:
+        for kind, url in (("Portal", portal_u), ("Fee schedule", fees_u), ("Apply", apply_u)):
+            if not url:
+                continue
             pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Portal: {_soft_cut(portal_u, 95)}"))
-        if fees_u:
-            pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Fee schedule: {_soft_cut(fees_u, 88)}"))
-        if apply_u:
-            pdf.set_x(MARGIN)
-            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"Apply: {_soft_cut(apply_u, 95)}"))
+            y_l = pdf.get_y()
+            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"{kind}: {_soft_cut(url, 95)}"))
+            try:
+                pdf.link(MARGIN, y_l, CONTENT_W, 3.0, url)
+            except Exception:
+                pass
     pdf.ln(1)
 
     # Site card
@@ -486,19 +502,32 @@ def generate_bid_risk_receipt_pdf(
     y1 = pdf.get_y()
     pdf.set_fill_color(*CARD)
     pdf.set_draw_color(*(AMBER if free_preview else EMERALD))
-    pdf.rect(MARGIN, y1, CONTENT_W, 24, "DF")
+    pdf.rect(MARGIN, y1, CONTENT_W, 26 if free_preview else 24, "DF")
     pdf.set_xy(MARGIN + 4, y1 + 3)
-    if free_preview:
-        pdf.set_font("Helvetica", "B", 26)
+    if free_preview and low_s and high_s:
+        # Real % silhouette, frosted — not +##% placeholders
+        draw_frosted_contingency(
+            pdf,
+            x=MARGIN + 4,
+            y=y1 + 3,
+            w=CONTENT_W - 8,
+            h=14,
+            low_s=low_s,
+            high_s=high_s,
+            mid_s=mid_s,
+            card_rgb=CARD,
+            amber_soft=AMBER_SOFT,
+            muted=MUTED,
+        )
+    elif free_preview:
+        pdf.set_font("Helvetica", "B", 11)
         pdf.set_text_color(*AMBER_SOFT)
-        pdf.cell(CONTENT_W - 8, 11, "+##%  to  +##%", ln=1)
-        pdf.set_x(MARGIN + 4)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*AMBER)
         pdf.multi_cell(
             CONTENT_W - 8,
             4.5,
-            _ascii("Locked on Free - Estimator / Permit Runner ($79/mo) unlocks the band you can forward."),
+            _ascii(
+                "Contingency band locked on Free — Estimator unlocks the clear % you can forward."
+            ),
         )
     elif low_s and high_s:
         pdf.set_font("Helvetica", "B", 26)
@@ -521,7 +550,7 @@ def generate_bid_risk_receipt_pdf(
             5,
             _ascii("Set contingency after confirming Critical/High items with AHJ."),
         )
-    pdf.set_y(y1 + 26)
+    pdf.set_y(y1 + (28 if free_preview else 26))
 
     # Prefer citeable AHJ fee table over polluted fee_card budget rows
     fee_rows = []
@@ -614,15 +643,7 @@ def generate_bid_risk_receipt_pdf(
             if not isinstance(k, dict):
                 continue
             locked = free_preview and i > clear_n
-            ver_tier = str(k.get("citation_tier") or "").lower()
-            if not ver_tier:
-                if k.get("verified") and k.get("source_url"):
-                    ver_tier = "verified"
-                elif k.get("source_url"):
-                    ver_tier = "link"
-                else:
-                    ver_tier = "unverified"
-            ver = "SOURCE" if ver_tier == "verified" else ("LINK" if ver_tier == "link" else "UNVERIFIED")
+            ver, cite_url = citation_badge_and_url(k)
             pri = str(k.get("priority") or "NOTE").upper()
             title = _soft_cut(str(k.get("title") or "Item"), 72)
             detail = _soft_cut(str(k.get("detail") or ""), 110)
@@ -632,8 +653,9 @@ def generate_bid_risk_receipt_pdf(
                 detail = "Estimator unlocks the rest of the punch list with owner · due · Source or Unverified."
                 pe = {}
                 ver = "LOCKED"
+                cite_url = None
 
-            box_h = 14 + (3.2 if detail else 0)
+            box_h = 14 + (3.2 if detail else 0) + (3.0 if cite_url else 0)
             if isinstance(pe, dict) and pe.get("usd_mid") is not None and not free_preview:
                 box_h += 3.2
             if not _ensure_space(pdf, box_h + 14):
@@ -664,12 +686,19 @@ def generate_bid_risk_receipt_pdf(
                 bx2 += _badge(pdf, pri, fg=WHITE, bg=CARD_EDGE, x=bx2, y=by)
             bx2 += 2
             if not locked:
-                if ver == "UNVERIFIED":
-                    _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=bx2, y=by)
-                elif ver == "LINK":
-                    _badge(pdf, ver, fg=BG, bg=(56, 189, 248), x=bx2, y=by)
-                else:
-                    _badge(pdf, ver, fg=BG, bg=EMERALD, x=bx2, y=by)
+                bg_c = (
+                    AMBER_SOFT
+                    if ver == "UNVERIFIED"
+                    else EMERALD
+                    if ver.startswith("SOURCE")
+                    else (56, 189, 248)
+                )
+                bw = _badge(pdf, ver[:22], fg=BG, bg=bg_c, x=bx2, y=by)
+                if cite_url:
+                    try:
+                        pdf.link(bx2, by, bw, 5, cite_url)
+                    except Exception:
+                        pass
 
             pdf.set_xy(bx, by + 5)
             pdf.set_font("Helvetica", "B", 8)
@@ -680,6 +709,11 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*MUTED)
                 pdf.multi_cell(CONTENT_W - 12, 3.0, detail)
+            if cite_url:
+                pdf.set_x(bx)
+                pdf.set_font("Helvetica", "", 6.5)
+                pdf.set_text_color(*EMERALD)
+                pdf.multi_cell(CONTENT_W - 12, 2.8, _ascii(cite_url[:100]))
             if (
                 not free_preview
                 and isinstance(pe, dict)
@@ -710,16 +744,19 @@ def generate_bid_risk_receipt_pdf(
                     continue
                 if not _ensure_space(pdf, 8):
                     break
-                task = _soft_cut(str(item.get("task") or "Punch line"), 70)
-                owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 18)
-                due = _soft_cut(str(item.get("due_window") or item.get("timeline") or "Pre-bid"), 14)
-                src = "SOURCE" if item.get("verified") and item.get("source_url") else (
-                    "LINK" if item.get("source_url") else "UNVERIFIED"
-                )
+                task = _soft_cut(str(item.get("task") or "Punch line"), 62)
+                owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 16)
+                due = _soft_cut(str(item.get("due_window") or item.get("timeline") or "Pre-bid"), 12)
+                src, punch_url = citation_badge_and_url(item)
                 pdf.set_x(MARGIN)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*WHITE)
                 pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"- {task}  [{owner} · {due} · {src}]"))
+                if punch_url:
+                    pdf.set_x(MARGIN + 3)
+                    pdf.set_font("Helvetica", "", 6)
+                    pdf.set_text_color(*EMERALD)
+                    pdf.multi_cell(CONTENT_W - 3, 2.6, _ascii(punch_url[:100]))
             pdf.ln(0.5)
 
     # Compact footer — stamp already shown above the fold (no duplicate HOLD / drivers)

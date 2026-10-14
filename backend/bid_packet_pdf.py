@@ -251,9 +251,16 @@ def generate_bid_packet_pdf(
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(*EMERALD_SOFT)
     pdf.multi_cell(CONTENT_W, 4.5, _ascii(doc_title))
+    from pdf_stamp_helpers import (
+        citation_badge_and_url,
+        stamp_display_grade,
+        stamp_plain_text,
+    )
+
     _muted(
         pdf,
-        "Forwardable pre-bid diligence  |  Site-specific CYA stamp  |  Not a quote, not a filing",
+        "BID DESK worksheet — fee dollars, punch costs, checklist  |  "
+        "Not the 1-page Bid Risk Receipt  |  Planning aid, not a quote",
         8,
     )
     if depth or coverage:
@@ -268,21 +275,24 @@ def generate_bid_packet_pdf(
             8,
         )
     rg = analysis_data.get("regguard_stamp") or {}
-    grade = str(rg.get("grade") or analysis_data.get("stamp_grade") or "").upper()
-    if grade in ("PASS", "CAUTION", "FAIL"):
+    grade_raw = str(rg.get("grade") or analysis_data.get("stamp_grade") or "").upper()
+    display = stamp_display_grade(grade_raw)
+    if display in ("CLEAR", "CAUTION", "HOLD"):
         pdf.ln(1)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 14)
-        if grade == "PASS":
+        if display == "CLEAR":
             pdf.set_text_color(*EMERALD_SOFT)
-        elif grade == "CAUTION":
+        elif display == "CAUTION":
             pdf.set_text_color(251, 191, 36)
         else:
-            pdf.set_text_color(239, 68, 68)
+            # HOLD uses amber — never print FAIL / never use rejection-red for the face stamp
+            pdf.set_text_color(*AMBER)
         stale = " (STALE)" if rg.get("is_stale") else ""
-        pdf.cell(CONTENT_W, 7, _ascii(f"REGGUARD STAMP: {grade}{stale}"), ln=1)
-        if rg.get("headline"):
-            _muted(pdf, str(rg.get("headline"))[:160], 8)
+        pdf.cell(CONTENT_W, 7, _ascii(f"REGGUARD STAMP: {display}{stale}"), ln=1)
+        plain = stamp_plain_text(rg, grade=grade_raw)
+        if plain:
+            _muted(pdf, plain[:200], 8)
         if rg.get("valid_until"):
             _muted(pdf, f"Valid until {rg.get('valid_until')}  |  fp {rg.get('fingerprint') or ''}", 7)
     pdf.ln(1)
@@ -363,14 +373,11 @@ def generate_bid_packet_pdf(
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         pri = str(k.get("priority") or "NOTE").upper()
-        if citation_label_for_item:
-            ver = citation_label_for_item(k)
-        else:
-            ver = "SOURCE" if k.get("verified") and k.get("source_url") else "UNVERIFIED"
+        ver, cite_url = citation_badge_and_url(k)
         title = _ascii(strip_md_bold(str(k.get("title") or "Item")))[:88]
         detail = _ascii(strip_md_bold(str(k.get("detail") or "")))[:140]
 
-        box_h = 18 + (4 if detail else 0)
+        box_h = 18 + (4 if detail else 0) + (3.5 if cite_url else 0)
         pe = k.get("planning_exposure") or {}
         if isinstance(pe, dict) and pe.get("usd_mid") is not None:
             box_h += 4
@@ -389,12 +396,19 @@ def generate_bid_packet_pdf(
         else:
             badge_x += _badge(pdf, pri, fg=WHITE, bg=CARD_EDGE, x=badge_x, y=by)
         badge_x += 2
-        if ver == "UNVERIFIED":
-            _badge(pdf, ver, fg=BG, bg=AMBER_SOFT, x=badge_x, y=by)
-        elif ver == "LINK":
-            _badge(pdf, ver, fg=WHITE, bg=PURPLE, x=badge_x, y=by)
-        else:
-            _badge(pdf, ver, fg=BG, bg=EMERALD, x=badge_x, y=by)
+        badge_w = _badge(
+            pdf,
+            ver,
+            fg=BG if ver.startswith(("SOURCE", "UNVERIFIED")) else WHITE,
+            bg=AMBER_SOFT if ver == "UNVERIFIED" else (EMERALD if ver.startswith("SOURCE") else PURPLE),
+            x=badge_x,
+            y=by,
+        )
+        if cite_url:
+            try:
+                pdf.link(badge_x, by, badge_w, 5, cite_url)
+            except Exception:
+                pass
 
         pdf.set_xy(bx, by + 6)
         pdf.set_font("Helvetica", "B", 9)
@@ -405,6 +419,11 @@ def generate_bid_packet_pdf(
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*MUTED)
             pdf.multi_cell(CONTENT_W - 12, 3.5, detail)
+        if cite_url:
+            pdf.set_x(bx)
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*EMERALD)
+            pdf.multi_cell(CONTENT_W - 12, 3.2, _ascii(cite_url[:110]))
         if isinstance(pe, dict) and pe.get("usd_mid") is not None:
             pdf.set_x(bx)
             pdf.set_font("Helvetica", "B", 8)
@@ -474,26 +493,47 @@ def generate_bid_packet_pdf(
     _section_title(pdf, "Fee & timeline extract")
     timeline = str(fee.get("timeline") or summary.get("estimated_timeline") or "Confirm with AHJ")
     _body(pdf, f"Timeline: {timeline}", 9, bold=True)
-    fees = fee.get("fees") or []
+    fees = list(fee.get("fees") or [])
+    if not fees:
+        # Fall back to local_pack / AHJ table so Pro desk is not scant
+        try:
+            from city_pack_pdf import _fee_rows
+
+            fees = _fee_rows(analysis_data)
+        except Exception:
+            fees = []
     if not fees:
         _muted(pdf, "No fee rows extracted - confirm on AHJ fee schedule (Unverified).")
-    for row in fees[:10]:
+    for row in fees[:14]:
+        if not isinstance(row, dict):
+            continue
         if pdf.get_y() > 255:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         amt = row.get("amount_usd")
-        amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "TBD"
-        ver = "Source" if row.get("verified") else "Unverified"
+        amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
+        ver, cite_url = citation_badge_and_url(row)
         label = str(row.get("label") or "Fee")[:70]
         detail = str(row.get("detail") or "")[:70]
-        color = EMERALD if ver == "Source" else AMBER_SOFT
+        color = EMERALD if ver.startswith("SOURCE") else (PURPLE if cite_url else AMBER_SOFT)
         pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*color)
-        pdf.cell(22, 4.2, f"[{ver}]", ln=0)
+        badge = f"[{ver}]"
+        pdf.cell(min(42, pdf.get_string_width(badge) + 3), 4.2, _ascii(badge), ln=0)
+        if cite_url:
+            try:
+                pdf.link(MARGIN, pdf.get_y(), 42, 4.2, cite_url)
+            except Exception:
+                pass
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 22, 4.2, _ascii(f"{label}: {amt_s} - {detail}"))
+        pdf.multi_cell(CONTENT_W - 42, 4.2, _ascii(f"{label}: {amt_s}" + (f" - {detail}" if detail else "")))
+        if cite_url:
+            pdf.set_x(MARGIN + 4)
+            pdf.set_font("Helvetica", "", 6.5)
+            pdf.set_text_color(*EMERALD)
+            pdf.multi_cell(CONTENT_W - 8, 3.0, _ascii(cite_url[:120]))
 
     # --- Gotchas ---
     if pdf.get_y() > 230:
@@ -543,7 +583,8 @@ def generate_bid_packet_pdf(
     _section_title(pdf, "Punch list (Critical -> Low)")
     _muted(
         pdf,
-        "Ranked to match the app. SOURCE = parcel-backed; LINK = portal URL; UNVERIFIED = confirm with AHJ.",
+        "SOURCE = parcel-backed cite. PORTAL = clickable AHJ/official URL. UNVERIFIED = confirm with AHJ. "
+        "Owner · due · $ when known.",
     )
     if not punch:
         _muted(pdf, "No punch lines in this run.")
@@ -553,12 +594,14 @@ def generate_bid_packet_pdf(
             pdf.set_y(MARGIN + 4)
         if not isinstance(item, dict):
             continue
-        task = strip_md_bold(str(item.get("task") or ""))[:110]
+        task = strip_md_bold(str(item.get("task") or ""))[:100]
         pri = str(item.get("priority") or "").upper()
-        if citation_label_for_item:
-            ver = citation_label_for_item(item)
-        else:
-            ver = "Source" if item.get("verified") and item.get("source_url") else "Unverified"
+        ver, cite_url = citation_badge_and_url(item)
+        owner = str(item.get("owner") or item.get("responsible_party") or "").strip()
+        due = str(item.get("due_window") or item.get("timeline") or "").strip()
+        cost = item.get("estimated_cost")
+        cost_s = f" · ${int(cost):,}" if isinstance(cost, (int, float)) and cost > 0 else ""
+        meta = " · ".join(p for p in (owner[:20], due[:16]) if p)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(
@@ -570,12 +613,29 @@ def generate_bid_packet_pdf(
         )
         pdf.cell(10, 4.2, f"{i}.", ln=0)
         pdf.set_text_color(
-            *AMBER_SOFT if ver.upper() == "UNVERIFIED" else PURPLE if ver.upper() == "LINK" else EMERALD
+            *AMBER_SOFT
+            if ver == "UNVERIFIED"
+            else PURPLE
+            if ver.startswith("PORTAL")
+            else EMERALD
         )
-        pdf.cell(36, 4.2, f"[{pri}] [{ver}]", ln=0)
+        badge = f"[{pri}] [{ver}]"
+        bw = min(52, pdf.get_string_width(badge) + 2)
+        pdf.cell(bw, 4.2, _ascii(badge), ln=0)
+        if cite_url:
+            try:
+                pdf.link(MARGIN + 10, pdf.get_y(), bw, 4.2, cite_url)
+            except Exception:
+                pass
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 46, 4.2, _ascii(task))
+        line = task + (f"  ({meta}{cost_s})" if meta or cost_s else "")
+        pdf.multi_cell(CONTENT_W - 10 - bw, 4.2, _ascii(line))
+        if cite_url:
+            pdf.set_x(MARGIN + 10)
+            pdf.set_font("Helvetica", "", 6.5)
+            pdf.set_text_color(*EMERALD)
+            pdf.multi_cell(CONTENT_W - 14, 3.0, _ascii(cite_url[:110]))
 
     # --- Closing CYA ---
     pdf.ln(4)

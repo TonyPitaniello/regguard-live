@@ -100,9 +100,16 @@ def test_receipt_pdf_free_and_estimator_differ():
     free_t = text(free_pdf)
     partner_t = text(partner_pdf)
     assert "FREE LOOKUPS PREVIEW" in free_t
-    assert "+##%" in free_t or "+##%  to  +##%" in free_t
-    assert "LOCKED" in free_t
+    # Free shows real contingency silhouette (blurred), not +##% placeholders
+    assert "+##%" not in free_t
+    assert "+21%" in free_t or "Blurred on Free" in free_t
+    assert "LOCKED" in free_t or "Blurred on Free" in free_t
     assert "ESTIMATOR" in partner_t
     assert "+21%" in partner_t
     assert "UNLOCKED PUNCH" in partner_t
     assert "FREE LOOKUPS PREVIEW" not in partner_t
+    assert "FAIL" not in partner_t
+    assert "REGGUARD STAMP: FAIL" not in partner_t
+    # After stamp apply, partner Receipt shows HOLD/CLEAR/CAUTION (never FAIL, never blank dash)
+    assert "REGGUARD STAMP: —" not in partner_t
+    assert any(s in partner_t for s in ("HOLD", "CLEAR", "CAUTION", "REGGUARD STAMP"))

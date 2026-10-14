@@ -96,3 +96,24 @@ def test_city_pack_pdf_bytes_nonempty():
     text = _pdf_text(raw)
     assert "FULL CITY PACK" in text
     assert "Plano" in text
+    # Never a bare [Source] with no indicated origin
+    assert "[Source]" not in text or "plano.gov" in text.lower() or "Building" in text
+
+
+def test_bid_packet_prints_hold_not_fail_and_differs_from_receipt():
+    from bid_packet_pdf import generate_bid_packet_pdf_bytes
+
+    packet = generate_bid_packet_pdf_bytes(SAMPLE)
+    receipt = generate_bid_risk_receipt_pdf_bytes(SAMPLE)
+    assert packet[:4] == b"%PDF"
+    ptext = _pdf_text(packet)
+    rtext = _pdf_text(receipt)
+    assert "REGGUARD STAMP: HOLD" in ptext
+    assert "FAIL" not in ptext
+    assert "BID DESK" in ptext or "BID PACKET" in ptext
+    # Packet is the desk worksheet; Receipt is the 1-page forwardable memo
+    assert "BID RISK RECEIPT" in rtext or "ESTIMATOR" in rtext or "REGGUARD STAMP" in rtext
+    assert packet != receipt
+    # No orphan LINK chip without a portal label
+    assert "[LINK]" not in ptext
+    assert "LINK\n" not in ptext or "PORTAL:" in ptext or "plano.gov" in ptext.lower()
