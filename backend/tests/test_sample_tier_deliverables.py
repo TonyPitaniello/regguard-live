@@ -47,7 +47,9 @@ def test_pro_desk_zip():
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         names = set(zf.namelist())
     assert "01_BID_RISK_RECEIPT_SAMPLE.pdf" in names
-    assert "02_FEE_PUNCH_SCHEDULE_SAMPLE.csv" in names
+    assert "02_BID_PACKET_SAMPLE.pdf" in names
+    assert "03_FEE_PUNCH_SCHEDULE_SAMPLE.csv" in names
+    assert "04_CITY_PACK_SAMPLE.pdf" in names
 
 
 def test_ic_sample_bundle_matches_pricing_contract():

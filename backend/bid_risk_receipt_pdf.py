@@ -413,12 +413,15 @@ def generate_bid_risk_receipt_pdf(
             if not url:
                 continue
             pdf.set_x(MARGIN)
-            y_l = pdf.get_y()
-            pdf.multi_cell(CONTENT_W, 3.0, _ascii(f"{kind}: {_soft_cut(url, 95)}"))
-            try:
-                pdf.link(MARGIN, y_l, CONTENT_W, 3.0, url)
-            except Exception:
-                pass
+            from pdf_stamp_helpers import paint_linked_block
+
+            paint_linked_block(
+                pdf,
+                _ascii(f"{kind}: {_soft_cut(url, 95)}"),
+                url,
+                width=CONTENT_W,
+                line_h=3.0,
+            )
     pdf.ln(1)
 
     # Site card

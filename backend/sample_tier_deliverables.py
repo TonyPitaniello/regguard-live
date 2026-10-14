@@ -257,6 +257,7 @@ def generate_partner_receipt_pdf_bytes() -> bytes:
 
 def generate_pro_desk_zip_bytes() -> Tuple[bytes, str]:
     """Pro SAMPLE ZIP: receipt + fee/punch CSV + city pack PDF."""
+    from bid_packet_pdf import generate_bid_packet_pdf_bytes
     from bid_risk_receipt_pdf import generate_bid_risk_receipt_pdf_bytes
     from bid_sheet_export import analysis_to_bid_csv
     from city_pack_pdf import generate_city_pack_pdf_bytes
@@ -269,6 +270,11 @@ def generate_pro_desk_zip_bytes() -> Tuple[bytes, str]:
     )
     csv_text = analysis_to_bid_csv(data)
     try:
+        packet = generate_bid_packet_pdf_bytes(data)
+    except Exception as exc:
+        logger.warning("SAMPLE bid packet failed: %s", exc)
+        packet = b""
+    try:
         city = generate_city_pack_pdf_bytes(data)
     except Exception as exc:
         logger.warning("SAMPLE city pack failed: %s", exc)
@@ -277,15 +283,18 @@ def generate_pro_desk_zip_bytes() -> Tuple[bytes, str]:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("01_BID_RISK_RECEIPT_SAMPLE.pdf", receipt)
-        zf.writestr("02_FEE_PUNCH_SCHEDULE_SAMPLE.csv", csv_text.encode("utf-8"))
+        if packet and packet[:4] == b"%PDF":
+            zf.writestr("02_BID_PACKET_SAMPLE.pdf", packet)
+        zf.writestr("03_FEE_PUNCH_SCHEDULE_SAMPLE.csv", csv_text.encode("utf-8"))
         if city and city[:4] == b"%PDF":
-            zf.writestr("03_CITY_PACK_SAMPLE.pdf", city)
+            zf.writestr("04_CITY_PACK_SAMPLE.pdf", city)
         zf.writestr(
             "README_SAMPLE.txt",
             (
                 "LABELED SAMPLE — Contractor Pro desk exports for "
                 f"{SAMPLE_SITE_LINE}\n"
-                "Includes: Bid Risk Receipt PDF, fee/punch CSV, city pack PDF (when available).\n"
+                "Includes: 1-page Bid Risk Receipt, multi-page Bid Packet worksheet, "
+                "fee/punch CSV, and Full City Pack PDF.\n"
                 "IC Diligence Bundle (Excel + counsel DOCX + boardroom) is a separate $1,500 ZIP.\n"
             ),
         )

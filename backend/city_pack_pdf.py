@@ -194,12 +194,9 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*EMERALD)
-        y_link = pdf.get_y()
-        pdf.multi_cell(CONTENT_W, 4.0, _ascii(f"{kind}: {url}"))
-        try:
-            pdf.link(MARGIN, y_link, CONTENT_W, 4.0, url)
-        except Exception:
-            pass
+        from pdf_stamp_helpers import paint_linked_block
+
+        paint_linked_block(pdf, _ascii(f"{kind}: {url}"), url, width=CONTENT_W, line_h=4.0)
     if ahj.get("phone"):
         _muted(pdf, f"Phone: {ahj.get('phone')}", 8)
     if ahj.get("notes"):
@@ -305,7 +302,15 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             line = src_name if src_name else "Official schedule / portal"
             if cite_url:
                 line = f"{line} — {cite_url}"
-            pdf.multi_cell(CONTENT_W - 8, 3.3, _ascii(line[:160]))
+            from pdf_stamp_helpers import paint_linked_block
+
+            paint_linked_block(
+                pdf,
+                _ascii(line[:160]),
+                cite_url or None,
+                width=CONTENT_W - 8,
+                line_h=3.3,
+            )
 
     gotchas = _gotcha_rows(analysis_data)
     killers = [k for k in (analysis_data.get("margin_killers") or []) if isinstance(k, dict)]
@@ -347,7 +352,15 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             line = src_name or (cite_url[:100] if cite_url else "Confirm with AHJ")
             if cite_url and src_name:
                 line = f"{src_name} — {cite_url[:90]}"
-            pdf.multi_cell(CONTENT_W - 50, 3.5, _ascii(line))
+            from pdf_stamp_helpers import paint_linked_block
+
+            paint_linked_block(
+                pdf,
+                _ascii(line),
+                cite_url or None,
+                width=CONTENT_W - 50,
+                line_h=3.5,
+            )
 
     steps = insp.get("steps") if isinstance(insp, dict) else None
     if isinstance(steps, list) and steps:
@@ -501,12 +514,9 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pdf.set_x(MARGIN)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*EMERALD)
-                y_l = pdf.get_y()
-                pdf.multi_cell(CONTENT_W, 3.3, _ascii(url[:140]))
-                try:
-                    pdf.link(MARGIN, y_l, CONTENT_W, 3.3, url)
-                except Exception:
-                    pass
+                from pdf_stamp_helpers import paint_linked_block
+
+                paint_linked_block(pdf, _ascii(url[:140]), url, width=CONTENT_W, line_h=3.3)
 
     pdf.ln(3)
     pdf.set_fill_color(*CARD)

@@ -117,6 +117,74 @@ def citation_badge_and_url(item: Dict[str, Any] | None) -> Tuple[str, Optional[s
     return "UNVERIFIED", None
 
 
+def paint_linked_block(pdf: Any, text: str, url: Optional[str], *, width: float, line_h: float = 3.4) -> None:
+    """Draw text and put the clickable area on that text, not the line below it."""
+    y0 = pdf.get_y()
+    x0 = pdf.get_x()
+    pdf.multi_cell(width, line_h, text)
+    y1 = pdf.get_y()
+    if url and y1 > y0 + 0.5:
+        try:
+            pdf.link(x0, y0, width, y1 - y0, url)
+        except Exception:
+            pass
+
+
+def _blurred_band_png(band: str) -> Optional[bytes]:
+    """
+    Rasterize the real contingency band, then shrink it so the digits stay
+    visible as a blur. The percentage is not selectable text.
+    """
+    try:
+        import fitz
+    except Exception:
+        return None
+    try:
+        src = fitz.open()
+        page = src.new_page(width=640, height=90)
+        page.draw_rect(page.rect, color=None, fill=(30 / 255, 41 / 255, 59 / 255))
+        page.insert_text(
+            (12, 58),
+            band,
+            fontsize=36,
+            fontname="helv",
+            color=(251 / 255, 191 / 255, 36 / 255),
+        )
+        pix = page.get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
+        factor = 16
+        w, h = max(8, pix.width // factor), max(4, pix.height // factor)
+        samples = pix.samples
+        n = pix.n
+        sw = pix.width
+        out = bytearray(w * h * 3)
+        for y in range(h):
+            for x in range(w):
+                rs = gs = bs = count = 0
+                for yy in range(factor):
+                    sy = y * factor + yy
+                    if sy >= pix.height:
+                        continue
+                    for xx in range(factor):
+                        sx = x * factor + xx
+                        if sx >= sw:
+                            continue
+                        i = (sy * sw + sx) * n
+                        rs += samples[i]
+                        gs += samples[i + 1]
+                        bs += samples[i + 2]
+                        count += 1
+                if not count:
+                    continue
+                o = (y * w + x) * 3
+                out[o] = rs // count
+                out[o + 1] = gs // count
+                out[o + 2] = bs // count
+        small = fitz.Pixmap(fitz.csRGB, w, h, bytes(out), False)
+        return small.tobytes("png")
+    except Exception:
+        return None
+
+
 def draw_frosted_contingency(
     pdf: Any,
     *,
@@ -132,44 +200,29 @@ def draw_frosted_contingency(
     muted: Tuple[int, int, int],
 ) -> None:
     """
-    Free Lookups: real contingency % as a frosted silhouette (not +##% placeholders).
+    Free Lookups: a blurred image of the real contingency band.
 
-    fpdf opacity is unreliable across viewers, so we draw a near-card ghost of the
-    real band, then opaque frost bars that leave only a blurred amber silhouette.
+    The percentage is not PDF text, so a viewer cannot select or read it,
+    and the mid % is not printed underneath.
     """
     band = f"+{low_s}%  to  +{high_s}%"
-    # Ghost underlay — real band, barely lifted off the card so shape remains
-    ghost = tuple(min(255, int(c) + 28) for c in card_rgb)
-    pdf.set_xy(x, y)
-    pdf.set_font("Helvetica", "B", 26)
-    pdf.set_text_color(*ghost)
-    pdf.cell(w, 11, band, ln=1)
+    png = _blurred_band_png(band)
+    if png:
+        import io
 
-    # Opaque frost wash (no opacity API) — keeps the silhouette but blocks reading
-    frost = tuple(min(255, int(c) + 8) for c in card_rgb)
-    pdf.set_fill_color(*frost)
-    pdf.rect(x - 1, y - 0.3, w + 2, 11.2, "F")
-
-    # Amber hash stripes — reads as "blurred %" not empty or ##
-    pdf.set_fill_color(*amber_soft)
-    stripe_y = y + 1.2
-    while stripe_y < y + 10.2:
-        # Alternating short/long bars suggest digit shapes under frost
-        pdf.rect(x + 2, stripe_y, w * 0.42, 1.0, "F")
-        pdf.rect(x + w * 0.48, stripe_y + 0.35, w * 0.46, 0.85, "F")
-        stripe_y += 2.2
-
-    # Soft edge vignette so it doesn't look like a solid block
-    pdf.set_fill_color(*card_rgb)
-    pdf.rect(x - 1, y - 0.3, 3.5, 11.2, "F")
-    pdf.rect(x + w - 2.5, y - 0.3, 4.5, 11.2, "F")
-
-    pdf.set_xy(x, y + 11.5)
+        pdf.image(io.BytesIO(png), x=x, y=y, w=min(w, 118), h=14)
+    else:
+        pdf.set_xy(x, y)
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.set_text_color(*amber_soft)
+        pdf.cell(w, 10, "Contingency blurred", ln=1)
+    pdf.set_xy(x, y + 15)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*amber_soft)
-    mid_bit = f"mid ~{mid_s}% - " if mid_s else ""
-    msg = (
-        f"{mid_bit}Blurred on Free - Estimator unlocks the clear contingency band you can forward."
+    pdf.multi_cell(
+        w,
+        3.8,
+        _ascii_face(
+            "Blurred on Free - Estimator unlocks the clear contingency band you can forward."
+        ),
     )
-    msg = _ascii_face(msg)
-    pdf.multi_cell(w, 3.8, msg)

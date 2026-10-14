@@ -253,6 +253,7 @@ def generate_bid_packet_pdf(
     pdf.multi_cell(CONTENT_W, 4.5, _ascii(doc_title))
     from pdf_stamp_helpers import (
         citation_badge_and_url,
+        paint_linked_block,
         stamp_display_grade,
         stamp_plain_text,
     )
@@ -533,7 +534,13 @@ def generate_bid_packet_pdf(
             pdf.set_x(MARGIN + 4)
             pdf.set_font("Helvetica", "", 6.5)
             pdf.set_text_color(*EMERALD)
-            pdf.multi_cell(CONTENT_W - 8, 3.0, _ascii(cite_url[:120]))
+            paint_linked_block(
+                pdf,
+                _ascii(cite_url[:120]),
+                cite_url,
+                width=CONTENT_W - 8,
+                line_h=3.0,
+            )
 
     # --- Gotchas ---
     if pdf.get_y() > 230:

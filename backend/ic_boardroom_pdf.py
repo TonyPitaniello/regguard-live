@@ -125,10 +125,12 @@ def _link_line(pdf: BoardroomPDF, label: str, url: str) -> None:
     u = str(url or "").strip()
     if not u:
         return
+    from pdf_stamp_helpers import paint_linked_block
+
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(*EMERALD)
-    pdf.multi_cell(CONTENT_W, 4.0, _ascii(f"{label}: {u}"))
+    paint_linked_block(pdf, _ascii(f"{label}: {u}"), u, width=CONTENT_W, line_h=4.0)
 
 
 def _accent_card(
