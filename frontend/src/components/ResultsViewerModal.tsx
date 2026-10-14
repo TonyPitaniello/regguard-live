@@ -594,6 +594,15 @@ function hasUsableCoords(analysis: AnalysisData): boolean {
 }
 
 function isInstantPreviewDepth(analysis: AnalysisData): boolean {
+  const depth = String(analysis.research_depth || '').toLowerCase();
+  const paidDepth =
+    depth === 'partner' ||
+    depth === 'estimator' ||
+    depth === 'ic' ||
+    depth === 'ic_full' ||
+    depth.startsWith('pro');
+  // A paid run with a real pin is the desk they bought — even if scout fell back.
+  if (paidDepth && hasUsableCoords(analysis)) return false;
   const src = String(analysis.honesty?.source || '').toLowerCase();
   if (src === 'instant' || src === 'preview' || src === 'delivery_summary') return true;
   if (analysis.preview && !hasUsableCoords(analysis)) return true;
@@ -765,8 +774,20 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   }
 
   const cityLine = [p?.city, p?.state, p?.zip].filter(Boolean).join(', ');
-  const bandBlock =
-    band?.pct_low != null && band?.pct_high != null
+  const depthNow = String(analysis.research_depth || analysis.receipt_mode || '').toLowerCase();
+  const freeShare =
+    depthNow === 'free' ||
+    depthNow === 'instant' ||
+    depthNow === 'preview' ||
+    depthNow === 'free_preview' ||
+    analysis.soft_lock_contingency === true;
+  const bandBlock = freeShare
+    ? [
+        'SUGGESTED CONTINGENCY',
+        'Blurred on Free — Estimator unlocks the clear % for the bid file.',
+        'Planning aid — not a bid quote.',
+      ].join('\n')
+    : band?.pct_low != null && band?.pct_high != null
       ? [
           'SUGGESTED CONTINGENCY',
           `+${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%)`,

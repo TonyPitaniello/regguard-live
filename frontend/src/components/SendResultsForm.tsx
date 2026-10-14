@@ -79,9 +79,19 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
     summary.preview || unverified ? 'NOTE: Preview / unverified estimates — not AHJ quotes' : '',
     summary.address ? `Site: ${summary.address}` : '',
     [summary.city, summary.state, summary.zip].filter(Boolean).join(', '),
-    band?.pct_low != null && band?.pct_high != null
-      ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
-      : '',
+    (() => {
+      const depth = String(analysis?.research_depth || analysis?.receipt_mode || '').toLowerCase();
+      const free =
+        depth === 'free' ||
+        depth === 'instant' ||
+        depth === 'preview' ||
+        depth === 'free_preview' ||
+        analysis?.soft_lock_contingency === true;
+      if (free) return 'Contingency: blurred on Free — Estimator unlocks the clear band.';
+      return band?.pct_low != null && band?.pct_high != null
+        ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
+        : '';
+    })(),
     summary.risk_unavailable
       ? 'Risk score: unavailable (not parcel-verified)'
       : summary.risk_level

@@ -2265,6 +2265,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     ic_pdfs_ready = bool(fulfilled and fulfilled.get("pdfs"))
                     if ic_pdfs_ready:
                         analysis["ic_pdfs_ready"] = True
+                        # Buyer paid for counsel ZIP — open IC even if scout was partial.
+                        analysis["research_depth"] = "ic"
+                        analysis["depth_tier"] = "ic_full"
+                        analysis["ic_package"] = True
+                        analysis["preview"] = False
+                        analysis["access_tier"] = "ic"
                         # IC fulfill mints a fresh shareable /r/{id} — merge onto live analysis
                         # so email/SMS from the results panel never say "share link unavailable".
                         if isinstance(fulfilled, dict):
@@ -5389,7 +5395,9 @@ async def get_research_report(research_id: str) -> Dict[str, Any]:
     record = get_research(research_id)
     if not record:
         raise HTTPException(status_code=404, detail="Report not found or expired")
-    analysis = record.get("analysis") or {}
+    from research_store import redact_for_public_share
+
+    analysis = redact_for_public_share(record.get("analysis") or {})
     return {
         "research_id": record["id"],
         "share_url": record.get("share_url") or share_url_for(record["id"]),

@@ -44,8 +44,8 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'Estimator or PM who wants a first look before burning a bid day.',
     pain: 'You’re about to price a site blind — and the landmines only show up after you’ve already spent the week.',
     promise:
-      'In minutes: can you bid this address or walk — contingency band, top risks, every line marked Source or Unverified. No card.',
-    proof: 'Preview you can text — top 5 risks, soft-locked until you unlock the full Receipt.',
+      'In minutes: bid or walk — HOLD stamp, top risks, every line Source or Unverified. The clear contingency % stays blurred until Estimator. No card.',
+    proof: 'Text the preview. Your GC sees HOLD and the top risks. The number they can file is on Estimator.',
     vsBelow: 'Entry proof — not a habit desk.',
     notThis: 'Not a full Receipt habit, not fee dollars, not City Pack PDF, not a counsel ZIP.',
     oneLiner:

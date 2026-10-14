@@ -63,6 +63,9 @@ def render_share_html(
     ref: str = "",
     preview: bool = False,
 ) -> str:
+    from research_store import redact_for_public_share
+
+    analysis = redact_for_public_share(analysis)
     base = app_base_url()
     site = _site_label(analysis)
     stamp = analysis.get("regguard_stamp") or {}
@@ -100,7 +103,9 @@ def render_share_html(
         }.get(display, "")
         stamp_line = f"<p class='stamp'>REGGUARD STAMP: { _esc(display) }</p><p class='fine'>{_esc(headline)}</p>"
     desc_bits = [f"AHJ: {ahj}"]
-    if band.get("pct_low") is not None and band.get("pct_high") is not None:
+    if band.get("share_frosted"):
+        desc_bits.append("Contingency blurred on this Free preview — Estimator unlocks the clear band")
+    elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         desc_bits.append(f"Contingency +{band.get('pct_low')}% to +{band.get('pct_high')}% (planning aid, not a quote)")
     if killers:
         desc_bits.append(str(killers[0].get("title") or "")[:80])
@@ -114,7 +119,12 @@ def render_share_html(
         )
         killer_html = f"<h2>Top risk flags</h2><ol>{lis}</ol>"
     band_html = ""
-    if band.get("pct_low") is not None:
+    if band.get("share_frosted"):
+        band_html = (
+            "<p class='band'>Contingency band is blurred on this Free preview. "
+            "Estimator / Permit Runner unlocks the clear % you can put in the bid file.</p>"
+        )
+    elif band.get("pct_low") is not None:
         band_html = (
             f"<p class='band'>Contingency band +{_esc(band.get('pct_low'))}% – +{_esc(band.get('pct_high'))}% "
             f"(mid {_esc(band.get('pct_mid'))}%) — planning aid, not a quote.</p>"

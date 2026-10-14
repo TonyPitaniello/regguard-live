@@ -57,6 +57,45 @@ def test_public_analysis_strips_pii(sample_analysis):
     assert clean["project_info"]["address"]
 
 
+def test_public_share_free_hides_paid_numbers():
+    from research_store import redact_for_public_share
+
+    raw = {
+        "research_depth": "free",
+        "receipt_mode": "free_preview",
+        "email": "buyer@example.com",
+        "contingency_band": {"pct_low": 12.5, "pct_mid": 14, "pct_high": 18},
+        "fee_card": {"fees": [{"label": "Building permit", "amount_usd": 2400}]},
+        "regguard_stamp": {"grade": "FAIL", "headline": "FAIL — high pre-bid risk"},
+        "punch_list": {"punch_list": [{"task": f"line {i}"} for i in range(8)]},
+    }
+    out = redact_for_public_share(raw)
+    assert out["share_tier"] == "free"
+    assert out["contingency_band"]["pct_low"] is None
+    assert out["contingency_band"]["share_frosted"] is True
+    assert "amount_usd" not in out["fee_card"]["fees"][0]
+    assert "FAIL" not in out["regguard_stamp"]["headline"]
+    assert out["regguard_stamp"]["display_grade"] == "HOLD"
+    assert len(out["punch_list"]["punch_list"]) == 5
+    assert raw["contingency_band"]["pct_low"] == 12.5
+
+
+def test_public_share_pro_keeps_fee_dollars():
+    from research_store import redact_for_public_share
+
+    raw = {
+        "research_depth": "pro",
+        "contingency_band": {"pct_low": 8, "pct_mid": 10, "pct_high": 12},
+        "fee_card": {"fees": [{"label": "Building permit", "amount_usd": 500}]},
+        "regguard_stamp": {"grade": "FAIL", "headline": "FAIL"},
+    }
+    out = redact_for_public_share(raw)
+    assert out["share_tier"] == "pro"
+    assert out["contingency_band"]["pct_low"] == 8
+    assert out["fee_card"]["fees"][0]["amount_usd"] == 500
+    assert "FAIL" not in out["regguard_stamp"]["headline"]
+
+
 def test_forwardable_email_includes_punch_and_sources(sample_analysis, tmp_path, monkeypatch):
     monkeypatch.setenv("REG_GUARD_REPORT_DIR", str(tmp_path))
     meta = save_research(sample_analysis, research_id="ft-emailpunch01")

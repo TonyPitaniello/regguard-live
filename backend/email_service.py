@@ -115,7 +115,18 @@ def build_research_result_html(research_data: dict) -> str:
     )
 
     band_html = ""
-    if band.get("pct_low") is not None and band.get("pct_high") is not None:
+    try:
+        from research_store import share_ladder_tier
+
+        share_tier = share_ladder_tier(research_data if isinstance(research_data, dict) else {})
+    except Exception:
+        share_tier = "free"
+    if share_tier == "free":
+        band_html = (
+            '<p style="margin:12px 0 0 0;font-size:14px;color:#b45309;font-weight:600;">'
+            "Contingency blurred on Free — Estimator unlocks the clear band you can forward.</p>"
+        )
+    elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         band_html = (
             f'<p style="margin:12px 0 0 0;font-size:14px;color:#047857;font-weight:600;">'
             f'Contingency (planning aid): +{band.get("pct_low")}% – +{band.get("pct_high")}%</p>'

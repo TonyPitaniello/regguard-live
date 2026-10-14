@@ -249,6 +249,16 @@ export default function SharedReportPage() {
   const coverageBadge = analysis.coverage?.badge || analysis.coverage?.badge_short;
   const depthBadge = analysis.depth_badge;
   const band = analysis.contingency_band;
+  const shareTier = String(
+    (analysis as { share_tier?: string }).share_tier || analysis.research_depth || ''
+  ).toLowerCase();
+  const freeShare =
+    Boolean((band as { share_frosted?: boolean } | undefined)?.share_frosted) ||
+    shareTier === 'free' ||
+    shareTier === 'instant' ||
+    shareTier === 'preview' ||
+    analysis.receipt_mode === 'free_preview';
+  const showFeeDollars = shareTier.startsWith('pro') || shareTier === 'ic' || shareTier === 'ic_full';
   const localPack = (analysis as { local_pack?: { tier?: string; citeable?: boolean } }).local_pack;
   const localPackLabel = localPack?.tier
     ? localPack.citeable
@@ -370,7 +380,17 @@ export default function SharedReportPage() {
                 : ''}
             </p>
           </div>
-          {band?.pct_low != null && band?.pct_high != null && (
+          {band?.share_frosted || (freeShare && (band?.pct_low == null || band?.pct_high == null)) ? (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <p className="text-xs font-semibold uppercase text-amber-200">Contingency band</p>
+              <p className="text-2xl font-black text-amber-200/50 tracking-tight blur-md select-none" aria-hidden>
+                +••.•% – +••.•%
+              </p>
+              <p className="text-xs text-amber-100/90">
+                Blurred on this Free preview. Estimator unlocks the clear % for the bid file.
+              </p>
+            </div>
+          ) : band?.pct_low != null && band?.pct_high != null ? (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
               <p className="text-xs font-semibold uppercase text-emerald-300">Contingency band</p>
               <p className="text-2xl font-black text-emerald-400 tracking-tight">
@@ -380,7 +400,7 @@ export default function SharedReportPage() {
                 Mid {band.pct_mid}% · planning aid — not a quote
               </p>
             </div>
-          )}
+          ) : null}
           {killers.length > 0 && (
             <div>
               <h3 className="text-sm font-bold text-amber-200 mb-2">Top risk flags</h3>
@@ -438,7 +458,19 @@ export default function SharedReportPage() {
           )}
         </section>
 
-        {band?.pct_low != null && band?.pct_high != null && (
+        {freeShare ? (
+          <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-200 mb-1">
+              Suggested bid contingency
+            </p>
+            <p className="text-3xl font-black text-amber-200/40 tracking-tight blur-md select-none" aria-hidden>
+              +••.•% – +••.•%
+            </p>
+            <p className="text-sm text-amber-100/90 mt-1">
+              Blurred on Free. Estimator / Permit Runner ($79/mo) unlocks the clear band you can forward.
+            </p>
+          </section>
+        ) : band?.pct_low != null && band?.pct_high != null ? (
           <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300 mb-1">
               {band.label || 'Suggested bid contingency'}
@@ -451,7 +483,7 @@ export default function SharedReportPage() {
             </p>
             {band.disclaimer && <p className="text-xs text-gray-500 mt-2">{band.disclaimer}</p>}
           </section>
-        )}
+        ) : null}
 
         {(analysis.regguard_stamp?.grade || analysis.stamp_grade) && (
           <section
@@ -474,7 +506,9 @@ export default function SharedReportPage() {
               CLEAR / CAUTION / HOLD — pre-bid risk signal, not a credit rating or AHJ rejection.
             </p>
             {analysis.regguard_stamp?.headline ? (
-              <p className="text-sm text-gray-200">{analysis.regguard_stamp.headline}</p>
+              <p className="text-sm text-gray-200">
+                {analysis.regguard_stamp.headline.replace(/\bFAIL\b/gi, 'HOLD')}
+              </p>
             ) : null}
             {analysis.regguard_stamp?.is_stale && analysis.regguard_stamp?.stale_reason ? (
               <p className="text-xs text-amber-100 border border-amber-400/40 rounded-lg p-2">
@@ -513,7 +547,9 @@ export default function SharedReportPage() {
                       {kind}
                     </span>
                     <span className="text-white font-medium">{f.label}</span>
-                    {typeof f.amount_usd === 'number' ? ` — $${f.amount_usd.toLocaleString()}` : ''}
+                    {showFeeDollars && typeof f.amount_usd === 'number'
+                      ? ` — $${f.amount_usd.toLocaleString()}`
+                      : ''}
                   </li>
                 );
               })}

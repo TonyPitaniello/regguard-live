@@ -296,6 +296,90 @@ def public_analysis(analysis: Dict[str, Any]) -> Dict[str, Any]:
     return _strip_pii(deepcopy(analysis or {}))
 
 
+def share_ladder_tier(analysis: Optional[Dict[str, Any]]) -> str:
+    """What a forwarded link may reveal. More pay ⇒ more on the public page."""
+    if not isinstance(analysis, dict):
+        return "free"
+    depth = str(analysis.get("research_depth") or "").strip().lower()
+    mode = str(analysis.get("receipt_mode") or "").strip().lower()
+    tier = str(analysis.get("depth_tier") or "").strip().lower()
+    if depth in ("ic", "ic_full") or tier == "ic_full" or analysis.get("ic_package") is True:
+        return "ic"
+    if depth.startswith("pro") or tier.startswith("pro"):
+        return "pro"
+    if depth in ("partner", "estimator") or mode == "estimator_habit" or tier in ("partner", "estimator"):
+        return "partner"
+    return "free"
+
+
+def _scrub_buyer_fail(text: Any) -> str:
+    raw = str(text or "")
+    return raw.replace("FAIL", "HOLD").replace("Fail", "Hold")
+
+
+def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Payload for /r/{id}, OG unfurls, and forwarded email.
+
+    Free: HOLD + top risks only. Contingency % and fee dollars stay off the link
+    (Estimator / Pro paid for those). Never print FAIL.
+    """
+    out = public_analysis(analysis or {})
+    tier = share_ladder_tier(out)
+    out["share_tier"] = tier
+
+    rg = out.get("regguard_stamp")
+    if isinstance(rg, dict):
+        grade = str(rg.get("grade") or "").upper()
+        if grade == "FAIL":
+            rg["display_grade"] = "HOLD"
+        elif grade == "PASS":
+            rg["display_grade"] = "CLEAR"
+        elif grade:
+            rg["display_grade"] = grade
+        for key in ("headline", "label", "plain"):
+            if rg.get(key):
+                rg[key] = _scrub_buyer_fail(rg.get(key))
+        drivers = rg.get("drivers")
+        if isinstance(drivers, list):
+            for d in drivers:
+                if isinstance(d, dict) and str(d.get("severity") or "").upper() == "FAIL":
+                    d["severity"] = "HOLD"
+
+    if str(out.get("stamp_grade") or "").upper() == "FAIL":
+        out["stamp_grade"] = "HOLD"
+    if out.get("stamp_label"):
+        out["stamp_label"] = _scrub_buyer_fail(out.get("stamp_label"))
+
+    band = out.get("contingency_band")
+    if isinstance(band, dict) and tier == "free":
+        band["share_frosted"] = True
+        band["pct_low"] = None
+        band["pct_mid"] = None
+        band["pct_high"] = None
+
+    if tier in ("free", "partner"):
+        fee = out.get("fee_card")
+        if isinstance(fee, dict) and isinstance(fee.get("fees"), list):
+            stripped = []
+            for row in fee["fees"]:
+                if not isinstance(row, dict):
+                    continue
+                row = dict(row)
+                row.pop("amount_usd", None)
+                row["amount_redacted"] = True
+                stripped.append(row)
+            # Free share stays thin — labels only, not a fee desk
+            fee["fees"] = stripped[:3] if tier == "free" else stripped
+            fee["amounts_redacted"] = True
+
+    punch = out.get("punch_list")
+    if tier == "free" and isinstance(punch, dict) and isinstance(punch.get("punch_list"), list):
+        punch["punch_list"] = punch["punch_list"][:5]
+        punch["habit_unlocked"] = False
+    return out
+
+
 def _file_path(research_id: str) -> Path:
     return _store_dir() / f"{research_id}.json"
 

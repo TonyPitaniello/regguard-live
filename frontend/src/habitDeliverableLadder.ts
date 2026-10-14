@@ -16,7 +16,7 @@ export const HABIT_TIERS = {
       'Bid-or-walk preview for one US address — no card',
       'Top punch-list risks (soft-locked — top 5 lines)',
       'Source or Unverified on every visible line',
-      'Forward Bid Risk Receipt to unlock a bit more (still less than Estimator)',
+      'Text the preview — GC sees HOLD and top risks; clear contingency stays on Estimator',
       'Text or email your results',
     ] as const,
     notIncluded: [
