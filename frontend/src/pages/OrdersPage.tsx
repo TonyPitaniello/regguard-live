@@ -58,7 +58,7 @@ function tierLabel(tier: string): string {
       return 'Contractor Pro';
     case 'ic_project':
     case 'ic_consultant':
-      return 'IC Project Report';
+      return 'IC Diligence Bundle';
     case 'ic_annual':
       return 'IC Annual';
     case 'sponsor':

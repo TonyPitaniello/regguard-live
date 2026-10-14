@@ -81,8 +81,8 @@ async def create_checkout_session(
     email: str,
     password: str,
     company_name: str,
-    success_url: str = "https://reg-guard-nine.vercel.app/auth/success",
-    cancel_url: str = "https://reg-guard-nine.vercel.app/signup",
+    success_url: str = "https://app.regguardagent.com/checkout/success",
+    cancel_url: str = "https://app.regguardagent.com/pricing",
 ) -> Dict[str, Any]:
     """
     Create a Stripe Checkout Session for the 14-day free trial.

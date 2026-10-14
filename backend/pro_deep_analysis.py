@@ -271,7 +271,7 @@ def _merge_deep_into_analysis(
     if analysis.get("research_depth") == "ic" or analysis.get("depth_tier") == "ic_full":
         next_steps.insert(
             0,
-            "IC Project package ready — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
+            "IC Diligence Bundle ready — download the counsel ZIP from My Orders.",
         )
     else:
         next_steps.insert(
@@ -455,7 +455,7 @@ async def run_pro_deep_analysis(
             ]
             next_steps.insert(
                 0,
-                "IC full local + ultralocal scout complete — download Research Memo, Punch List, and Permit Package PDFs from My Orders.",
+                "IC scout complete — download the Diligence Bundle ZIP from My Orders.",
             )
             merged["next_steps"] = next_steps[:8]
         else:

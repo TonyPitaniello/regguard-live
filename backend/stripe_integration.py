@@ -23,15 +23,15 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 PRODUCTS = {
     "contractor_pro": {
         "name": "Contractor Pro",
-        "description": "Unlimited lookups and punch lists — $149/month",
+        "description": "City Pack, fee CSV, and bid packet on top of Estimator — $149/month",
         "amount_cents": 14900,
         "currency": "usd",
         "tier": "contractor_pro",
         "mode": "subscription",
     },
     "ic_project": {
-        "name": "IC Project Report",
-        "description": "One-time full project report package",
+        "name": "IC Diligence Bundle",
+        "description": "One site: decision memo, boardroom PDF, counsel Word, and Excel — $1,500",
         "amount_cents": 150000,
         "currency": "usd",
         "tier": "ic_project",
@@ -55,8 +55,8 @@ PRODUCTS = {
     },
     # Legacy aliases
     "premium": {
-        "name": "IC Project Report",
-        "description": "One-time full project report package",
+        "name": "IC Diligence Bundle",
+        "description": "One site: decision memo, boardroom PDF, counsel Word, and Excel — $1,500",
         "amount_cents": 150000,
         "currency": "usd",
         "tier": "ic_project",

@@ -1416,7 +1416,7 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             if not email_l:
                 raise HTTPException(
                     status_code=400,
-                    detail="Email required for IC Annual. Buy IC Project Report first, then upgrade.",
+                    detail="Email required for IC Annual. Buy the IC Diligence Bundle first, then upgrade.",
                 )
             from order_service import list_orders_for_email
 
@@ -1430,8 +1430,8 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        "IC Annual is available after at least one IC Project Report. "
-                        "Purchase IC Project ($1,500) first."
+                        "IC Annual is available after at least one IC Diligence Bundle. "
+                        "Purchase the $1,500 bundle first."
                     ),
                 )
 
@@ -2282,8 +2282,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                                 analysis["research_id"] = ic_rid
                                 research_id = ic_rid
                         message = (
-                            "IC Project Report PDFs ready — download Research Memo, "
-                            "Punch List, and Permit Package from My Orders."
+                            "IC Diligence Bundle ready — download the counsel ZIP "
+                            "(memo, boardroom PDF, Word, Excel) from My Orders."
                         )
                         if not deep_ok:
                             message += (
@@ -4187,7 +4187,7 @@ async def request_data_center_analysis(req: DataCenterAnalysisRequest) -> Dict[s
         return {
             "status": "success",
             "analysis": analysis,
-            "message": "Analysis complete. A RegGuard analyst will contact you within 24 hours.",
+            "message": "Request saved. This is not a site lookup and does not schedule a call.",
         }
 
     except Exception as e:

@@ -178,18 +178,18 @@ async def _run_research_and_email(
                     "- Planning exposure on killers is heuristic only (not guaranteed savings).\n"
                     "- Reg Guard does not run interconnection studies or file AHJ applications.\n"
                     "- Strongest citeable coverage: Dallas / Plano / Austin TX.\n"
-                    "- IC Project Report ($1,500) is the high-touch diligence package for colo sites.\n\n"
+                    "- IC Diligence Bundle ($1,500) is the counsel ZIP for one colo site.\n\n"
                 )
             else:
                 combined_memo += (
                     "Tips for DFW / Austin bids:\n"
-                    "- Forward the Bid Risk Receipt (contingency + top killers) — that's the share object.\n"
+                    "- Forward the preview — HOLD and top risks. The clear contingency stays on Estimator.\n"
                     "- Planning exposure on killers is heuristic only — not guaranteed savings.\n"
                     "- Every punch line shows a Source link or Unverified — forward only what you can defend.\n"
-                    "- Share the receipt to unlock the full free preview.\n"
+                    "- Estimator ($79/mo) unlocks the clear contingency you can forward.\n"
                     "- Save the job, then re-check before you bid (Saved Jobs → weekly reminder).\n"
-                    "- Partner $79/mo or Contractor Pro $149/mo unlocks deeper Universal Scout.\n"
-                    "- IC Project Report ($1,500) adds memo + punch + permit worksheet PDFs "
+                    "- Contractor Pro ($149/mo) adds the City Pack, fee CSV, and bid packet.\n"
+                    "- IC Diligence Bundle ($1,500) is the counsel ZIP for one site "
                     "(planning diligence — not an official AHJ filing).\n\n"
                     "Strongest citeable coverage today: Dallas / Plano / Austin TX.\n"
                 )
@@ -369,12 +369,12 @@ HONESTY NOTICE
 """
     
     # Call to action
-    memo += """NEXT STEP: Contractor Pro ($149/mo) or IC Project Report ($1,500)
+    memo += """NEXT STEP: Contractor Pro ($149/mo) or IC Diligence Bundle ($1,500)
 ────────────────────────────────────────────────────────────
 
-Contractor Pro deepens AHJ confirm for bid week.
-IC Project Report ($1,500) adds full scout plus Research Memo, Punch List,
-and Permit Package PDFs (planning diligence — not an official filing).
+Contractor Pro is the bid desk: City Pack, fee CSV, and bid packet.
+IC Diligence Bundle ($1,500) is the counsel ZIP for one site
+(planning diligence — not an official filing).
 
 Open: https://app.regguardagent.com/checkout/contractor_pro
 """

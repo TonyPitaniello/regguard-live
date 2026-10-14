@@ -99,28 +99,11 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
       const data = await response.json();
       setSuccess(true);
       setAnalysisResult(data.analysis);
-      toast.success('Analysis complete! Check your email for details.');
+      toast.success('Request saved. This is not a site lookup.');
       
       if (onSuccess) {
         onSuccess(data.analysis);
       }
-
-      // Reset form after 3 seconds
-      setTimeout(() => {
-        setFormData({
-          address: '',
-          city: '',
-          state: 'TX',
-          projected_mw: 100,
-          requester_name: '',
-          requester_email: '',
-          requester_phone: '',
-          company_name: '',
-          role: 'Data Center Developer',
-          expected_timeline_months: 12,
-        });
-        setSuccess(false);
-      }, 3000);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Analysis request failed. Please try again.';
       setError(message);
@@ -135,15 +118,10 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
       <div className="dc-request-container">
         <div className="dc-success-card">
           <CheckCircle2 size={48} className="dc-success-icon" />
-          <h2 className="dc-success-title">Analysis Complete!</h2>
+          <h2 className="dc-success-title">Request saved</h2>
           <p className="dc-success-message">
-            Risk Score: <strong>{analysisResult.permitting_risk_score}/100</strong>
-          </p>
-          <p className="dc-success-message">
-            Estimated Timeline: <strong>{analysisResult.estimated_timeline_months} months</strong>
-          </p>
-          <p className="dc-success-message">
-            A RegGuard analyst will contact you within 24 hours with a detailed report.
+            This form does not run a site lookup and does not schedule a call.
+            Use the free lookup above for a Bid Risk Receipt, or buy the IC Diligence Bundle for the counsel ZIP.
           </p>
         </div>
       </div>
@@ -153,9 +131,9 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
   return (
     <div className="dc-request-container">
       <div className="dc-request-card">
-        <h1 className="dc-request-title">Data Center Permitting Analysis</h1>
+        <h1 className="dc-request-title">Talk about a large-load site</h1>
         <p className="dc-request-subtitle">
-          Get a comprehensive permitting risk assessment for your data center project in minutes.
+          A conversation request only. It does not score the site, email a report, or schedule a call.
         </p>
 
         <form onSubmit={handleSubmit} className="dc-request-form">
@@ -338,13 +316,12 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
                 Analyzing...
               </>
             ) : (
-              'Get Free Analysis'
+              'Send conversation request'
             )}
           </button>
 
           <p className="dc-form-note">
-            💡 <strong>Tip:</strong> A RegGuard analyst will review your results and contact you within 24 hours
-            to discuss next steps.
+            The free lookup above is the product. This form only saves a note for the team.
           </p>
         </form>
       </div>

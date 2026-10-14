@@ -109,7 +109,7 @@ export default function PremiumCheckoutPage() {
       .toLowerCase();
     if (!email) {
       setError(
-        'IC Annual requires a prior IC Project Report. Enter your email on IC Project checkout first, or buy IC Project ($1,500).'
+        'IC Annual requires a prior IC Diligence Bundle. Enter your email on the $1,500 checkout first, or buy that bundle.'
       );
       return;
     }
@@ -128,7 +128,7 @@ export default function PremiumCheckoutPage() {
         );
         if (!cancelled && !hasIc) {
           setError(
-            'IC Annual unlocks after at least one IC Project Report. Switch to IC Project ($1,500) first.'
+            'IC Annual unlocks after at least one IC Diligence Bundle. Switch to the $1,500 bundle first.'
           );
         }
       } catch {

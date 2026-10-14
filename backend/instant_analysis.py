@@ -116,7 +116,7 @@ def build_instant_fallback_analysis(
             ),
             "action_items": [
                 "Budget 30–180 days depending on utility study track",
-                "Upgrade to IC Project Report for same-day PDF package",
+                "IC Diligence Bundle ($1,500) is the counsel ZIP for one site",
             ],
             "data_sources": ["RegGuard Instant Preview"],
             "research_cost_usd": 0,
@@ -229,7 +229,7 @@ def build_instant_fallback_analysis(
         "next_steps": [
             "Review the findings in this window (preview — not verified parcel risk)",
             "Text or email yourself a copy from the form below",
-            "Upgrade to Contractor Pro ($149/mo) or IC Project Report ($1,500) for full PDF package",
+            "Estimator ($79/mo) unlocks the clear contingency. Contractor Pro ($149/mo) adds the bid desk. IC Diligence Bundle is $1,500 for one site.",
         ],
     }
     stamped = apply_honesty_layer(

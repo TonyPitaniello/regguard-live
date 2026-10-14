@@ -254,8 +254,8 @@ function DataCenterPage() {
             Or request a deeper IC-style review
           </h2>
           <p className="text-gray-400 text-sm text-center mb-6">
-            Lead form for larger colo / large-load diligence conversations ($1,500 IC
-            Diligence Bundle path).
+            Conversation request only. It does not score the site or schedule a call.
+            The lookup above is the Bid Risk Receipt. The $1,500 bundle is the counsel ZIP.
           </p>
           <DataCenterRequestForm />
         </div>

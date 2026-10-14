@@ -51,7 +51,7 @@ PERSONAS = [
         "id": "ic_screener",
         "who": "Large-load / DC screener",
         "job": "Kill bad sites before $10k–$50k interconnect studies",
-        "offer": "IC Project Report — screening, not a utility study",
+        "offer": "IC Diligence Bundle — screening, not a utility study",
         "sku": WHALE_SKU,
     },
 ]

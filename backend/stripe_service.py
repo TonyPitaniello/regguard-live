@@ -25,33 +25,42 @@ TIER_PRICING = {
         "price_id": None,
     },
     "partner": {
-        "name": "Partner / Permit Runner",
+        "name": "Estimator / Permit Runner",
+        "description": "Full Bid Risk Receipt, unlocked punch list, and Saved Jobs — $79/month",
         "amount_cents": 7900,
         "mode": "subscription",
+        "interval": "month",
         "price_id": os.getenv("STRIPE_PRICE_PARTNER"),
     },
     "contractor_pro": {
         "name": "Contractor Pro",
+        "description": "City Pack, fee CSV, and bid packet on top of Estimator — $149/month",
         "amount_cents": 14900,
         "mode": "subscription",
+        "interval": "month",
         "price_id": os.getenv("STRIPE_PRICE_CONTRACTOR_PRO"),
     },
     "ic_project": {
-        "name": "IC Project Report",
+        "name": "IC Diligence Bundle",
+        "description": "One site: decision memo, boardroom PDF, counsel Word, and Excel — $1,500",
         "amount_cents": 150000,
         "mode": "payment",
         "price_id": os.getenv("STRIPE_PRICE_IC_PROJECT"),
     },
     "ic_annual": {
         "name": "IC Annual",
+        "description": "Same Diligence Bundle ZIP for more capital sites on this email — $15,000/year",
         "amount_cents": 1500000,
         "mode": "subscription",
+        "interval": "year",
         "price_id": os.getenv("STRIPE_PRICE_IC_ANNUAL"),
     },
     "sponsor": {
         "name": "Sponsor",
+        "description": "Monthly sponsorship — $1,500/month",
         "amount_cents": 150000,
         "mode": "subscription",
+        "interval": "month",
         "price_id": os.getenv("STRIPE_PRICE_SPONSOR"),
     },
 }
@@ -190,8 +199,13 @@ async def create_checkout_session(
                     "price_data": {
                         "currency": "usd",
                         "unit_amount": amount_cents,
-                        "recurring": {"interval": "month"},
-                        "product_data": {"name": tier_config["name"]},
+                        "recurring": {
+                            "interval": tier_config.get("interval") or "month",
+                        },
+                        "product_data": {
+                            "name": tier_config["name"],
+                            "description": tier_config.get("description") or tier_config["name"],
+                        },
                     },
                     "quantity": 1,
                 }
@@ -204,6 +218,7 @@ async def create_checkout_session(
                         "unit_amount": amount_cents,
                         "product_data": {
                             "name": tier_config["name"],
+                            "description": tier_config.get("description") or tier_config["name"],
                         },
                     },
                     "quantity": 1,

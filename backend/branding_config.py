@@ -120,12 +120,12 @@ PDF_FOOTER_HEIGHT = 20
 # Company branding text
 COMPANY_NAME = "RegGuard"
 COMPANY_TAGLINE = "Site Diligence Intelligence"
-COMPANY_WEBSITE = "regguard.com"
+COMPANY_WEBSITE = "app.regguardagent.com"
 COMPANY_EMAIL = "support@regguardagent.com"
 
 # Footer text
 FOOTER_TEXT = "© 2026 RegGuard. All rights reserved. This report is confidential and intended for authorized use only."
-FOOTER_LINK = "Learn more: regguard.com"
+FOOTER_LINK = "Learn more: app.regguardagent.com"
 
 # Header template
 HEADER_TEMPLATE = {

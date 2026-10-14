@@ -132,7 +132,7 @@ def _pdfs_for_tier(tier: str, order_id: str) -> List[Dict[str, Any]]:
     return [
         {
             "type": "punch_list",
-            "name": "Contractor Pro access — run unlimited lookups",
+            "name": "Contractor Pro — City Pack, fee CSV, and bid packet",
             "size": "—",
             "url": f"{base}/",
             "icon": "✅",

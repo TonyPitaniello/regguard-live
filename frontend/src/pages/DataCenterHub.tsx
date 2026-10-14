@@ -1,10 +1,8 @@
 /**
- * RegGuard Data Center Hub - Premium UI/UX Redesign
- * Focuses on data center interconnection with clear capability hierarchy
- * Collects credit card info even for free trial (standard SaaS)
+ * RegGuard Data Center Hub.
+ * Paid plans go to Stripe checkout. Free starts a site lookup. No card fields on this page.
  */
 
-import { useState } from 'react';
 import {
   Zap,
   MapPin,
@@ -14,17 +12,15 @@ import {
   AlertTriangle,
   FileText,
   Users,
-  TrendingUp,
   Shield,
-  Code,
   BookOpen,
   ArrowRight,
   Lock,
   Gauge,
   Workflow
 } from 'lucide-react';
-import { backendUrl } from '../env';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
+import { HABIT_TIERS } from '../habitDeliverableLadder';
 import { IcDiligenceBundlePitch } from '../components/IcDiligenceBundlePitch';
 
 interface DataCenterCapability {
@@ -36,8 +32,6 @@ interface DataCenterCapability {
 }
 
 export function DataCenterHub() {
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'free' | 'pro'>('free');
 
   // === PRIMARY: Data Center Capabilities ===
   const dataCenterCapabilities: DataCenterCapability[] = [
@@ -93,41 +87,47 @@ export function DataCenterHub() {
     { icon: <Workflow className="w-5 h-5" />, title: 'Permit worksheets', desc: 'Draft forms you fill and file — not a sealed bid or interconnection study' },
   ];
 
-  const pricingPlans = [
+  const pricingPlans: Array<{
+    name: string;
+    price: string;
+    period: string;
+    features: readonly string[];
+    href: string;
+    cta: string;
+    recommended?: boolean;
+  }> = [
     {
-      name: 'Contractor Free',
-      price: '$0',
-      period: 'lookups',
-      features: [
-        '✓ Free site diligence lookup',
-        '✓ Environmental risk summary',
-        '✓ Punch list highlights',
-        '✓ Text or email results',
-        'No credit card required',
-      ],
+      name: HABIT_TIERS.free.name,
+      price: HABIT_TIERS.free.priceLabel,
+      period: 'no card',
+      features: HABIT_TIERS.free.features,
+      href: '/data-center#free-trial-form',
+      cta: 'Run a free lookup',
     },
     {
-      name: 'Contractor Pro',
-      price: '$149',
+      name: HABIT_TIERS.partner.name,
+      price: HABIT_TIERS.partner.priceLabel,
       period: 'month',
-      features: [
-        '✓ Unlimited lookups',
-        '✓ Full punch lists & timelines',
-        '✓ Saved project history',
-        '✓ Priority email support',
-      ],
+      features: HABIT_TIERS.partner.features,
+      href: '/checkout/partner',
+      cta: 'Start Estimator',
+    },
+    {
+      name: HABIT_TIERS.contractor_pro.name,
+      price: HABIT_TIERS.contractor_pro.priceLabel,
+      period: 'month',
+      features: HABIT_TIERS.contractor_pro.features,
+      href: '/checkout/contractor_pro',
+      cta: 'Start Contractor Pro',
       recommended: true,
     },
     {
       name: IC_BUNDLE.tierName,
       price: IC_BUNDLE.priceLabel,
-      period: 'one-time',
-      features: [
-        '✓ Counsel-ready Diligence Bundle ZIP',
-        '✓ Decision memo + DOCX + estimator Excel + evidence',
-        '✓ DC parallel clocks (AHJ · interconnect · water)',
-        '✓ SOURCE or Unverified labeling',
-      ],
+      period: 'one site',
+      features: IC_BUNDLE.featureBullets,
+      href: '/checkout/ic_project',
+      cta: IC_BUNDLE.ctaBuy,
     },
   ];
 
@@ -257,12 +257,12 @@ export function DataCenterHub() {
 
           {/* CTA */}
           <div className="mt-12 text-center">
-            <button
-              onClick={() => { setSelectedPlan('pro'); setShowPaymentModal(true); }}
-              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold rounded-lg transition flex items-center justify-center gap-2 mx-auto"
+            <a
+              href="/checkout/contractor_pro"
+              className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold rounded-lg transition inline-flex items-center justify-center gap-2 mx-auto"
             >
-              Unlock Full Data Center Suite <ArrowRight className="w-4 h-4" />
-            </button>
+              Contractor Pro bid desk — $149/mo <ArrowRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </section>
@@ -287,7 +287,7 @@ export function DataCenterHub() {
         </div>
       </section>
 
-      {/* ===== PRICING WITH CREDIT CARD COLLECTION ===== */}
+      {/* ===== PRICING — Stripe checkout, same ladder as the rest of the app ===== */}
       <section className="px-4 py-16 sm:px-6 lg:px-8 bg-indigo-500/5 border-t border-indigo-500/10">
         <div className="max-w-6xl mx-auto">
           <h3 className="text-3xl font-bold text-white text-center mb-4">
@@ -300,7 +300,7 @@ export function DataCenterHub() {
           </p>
           <IcDiligenceBundlePitch className="mb-12 max-w-3xl mx-auto" />
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 max-w-6xl mx-auto">
             {pricingPlans.map((plan, idx) => (
               <div
                 key={idx}
@@ -328,25 +328,16 @@ export function DataCenterHub() {
                     </li>
                   ))}
                 </ul>
-                <button
-                  onClick={() => {
-                    if (idx === 0) {
-                      setSelectedPlan('free');
-                      setShowPaymentModal(true);
-                    } else if (idx === 1) {
-                      window.location.href = '/checkout/contractor_pro';
-                    } else {
-                      window.location.href = '/checkout/ic_project';
-                    }
-                  }}
-                  className={`w-full py-3 rounded-lg font-semibold transition ${
+                <a
+                  href={plan.href}
+                  className={`block w-full py-3 rounded-lg font-semibold transition text-center ${
                     plan.recommended
                       ? 'bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white'
                       : 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300'
                   }`}
                 >
-                  Get Started
-                </button>
+                  {plan.cta}
+                </a>
               </div>
             ))}
           </div>
@@ -374,151 +365,6 @@ export function DataCenterHub() {
         </div>
       </section>
 
-      {/* ===== PAYMENT MODAL ===== */}
-      {showPaymentModal && (
-        <PaymentModal
-          plan={selectedPlan}
-          onClose={() => setShowPaymentModal(false)}
-          pricingPlans={pricingPlans}
-        />
-      )}
-    </div>
-  );
-}
-
-interface PaymentModalProps {
-  plan: 'free' | 'pro';
-  onClose: () => void;
-  pricingPlans: typeof pricingPlans;
-}
-
-function PaymentModal({ plan, onClose, pricingPlans }: PaymentModalProps) {
-  const [step, setStep] = useState<'info' | 'payment'>('info');
-  const [formData, setFormData] = useState({
-    email: '',
-    company: '',
-    phone: '',
-    cardName: '',
-    cardNumber: '',
-    expiry: '',
-    cvc: ''
-  });
-
-  const planDetails = plan === 'free' ? pricingPlans[0] : pricingPlans[1];
-
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gradient-to-br from-[#0a0e27] to-[#1a1f3a] border border-indigo-500/20 rounded-2xl max-w-md w-full shadow-2xl">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border-b border-indigo-500/20 px-6 py-6 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-white">
-            {step === 'info' ? 'Account Setup' : 'Payment Method'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white transition"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="p-6 space-y-6">
-          {/* Plan Summary */}
-          <div className="bg-indigo-900/30 rounded-lg p-4 border border-indigo-500/20">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-300">{planDetails.name}</span>
-              <span className="text-indigo-300 font-bold">{planDetails.price}</span>
-            </div>
-          </div>
-
-          {step === 'info' && (
-            <>
-              <div className="space-y-4">
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="w-full bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                />
-                <input
-                  type="text"
-                  placeholder="Company Name"
-                  className="w-full bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                  value={formData.company}
-                  onChange={(e) => setFormData({...formData, company: e.target.value})}
-                />
-                <input
-                  type="tel"
-                  placeholder="Phone Number"
-                  className="w-full bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                />
-              </div>
-
-              <button
-                onClick={() => setStep('payment')}
-                className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-semibold py-2 rounded-lg transition"
-              >
-                Continue to Payment
-              </button>
-            </>
-          )}
-
-          {step === 'payment' && (
-            <>
-              <div className="space-y-4">
-                <input
-                  type="text"
-                  placeholder="Full Name on Card"
-                  className="w-full bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                  value={formData.cardName}
-                  onChange={(e) => setFormData({...formData, cardName: e.target.value})}
-                />
-                <input
-                  type="text"
-                  placeholder="Card Number"
-                  className="w-full bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                  value={formData.cardNumber}
-                  onChange={(e) => setFormData({...formData, cardNumber: e.target.value})}
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    placeholder="MM/YY"
-                    className="bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                    value={formData.expiry}
-                    onChange={(e) => setFormData({...formData, expiry: e.target.value})}
-                  />
-                  <input
-                    type="text"
-                    placeholder="CVC"
-                    className="bg-indigo-900/30 border border-indigo-500/20 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 transition"
-                    value={formData.cvc}
-                    onChange={(e) => setFormData({...formData, cvc: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="text-xs text-gray-400 text-center">
-                Your payment information is secure and encrypted
-              </div>
-
-              <button
-                onClick={() => {
-                  console.log('Payment submitted:', formData);
-                  // TODO: Submit to backend
-                  onClose();
-                }}
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-2 rounded-lg transition"
-              >
-                Complete Setup
-              </button>
-            </>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

@@ -364,9 +364,9 @@ class EmailService:
     </p>
     <p style="color:#555;font-size:14px;">
       Prefer a lighter plan later?
-      <a href="{app_url}/checkout/partner" style="color:#1d4ed8;">Partner is $79/mo</a>
-      · Need a full PDF package?
-      <a href="{app_url}/checkout/ic_project" style="color:#1d4ed8;">IC Project Report ($1,500)</a>
+      <a href="{app_url}/checkout/partner" style="color:#1d4ed8;">Estimator / Permit Runner is $79/mo</a>
+      · Need the counsel ZIP?
+      <a href="{app_url}/checkout/ic_project" style="color:#1d4ed8;">IC Diligence Bundle ($1,500)</a>
       (planning worksheets — not official AHJ filings).
     </p>
 """
@@ -486,10 +486,10 @@ class EmailService:
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
-    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Payment received — IC Project Report</h1>
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">Payment received — IC Diligence Bundle</h1>
     <p style="color:#555;font-size:14px;line-height:1.5;">
       Order #{short_id} is paid. Use the access code below, then run a site lookup with
-      <strong>this same email</strong> to generate your Research Memo, Punch List, and Permit Package PDFs.
+      <strong>this same email</strong> to generate the counsel ZIP: decision memo, boardroom PDF, Word, and Excel.
     </p>
     {token_block}
     <p style="color:#555;font-size:14px;line-height:1.5;">
@@ -549,10 +549,10 @@ class EmailService:
 <!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f172a;padding:24px;">
   <div style="max-width:600px;margin:0 auto;background:#1e293b;border-radius:8px;padding:28px;border:1px solid #334155;">
-    <h1 style="margin:0 0 8px;color:#f8fafc;font-size:22px;">Your IC Project Report PDFs are ready</h1>
+    <h1 style="margin:0 0 8px;color:#f8fafc;font-size:22px;">Your IC Diligence Bundle is ready</h1>
     {site_line}
     <p style="color:#94a3b8;font-size:14px;line-height:1.5;">
-      Order #{short_id} includes three labeled PDFs: Research Memo, Contractor Punch List, and Permit Package.
+      Order #{short_id} is the counsel ZIP: decision memo, boardroom PDF, Word, and Excel.
       Planning diligence only — confirm fees and filings with the local AHJ before bid or submittal.
     </p>
     {links}
@@ -656,13 +656,13 @@ class SendGridEmailService(EmailService):
                                     Want deeper scout or IC PDFs?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    Contractor Pro ($149/mo) deepens AHJ confirm. IC Project Report ($1,500) adds full scout plus Research Memo, Punch List, and Permit Package PDFs.
+                                    Contractor Pro ($149/mo) is the bid desk: City Pack, fee CSV, and bid packet. IC Diligence Bundle ($1,500) is the counsel ZIP for one site.
                                 </p>
                                 <a href="https://app.regguardagent.com/checkout/contractor_pro?trial={trial_id}" style="display: inline-block; background: #059669; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
                                     Contractor Pro — $149/mo
                                 </a>
                                 <a href="https://app.regguardagent.com/checkout/ic_project?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
-                                    IC Project — $1,500
+                                    IC Diligence Bundle — $1,500
                                 </a>
                             </div>
                         </td>
@@ -768,7 +768,7 @@ RegGuard © 2026
             message = self.Mail(
                 from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 to_emails=to_email,
-                subject="Your Reg Guard IC Project Report PDFs are ready",
+                subject="Your Reg Guard IC Diligence Bundle is ready",
                 html_content=self._build_order_pdfs_html(
                     order_id, pdfs, share_url=share_url, site_label=site_label
                 ),
@@ -992,13 +992,13 @@ class ResendEmailService(EmailService):
                                     Want deeper scout or IC PDFs?
                                 </p>
                                 <p style="margin: 0 0 20px 0; font-size: 13px; color: #555;">
-                                    Contractor Pro ($149/mo) deepens AHJ confirm. IC Project Report ($1,500) adds full scout plus Research Memo, Punch List, and Permit Package PDFs.
+                                    Contractor Pro ($149/mo) is the bid desk: City Pack, fee CSV, and bid packet. IC Diligence Bundle ($1,500) is the counsel ZIP for one site.
                                 </p>
                                 <a href="https://app.regguardagent.com/checkout/contractor_pro?trial={trial_id}" style="display: inline-block; background: #059669; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
                                     Contractor Pro — $149/mo
                                 </a>
                                 <a href="https://app.regguardagent.com/checkout/ic_project?trial={trial_id}" style="display: inline-block; background: #4f46e5; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 13px; margin: 0 6px 8px 0;">
-                                    IC Project — $1,500
+                                    IC Diligence Bundle — $1,500
                                 </a>
                             </div>
                         </td>
@@ -1063,7 +1063,7 @@ class ResendEmailService(EmailService):
             response = self.resend.Emails.send({
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
-                "subject": "Your Reg Guard IC Project Report PDFs are ready",
+                "subject": "Your Reg Guard IC Diligence Bundle is ready",
                 "html": self._build_order_pdfs_html(
                     order_id, pdfs, share_url=share_url, site_label=site_label
                 ),

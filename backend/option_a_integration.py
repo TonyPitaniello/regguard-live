@@ -320,7 +320,7 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
         "NEXT STEPS IN THE PRODUCT",
         "• Open https://app.regguardagent.com/ for the shareable /r/ report",
         "• Contractor Pro: $149/mo for ongoing citeable pre-bid punch lists",
-        "• IC Project Report: $1,500 one-time full packaged diligence",
+        "• IC Diligence Bundle: $1,500 one-time counsel ZIP for one site",
         "• Do not treat free-trial env scores as parcel-verified GIS",
         "",
         "=" * 70,
@@ -416,7 +416,7 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
             <h2>Keep going</h2>
             <p>This free lookup is a citeable starting punch list — not a parcel-verified risk score.</p>
             <p><strong>Contractor Pro ($149/mo)</strong> for ongoing pre-bid punch lists.
-            <strong>IC Project Report ($1,500)</strong> for a full packaged diligence report.</p>
+            <strong>IC Diligence Bundle ($1,500)</strong> for the counsel ZIP on one site.</p>
             <a class="upgrade-button" href="https://app.regguardagent.com/pricing">View pricing</a>
         </section>
     </div>
