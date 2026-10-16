@@ -55,6 +55,53 @@ def _ascii_face(text: str) -> str:
     )
 
 
+_GENERIC_ORIGINS = {
+    "source",
+    "link",
+    "portal",
+    "portal link",
+    "verified",
+    "confirm",
+    "unverified",
+    "official",
+    "ahj source",
+}
+
+
+def named_origin(label: Optional[str], url: Optional[str], *, max_len: int = 42) -> str:
+    """Buyer-facing origin. Never the bare word Source when a host exists."""
+    face = (label or "").strip()
+    if face.lower() in _GENERIC_ORIGINS:
+        face = ""
+    clean = _ascii_face(face) if face else ""
+    # A long fee title cut mid-word is worse than the host the buyer can open.
+    if clean and len(clean) <= max_len:
+        return clean
+    if url:
+        return short_host(url, max_len=max_len)
+    if clean:
+        return clean[:max_len].rsplit(" ", 1)[0] or clean[:max_len]
+    return "Unverified"
+
+
+def buyer_url_label(url: str, *, max_len: int = 78) -> str:
+    """Visible URL that wraps on slashes instead of splitting a word."""
+    raw = (url or "").strip()
+    if not raw:
+        return ""
+    if len(raw) <= max_len:
+        return _ascii_face(raw)
+    try:
+        parsed = urlparse(raw)
+        host = (parsed.netloc or "").replace("www.", "")
+        tail = (parsed.path or "").rstrip("/").rsplit("/", 1)[-1]
+    except Exception:
+        host, tail = "", ""
+    if host and tail:
+        return _ascii_face(f"{host} / {tail}"[:max_len])
+    return short_host(raw, max_len=max_len)
+
+
 def short_host(url: str, *, max_len: int = 36) -> str:
     try:
         host = (urlparse(url).netloc or "").replace("www.", "")
@@ -106,14 +153,13 @@ def citation_badge_and_url(item: Dict[str, Any] | None) -> Tuple[str, Optional[s
         else:
             tier = "unverified"
 
+    origin = named_origin(label, url, max_len=24)
     if tier == "verified" and url:
-        face = _ascii_face(label or short_host(url))
-        return (f"SOURCE: {face}"[:28], url)
-    if tier == "verified" and label:
-        return (f"SOURCE: {_ascii_face(label)}"[:28], None)
+        return (f"SOURCE: {origin}"[:36], url)
+    if tier == "verified" and origin != "Unverified":
+        return (f"SOURCE: {origin}"[:36], None)
     if url:
-        face = _ascii_face(label or short_host(url))
-        return (f"PORTAL: {face}"[:28], url)
+        return (f"PORTAL: {origin}"[:36], url)
     return "UNVERIFIED", None
 
 

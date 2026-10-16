@@ -36,6 +36,12 @@ from bid_packet_pdf import (
     _section_title,
 )
 
+def _origin(url: Any, label: Any = None) -> str:
+    from pdf_stamp_helpers import named_origin
+
+    return named_origin(str(label) if label else None, str(url) if url else None)
+
+
 ROSE = (239, 68, 68)
 SKY = (56, 189, 248)
 
@@ -125,12 +131,12 @@ def _link_line(pdf: BoardroomPDF, label: str, url: str) -> None:
     u = str(url or "").strip()
     if not u:
         return
-    from pdf_stamp_helpers import paint_linked_block
+    from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(*EMERALD)
-    paint_linked_block(pdf, _ascii(f"{label}: {u}"), u, width=CONTENT_W, line_h=4.0)
+    paint_linked_block(pdf, _ascii(f"{label}: {buyer_url_label(u)}"), u, width=CONTENT_W, line_h=4.0)
 
 
 def _accent_card(
@@ -527,7 +533,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             bits.append(str(power.get("disclaimer")))
         _accent_card(pdf, "Power path (confirm with utility / TDSP)", bits, accent=SKY, title_size=9)
         if power.get("source_url"):
-            _link_line(pdf, "Source", str(power.get("source_url")))
+            _link_line(pdf, _origin(power.get("source_url")), str(power.get("source_url")))
 
     mora = findings.get("moratorium_radar") if isinstance(findings.get("moratorium_radar"), dict) else {}
     if mora.get("headline") or mora.get("detail") or mora.get("status") or mora.get("metros"):
@@ -546,7 +552,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             bits.append(str(mora.get("disclaimer")))
         _accent_card(pdf, "Moratorium radar", bits, accent=AMBER, title_size=9)
         if mora.get("source_url"):
-            _link_line(pdf, "Source", str(mora.get("source_url")))
+            _link_line(pdf, _origin(mora.get("source_url")), str(mora.get("source_url")))
         for m in (mora.get("metros") or [])[:3]:
             if isinstance(m, dict) and m.get("citation_url"):
                 _link_line(pdf, str(m.get("name") or "Metro"), str(m.get("citation_url")))
@@ -601,10 +607,10 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
                 title = f"{title}  -  {amt}"
             if f.get("exhibit_id"):
                 title = f"{title}  [{f.get('exhibit_id')}]"
-            cite = f.get("source_label") or ("Source" if f.get("source_url") else "Unverified - confirm with AHJ")
+            cite = _origin(f.get("source_url"), f.get("source_label"))
             _accent_card(pdf, title, [str(f.get("note") or ""), cite], accent=AMBER_SOFT, title_size=9)
             if f.get("source_url"):
-                _link_line(pdf, "Source", f.get("source_url"))
+                _link_line(pdf, cite, f.get("source_url"))
 
     insp = findings.get("inspection_sequence") or []
     if insp:
@@ -684,10 +690,10 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             pdf,
             str(item.get("priority") or "NOTE"),
             f"{item.get('task')}{cost_s}{ex_id}",
-            f"Timing: {item.get('timeline') or 'Pre-bid'}  |  {item.get('citation') or 'Unverified'}",
+            f"Timing: {item.get('timeline') or 'Pre-bid'}  |  {_origin(item.get('source_url'), item.get('citation'))}",
         )
         if item.get("source_url"):
-            _link_line(pdf, "Source", str(item.get("source_url")))
+            _link_line(pdf, _origin(item.get("source_url"), item.get("citation")), str(item.get("source_url")))
 
     # ---- Evidence binder ----
     binder = package.get("evidence_binder") if isinstance(package.get("evidence_binder"), dict) else {}
@@ -739,7 +745,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             status = str(cl.get("status") or "")
             _body(pdf, f"[{eid}] {claim}" + (f"  ({status})" if status else ""), 8)
             if cl.get("source_url"):
-                _link_line(pdf, "  ", str(cl.get("source_url")))
+                _link_line(pdf, _origin(cl.get("source_url"), cl.get("citation")), str(cl.get("source_url")))
 
     # ---- Next actions ----
     _begin_section(pdf, f"6. Next actions — {site}", min_remain=24)
@@ -764,19 +770,21 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     if not sources:
         _muted(pdf, "No http(s) sources were attached to this analysis.")
     for i, src in enumerate(sources, start=1):
-        label = _ascii(f"{i}. {src.get('label') or 'Source'}")[:110]
-        url = _ascii(str(src.get("url") or ""))[:140]
-        line_h = 8.5 if url else 5.0
+        raw_url = str(src.get("url") or "").strip()
+        label = _ascii(f"{i}. {_origin(raw_url, src.get('label'))}")[:110]
+        line_h = 8.5 if raw_url else 5.0
         _need_space(pdf, line_h + 1)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*WHITE)
         pdf.multi_cell(CONTENT_W, 3.6, label)
-        if url:
+        if raw_url:
+            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "", 7.5)
             pdf.set_text_color(*EMERALD)
-            pdf.multi_cell(CONTENT_W, 3.4, url)
+            paint_linked_block(pdf, _ascii(buyer_url_label(raw_url)), raw_url, width=CONTENT_W, line_h=3.4)
         pdf.ln(0.4)
 
     pdf.ln(1.0)

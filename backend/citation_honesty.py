@@ -24,6 +24,19 @@ def _http(url: Optional[str]) -> str:
     return u if u.lower().startswith("http") else ""
 
 
+def _host_origin(row: Dict[str, Any]) -> str:
+    url = _http(row.get("source_url") or row.get("citation_url") or row.get("portal_url"))
+    if not url:
+        return "Official record"
+    try:
+        from urllib.parse import urlparse
+
+        host = (urlparse(url).netloc or "").replace("www.", "")
+    except Exception:
+        host = ""
+    return host or "Official portal"
+
+
 def _pi_coords(analysis: Dict[str, Any]) -> Tuple[Optional[float], Optional[float]]:
     pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
     nested = pi.get("coordinates") if isinstance(pi.get("coordinates"), dict) else {}
@@ -375,7 +388,7 @@ def apply_citation_honesty(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 row["source_label"] = "Portal link"
         elif tier == "verified":
             row["verified"] = True
-            row.setdefault("source_label", "Source")
+            row.setdefault("source_label", _host_origin(row))
         else:
             row["verified"] = False
             row.setdefault("source_label", "Unverified")
@@ -398,7 +411,7 @@ def apply_citation_honesty(analysis: Dict[str, Any]) -> Dict[str, Any]:
                 row["source_label"] = row.get("source_label") or "Portal link"
             elif tier == "verified":
                 row["verified"] = True
-                row["source_label"] = row.get("source_label") or "Source"
+                row["source_label"] = row.get("source_label") or _host_origin(row)
             else:
                 row["verified"] = False
                 row["source_label"] = "Unverified"
@@ -422,7 +435,7 @@ def apply_citation_honesty(analysis: Dict[str, Any]) -> Dict[str, Any]:
                     row["source_label"] = row.get("source_label") or "Portal link"
                 elif tier == "verified":
                     row["verified"] = True
-                    row["source_label"] = row.get("source_label") or "Source"
+                    row["source_label"] = row.get("source_label") or _host_origin(row)
                 else:
                     row["verified"] = False
                     if not row.get("source_label"):

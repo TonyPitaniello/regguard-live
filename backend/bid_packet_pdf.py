@@ -295,7 +295,7 @@ def generate_bid_packet_pdf(
         if plain:
             _muted(pdf, plain[:200], 8)
         if rg.get("valid_until"):
-            _muted(pdf, f"Valid until {rg.get('valid_until')}  |  fp {rg.get('fingerprint') or ''}", 7)
+            _muted(pdf, f"Valid until {str(rg.get('valid_until'))[:10]}", 7)
     pdf.ln(1)
 
     # --- Site line ---
@@ -479,10 +479,12 @@ def generate_bid_packet_pdf(
     fees_url = str(ahj.get("fees_url") or "Confirm locally").strip()
     phone = str(ahj.get("phone") or "").strip()
     notes = str(ahj.get("notes") or "").strip()
+    from pdf_stamp_helpers import buyer_url_label
+
     ahj_lines = [
         f"{ahj.get('name') or 'Local AHJ'}",
-        f"Portal: {portal}",
-        f"Fees schedule: {fees_url}",
+        f"Portal: {buyer_url_label(portal) if portal.startswith('http') else portal}",
+        f"Fees schedule: {buyer_url_label(fees_url) if fees_url.startswith('http') else fees_url}",
     ]
     if phone:
         ahj_lines.append(f"Phone: {phone}")
@@ -536,7 +538,7 @@ def generate_bid_packet_pdf(
             pdf.set_text_color(*EMERALD)
             paint_linked_block(
                 pdf,
-                _ascii(cite_url[:120]),
+                _ascii(buyer_url_label(cite_url)),
                 cite_url,
                 width=CONTENT_W - 8,
                 line_h=3.0,
@@ -642,7 +644,15 @@ def generate_bid_packet_pdf(
             pdf.set_x(MARGIN + 10)
             pdf.set_font("Helvetica", "", 6.5)
             pdf.set_text_color(*EMERALD)
-            pdf.multi_cell(CONTENT_W - 14, 3.0, _ascii(cite_url[:110]))
+            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+
+            paint_linked_block(
+                pdf,
+                _ascii(buyer_url_label(cite_url)),
+                cite_url,
+                width=CONTENT_W - 14,
+                line_h=3.0,
+            )
 
     # --- Closing CYA ---
     pdf.ln(4)

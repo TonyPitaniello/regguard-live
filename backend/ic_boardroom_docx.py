@@ -24,6 +24,12 @@ from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
 
+def _origin(url: Any, label: Any = None) -> str:
+    from pdf_stamp_helpers import named_origin
+
+    return named_origin(str(label) if label else None, str(url) if url else None)
+
+
 def _ascii(s: Any) -> str:
     text = str(s or "")
     return (
@@ -87,9 +93,11 @@ def _link_line(doc: Document, label: str, url: str) -> None:
     u = (url or "").strip()
     if not u:
         return
+    from pdf_stamp_helpers import buyer_url_label
+
     p = doc.add_paragraph()
     p.add_run(_ascii(f"{label}: ")).bold = True
-    _add_hyperlink(p, u, u)
+    _add_hyperlink(p, buyer_url_label(u), u)
 
 
 def _exhibit_ref(exhibit_id: str) -> str:
@@ -207,7 +215,7 @@ def generate_ic_boardroom_docx_bytes(
         if k.get("detail"):
             _muted(doc, str(k.get("detail")))
         if k.get("source_url"):
-            _link_line(doc, "Source", str(k.get("source_url")))
+            _link_line(doc, _origin(k.get("source_url")), str(k.get("source_url")))
 
     # ----- B. Parallel clocks (always present for IC Bundle — Pricing promise) -----
     clock_rows = clocks_track.get("clocks") or findings.get("parallel_clocks") or []
@@ -258,7 +266,7 @@ def generate_ic_boardroom_docx_bytes(
         if power.get("disclaimer"):
             _muted(doc, str(power.get("disclaimer")))
         if power.get("source_url"):
-            _link_line(doc, "Source", str(power.get("source_url")))
+            _link_line(doc, _origin(power.get("source_url")), str(power.get("source_url")))
         else:
             _muted(doc, "NOT an interconnection study — confirm with utility / TDSP / ERCOT process.")
 
@@ -300,7 +308,7 @@ def generate_ic_boardroom_docx_bytes(
             if g.get("detail") or g.get("confirm_step"):
                 _muted(doc, str(g.get("detail") or g.get("confirm_step")))
             if g.get("source_url"):
-                _link_line(doc, "Source", str(g.get("source_url")))
+                _link_line(doc, _origin(g.get("source_url")), str(g.get("source_url")))
 
     ultra = findings.get("ultralocal") or {}
     if ultra.get("summary") or ultra.get("confirmed_pages"):
@@ -341,7 +349,7 @@ def generate_ic_boardroom_docx_bytes(
         if f.get("note"):
             _muted(doc, str(f.get("note")))
         if f.get("source_url"):
-            _link_line(doc, "Source", str(f.get("source_url")))
+            _link_line(doc, _origin(f.get("source_url")), str(f.get("source_url")))
 
     _heading(doc, "Critical-path punch", 2)
     if punch.get("timeline_summary"):
@@ -363,7 +371,7 @@ def generate_ic_boardroom_docx_bytes(
         if bits:
             _muted(doc, "  |  ".join(bits))
         if item.get("source_url"):
-            _link_line(doc, "Source", str(item.get("source_url")))
+            _link_line(doc, _origin(item.get("source_url")), str(item.get("source_url")))
 
     # ----- E. Evidence binder -----
     _heading(doc, f"E. Evidence binder — {site}", 1)

@@ -253,7 +253,15 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
         elif tier == "unverified":
             draft["source_label"] = "Unverified"
         elif tier == "verified" and not source_label:
-            draft["source_label"] = "Source"
+            host = ""
+            if source_url:
+                try:
+                    from urllib.parse import urlparse
+
+                    host = (urlparse(str(source_url)).netloc or "").replace("www.", "")
+                except Exception:
+                    host = ""
+            draft["source_label"] = host or "Official record"
         killers.append(draft)
 
     gotchas = (analysis.get("gotcha_watchlist") or {}).get("items") or []

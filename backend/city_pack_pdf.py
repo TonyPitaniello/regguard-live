@@ -194,9 +194,15 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*EMERALD)
-        from pdf_stamp_helpers import paint_linked_block
+        from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
-        paint_linked_block(pdf, _ascii(f"{kind}: {url}"), url, width=CONTENT_W, line_h=4.0)
+        paint_linked_block(
+            pdf,
+            _ascii(f"{kind}: {buyer_url_label(url)}"),
+            url,
+            width=CONTENT_W,
+            line_h=4.0,
+        )
     if ahj.get("phone"):
         _muted(pdf, f"Phone: {ahj.get('phone')}", 8)
     if ahj.get("notes"):
@@ -299,10 +305,12 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             pdf.set_x(MARGIN + 4)
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD)
-            line = src_name if src_name else "Official schedule / portal"
+            from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+
+            origin = named_origin(src_name, cite_url)
+            line = origin
             if cite_url:
-                line = f"{line} — {cite_url}"
-            from pdf_stamp_helpers import paint_linked_block
+                line = f"{origin} - {buyer_url_label(cite_url)}"
 
             paint_linked_block(
                 pdf,
@@ -349,10 +357,12 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                     pass
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD if cite_url else MUTED)
-            line = src_name or (cite_url[:100] if cite_url else "Confirm with AHJ")
-            if cite_url and src_name:
-                line = f"{src_name} — {cite_url[:90]}"
-            from pdf_stamp_helpers import paint_linked_block
+            from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+
+            origin = named_origin(src_name, cite_url)
+            line = origin
+            if cite_url:
+                line = f"{origin} - {buyer_url_label(cite_url)}"
 
             paint_linked_block(
                 pdf,
@@ -397,17 +407,17 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pdf.set_x(MARGIN + 4)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*EMERALD if cite_url else MUTED)
-                line = src_name or (short_host_safe(cite_url) if cite_url else ver)
-                if cite_url and src_name:
-                    line = f"{src_name} - {cite_url[:90]}"
-                elif cite_url and not src_name:
-                    line = f"{ver} - {cite_url[:100]}"
-                pdf.multi_cell(CONTENT_W - 8, 3.2, _ascii(line))
-                if cite_url:
-                    try:
-                        pdf.link(MARGIN + 4, pdf.get_y() - 3.2, CONTENT_W - 8, 3.2, cite_url)
-                    except Exception:
-                        pass
+                from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+
+                origin = named_origin(src_name, cite_url) if (src_name or cite_url) else ver
+                line = f"{origin} - {buyer_url_label(cite_url)}" if cite_url else origin
+                paint_linked_block(
+                    pdf,
+                    _ascii(line),
+                    cite_url or None,
+                    width=CONTENT_W - 8,
+                    line_h=3.2,
+                )
 
     who_call = punch.get("who_to_call") if isinstance(punch.get("who_to_call"), list) else []
     if who_call:
@@ -514,9 +524,9 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pdf.set_x(MARGIN)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*EMERALD)
-                from pdf_stamp_helpers import paint_linked_block
+                from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
-                paint_linked_block(pdf, _ascii(url[:140]), url, width=CONTENT_W, line_h=3.3)
+                paint_linked_block(pdf, _ascii(buyer_url_label(url)), url, width=CONTENT_W, line_h=3.3)
 
     pdf.ln(3)
     pdf.set_fill_color(*CARD)

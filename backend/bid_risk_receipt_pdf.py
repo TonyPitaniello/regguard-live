@@ -208,6 +208,40 @@ def _stamp_is_stale(rg: Dict[str, Any]) -> bool:
         return False
 
 
+def _receipt_product_face(data: Dict[str, Any], free_preview: bool) -> tuple:
+    """Kicker, document label, lede, footer — match the tier that paid for this page."""
+    if free_preview:
+        return (
+            "FREE LOOKUPS PREVIEW",
+            "BID RISK RECEIPT - FREE PREVIEW",
+            "Bid-or-walk preview only - contingency and most punch lines stay locked until Estimator.",
+            "FREE PREVIEW - Estimator / Permit Runner ($79/mo) unlocks contingency + full punch habit.",
+        )
+    depth = str(data.get("research_depth") or "").strip().lower()
+    tier = str(data.get("depth_tier") or "").strip().lower()
+    access = str(data.get("access_tier") or "").strip().lower()
+    if data.get("ic_package") is True or depth in ("ic", "ic_full") or tier == "ic_full":
+        return (
+            "IC DILIGENCE - DECISION MEMO",
+            "DECISION MEMO - IC DILIGENCE BUNDLE",
+            "1-page HOLD/CLEAR memo for this site. Planning aid - not a quote, filing, or interconnection study.",
+            "IC DILIGENCE BUNDLE - this memo, plus boardroom PDF, counsel Word, and Excel.",
+        )
+    if depth.startswith("pro") or tier.startswith("pro") or access == "contractor_pro":
+        return (
+            "CONTRACTOR PRO - FORWARDABLE RECEIPT",
+            "BID RISK RECEIPT - CONTRACTOR PRO",
+            "Forward this Receipt. City Pack, fee CSV, and bid packet are the rest of the Pro desk.",
+            "CONTRACTOR PRO - Receipt plus City Pack, fee CSV, and bid packet.",
+        )
+    return (
+        "ESTIMATOR / PERMIT RUNNER - FORWARDABLE",
+        "BID RISK RECEIPT - ESTIMATOR HABIT",
+        "Full Bid Risk Receipt habit - forward to GC / owner / client before bid.",
+        "ESTIMATOR HABIT - forward this Receipt. Contractor Pro adds City Pack / fee dollars.",
+    )
+
+
 class BidRiskReceiptPDF(FPDF):
     def __init__(self) -> None:
         super().__init__(format="Letter", unit="mm")
@@ -285,11 +319,7 @@ def generate_bid_risk_receipt_pdf(
 
     free_preview = is_free_preview_receipt(data)
     site_line = site_line_from_analysis(data)
-    receipt_label = (
-        "BID RISK RECEIPT - FREE PREVIEW"
-        if free_preview
-        else "BID RISK RECEIPT - ESTIMATOR HABIT"
-    )
+    kicker, receipt_label, lede, footer_product = _receipt_product_face(data, free_preview)
     doc_title = document_display_title(site_line, receipt_label)
 
     pdf = BidRiskReceiptPDF()
@@ -312,7 +342,7 @@ def generate_bid_risk_receipt_pdf(
     pdf.cell(
         CONTENT_W,
         6,
-        "FREE LOOKUPS PREVIEW" if free_preview else "ESTIMATOR / PERMIT RUNNER - FORWARDABLE",
+        kicker,
         ln=1,
     )
     pdf.set_x(MARGIN)
@@ -326,9 +356,7 @@ def generate_bid_risk_receipt_pdf(
         CONTENT_W,
         3.5,
         _ascii(
-            "Bid-or-walk preview only - contingency and most punch lines stay locked until Estimator."
-            if free_preview
-            else "Full Bid Risk Receipt habit - forward to GC / owner / client before bid."
+            lede
         ),
     )
     pdf.set_x(MARGIN)
@@ -413,11 +441,11 @@ def generate_bid_risk_receipt_pdf(
             if not url:
                 continue
             pdf.set_x(MARGIN)
-            from pdf_stamp_helpers import paint_linked_block
+            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
             paint_linked_block(
                 pdf,
-                _ascii(f"{kind}: {_soft_cut(url, 95)}"),
+                _ascii(f"{kind}: {buyer_url_label(url)}"),
                 url,
                 width=CONTENT_W,
                 line_h=3.0,
@@ -716,7 +744,15 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_x(bx)
                 pdf.set_font("Helvetica", "", 6.5)
                 pdf.set_text_color(*EMERALD)
-                pdf.multi_cell(CONTENT_W - 12, 2.8, _ascii(cite_url[:100]))
+                from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+
+                paint_linked_block(
+                    pdf,
+                    _ascii(buyer_url_label(cite_url)),
+                    cite_url,
+                    width=CONTENT_W - 12,
+                    line_h=2.8,
+                )
             if (
                 not free_preview
                 and isinstance(pe, dict)
@@ -766,17 +802,11 @@ def generate_bid_risk_receipt_pdf(
     rg = data.get("regguard_stamp") or {}
     stamp_date = datetime.utcnow().strftime("%Y-%m-%d")
     valid = str(rg.get("valid_until") or "")[:10]
-    fp = str(rg.get("fingerprint") or "")[:12]
     footer_bits = [
         f"Flagged by: {who}",
         f"Date: {stamp_date} UTC"
-        + (f"  |  Valid until {valid}" if valid else "")
-        + (f"  |  fp {fp}" if fp else ""),
-        (
-            "FREE PREVIEW - Estimator / Permit Runner ($79/mo) unlocks contingency + full punch habit."
-            if free_preview
-            else "ESTIMATOR HABIT - forward this Receipt. Contractor Pro adds City Pack / fee dollars."
-        ),
+        + (f"  |  Valid until {valid}" if valid else ""),
+        footer_product,
         "Re-run before you submit the bid. Fees and portal asks move.",
     ]
     if rg.get("is_stale") and rg.get("stale_reason"):
