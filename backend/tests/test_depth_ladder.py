@@ -55,7 +55,7 @@ def test_pro_access_points_to_ic():
         access_tier="contractor_pro",
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
 
 
 def test_pro_light_points_to_ic():
@@ -64,7 +64,7 @@ def test_pro_light_points_to_ic():
         depth_tier=DEPTH_PRO_LIGHT,
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
 
 
 def test_pro_local_offer_points_to_ic():
@@ -73,7 +73,7 @@ def test_pro_local_offer_points_to_ic():
         depth_tier=DEPTH_PRO_LOCAL,
     )
     assert a["upgrade_offer"]["cta_tier"] == "ic_project"
-    assert a["upgrade_offer"]["secondary_cta_tier"] == "ic_annual"
+    assert a["upgrade_offer"]["secondary_cta_tier"] is None
 
 
 def test_ic_full_offer_another_site():

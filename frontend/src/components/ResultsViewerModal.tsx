@@ -1437,7 +1437,7 @@ export default function ResultsViewerModal({
                   {offer.cta_label || 'Continue'}
                 </button>
               )}
-              {secondary && offer.secondary_cta_label && (
+              {secondary && offer.secondary_cta_label && primary !== 'ic_project' && (
                 <button
                   type="button"
                   onClick={() => goCheckout(secondary)}
@@ -1446,18 +1446,6 @@ export default function ResultsViewerModal({
                   {offer.secondary_cta_label}
                 </button>
               )}
-              {primary === 'ic_project' &&
-                !secondary &&
-                !ownsIcAnnual &&
-                !alreadyOwnsCheckout('ic_annual') && (
-                  <button
-                    type="button"
-                    onClick={() => goCheckout('ic_annual')}
-                    className="px-4 py-3 min-h-[48px] rounded-lg border border-amber-500/45 bg-amber-500/10 hover:bg-amber-500/20 text-amber-50 font-semibold text-sm"
-                  >
-                    Or IC Annual after first Project — $15,000/yr
-                  </button>
-                )}
             </div>
           </div>
         </div>
@@ -2118,7 +2106,7 @@ export default function ResultsViewerModal({
   const downloadIcDiligenceBundle = async () => {
     if (!allowIcPackageDownload) {
       showToast(
-        'IC Diligence Bundle requires an IC Project run for this site — free preview cannot download it.'
+        'IC Diligence Bundle requires a completed bundle run for this site — a free preview cannot download it.'
       );
       return;
     }
@@ -2165,7 +2153,7 @@ export default function ResultsViewerModal({
   const downloadIcBoardroomPackage = async () => {
     if (!allowIcPackageDownload) {
       showToast(
-        'IC Diligence Package requires an IC Project run for this site — free preview cannot download it.'
+        'The boardroom PDF requires a completed Diligence Bundle for this site — a free preview cannot download it.'
       );
       return;
     }
@@ -2200,7 +2188,7 @@ export default function ResultsViewerModal({
   const downloadIcEvidenceCsv = async () => {
     if (!allowIcPackageDownload) {
       showToast(
-        'Evidence index requires an IC Project run for this site — free preview cannot download it.'
+        'The evidence index requires a completed Diligence Bundle for this site — a free preview cannot download it.'
       );
       return;
     }
@@ -2235,7 +2223,7 @@ export default function ResultsViewerModal({
   const downloadIcFeePunchCsv = async () => {
     if (!allowIcPackageDownload) {
       showToast(
-        'Fee / punch CSV requires an IC Project run for this site — free preview cannot download it.'
+        'The fee CSV requires a completed Diligence Bundle for this site — a free preview cannot download it.'
       );
       return;
     }
@@ -2276,7 +2264,7 @@ export default function ResultsViewerModal({
   const downloadIcBoardroomDocx = async () => {
     if (!allowIcPackageDownload) {
       showToast(
-        'IC Diligence DOCX requires an IC Project run for this site — free preview cannot download it.'
+        'The counsel Word file requires a completed Diligence Bundle for this site — a free preview cannot download it.'
       );
       return;
     }

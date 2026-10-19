@@ -1220,7 +1220,7 @@ def compose_ic_package(
         data.get("depth_badge")
         or coverage.get("badge")
         or (
-            "IC Project - full scout"
+            "IC Diligence Bundle - full scout"
             if data.get("ic_package") or data.get("depth_tier") == "ic_full"
             else ""
         ),
@@ -1287,12 +1287,12 @@ def compose_ic_package(
             ),
             "working_set": "Decision memo · Boardroom PDF · Counsel DOCX · Fee/punch CSV · Evidence index",
             "forward_artifact": "Bid Risk Receipt / decision memo PDF (1-page stamp)",
-            "price_positioning": "$1,500 IC Project — counsel-ready Diligence Bundle for one site",
+            "price_positioning": "$1,500 Diligence Bundle — counsel screening for one site",
         },
         "cover": {
             "product": f"RegGuard IC Diligence Bundle — {site_line}",
             "price_positioning": (
-                "$1,500 IC Project — decision memo + boardroom PDF + counsel DOCX + Excel workbook + evidence binder"
+                "$1,500 Diligence Bundle — decision memo + boardroom PDF + counsel Word + Excel workbook + evidence binder"
             ),
             "site": site_line,
             "address": pi.get("address"),

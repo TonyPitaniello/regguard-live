@@ -217,11 +217,11 @@ def stamp_depth_badge(analysis: Dict[str, Any]) -> Dict[str, Any]:
             isinstance(analysis.get("ultralocal_scout"), dict)
             and analysis.get("ultralocal_scout", {}).get("enabled")
         ):
-            label = "IC Project — full federal / state / local + ultralocal scout"
+            label = "IC Diligence Bundle — full federal / state / local + ultralocal scout"
         elif instant or not coords_ok:
-            label = "IC Project — counsel package (scout partial — confirm pin)"
+            label = "IC Diligence Bundle — counsel package (scout partial — confirm pin)"
         else:
-            label = "IC Project — full federal / state / local scout"
+            label = "IC Diligence Bundle — full federal / state / local scout"
         analysis["depth_claim_honest"] = True
         analysis["preview"] = False
         analysis["research_incomplete"] = False

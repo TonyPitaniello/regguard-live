@@ -497,7 +497,7 @@ def run_paid_local_confirm(
             "max_pages": max_pages(),
             "user_message": (
                 f"Daily paid scrape cap reached ({usage.get('used')}/{usage.get('limit')}). "
-                "Showing federal/state + pack/cache layers. Try again tomorrow or use an IC Project for heavy research."
+                "Showing the saved city pack. Try again tomorrow. The IC Diligence Bundle is a separate counsel ZIP, not a way around this cap."
             ),
         }
         _apply_paid_coverage(analysis, resolved, pack, [])

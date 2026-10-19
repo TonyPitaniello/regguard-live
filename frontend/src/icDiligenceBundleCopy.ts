@@ -119,11 +119,11 @@ export const IC_BUNDLE = {
    *   - Speak to IC / owner’s rep / lender who *are* the diligence seat — not only “brief counsel”
    */
   annualDescription:
-    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first IC Project, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of Project rate once you pass about ~10 sites.',
+    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first bundle, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of the $1,500 price once you pass about 10 sites.',
   annualFeatures: [
     'Same Diligence Bundle ZIP for each new bound capital site on this purchase email',
     'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',
-    'Ahead of $1,500/Project once you pass ~10 sites in a year',
+    'Ahead of $1,500 per site once you pass about 10 sites in a year',
     'For deal-ready IC / lender packages — not day-to-day Contractor Pro lookups',
     'Strongest citeable coverage: Dallas / Plano / Austin TX',
     'Email support via support@regguardagent.com',
@@ -173,7 +173,7 @@ export const IC_BUNDLE = {
 
   /** FAQ */
   faqWhatYouGet:
-    'IC Project ($1,500) is a one-time Diligence Bundle ZIP for one site: 1-page decision memo (HOLD/CLEAR stamp), full boardroom PDF, editable counsel DOCX with evidence binder and live hyperlinks, estimator Excel workbook (Fees · Punch · Evidence), standalone evidence index Excel, optional CSV paste exports, and — for large-load sites — AHJ / interconnect / water parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
+    'The IC Diligence Bundle ($1,500) is one ZIP for one site: 1-page decision memo (HOLD/CLEAR stamp), full boardroom PDF, editable counsel DOCX with evidence binder and live hyperlinks, estimator Excel workbook (Fees · Punch · Evidence), standalone evidence index Excel, optional CSV paste exports, and — for large-load sites — AHJ / interconnect / water parallel clocks. Not a quote, sealed bid, interconnection study, geotech report, or AHJ filing.',
 
   /** Methodology track title */
   methodologyTitle: 'Track B — IC Diligence Bundle ($1,500)',
@@ -185,7 +185,7 @@ export const IC_BUNDLE = {
 
   /** Orders / nav short */
   ordersHint:
-    'IC Project unlocks the Diligence Bundle ZIP from your IC-depth results — memo + boardroom PDF + counsel DOCX + Excel. Re-download parts anytime from My Orders when available.',
+    'A completed Diligence Bundle unlocks the ZIP from your results — memo, boardroom PDF, counsel Word, and Excel. Re-download parts anytime from My Orders when available.',
   navDescription: 'IC Diligence Bundle — counsel ZIP',
 } as const;
 

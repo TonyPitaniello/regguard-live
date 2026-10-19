@@ -202,14 +202,14 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
         ),
         "cta_label": "Get IC Diligence Bundle — $1,500",
         "cta_tier": "ic_project",
-        "secondary_cta_label": "Or IC Annual after first Project — $15,000/yr",
-        "secondary_cta_tier": "ic_annual",
+        "secondary_cta_label": None,
+        "secondary_cta_tier": None,
         "current_label": desk,
         "next_label": "Counsel ZIP — memo · boardroom · Word · Excel exhibits",
         "primary_once": True,
         "honesty_note": (
             "IC is counsel packaging for one site — still a planning aid; confirm with AHJ / utility. "
-            "Annual is for firms packaging many capital sites — gated until after IC Project."
+            "Annual is for firms packaging many capital sites — it opens after the first Diligence Bundle."
         ),
     }
 
@@ -217,7 +217,7 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
 def _offer_ic_next() -> Dict[str, Any]:
     """IC → Annual (firm volume) or another Project."""
     return {
-        "message": "Buying another $1,500 Project for the next capital site?",
+        "message": "Buying another Diligence Bundle for the next capital site?",
         "detail": (
             "You proved the package on one site. If you will package Diligence Bundles on more "
             "capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase "

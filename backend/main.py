@@ -1843,7 +1843,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 detail=(
                     f"Free scan limit reached ({usage.get('used')}/{usage.get('limit')} "
                     f"this month). Upgrade to Estimator / Permit Runner ($79/mo) for more lookups, "
-                    f"or Contractor Pro ($149/mo) for deep scout — or wait until next month."
+                    f"No charge for this blocked run. Wait until next month if you want to stay on Free."
                 ),
             )
 
@@ -2292,16 +2292,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     else:
                         ic_pending = True
                         message = (
-                            "Deep research did not fully complete — IC PDFs were not generated yet. "
-                            "Retry the site lookup to produce your Project Report package."
+                            "Deep research did not fully complete — the Diligence Bundle was not generated yet. "
+                            "Retry the site lookup to produce the counsel ZIP."
                         )
                 else:
                     ic_pending = True
                     # Lookup ran without consuming the one-shot IC slot
-                    if "IC Project" not in (message or ""):
+                    if "Diligence Bundle" not in (message or ""):
                         message = (
                             (message or "Analysis ready.")
-                            + " IC Project PDFs were not generated (confirm Generate IC Report on the form)."
+                            + " The Diligence Bundle was not generated (confirm Generate IC Report on the form)."
                         )
         except Exception as ic_err:
             logger.warning("IC Project PDF fulfillment failed (non-blocking): %s", ic_err)

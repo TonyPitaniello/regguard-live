@@ -208,7 +208,7 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
 
     # IC
     pdf.add_page()
-    _section(pdf, "04  IC PROJECT REPORT — $1,500 one-time / site")
+    _section(pdf, "04  IC DILIGENCE BUNDLE — $1,500 one site")
     _body(pdf, "Counsel-ready Diligence Bundle ZIP for one site.", bold=True)
     pdf.ln(1)
     for line in (
@@ -226,7 +226,7 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
     _body(
         pdf,
         "SAMPLE IC ZIP matches Pricing “What’s in the ZIP” exactly — same member names "
-        "as a paid IC Project run on this address.",
+        "as a paid Diligence Bundle on this address.",
         bold=True,
     )
 
@@ -307,7 +307,7 @@ def generate_ic_bundle_sample_zip_bytes() -> Tuple[bytes, str]:
     data = analysis_for_tier("ic")
     raw, filename = build_ic_diligence_bundle_zip(
         data,
-        generated_for="SAMPLE IC Project",
+        generated_for="SAMPLE Diligence Bundle",
         share_url=str(data.get("share_url") or ""),
     )
     # Force SAMPLE in filename for marketing clarity

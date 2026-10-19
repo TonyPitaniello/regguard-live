@@ -305,7 +305,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     _muted(
         pdf,
         _ascii(
-            f"{cover.get('depth_badge') or cover.get('coverage_badge') or 'IC Project'}"
+            f"{cover.get('depth_badge') or cover.get('coverage_badge') or 'IC Diligence Bundle'}"
             f"  |  {cover.get('ahj_name') or 'Local AHJ'}"
         ),
         8,
@@ -329,7 +329,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         site,
         [
             str(cover.get("ahj_name") or "Local AHJ"),
-            str(cover.get("depth_badge") or cover.get("coverage_badge") or "IC Project"),
+            str(cover.get("depth_badge") or cover.get("coverage_badge") or "IC Diligence Bundle"),
             f"Generated {package.get('generated_at') or '-'}",
         ],
     )

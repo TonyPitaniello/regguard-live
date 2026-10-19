@@ -811,7 +811,7 @@ export default function FreeTrialForm({
         setQuotaExceeded(true);
         setError(
           (payload.detail as string) ||
-            'Free monthly lookups used up for this email. Start Estimator / Permit Runner ($79/mo) or Contractor Pro ($149/mo) — no charge for this blocked run.'
+            'Free monthly lookups used up for this email. Estimator / Permit Runner ($79/mo) unlocks the clear contingency and more lookups. No charge for this blocked run.'
         );
         return;
       }
