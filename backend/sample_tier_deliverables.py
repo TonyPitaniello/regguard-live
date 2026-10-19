@@ -151,17 +151,16 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
         "Site lookup on a US address (DFW / Austin strongest citeable coverage)",
         "Top punch-list actions (soft-locked preview — top ~5 lines)",
         "Source or Unverified on every visible line",
-        "Forward (SMS / email / copy) to unlock the rest of the free punch list",
-        "Text or email results",
+        "Text or email the HOLD. Forwarding does not unlock the punch or the clear percent",
         "NOT included: full Receipt PDF habit desk, fee/punch CSV, city pack, counsel ZIP",
     ):
         _bullet(pdf, line)
     pdf.ln(2)
     _body(
         pdf,
-        "SAMPLE Free on this site: you see HOLD + contingency + first 5 punch lines "
+        "SAMPLE Free on this site: you see HOLD, a blurred contingency, and the first 5 punch lines "
         "(fee schedule pull, ERCOT parallel clock, Accela type, stormwater, plan-review deposit). "
-        "Remaining punch stays locked until forward or upgrade.",
+        "The clear percent and the rest of the punch stay on Estimator. Forwarding does not unlock them.",
     )
 
     # Partner

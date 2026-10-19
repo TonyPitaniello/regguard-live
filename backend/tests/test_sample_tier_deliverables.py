@@ -29,6 +29,12 @@ def test_tier_ladder_pdf():
     raw = generate_tier_ladder_pdf_bytes()
     assert raw[:4] == b"%PDF"
     assert len(raw) > 2000
+    from pypdf import PdfReader
+
+    text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(raw)).pages)
+    assert "does not unlock" in text
+    assert "to unlock the rest" not in text
+    assert "until forward" not in text
 
 
 def test_free_and_partner_receipts():
