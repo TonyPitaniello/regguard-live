@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import ResultsViewerModal, { type AnalysisData } from '../components/ResultsViewerModal';
 import { ErrorBoundary } from '../components/ErrorBoundary';
@@ -17,8 +17,10 @@ import { PRODUCT_COPY } from '../productCopy';
 
 export default function SampleSiteDiligencePage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
-  const demoTier = parseSampleDemoTier(params.get('tier'));
+  const chapinPath = location.pathname.replace(/\/$/, '') === '/sample/dc-chapin';
+  const demoTier = parseSampleDemoTier(params.get('tier')) ?? (chapinPath ? 'free' : null);
   const [base, setBase] = useState<AnalysisData | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);

@@ -15,6 +15,10 @@
       "destination": "https://regguard-api.onrender.com/share/:id"
     },
     {
+      "source": "/sample/dc-chapin",
+      "destination": "/index.html"
+    },
+    {
       "source": "/r/:id",
       "has": [
         {

@@ -171,6 +171,7 @@ export function AppRouter() {
           {/* Sample Report */}
           <Route path="/sample-report" element={<SampleReportPage />} />
           <Route path="/sample-site-diligence" element={<SampleSiteDiligencePage />} />
+          <Route path="/sample/dc-chapin" element={<SampleSiteDiligencePage />} />
           <Route path="/refund-cases" element={<RefundCasesPage />} />
           <Route path="/guarantee" element={<RefundCasesPage />} />
 
