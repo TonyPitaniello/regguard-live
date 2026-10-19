@@ -51,7 +51,7 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
         "depth_tier": "ic_full",
         "research_depth": "ic",
         "ic_package": True,
-        "depth_badge": "IC PROJECT (SAMPLE)",
+        "depth_badge": "IC Diligence Bundle (SAMPLE)",
         "coverage": {
             "badge": "Full city pack",
             "tier": "full_pack",
@@ -421,7 +421,7 @@ def analysis_for_tier(tier: str) -> Dict[str, Any]:
         out["receipt_mode"] = "estimator_habit"
         out["soft_lock_contingency"] = False
         out["ic_package"] = True
-        out["depth_badge"] = "IC PROJECT (SAMPLE)"
+        out["depth_badge"] = "IC Diligence Bundle (SAMPLE)"
         punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
         out["punch_list"] = {**punch_block, "habit_unlocked": True}
     return out

@@ -146,7 +146,7 @@ def generate_ic_boardroom_docx_bytes(
 
     # ----- Cover / document control -----
     _heading(doc, doc_title, 0)
-    _body(doc, "REG GUARD  |  IC PROJECT DELIVERABLE", bold=True, size=12)
+    _body(doc, "REG GUARD  |  IC DILIGENCE BUNDLE", bold=True, size=12)
     _body(doc, site, bold=True)
     _muted(
         doc,
