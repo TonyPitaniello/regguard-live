@@ -310,7 +310,6 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         },
     )
     partner = checkout_url(PRIMARY_SKU, email=email, research_id=rid, ref=ref, campaign=kind)
-    pro = checkout_url(HABIT_SKU, email=email, research_id=rid, ref=ref, campaign=kind)
     place = f"{address}{(' · ' + city) if city else ''}"
     esc = html_lib.escape
 
@@ -329,58 +328,53 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
 </body></html>"""
 
     if kind == "free_run_d2":
-        subject = f"Forward this Bid Risk Receipt before bid day — {place}"[:120]
+        subject = f"Send the GC the HOLD for {place}"[:120]
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      You ran <strong>{esc(place)}</strong>. The money is in the forward — GCs buy what they can
-      open on a phone, not another research tab.
+      You ran <strong>{esc(place)}</strong>. Send the HOLD. The GC can open it on a phone.
+      The clear contingency percent stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
     </p>
     <p style="margin:20px 0;">
       <a href="{esc(share)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        Open &amp; forward the receipt
+        Open the receipt
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
-      WhatsApp / copy the link. Recipients who later pay are tracked on your
-      <code>?ref=</code> for demand — not a cash commission.
+      Their next site is one tap: Run my address. No card.
     </p>
 """
-        return subject, wrap("Send this to your GC", body)
+        return subject, wrap("Send the HOLD", body)
 
     if kind == "free_run_d5":
-        subject = f"Lock {place} into Partner or Pro before the next bid"
+        subject = f"Estimator unlocks the clear contingency — {place}"[:120]
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      Same site is still in your account. Partner is for permit runners screening clients.
-      Contractor Pro is for weekly bidders who need the habit loop (recheck + stamp).
+      <strong>{esc(place)}</strong> is still in your account. Estimator / Permit Runner ($79/mo)
+      is the receipt you can forward with the clear percent, the rest of the punch list, and Saved Jobs.
+      Contractor Pro ($149/mo) is the fee desk after that — City Pack, CSV, and bid packet.
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">
-        Partner — $79/mo
-      </a>
-      <a href="{esc(pro)}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">
-        Contractor Pro — $149/mo
+      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        Start Estimator — $79/mo
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
-      <a href="{esc(share)}" style="color:#1d4ed8;">Re-open the receipt</a> first if you still need to forward it.
+      <a href="{esc(share)}" style="color:#1d4ed8;">Re-open the HOLD</a> if you still need to send it.
     </p>
 """
-        return subject, wrap("Don't re-research this site from scratch", body)
+        return subject, wrap("The clear percent stays on Estimator", body)
 
     if kind == "quota_paywall":
-        subject = "Free monthly lookups used — keep the Bid Risk Receipt habit"
+        subject = "Free lookups used — Estimator keeps the receipt habit"
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      This email already used this month’s free scans. The next lookup on this address
-      (or the next job) needs Partner or Pro — we did not charge you for the blocked run.
+      This email used this month’s free scans. The next lookup needs Estimator / Permit Runner
+      ($79/mo). We did not charge you for the blocked run. Contractor Pro ($149/mo) adds fee
+      dollars when the estimate has to hold.
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">
-        Start Partner — $79/mo
-      </a>
-      <a href="{esc(pro)}" style="display:inline-block;background:#1d4ed8;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;margin:0 8px 8px 0;">
-        Contractor Pro — $149/mo
+      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        Start Estimator — $79/mo
       </a>
     </p>
 """

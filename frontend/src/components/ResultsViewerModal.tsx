@@ -1274,13 +1274,13 @@ export default function ResultsViewerModal({
       Boolean(view.ultralocal_scout?.enabled);
     // Require real IC depth — do not promote free runs via leftover ic_package flags
     if (ultra && depthTier === 'ic_full') {
-      return 'IC Project — full federal / state / local + ultralocal scout';
+      return 'IC Diligence Bundle — full federal / state / local + ultralocal scout';
     }
     if (view.depth_badge && !/free|preview|instant/i.test(String(view.depth_badge))) {
       return view.depth_badge;
     }
     if (depthTier === 'ic_full') {
-      return 'IC Project — full federal / state / local scout';
+      return 'IC Diligence Bundle — full federal / state / local scout';
     }
     if (view.depth_badge) return view.depth_badge;
     if (depthTier === 'pro_light' || scoutMode === 'light')

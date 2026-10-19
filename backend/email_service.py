@@ -797,7 +797,7 @@ RegGuard © 2026
             message = self.Mail(
                 from_email=os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 to_emails=to_email,
-                subject=f"Reg Guard IC Project — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
+                subject=f"Reg Guard IC Diligence Bundle — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
                 html_content=self._build_ic_next_step_html(order_id, download_token, to_email),
             )
             response = self.sg.send(message)
@@ -1091,7 +1091,7 @@ class ResendEmailService(EmailService):
             response = self.resend.Emails.send({
                 "from": os.getenv("RESEND_FROM_EMAIL", "noreply@regguardagent.com"),
                 "to": to_email,
-                "subject": f"Reg Guard IC Project — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
+                "subject": f"Reg Guard IC Diligence Bundle — access code {((download_token or '')[:8] + '…') if download_token else 'ready'}",
                 "html": self._build_ic_next_step_html(order_id, download_token, to_email),
             })
             ok = bool(response.get("id")) if isinstance(response, dict) else bool(getattr(response, "id", None))

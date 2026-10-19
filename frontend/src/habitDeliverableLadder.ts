@@ -57,7 +57,7 @@ export const HABIT_TIERS = {
       'Bid-week desk if you own the number — City Pack, fee CSV, bid packet. One missed fee line pays for the month.',
     features: [
       'Everything in Estimator / Permit Runner',
-      'Paid local confirm / light scout on every lookup',
+      'Paid local confirm on the lookups you run (daily cap applies)',
       'Fee / punch CSV — trade · owner · due window · source_url (estimator paste)',
       'Full City Pack PDF + bid sheet PDF + bid packet',
       'Day-7 re-check habit for live bids',

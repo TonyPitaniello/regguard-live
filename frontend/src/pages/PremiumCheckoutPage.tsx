@@ -181,7 +181,7 @@ export default function PremiumCheckoutPage() {
               }}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg min-h-[44px]"
             >
-              Switch to IC Project — $1,500
+              Switch to IC Diligence Bundle — $1,500
             </button>
           </div>
         )}

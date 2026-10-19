@@ -86,7 +86,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'Contractors who bid every week and own the number.',
     pain: 'One missed fee line or local gotcha blows the margin — and you burn hours chasing portals before every bid.',
     promise:
-      'Your bid-week desk: everything in Estimator, plus paid local confirm / light scout, fee dollars, Full City Pack PDF, fee/punch CSV, and bid packet on every lookup.',
+      'Your bid-week desk: everything in Estimator, plus paid local confirm, fee dollars, Full City Pack PDF, fee/punch CSV, and bid packet. A heavy day can hit the daily confirm cap — come back tomorrow rather than treating a capped run as a full desk.',
     proof: 'Download City Pack + CSV + packet beside the Receipt — paste into the estimate the same day.',
     vsBelow: 'Estimator forwards the stamp. Pro arms the estimate.',
     notThis:
@@ -108,7 +108,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'IC consultants, owner’s reps, sponsors, and lenders screening one hard site.',
     pain: 'Screenshots get rejected. The LOI / IC call needs a package with exhibits — and you don’t have half a day to build Word and Excel by hand.',
     promise:
-      'One bound address → counsel-ready ZIP: HOLD/CLEAR memo, boardroom PDF, editable DOCX with live links, Fees/Punch/Evidence Excel, evidence index — with fuller Universal Scout when the site needs it (including DC parallel clocks).',
+      'One bound address → counsel-ready ZIP: HOLD/CLEAR memo, boardroom PDF, editable DOCX with live links, Fees/Punch/Evidence Excel, evidence index. Large-load sites add AHJ, utility interconnection, and water as separate clocks. Screening only — not an interconnection study.',
     proof: 'Attach the ZIP. Counsel redlines the DOCX. Exhibits map claim → EX-00N → URL.',
     vsBelow: 'Pro is the bid desk. IC is the counsel package for one site.',
     notThis:
@@ -132,15 +132,15 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     promise:
       'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new Project PO. Ahead of Project rate once you pass about ~10 sites.',
     proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal needs the package.',
-    vsBelow: 'IC Project proved the package. Annual covers more capital sites on the same purchase email.',
+    vsBelow: 'The Diligence Bundle proved the package. Annual covers more capital sites on the same purchase email.',
     notThis:
-      'Not day-to-day Contractor Pro. Not a substitute for AHJ confirm. A different purchase email still needs its own IC Project ($1,500).',
+      'Not day-to-day Contractor Pro. Not an interconnection study. A different purchase email still needs its own Diligence Bundle ($1,500).',
     oneLiner:
       'Annual for counsel ZIPs on capital sites — ahead of $1,500/Project past ~10 sites.',
     cta: 'Get IC Annual — $15,000/yr',
     upsellHeadline: 'Need the ZIP under a different purchase email?',
     upsellBody:
-      'Annual covers Diligence Bundles for capital sites on this purchase email. For a different buyer email, buy IC Project ($1,500) on that email — same counsel ZIP, separate PO.',
+      'Annual covers Diligence Bundles for capital sites on this purchase email. For a different buyer email, buy the IC Diligence Bundle ($1,500) on that email — same counsel ZIP, separate purchase.',
     upsellOffers: 'One more bound-address counsel ZIP — $1,500',
     upsellCta: 'IC Diligence Bundle for another site — $1,500',
   },

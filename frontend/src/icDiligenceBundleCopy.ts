@@ -150,7 +150,7 @@ export const IC_BUNDLE = {
   /** Results — owns IC but wrong depth */
   generateHeadline: 'Generate the Diligence Bundle for this paid site',
   generateBody:
-    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP for this address: memo + boardroom PDF + DOCX + Excel. A different address needs a new $1,500 IC Project purchase.',
+    'This run is still free / Pro depth. Re-run with Generate IC Report to unlock the counsel ZIP for this address: memo + boardroom PDF + DOCX + Excel. A different address needs a new $1,500 Diligence Bundle. Screening only — not an interconnection study.',
 
   /** Results — Pro upsell */
   upsellHeadline: 'Counsel won’t mark up a City Pack PDF',
@@ -169,7 +169,7 @@ export const IC_BUNDLE = {
     'Payment confirmed. Re-run your site lookup with this same email and choose Generate IC Report — then download the Diligence Bundle ZIP (decision memo + boardroom PDF + counsel DOCX + Excel workbook + optional CSVs).',
   confirmPromptIntro: 'Generate IC Diligence Bundle for:',
   confirmPromptBody:
-    'OK uses your IC Project purchase for THIS address only (decision memo + boardroom PDF + DOCX + Excel — no new charge for this paid site). A different address needs a new $1,500 purchase. Cancel researches without the paid package. Reg Guard does not store your credit card.',
+    'OK uses your IC Diligence Bundle for THIS address only (decision memo + boardroom PDF + DOCX + Excel — no new charge for this paid site). A different address needs a new $1,500 purchase. Cancel researches without the paid package. Reg Guard does not store your credit card.',
 
   /** FAQ */
   faqWhatYouGet:

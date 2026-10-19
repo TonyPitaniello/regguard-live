@@ -210,9 +210,9 @@ def assert_ic_artifact_access(email: Optional[str], analysis: Optional[Dict[str,
         raise HTTPException(
             status_code=403,
             detail=(
-                "IC Diligence Bundle requires a completed IC Project run for this site. "
+                "IC Diligence Bundle requires a completed bundle run for this site. "
                 "Free Instant Preview cannot download the $1,500 counsel ZIP — "
-                "confirm the pin, purchase IC Project if needed, and re-run with Generate IC Report."
+                "confirm the pin, purchase the bundle if needed, and re-run with Generate IC Report."
             ),
         )
 
@@ -231,7 +231,7 @@ def assert_ic_artifact_access(email: Optional[str], analysis: Optional[Dict[str,
             detail=str(
                 access.get("message")
                 or (
-                    "IC Project is $1,500 per site. This email has no unused credit for this address."
+                    "The IC Diligence Bundle is $1,500 per site. This email has no unused credit for this address."
                 )
             ),
         )
@@ -259,7 +259,7 @@ def access_summary(
         "order_id": None,
         "bound_site": "",
         "site_fingerprint": "",
-        "message": "IC Project is $1,500 per site.",
+        "message": "The IC Diligence Bundle is $1,500 per site.",
     }
     if email_l:
         try:

@@ -34,7 +34,7 @@ def test_ic_package_rejects_client_ic_pdfs_ready_without_entitlement():
             },
         )
     assert res.status_code == 403
-    assert "IC Project" in str(res.json().get("detail", ""))
+    assert "Diligence Bundle" in str(res.json().get("detail", ""))
 
 
 def test_ic_package_rejects_forged_depth_tier_without_entitlement():

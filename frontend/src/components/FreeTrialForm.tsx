@@ -705,7 +705,7 @@ export default function FreeTrialForm({
       // Prior IC purchase is for a different site — new address requires a new $1,500 payment
       const buy = window.confirm(
         icSite.message ||
-          `IC Project is $1,500 per site.\n\n${siteChip}\n\nOK opens Checkout for this address. Cancel runs research without the counsel ZIP.`
+          `The IC Diligence Bundle is $1,500 for this site.\n\n${siteChip}\n\nOK opens Checkout for this address. Cancel runs research without the counsel ZIP. This is a screening package, not an interconnection study.`
       );
       try {
         sessionStorage.removeItem('icForceOnce');

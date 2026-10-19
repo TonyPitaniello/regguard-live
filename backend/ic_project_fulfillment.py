@@ -109,8 +109,8 @@ def evaluate_ic_site_access(
         "bound_site": "",
         "site_fingerprint": fp,
         "message": (
-            "IC Project is $1,500 per site. Purchase unlocks the Diligence Bundle ZIP "
-            "for one address only."
+            "The IC Diligence Bundle is $1,500 for one site. "
+            "It screens the address. It is not an interconnection study."
         ),
     }
     if not email_l or "@" not in email_l:
@@ -149,7 +149,7 @@ def evaluate_ic_site_access(
                 "bound_site": "",
                 "site_fingerprint": fp,
                 "message": (
-                    f"OK uses your $1,500 IC Project purchase for THIS address only:\n\n{site_label}\n\n"
+                    f"OK uses your $1,500 IC Diligence Bundle for THIS address only:\n\n{site_label}\n\n"
                     "Additional sites require a new $1,500 purchase. Cancel researches without "
                     "the counsel ZIP. Reg Guard does not store your credit card."
                 ),
@@ -172,7 +172,7 @@ def evaluate_ic_site_access(
                     "site_fingerprint": fp,
                     "message": (
                         f"OK refreshes the Diligence Bundle for this paid site (no new charge):\n\n{bound}\n\n"
-                        "A different address requires a new $1,500 IC Project purchase. "
+                        "A different address requires a new $1,500 Diligence Bundle. "
                         "Cancel researches without regenerating the counsel ZIP."
                     ),
                 }
@@ -191,9 +191,9 @@ def evaluate_ic_site_access(
         "bound_site": prior_s,
         "site_fingerprint": fp,
         "message": (
-            f"IC Project is $1,500 per site. Your prior purchase is bound to:\n\n{prior_s}\n\n"
+            f"The IC Diligence Bundle is $1,500 per site. Your prior purchase is bound to:\n\n{prior_s}\n\n"
             f"This run is a different site:\n\n{site_label}\n\n"
-            "OK opens Checkout for a new $1,500 IC Project for this address. "
+            "OK opens Checkout for a new $1,500 bundle for this address. "
             "Cancel researches without the counsel ZIP."
         ),
     }

@@ -78,12 +78,19 @@ def test_drip_copy_has_ctas():
         "free_run_d2",
         {"email": "a@b.com", "research_id": "rid1", "address": "100 Main", "city": "Plano"},
     )
-    assert "Forward" in subj or "forward" in html.lower()
+    assert "HOLD" in subj or "HOLD" in html
+    assert "does not unlock" in html
     assert "/r/rid1" in html
+    assert "Partner" not in html
     _, html5 = drip_email("free_run_d5", {"email": "a@b.com", "research_id": "rid1"})
     assert "checkout/partner" in html5
+    assert "Estimator" in html5
+    assert "Partner —" not in html5
+    assert html5.count("checkout/") == 1
     _, htmlq = drip_email("quota_paywall", {"email": "a@b.com"})
     assert "79" in htmlq
+    assert "Estimator" in htmlq
+    assert htmlq.count("checkout/") == 1
 
 
 def test_nurture_drip_schedule_and_cancel(tmp_path, monkeypatch):
