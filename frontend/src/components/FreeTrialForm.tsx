@@ -1549,13 +1549,6 @@ export default function FreeTrialForm({
                     >
                       Start Estimator / Permit Runner — $79/mo
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/checkout/contractor_pro')}
-                      className="px-4 py-2.5 rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold"
-                    >
-                      Contractor Pro — $149/mo
-                    </button>
                   </div>
                 )}
               </div>

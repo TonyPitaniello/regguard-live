@@ -185,7 +185,7 @@ export default function PremiumCheckoutPage() {
             </button>
           </div>
         )}
-        {step === 'checkout' && (
+        {step === 'checkout' && !(error && selectedTier === 'ic_annual') && (
           <CheckoutFormStep
             tier={selectedTier}
             onBack={handleBack}
@@ -361,12 +361,6 @@ function PaymentForm({
     setLoading(true);
     setCardError('');
 
-    if (!stripe || !elements) {
-      onError('Stripe not loaded');
-      setLoading(false);
-      return;
-    }
-
     try {
       const trialId = sessionStorage.getItem('trialId') || 'unknown';
       const userId = sessionStorage.getItem('userId') || email || 'anonymous';
@@ -423,7 +417,17 @@ function PaymentForm({
         }),
       });
 
-      if (!response.ok) throw new Error('Checkout creation failed');
+      if (!response.ok) {
+        const failed = await response.json().catch(() => ({}));
+        const detail = failed?.detail;
+        const message =
+          typeof detail === 'string'
+            ? detail
+            : Array.isArray(detail)
+              ? detail.map((d: { msg?: string }) => d?.msg).filter(Boolean).join(' ')
+              : '';
+        throw new Error(message || 'Checkout creation failed');
+      }
 
       const { checkout_url } = await response.json();
       if (checkout_url) {

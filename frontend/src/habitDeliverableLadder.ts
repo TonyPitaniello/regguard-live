@@ -44,7 +44,7 @@ export const HABIT_TIERS = {
     notIncluded: [
       'Fee / punch CSV (that is Contractor Pro)',
       'Full city pack PDF / bid packet (Pro)',
-      'Deep scout every lookup (Pro)',
+      'Paid local confirm on the lookups you run (Contractor Pro, daily cap)',
       'Counsel DOCX / Excel workbooks / IC Diligence Bundle ZIP',
     ] as const,
   },
