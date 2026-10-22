@@ -1019,33 +1019,16 @@ export default function ResultsViewerModal({
         localUnlock = false;
       }
     }
-    setShareUnlocked(localUnlock);
-    if (!rid) return;
-    const email = (defaultEmail || '').trim();
-    const q = email ? `?email=${encodeURIComponent(email)}` : '';
-    void fetch(backendUrl(`/research/${encodeURIComponent(String(rid))}/share-unlock${q}`))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d?.unlocked) {
-          try {
-            sessionStorage.setItem(`shareUnlocked:${rid}`, '1');
-            sessionStorage.removeItem('shareUnlocked'); // drop legacy global key
-          } catch {
-            /* ignore */
-          }
-          setShareUnlocked(true);
-        } else {
-          try {
-            sessionStorage.removeItem(`shareUnlocked:${rid}`);
-            sessionStorage.removeItem('shareUnlocked');
-          } catch {
-            /* ignore */
-          }
-          setShareUnlocked(false);
-        }
-      })
-      .catch(() => undefined);
-  }, [isOpen, researchId, analysis?.research_id, defaultEmail]);
+    if (localUnlock) {
+      try {
+        sessionStorage.removeItem(`shareUnlocked:${rid}`);
+        sessionStorage.removeItem('shareUnlocked');
+      } catch {
+        /* ignore */
+      }
+    }
+    setShareUnlocked(false);
+  }, [isOpen, researchId, analysis?.research_id]);
 
   if (!isOpen || !analysis) return null;
 
@@ -1516,9 +1499,11 @@ export default function ResultsViewerModal({
       `Site: ${site}`,
       `AHJ: ${ahjName}`,
       `Stamp: ${stampDisplay}`,
-      band
-        ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
-        : '',
+      softLocked
+        ? 'Suggested contingency: blurred on Free. Estimator unlocks the clear percent.'
+        : band
+          ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
+          : '',
       '',
       'Top items before bid:',
       ...killers.map(
@@ -1704,17 +1689,23 @@ export default function ResultsViewerModal({
               >
                 {PRODUCT_COPY.sections.suggestedBidContingency}
               </p>
-              <div style={{ filter: softLocked ? 'blur(7px)' : undefined, userSelect: softLocked ? 'none' : undefined }}>
+              {softLocked ? (
                 <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
-                  +{contingency.pct_low ?? '—'}% – +{contingency.pct_high ?? '—'}%
+                  +••.•% – +••.•%
                 </p>
-                <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
-                  Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
-                  local fees, review timing, and site risk
-                  {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. Planning
-                  aid only — confirm dollars with {ahjName}.
-                </p>
-              </div>
+              ) : (
+                <div>
+                  <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
+                    +{contingency.pct_low ?? '—'}% – +{contingency.pct_high ?? '—'}%
+                  </p>
+                  <p style={{ fontSize: 14, color: '#e2e8f0', margin: '8px 0 0', lineHeight: 1.5 }}>
+                    Plan a {contingency.pct_low}%–{contingency.pct_high}% cushion on the base estimate for
+                    local fees, review timing, and site risk
+                    {contingency.pct_mid != null ? ` (midpoint ${contingency.pct_mid}%)` : ''}. Planning
+                    aid only — confirm dollars with {ahjName}.
+                  </p>
+                </div>
+              )}
               {softLocked ? (
                 <p style={{ fontSize: 12, color: '#fde68a', margin: '10px 0 0', fontWeight: 700 }}>
                   Free — the clear % stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
@@ -2430,15 +2421,7 @@ export default function ResultsViewerModal({
 
   const grantShareUnlock = (channel: string = 'share') => {
     const rid = effectiveResearchId;
-    try {
-      if (rid) sessionStorage.setItem(`shareUnlocked:${rid}`, '1');
-      sessionStorage.removeItem('shareUnlocked');
-    } catch {
-      /* ignore */
-    }
-    setShareUnlocked(true);
-    setToast('Full free punch list unlocked — city pack stays locked until Estimator / Pro.');
-    window.setTimeout(() => setToast(''), 4000);
+    // Record the forward. Do not unlock the punch, the percent, or pay credit for the share.
     if (rid) {
       const referralCode =
         (typeof window !== 'undefined' &&
@@ -2454,20 +2437,7 @@ export default function ResultsViewerModal({
           channel,
           referral_code: referralCode || undefined,
         }),
-      })
-        .then(async (res) => {
-          const data = await res.json().catch(() => ({}));
-          const fwd = data?.rewards?.forwarder_credit;
-          const part = data?.rewards?.partner_credit;
-          if (fwd || part) {
-            const bits = [];
-            if (fwd) bits.push(`$${fwd.delta_usd ?? 5} forward credit`);
-            if (part) bits.push(`$${part.delta_usd ?? 10} partner credit`);
-            setToast(`Receipt forwarded — ${bits.join(' · ')} applied.`);
-            window.setTimeout(() => setToast(''), 4500);
-          }
-        })
-        .catch(() => undefined);
+      }).catch(() => undefined);
     }
   };
 
@@ -3226,12 +3196,10 @@ export default function ResultsViewerModal({
               </p>
               {view.contingency_band && (
                 <div className="relative mb-1">
-                  <p
-                    className={`text-4xl font-black text-emerald-400 tracking-tight ${
-                      softLocked ? 'blur-md select-none' : ''
-                    }`}
-                  >
-                    +{view.contingency_band.pct_low}% – +{view.contingency_band.pct_high}%
+                  <p className="text-4xl font-black text-emerald-400 tracking-tight">
+                    {softLocked
+                      ? '+••.•% – +••.•%'
+                      : `+${view.contingency_band.pct_low}% – +${view.contingency_band.pct_high}%`}
                   </p>
                   {softLocked ? (
                     <p className="text-xs text-purple-100 mt-2 font-semibold">
@@ -3241,14 +3209,10 @@ export default function ResultsViewerModal({
                 </div>
               )}
               {view.contingency_band && (
-                <p
-                  className={`text-sm text-gray-300 mb-3 ${
-                    softLocked ? 'blur-sm select-none' : ''
-                  }`}
-                >
-                  Suggested cushion on your base bid for this site (mid {view.contingency_band.pct_mid}
-                  %). Add roughly {view.contingency_band.pct_low}%–{view.contingency_band.pct_high}% for
-                  AHJ fees, timeline slip, and local risk — planning aid, not a quote.
+                <p className="text-sm text-gray-300 mb-3">
+                  {softLocked
+                    ? 'The clear percent stays on Estimator. Planning aid, not a quote.'
+                    : `Suggested cushion on your base bid for this site (mid ${view.contingency_band.pct_mid}%). Add roughly ${view.contingency_band.pct_low}%–${view.contingency_band.pct_high}% for AHJ fees, timeline slip, and local risk — planning aid, not a quote.`}
                 </p>
               )}
               <p className="text-xs text-amber-100/95 mb-3 border border-amber-500/35 rounded-md px-2.5 py-2 bg-amber-500/10">
@@ -3289,18 +3253,18 @@ export default function ResultsViewerModal({
                         {k.detail}
                       </p>
                     )}
-                    {k.planning_exposure?.usd_mid != null && (
-                      <p
-                        className={`text-emerald-300/90 text-xs mt-1 ${
-                          softLocked || blurProDesk ? 'blur-sm select-none' : ''
-                        }`}
-                      >
+                    {k.planning_exposure?.usd_mid != null && (softLocked || blurProDesk) ? (
+                      <p className="text-gray-400 text-xs mt-1">
+                        Dollar exposure stays on Contractor Pro.
+                      </p>
+                    ) : k.planning_exposure?.usd_mid != null ? (
+                      <p className="text-emerald-300/90 text-xs mt-1">
                         Planning exposure ~$
                         {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
                         {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
                         guaranteed savings
                       </p>
-                    )}
+                    ) : null}
                     {href ? (
                       <a
                         href={href}
@@ -3749,10 +3713,14 @@ export default function ResultsViewerModal({
                       {view.contingency_band.label || 'Suggested contingency'}
                     </h4>
                     <p className="text-2xl font-black text-emerald-400">
-                      {view.contingency_band.pct_low}% – {view.contingency_band.pct_high}%
-                      <span className="text-base font-semibold text-gray-300 ml-2">
-                        (mid {view.contingency_band.pct_mid}%)
-                      </span>
+                      {softLocked
+                        ? '+••.•% – +••.•%'
+                        : `${view.contingency_band.pct_low}% – ${view.contingency_band.pct_high}%`}
+                      {!softLocked && (
+                        <span className="text-base font-semibold text-gray-300 ml-2">
+                          (mid {view.contingency_band.pct_mid}%)
+                        </span>
+                      )}
                     </p>
                     {typeof view.contingency_band.usd_mid === 'number' && !softLocked && !blurProDesk && (
                       <p className="text-sm text-gray-300 mt-1">

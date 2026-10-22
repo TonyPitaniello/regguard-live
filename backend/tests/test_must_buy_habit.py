@@ -77,11 +77,11 @@ def test_ic_docx_contains_hyperlink_and_hold():
 
 
 
-def test_share_unlock_roundtrip():
+def test_share_records_forward_without_unlock():
     rid = "rg-test-unlock-1"
     grant_unlock(rid, email="ops@example.com", channel="test")
-    assert is_unlocked(rid, "ops@example.com") is True
-    assert is_unlocked(rid, "other@example.com") is True  # research-level unlock
+    assert is_unlocked(rid, "ops@example.com") is False
+    assert is_unlocked(rid, "other@example.com") is False
 
 
 def test_gotcha_credit_approve_adds_balance():

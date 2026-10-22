@@ -431,6 +431,11 @@ function PaymentForm({
 
       const { checkout_url } = await response.json();
       if (checkout_url) {
+        if (String(checkout_url).includes('cs_test_')) {
+          throw new Error(
+            'Card checkout is in Stripe test mode, so a real card will not be charged. Email support@regguardagent.com.'
+          );
+        }
         window.location.href = checkout_url;
       } else {
         onSuccess();

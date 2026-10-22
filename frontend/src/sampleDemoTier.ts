@@ -253,9 +253,9 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
     };
   }
   return {
-    message: 'Buying another $1,500 Project for the next capital site?',
+    message: 'Buying another Diligence Bundle for the next capital site?',
     detail:
-      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass about ~10 sites.',
+      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of $1,500 per site once you pass about ~10 sites.',
     cta_label: 'IC Annual — $15,000/yr',
     cta_tier: 'ic_annual',
     secondary_cta_label: undefined,

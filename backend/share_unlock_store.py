@@ -30,12 +30,7 @@ def is_unlocked(research_id: str, email: str = "") -> bool:
         data = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return False
-    if data.get("unlocked"):
-        return True
-    email_l = (email or "").strip().lower()
-    if email_l and email_l in (data.get("emails") or []):
-        return True
-    return False
+    return bool(data.get("unlocked"))
 
 
 def grant_unlock(
@@ -51,13 +46,14 @@ def grant_unlock(
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with _LOCK:
         p = _path(rid)
-        data: Dict[str, Any] = {"research_id": rid, "unlocked": True, "emails": [], "events": []}
+        data: Dict[str, Any] = {"research_id": rid, "unlocked": False, "emails": [], "events": []}
         if p.is_file():
             try:
                 data = json.loads(p.read_text(encoding="utf-8"))
             except Exception:
                 pass
-        data["unlocked"] = True
+        # A forward is a count, not a product unlock. The clear percent stays on Estimator.
+        data["unlocked"] = False
         data["updated_at"] = now
         emails = list(data.get("emails") or [])
         if email_l and email_l not in emails:

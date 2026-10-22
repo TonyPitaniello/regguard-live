@@ -137,11 +137,11 @@ const UPSELL_PACK: Record<
     features: [
       'Diligence Bundle ZIP for each new bound capital site on this email',
       'Memo, boardroom, Word, and Excel — same shape, new address',
-      'Ahead of Project rate past about ~10 sites in a year',
+      'Ahead of $1,500 per site past about ~10 sites in a year',
       'Built for IC, owner’s rep, sponsor, and lender packages',
     ],
     notThis:
-      'Not day-to-day Contractor Pro. A different purchase email still needs its own $1,500 Project.',
+      'Not day-to-day Contractor Pro. A different purchase email still needs its own $1,500 Diligence Bundle.',
     label: TIER_VOICE.ic.upsellCta,
     offers: TIER_VOICE.ic.upsellOffers,
   },

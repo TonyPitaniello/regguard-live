@@ -4624,7 +4624,7 @@ class ShareUnlockRequest(BaseModel):
 
 @app.post("/research/{research_id}/share-unlock", tags=["Results"])
 async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUnlockRequest()) -> Dict[str, Any]:
-    """Persist share unlock + forward receipt credits (forwarder + partner affiliate)."""
+    """Record a receipt forward. Does not unlock the punch, the percent, or pay share credit."""
     from share_unlock_store import grant_unlock
 
     try:
@@ -4636,47 +4636,12 @@ async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUn
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    rewards: Dict[str, Any] = {}
-    try:
-        from forward_rewards import reward_forward
-
-        ref = (body.referral_code or "").strip()
-        if not ref:
-            # Fall back to nothing — client may send session affiliate code
-            ref = ""
-        rewards = reward_forward(
-            research_id=research_id,
-            email=body.email or "",
-            referral_code=ref,
-            channel=(body.channel or "share")[:40],
-        )
-        try:
-            from product_events import track_event
-
-            if rewards.get("forwarder_credit"):
-                track_event(
-                    "forward_receipt_credit",
-                    research_id=research_id,
-                    channel=(body.channel or "share")[:40],
-                    meta={"email_domain": (body.email or "").split("@")[-1][:40]},
-                )
-            if rewards.get("partner_credit"):
-                track_event(
-                    "partner_forward_credit",
-                    research_id=research_id,
-                    channel=ref[:40] or "affiliate",
-                )
-        except Exception:
-            pass
-    except Exception as e:
-        logger.warning("forward rewards failed: %s", e)
-
     return {
         "status": "ok",
-        "unlocked": True,
+        "unlocked": False,
         "research_id": research_id,
         "emails": data.get("emails") or [],
-        "rewards": rewards,
+        "rewards": {},
     }
 
 
@@ -4685,11 +4650,10 @@ async def get_share_unlock(
     research_id: str,
     email: Optional[str] = None,
 ) -> Dict[str, Any]:
-    from share_unlock_store import is_unlocked
-
+    # A recorded forward never unlocks the free punch or the clear percent.
     return {
         "research_id": research_id,
-        "unlocked": is_unlocked(research_id, email or ""),
+        "unlocked": False,
     }
 
 

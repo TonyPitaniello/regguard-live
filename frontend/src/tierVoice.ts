@@ -116,9 +116,9 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     oneLiner:
       'The package counsel and lenders open — memo, boardroom, editable Word with exhibits, Excel evidence — for one capital site. Not a bigger City Pack.',
     cta: IC_BUNDLE.ctaBuy,
-    upsellHeadline: 'Buying another $1,500 Project for the next capital site?',
+    upsellHeadline: 'Buying another Diligence Bundle for the next capital site?',
     upsellBody:
-      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of Project rate once you pass about ~10 sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
+      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of $1,500 per site once you pass about ~10 sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
     upsellOffers: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     upsellCta: 'IC Annual — $15,000/yr',
   },
@@ -128,15 +128,15 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     name: 'IC Annual',
     price: '$15,000/yr',
     who: 'IC consultants, owner’s reps, sponsors, and lenders packaging multiple capital sites a year.',
-    pain: 'Every new capital address means another $1,500 Project PO — while the package shape never changes.',
+    pain: 'Every new capital address means another $1,500 Diligence Bundle — while the package shape never changes.',
     promise:
-      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new Project PO. Ahead of Project rate once you pass about ~10 sites.',
+      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new $1,500 purchase. Ahead of $1,500 per site once you pass about ~10 sites.',
     proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal needs the package.',
     vsBelow: 'The Diligence Bundle proved the package. Annual covers more capital sites on the same purchase email.',
     notThis:
       'Not day-to-day Contractor Pro. Not an interconnection study. A different purchase email still needs its own Diligence Bundle ($1,500).',
     oneLiner:
-      'Annual for counsel ZIPs on capital sites — ahead of $1,500/Project past ~10 sites.',
+      'Annual for counsel ZIPs on capital sites — ahead of $1,500 per site past ~10 sites.',
     cta: 'Get IC Annual — $15,000/yr',
     upsellHeadline: 'Need the ZIP under a different purchase email?',
     upsellBody:
