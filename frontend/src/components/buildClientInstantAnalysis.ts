@@ -2,6 +2,7 @@
  * Client-side instant analysis when production API returns no analysis_data
  * (e.g. stale Render deploy). Keeps ResultsViewerModal opening every time.
  * Honesty layer: never emit stub LOW/MEDIUM/HIGH as overall risk truth.
+ * The live form does not call this. Do not invent fee dollars or an interconnection task.
  */
 
 import type { AnalysisData } from './ResultsViewerModal';
@@ -58,7 +59,7 @@ export function buildClientInstantAnalysis(input: {
       task: `Confirm AHJ contact for ${city}, ${state}`,
       responsible_party: 'Project owner / permitting lead',
       timeline: 'Week 1',
-      estimated_cost: 500,
+      estimated_cost: 0,
       notes: 'Instant preview — unverified estimate',
       verified: false,
       cost_verified: false,
@@ -66,10 +67,10 @@ export function buildClientInstantAnalysis(input: {
     },
     {
       priority: 'HIGH',
-      task: 'Identify utility interconnection application',
+      task: 'Confirm the serving utility only if this is a large-load or generation site',
       responsible_party: 'Electrical / IC consultant',
       timeline: 'Week 1–2',
-      estimated_cost: 1500,
+      estimated_cost: 0,
       notes: `Project type: ${projectType}`,
       verified: false,
       cost_verified: false,
@@ -80,7 +81,7 @@ export function buildClientInstantAnalysis(input: {
       task: 'Assemble site plan and one-line diagram',
       responsible_party: 'Design engineer',
       timeline: 'Week 2–4',
-      estimated_cost: 5000,
+      estimated_cost: 0,
       notes: '',
       verified: false,
       cost_verified: false,
@@ -140,7 +141,7 @@ export function buildClientInstantAnalysis(input: {
       ],
       who_to_call: {
         AHJ: `${city} building/permitting department`,
-        Utility: 'Serving electric utility interconnection desk',
+        Utility: 'Serving utility, only when this site has a generation or large-load interconnection',
       },
     },
     summary: {
@@ -157,7 +158,7 @@ export function buildClientInstantAnalysis(input: {
     next_steps: [
       'Treat this as a preview checklist — risk scores are not parcel-verified',
       'Confirm every dollar and day estimate with the AHJ before bidding',
-      'Upgrade to Contractor Pro for citeable research memos with source URLs',
+      'Run the address again. Estimator ($79/mo) is the next paid step for the clear percent.',
     ],
   };
 }
