@@ -1,6 +1,6 @@
 /**
  * Shared free-trial form used on homepage (/) and /free-trial
- * Always opens ResultsViewerModal — even if API returns no analysis_data.
+ * Opens results only when the API returns a screening. A failed run stays an error.
  * Listens for voice-fill events from VoiceCommandSystem.
  */
 
@@ -10,7 +10,6 @@ import { AlertCircle, CheckCircle2, Loader2, MapPin, Search, ListChecks } from '
 import { LocationPicker } from './LocationPicker';
 import { backendUrl } from '../env';
 import ResultsViewerModal, { AnalysisData } from './ResultsViewerModal';
-import { buildClientInstantAnalysis } from './buildClientInstantAnalysis';
 import { ErrorBoundary } from './ErrorBoundary';
 import {
   VOICE_FILL_EVENT,
@@ -918,32 +917,13 @@ export default function FreeTrialForm({
           generateClientResearchId();
         showResults(analysis, clientId, emailNorm);
       } else {
-        const clientId = (payload.trial_id as string) || generateClientResearchId();
-        showResults(
-          buildClientInstantAnalysis({
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            zip: data.zip,
-            projectType: data.projectType,
-          }),
-          clientId,
-          data.email
+        setError(
+          'No screening came back for this address. Nothing was filled in. Try again in a minute.'
         );
       }
     } catch (err) {
       console.error(err);
-      showResults(
-        buildClientInstantAnalysis({
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip: data.zip,
-          projectType: data.projectType,
-        }),
-        generateClientResearchId(),
-        data.email
-      );
+      setError('The screening did not finish. Nothing was filled in. Try the address again.');
     } finally {
       progressTimers.forEach((t) => window.clearTimeout(t));
       setLoading(false);

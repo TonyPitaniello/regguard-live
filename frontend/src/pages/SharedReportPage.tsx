@@ -450,10 +450,19 @@ export default function SharedReportPage() {
           >
             <p className="text-xs font-bold uppercase tracking-wide text-gray-300">RegGuard stamp</p>
             <p className="text-3xl font-black tracking-tight">
-              {analysis.regguard_stamp?.label ||
-                ((analysis.regguard_stamp?.grade || analysis.stamp_grade) === 'FAIL'
-                  ? 'REGGUARD STAMP: HOLD — high pre-bid risk'
-                  : `REGGUARD STAMP: ${analysis.stamp_grade}`)}
+              {(() => {
+                const grade = String(analysis.regguard_stamp?.grade || analysis.stamp_grade || '').toUpperCase();
+                const label = String(analysis.regguard_stamp?.label || '')
+                  .replace(/\bFAIL\b/gi, 'HOLD')
+                  .replace(/\bPASS\b/g, 'CLEAR');
+                if (label && !/\b(FAIL|PASS)\b/i.test(String(analysis.regguard_stamp?.label || ''))) {
+                  return label;
+                }
+                if (grade === 'FAIL' || grade === 'HOLD') return 'REGGUARD STAMP: HOLD — high pre-bid risk';
+                if (grade === 'PASS' || grade === 'CLEAR') return 'REGGUARD STAMP: CLEAR';
+                if (grade === 'CAUTION') return 'REGGUARD STAMP: CAUTION';
+                return grade ? `REGGUARD STAMP: ${grade}` : 'REGGUARD STAMP';
+              })()}
             </p>
             <p className="text-xs text-gray-400">
               CLEAR / CAUTION / HOLD — pre-bid risk signal, not a credit rating or AHJ rejection.

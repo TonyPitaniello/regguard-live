@@ -578,17 +578,29 @@ function SuccessStep({ tier }: { tier: TierKey }) {
 }
 
 function ErrorStep({ error, onRetry }: { error: string; onRetry: () => void }) {
+  const testMode = /test mode/i.test(error);
   return (
     <div className="text-center">
       <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-6" />
-      <h2 className="text-3xl font-black text-white mb-4">Payment Failed</h2>
+      <h2 className="text-3xl font-black text-white mb-4">
+        {testMode ? 'Cards are not live yet' : 'Checkout stopped'}
+      </h2>
       <p className="text-gray-300 mb-8 max-w-2xl mx-auto">{error}</p>
-      <button
-        onClick={onRetry}
-        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
-      >
-        Try Again
-      </button>
+      {testMode ? (
+        <a
+          href="mailto:support@regguardagent.com?subject=Reg%20Guard%20checkout"
+          className="inline-block px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+        >
+          Email support
+        </a>
+      ) : (
+        <button
+          onClick={onRetry}
+          className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+        >
+          Try again
+        </button>
+      )}
     </div>
   );
 }

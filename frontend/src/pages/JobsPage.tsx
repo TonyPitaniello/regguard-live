@@ -28,8 +28,8 @@ type Job = {
 
 function stampLabel(raw?: string): string {
   const g = (raw || '').toUpperCase();
-  if (g === 'FAIL' || g === 'HOLD') return 'Hold';
-  if (g === 'PASS' || g === 'CLEAR') return 'Clear';
+  if (g === 'FAIL' || g === 'HOLD') return 'HOLD';
+  if (g === 'PASS' || g === 'CLEAR') return 'CLEAR';
   if (g === 'CAUTION') return 'Caution';
   return raw || '';
 }

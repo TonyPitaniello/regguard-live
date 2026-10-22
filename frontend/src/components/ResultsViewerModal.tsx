@@ -627,11 +627,21 @@ function stampCustomerDisplay(grade: string): string {
 }
 
 function stampShareLabel(grade: string): string {
-  const display = stampCustomerDisplay(grade);
-  if (display === 'HOLD') return 'Hold';
-  if (display === 'CLEAR') return 'Clear';
-  if (display === 'CAUTION') return 'Caution';
-  return grade;
+  return stampCustomerDisplay(grade);
+}
+
+function isLargeLoadSite(view: {
+  dc_positioning?: unknown;
+  planning_exposure_summary?: { data_center_mode?: boolean };
+  project_info?: { type?: string };
+}): boolean {
+  return Boolean(
+    view.dc_positioning ||
+      view.planning_exposure_summary?.data_center_mode ||
+      /data.?center|colo|utility|substation|renewable|solar|wind|battery/i.test(
+        view.project_info?.type || ''
+      )
+  );
 }
 
 function stampShareHeadline(grade: string, headline?: string): string {
@@ -1582,9 +1592,12 @@ export default function ResultsViewerModal({
         ? view.regguard_stamp!.drivers!.slice(0, 3)
         : [];
 
+      const largeLoad = isLargeLoadSite(view);
       const lead =
         stampDisplay === 'HOLD'
-          ? `${site} presents elevated pre-bid risk under ${ahjName}. Municipal permitting and utility interconnection should be treated as parallel clocks until both paths are confirmed.`
+          ? largeLoad
+            ? `${site} presents elevated pre-bid risk under ${ahjName}. Municipal permitting, utility interconnection, and water run on separate clocks until each is confirmed. This is not an interconnection study.`
+            : `${site} presents elevated pre-bid risk under ${ahjName}. Resolve the punch with the city before the number goes out.`
           : stampDisplay === 'CAUTION'
             ? `${site} has material pre-bid items under ${ahjName} that warrant review before a bid number is locked.`
             : `${site}: the current local pack does not show Critical blockers. Confirm fees and portal requirements with ${ahjName} before bid.`;
@@ -2966,16 +2979,27 @@ export default function ResultsViewerModal({
                 }`}
               >
                 <p className="text-lg font-black text-white tracking-tight">
-                  {view.regguard_stamp?.label ||
-                    ((view.regguard_stamp?.grade || view.stamp_grade) === 'FAIL'
-                      ? 'REGGUARD STAMP: HOLD — high pre-bid risk'
-                      : `REGGUARD STAMP: ${view.stamp_grade}`)}
+                  {(() => {
+                    const grade = String(view.regguard_stamp?.grade || view.stamp_grade || '');
+                    const display = stampCustomerDisplay(grade);
+                    const label = String(view.regguard_stamp?.label || '')
+                      .replace(/\bFAIL\b/gi, 'HOLD')
+                      .replace(/\bPASS\b/g, 'CLEAR');
+                    if (label && !/\b(FAIL|PASS)\b/i.test(String(view.regguard_stamp?.label || ''))) {
+                      return label;
+                    }
+                    if (display === 'HOLD') return 'REGGUARD STAMP: HOLD — high pre-bid risk';
+                    return display ? `REGGUARD STAMP: ${display}` : 'REGGUARD STAMP';
+                  })()}
                 </p>
                 <p className="text-xs text-sky-200/95 mt-2 leading-relaxed border border-sky-400/30 rounded-md bg-sky-950/40 px-2.5 py-2">
-                  {(view.regguard_stamp?.headline ||
-                    view.project_info?.address ||
-                    'This site') +
-                    ' — treat municipal permits and utility interconnection as parallel clocks until both are confirmed. See Executive Summary above for contingency and drivers.'}
+                  {(view.regguard_stamp?.headline || view.project_info?.address || 'This site').replace(
+                    /\bFAIL\b/gi,
+                    'HOLD'
+                  )}
+                  {isLargeLoadSite(view)
+                    ? ' — municipal permits, utility interconnection, and water are separate clocks. This is not an interconnection study.'
+                    : ' — confirm the punch with the city before the number goes out.'}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   CLEAR = no Critical killers on the current pack · CAUTION = material risk · HOLD =
