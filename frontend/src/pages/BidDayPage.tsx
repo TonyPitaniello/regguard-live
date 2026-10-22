@@ -85,7 +85,11 @@ export default function BidDayPage() {
   const readList = () => {
     const parsed = parseBidDayLines(paste);
     setLines(parsed);
-    setRows(parsed.map(() => ({ ...EMPTY })));
+    setRows(
+      parsed.map((line) =>
+        line.error ? { ...EMPTY, status: 'error', note: line.error } : { ...EMPTY }
+      )
+    );
     setBanner(
       parsed.length === 0
         ? 'Paste at least one line: street, city, ST ZIP.'
