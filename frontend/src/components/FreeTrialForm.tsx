@@ -143,7 +143,7 @@ export default function FreeTrialForm({
     city: '',
     state: '',
     zip: '',
-    projectType: preferredType || 'data-center',
+    projectType: preferredType || 'commercial',
     email: '',
     phone: '',
     lat: null as number | null,
@@ -299,7 +299,7 @@ export default function FreeTrialForm({
       city: '',
       state: '',
       zip: '',
-      projectType: preferredType || 'data-center',
+      projectType: preferredType || 'commercial',
       email: keepEmail,
       phone: '',
       lat: null,
@@ -747,23 +747,17 @@ export default function FreeTrialForm({
       const timeoutMs = generateIcReport ? 180000 : deepResearch ? 130000 : 45000;
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
       const icKey = generateIcReport ? getOrCreateIcRunId() : undefined;
-      let pendingDeep = false;
-      try {
-        pendingDeep = sessionStorage.getItem('pendingDeepUnlock') === '1';
-      } catch {
-        pendingDeep = false;
-      }
-      // Free Preview button always requests free FinOps (sample-parity blur + Estimator CTA).
-      // Unlock-deeper / post-checkout uses pendingDeepUnlock; IC uses generate_ic_report.
+      // Entitlement decides the run. A sticky pendingDeepUnlock from an abandoned
+      // checkout must not mint Estimator, and a paid email must not stay frosted.
+      const confirmedPro = Boolean(entData && (entData.deep_research || entData.pro_research));
+      const confirmedPaid = Boolean(entData && entData.paid);
       const researchMode = generateIcReport
         ? 'ic'
-        : pendingDeep
-          ? deepResearch
-            ? 'pro'
-            : paid
-              ? 'partner'
-              : 'free'
-          : 'free';
+        : confirmedPro
+          ? 'pro'
+          : confirmedPaid
+            ? 'partner'
+            : 'free';
 
       const response = await fetch(backendUrl('/free-trial'), {
         method: 'POST',
@@ -1588,7 +1582,7 @@ export default function FreeTrialForm({
 
           <p className="text-gray-400 text-sm text-center leading-relaxed">
             {proResearchEntitled
-              ? 'Contractor Pro / IC active — this run includes paid local confirm + scout depth.'
+              ? 'Contractor Pro active — paid local confirm on this run. The counsel ZIP stays on the Diligence Bundle.'
               : paidEntitled
                 ? 'Estimator / Permit Runner active — full Receipt + unlocked punch habit (deep scout is Contractor Pro).'
                 : 'No credit card stored by Reg Guard (Stripe handles paid upgrades). Results in seconds.'}

@@ -109,6 +109,59 @@ def has_partner_habit_access(email: Optional[str]) -> bool:
     return has_paid_access(email)
 
 
+def has_ic_access(email: Optional[str]) -> bool:
+    """True when this email has an IC Diligence Bundle or IC Annual order."""
+    email_l = _normalize_email(email)
+    if not email_l or "@" not in email_l:
+        return False
+    from ic_project_fulfillment import is_ic_tier
+
+    return any(is_ic_tier(tier) for tier in _order_tiers_for_email(email_l))
+
+
+def resolve_run_access(
+    email: Optional[str],
+    research_mode: Optional[str] = None,
+    generate_ic_report: bool = False,
+) -> Dict[str, bool]:
+    """
+    Client mode selects a path. It cannot grant a tier this email has not paid for.
+
+    Free mode still downgrades a paid email (explicit free preview).
+    Partner mode keeps Estimator only when has_paid_access is already true.
+    Pro / IC flags do not promote an unpaid email into paid local confirm or Universal Scout.
+    """
+    habit_paid = has_paid_access(email)
+    pro_research = has_pro_research_access(email)
+    ic_access = has_ic_access(email)
+    mode = (research_mode or "").strip().lower()
+    force_free = mode in ("free", "preview", "instant")
+    force_partner = mode in ("partner", "estimator")
+    force_pro = mode in ("pro", "contractor_pro", "deep")
+    want_ic = bool(generate_ic_report) or mode == "ic"
+
+    if force_free and not want_ic:
+        habit_paid = False
+        pro_research = False
+    elif force_partner and not want_ic:
+        # Paid Pro email can still ask for the Estimator habit view.
+        pro_research = False
+    elif force_pro or want_ic:
+        if want_ic and ic_access:
+            pro_research = True
+            habit_paid = True
+        elif not pro_research:
+            # Unpaid, or Estimator asking for Pro — do not invent Pro depth.
+            pro_research = False
+
+    force_scout = bool(want_ic and ic_access and pro_research)
+    return {
+        "habit_paid": habit_paid,
+        "pro_research": pro_research,
+        "force_scout": force_scout,
+    }
+
+
 def analysis_is_ic_depth(analysis: Optional[Dict[str, Any]]) -> bool:
     """True only for a completed IC Project run — not free Instant Preview."""
     if not isinstance(analysis, dict):

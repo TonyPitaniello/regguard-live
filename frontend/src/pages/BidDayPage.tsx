@@ -103,7 +103,7 @@ export default function BidDayPage() {
       setBanner('Email is required. The list is saved to that address.');
       return;
     }
-    const parsed = lines.length ? lines : parseBidDayLines(paste);
+    const parsed = parseBidDayLines(paste);
     setLines(parsed);
     if (!parsed.some((line) => !line.error)) {
       setBanner('No readable address. Use street, city, ST ZIP on each line.');

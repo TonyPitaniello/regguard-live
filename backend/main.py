@@ -1789,38 +1789,21 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     from free_pack_confirm import run_free_pack_confirm
     from instant_analysis import build_instant_fallback_analysis
     from jurisdiction import geocode_profile_from_address
-    from entitlement import has_paid_access, has_pro_research_access
+    from entitlement import resolve_run_access
 
     trial_id = ""
     status = "success"
     message = "Analysis ready — results are displayed in the app."
     email_for_ent = getattr(request_body, "email", None)
-    habit_paid = has_paid_access(email_for_ent)  # Estimator+ (quota bypass)
-    pro_research = has_pro_research_access(email_for_ent)  # Pro / IC only
-    # Free Preview button forces free FinOps even for paid emails (sample-parity blur).
-    # Unlock-deeper / IC generate opts into paid depth via research_mode or generate_ic_report.
-    mode_raw = str(getattr(request_body, "research_mode", None) or "").strip().lower()
-    force_free = mode_raw in ("free", "preview", "instant")
-    force_partner = mode_raw in ("partner", "estimator")
-    force_pro = mode_raw in ("pro", "contractor_pro", "deep")
-    want_ic = bool(getattr(request_body, "generate_ic_report", False))
-    if force_free and not want_ic:
-        habit_paid = False
-        pro_research = False
-    elif force_partner and not want_ic:
-        # Estimator habit path — even if email also has Pro
-        pro_research = False
-        habit_paid = True
-    elif force_pro or want_ic:
-        # Explicit deepen / IC — use email entitlements (or require Pro)
-        if want_ic:
-            pro_research = True
-        elif not pro_research and habit_paid:
-            # Partner-only email asked for pro mode — stay partner
-            pro_research = False
-        elif not pro_research and not habit_paid:
-            # Unpaid asked for pro — stay free
-            pass
+    # Client research_mode selects free / Estimator / Pro. It cannot mint a paid tier.
+    run_access = resolve_run_access(
+        email_for_ent,
+        research_mode=getattr(request_body, "research_mode", None),
+        generate_ic_report=bool(getattr(request_body, "generate_ic_report", False)),
+    )
+    habit_paid = bool(run_access["habit_paid"])
+    pro_research = bool(run_access["pro_research"])
+    force_scout_requested = bool(run_access["force_scout"])
     paid = pro_research  # paid_local / deep path — NOT Estimator
     research_depth = "pro" if pro_research else ("partner" if habit_paid else "free")
 
@@ -1842,7 +1825,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 status_code=429,
                 detail=(
                     f"Free scan limit reached ({usage.get('used')}/{usage.get('limit')} "
-                    f"this month). Upgrade to Estimator / Permit Runner ($79/mo) for more lookups, "
+                    f"this month). Upgrade to Estimator / Permit Runner ($79/mo) for more lookups. "
                     f"No charge for this blocked run. Wait until next month if you want to stay on Free."
                 ),
             )
@@ -1921,8 +1904,8 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         if pro_research:
             from pro_deep_analysis import run_pro_deep_analysis
 
-            # IC Project opt-in → force Universal Scout (premortem F2/F8)
-            force_scout = bool(getattr(request_body, "generate_ic_report", False))
+            # Universal Scout only when this email has an IC order and opted in.
+            force_scout = force_scout_requested
             logger.info(
                 "Pro/IC research — local confirm first (force_scout=%s)",
                 force_scout,
