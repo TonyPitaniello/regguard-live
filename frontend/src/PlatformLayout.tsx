@@ -6,6 +6,7 @@ import {
   Menu,
   X,
   Briefcase,
+  ListChecks,
   Download,
   DollarSign,
   BookOpen,
@@ -74,6 +75,13 @@ const PLATFORM_ROUTES = [
     icon: Briefcase,
     category: 'Main',
     description: 'Saved site diligence',
+  },
+  {
+    name: 'Bid day',
+    path: '/bid-day',
+    icon: ListChecks,
+    category: 'Main',
+    description: 'HOLD or CLEAR for each address on the list',
   },
   {
     name: 'My Orders',

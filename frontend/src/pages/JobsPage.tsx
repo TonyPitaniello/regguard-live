@@ -94,6 +94,15 @@ export default function JobsPage() {
 
       <section className="px-4 py-12 max-w-2xl mx-auto">
         <h1 className="text-3xl font-black text-white mb-2">Saved Jobs</h1>
+        <p className="mb-4">
+          <button
+            type="button"
+            onClick={() => navigate('/bid-day')}
+            className="text-sm font-semibold text-emerald-300 hover:text-emerald-200"
+          >
+            Screen a bid-day list
+          </button>
+        </p>
         <p className="text-gray-400 text-sm mb-6">
           Sites auto-save when you run a lookup with your email. Enter that same email and tap Load
           jobs. <span className="text-gray-200 font-semibold">One row per address</span> — re-runs of

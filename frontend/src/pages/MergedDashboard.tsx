@@ -206,6 +206,13 @@ export function PlatformDashboard() {
             </button>
             <button
               type="button"
+              onClick={() => navigate('/bid-day')}
+              className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
+            >
+              Bid day
+            </button>
+            <button
+              type="button"
               onClick={() => navigate('/jobs')}
               className="text-purple-400 hover:text-purple-300 transition min-h-[44px]"
             >

@@ -26,6 +26,7 @@ import FreeTrialPage from './pages/FreeTrialPage';
 import ResultsPage from './pages/ResultsPage';
 import SharedReportPage from './pages/SharedReportPage';
 import JobsPage from './pages/JobsPage';
+import BidDayPage from './pages/BidDayPage';
 import SampleReportPage from './pages/SampleReportPage';
 import SampleSiteDiligencePage from './pages/SampleSiteDiligencePage';
 import FileViewerPage from './pages/FileViewerPage';
@@ -157,6 +158,7 @@ export function AppRouter() {
           <Route path="/results" element={<ResultsPage />} />
           <Route path="/r/:id" element={<SharedReportPage />} />
           <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/bid-day" element={<BidDayPage />} />
           <Route path="/my-jobs" element={<JobsPage />} />
           <Route path="/moratorium-radar" element={<MoratoriumRadarPage />} />
           <Route path="/dc/moratorium-radar" element={<MoratoriumRadarPage />} />
