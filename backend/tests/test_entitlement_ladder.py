@@ -54,3 +54,51 @@ def test_paid_email_keeps_the_path_it_already_owns(monkeypatch):
     free = resolve_run_access(email, research_mode="free")
     assert free["habit_paid"] is False
     assert free["pro_research"] is False
+
+
+def test_ic_bundle_always_requests_full_scout(monkeypatch):
+    monkeypatch.setattr("entitlement.has_paid_access", lambda _email: True)
+    monkeypatch.setattr("entitlement.has_pro_research_access", lambda _email: True)
+    monkeypatch.setattr("entitlement.has_ic_access", lambda _email: True)
+    from entitlement import resolve_run_access
+
+    email = "ic-bundle@example.invalid"
+    bundle = resolve_run_access(email, research_mode="ic", generate_ic_report=True)
+    assert bundle["pro_research"] is True
+    assert bundle["force_scout"] is True
+    # Contractor Pro on the same email stays light — deep scout is the bundle only.
+    pro = resolve_run_access(email, research_mode="pro", generate_ic_report=False)
+    assert pro["pro_research"] is True
+    assert pro["force_scout"] is False
+
+
+def test_ic_bundle_scout_ignores_pro_daily_cap():
+    from pro_deep_analysis import scout_mode_for_paid_run
+
+    assert (
+        scout_mode_for_paid_run(
+            force_scout=True,
+            local_status="capped",
+            universal_on=False,
+            light_on=True,
+        )
+        == "full"
+    )
+    assert (
+        scout_mode_for_paid_run(
+            force_scout=False,
+            local_status="capped",
+            universal_on=False,
+            light_on=True,
+        )
+        == "none"
+    )
+    assert (
+        scout_mode_for_paid_run(
+            force_scout=False,
+            local_status="ok",
+            universal_on=False,
+            light_on=True,
+        )
+        == "light"
+    )

@@ -69,6 +69,12 @@ def test_serp_scoring_prefers_city_building():
     assert score_gov_serp_hit(good, city="Seattle", state="WA") >= 30
     assert score_gov_serp_hit(bad_fed, city="Seattle", state="WA") < 30
     assert score_gov_serp_hit(weak, city="Seattle", state="WA") < 30
+    fort_worth = {
+        "url": "https://www.fortworthtexas.gov/departments/development-services/building-energy-codes",
+        "title": "Building & Energy Codes - the City of Fort Worth",
+        "snippet": "The adopted electrical code is the 2026 NEC",
+    }
+    assert score_gov_serp_hit(fort_worth, city="Allen", state="TX") < 0
     filtered = filter_gov_serp_hits(
         [bad_fed, weak, good], city="Seattle", state="WA", limit=1
     )

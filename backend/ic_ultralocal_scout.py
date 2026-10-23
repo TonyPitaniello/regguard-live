@@ -123,20 +123,9 @@ def _hit_to_killer(hit: Dict[str, Any], bucket: str, *, city: str = "") -> Optio
     residential_rate = bucket == "ultralocal_mud" and (
         "per month" in blob or "residents" in blob
     )
-    if directory:
-        detail = (
-            "Official page located. Open the link and confirm fees and process. "
-            "The search snippet is the page description, not a site finding."
-        )
-        priority = "NOTE"
-    elif residential_rate:
-        detail = (
-            "Search hit is a residential rate article. Confirm whether this parcel "
-            "is in a MUD, PID, or CID before treating it as a site cost."
-        )
-        priority = "NOTE"
-    else:
-        priority = "HIGH" if bucket.startswith("ultralocal") else "MEDIUM"
+    if directory or residential_rate:
+        return None
+    priority = "HIGH" if bucket.startswith("ultralocal") else "MEDIUM"
     return {
         "title": f"[{label}] {title or url}"[:160],
         "detail": detail,

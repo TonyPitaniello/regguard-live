@@ -1901,6 +1901,19 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         except Exception:
             pass
 
+        # The IC order can land after the first entitlement read (checkout webhook).
+        # Re-check immediately before research so the bundle run is full scout, not Pro light.
+        if bool(getattr(request_body, "generate_ic_report", False)):
+            latest_access = resolve_run_access(
+                email_for_ent,
+                research_mode=getattr(request_body, "research_mode", None),
+                generate_ic_report=True,
+            )
+            if latest_access.get("force_scout"):
+                force_scout_requested = True
+                pro_research = True
+                paid = True
+
         if pro_research:
             from pro_deep_analysis import run_pro_deep_analysis
 
@@ -1926,8 +1939,12 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 ),
                 timeout=paid_timeout,
             )
-            message = "Contractor Pro — paid local confirm ready."
-            if (analysis or {}).get("finops_mode") == "paid_local_confirm":
+            message = (
+                "IC Diligence Bundle — full scout (federal, vertical, and this city's pages)."
+                if force_scout
+                else "Contractor Pro — paid local confirm ready."
+            )
+            if (analysis or {}).get("finops_mode") == "paid_local_confirm" and not force_scout:
                 pl = (analysis or {}).get("paid_local") or {}
                 if pl.get("status") == "capped":
                     message = str(
@@ -2228,9 +2245,38 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 )
             if open_ic:
                 want_ic = bool(getattr(request_body, "generate_ic_report", False))
+                # A local-only return (Pro daily cap, no scout) still gets one full
+                # scout before the ZIP. A light scout already used the request budget.
+                scout_now = str((analysis or {}).get("scout_mode") or "") if isinstance(analysis, dict) else ""
+                if want_ic and isinstance(analysis, dict) and scout_now in ("", "none"):
+                    try:
+                        from pro_deep_analysis import run_pro_deep_analysis
+
+                        pi_re = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+                        logger.info("IC bundle had no scout — running deep scout before the ZIP")
+                        analysis = await asyncio.wait_for(
+                            run_pro_deep_analysis(
+                                address=str(pi_re.get("address") or request_body.address),
+                                city=str(pi_re.get("city") or getattr(request_body, "city", None) or ""),
+                                state=str(pi_re.get("state") or getattr(request_body, "state", None) or ""),
+                                zip_code=str(pi_re.get("zip") or getattr(request_body, "zip", None) or ""),
+                                latitude=lat,
+                                longitude=lng,
+                                project_type=getattr(request_body, "project_type", None) or "commercial",
+                                email=email_for_ic,
+                                force_scout=True,
+                            ),
+                            timeout=150.0,
+                        )
+                    except Exception as deep_err:
+                        logger.warning("IC deep scout before ZIP failed: %s", deep_err)
                 depth = str(analysis.get("research_depth") or research_depth or "")
                 is_preview = bool(analysis.get("preview"))
-                deep_ok = depth == "pro" and not is_preview
+                deep_ok = (
+                    str(analysis.get("scout_mode") or "") == "full"
+                    and depth not in ("pro_partial",)
+                    and not is_preview
+                )
                 if want_ic and analysis:
                     from ic_project_fulfillment import pdfs_are_ready as _pdfs_ready
 

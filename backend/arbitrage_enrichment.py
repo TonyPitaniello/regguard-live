@@ -30,9 +30,22 @@ def _punch_items(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [i for i in items if isinstance(i, dict)]
 
 
+def _moves_contingency_band(it: Dict[str, Any]) -> bool:
+    """Search-page titles are not bid facts. They must not move the percent."""
+    text = " ".join(str(it.get(k) or "") for k in ("task", "title", "notes", "detail"))
+    if text.lstrip().startswith("["):
+        return False
+    low = text.lower()
+    if any(n in low for n in ("business hours", "hours of operation", "a.m.", "p.m.")):
+        return False
+    return True
+
+
 def _count_priorities(items: List[Dict[str, Any]]) -> Tuple[int, int, int]:
     crit = high = unverified = 0
     for it in items:
+        if not _moves_contingency_band(it):
+            continue
         p = str(it.get("priority") or "").upper()
         if p == "CRITICAL":
             crit += 1
@@ -41,6 +54,9 @@ def _count_priorities(items: List[Dict[str, Any]]) -> Tuple[int, int, int]:
         verified = bool(it.get("verified")) and bool(it.get("source_url"))
         if not verified:
             unverified += 1
+    # A deeper rung adds boilerplate lines. Cap them so the same address
+    # does not print a new mid-percent an hour later.
+    unverified = min(unverified, 8)
     return crit, high, unverified
 
 
@@ -196,6 +212,11 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
     killers: List[Dict[str, Any]] = []
     seen: set = set()
     is_dc = _project_is_data_center(analysis)
+    pi = analysis.get("project_info") or {}
+    ahj_card = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
+    city = str(pi.get("city") or "").strip()
+    state = str(pi.get("state") or "").strip()
+    place = ", ".join(p for p in (city, state) if p) or "this site"
     summary = analysis.get("summary") or {}
     punch = analysis.get("punch_list") or {}
     est = float(summary.get("estimated_total_cost") or punch.get("estimated_total_cost") or 0)
@@ -263,6 +284,30 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
                     host = ""
             draft["source_label"] = host or "Official record"
         killers.append(draft)
+
+    portal = str(ahj_card.get("portal_url") or ahj_card.get("fees_url") or "").strip()
+    if not portal:
+        portal = str((analysis.get("free_confirm") or {}).get("confirm_url") or "").strip()
+    if portal:
+        _add(
+            f"Confirm the permit path with the {place} building department",
+            "This is the official page for this city. Fee dollars stay off the receipt until that schedule states them.",
+            kind="ahj",
+            priority="HIGH",
+            verified=False,
+            source_url=portal,
+            source_label=str(ahj_card.get("name") or f"{place} AHJ"),
+        )
+    else:
+        _add(
+            f"Confirm the building department for {place} before the number goes out",
+            "No matching city portal is on file yet. Federal and state lines do not replace the local AHJ.",
+            kind="ahj",
+            priority="HIGH",
+            verified=False,
+            source_url=None,
+            source_label="Unverified",
+        )
 
     gotchas = (analysis.get("gotcha_watchlist") or {}).get("items") or []
 
@@ -382,7 +427,8 @@ def _build_contingency(
             "Planning aid only — not a quote. Data-center / large-load sites often "
             "run AHJ + utility/ERCOT + federal diligence on parallel clocks. "
             "Percent band is schedule-risk planning; confirm interconnect exposure "
-            "with utility/RTO before bid. Dollar rollup may understate large-load costs."
+            "with utility/RTO before bid. Dollar rollup may understate large-load costs. "
+            "Search snippets do not move this percent."
         )
     return {
         "label": (
@@ -549,8 +595,9 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         or pack.get("timeline_hint")
         or "Confirm with AHJ"
     )
-
     citeable = bool(pack.get("citeable")) or catalog_citeable
+    if not citeable and re.search(r"\d+\s*[-–]\s*\d+\s*weeks", str(timeline), re.I):
+        timeline = "No verified review window — confirm with the local building department"
     out["fee_card"] = {
         "title": "Fee & timeline extract",
         "timeline": timeline,
@@ -569,6 +616,23 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     ahj = pack.get("ahj") or {}
     who = (punch.get("who_to_call") or {}) if isinstance(punch.get("who_to_call"), dict) else {}
+    prior_ahj = out.get("ahj_card") if isinstance(out.get("ahj_card"), dict) else {}
+    discovered = str((out.get("free_confirm") or {}).get("confirm_url") or "").strip()
+    if not discovered:
+        paid_local = out.get("paid_local") if isinstance(out.get("paid_local"), dict) else {}
+        discovered = str(paid_local.get("portal_url") or paid_local.get("scraped_url") or "").strip()
+    if discovered:
+        try:
+            from coverage_honesty import score_gov_serp_hit
+
+            if score_gov_serp_hit(
+                {"url": discovered, "title": "", "snippet": ""},
+                city=city,
+                state=state,
+            ) < 30:
+                discovered = ""
+        except Exception:
+            pass
     # Prefer catalog portal/name when ZIP beachhead resolves (AHJ identity lock)
     cat_name = None
     cat_portal = None
@@ -592,8 +656,8 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     out["ahj_card"] = {
         "title": "AHJ portal & contact",
         "name": cat_name or ahj.get("name") or who.get("building_department") or "Local AHJ",
-        "portal_url": cat_portal or ahj.get("portal_url") or "",
-        "fees_url": cat_fees_url or ahj.get("fees_url") or "",
+        "portal_url": cat_portal or ahj.get("portal_url") or discovered or str(prior_ahj.get("portal_url") or ""),
+        "fees_url": cat_fees_url or ahj.get("fees_url") or discovered or str(prior_ahj.get("fees_url") or ""),
         "apply_url": cat_apply or ahj.get("apply_url") or "",
         "inspections_url": cat_insp or ahj.get("inspections_url") or "",
         "phone": ahj.get("phone") or who.get("phone") or "",

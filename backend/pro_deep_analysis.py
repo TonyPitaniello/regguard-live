@@ -282,6 +282,29 @@ def _merge_deep_into_analysis(
     return analysis
 
 
+def scout_mode_for_paid_run(
+    *,
+    force_scout: bool,
+    local_status: str,
+    universal_on: bool,
+    light_on: bool,
+) -> str:
+    """
+    IC Diligence Bundle (force_scout) always gets full Universal Scout.
+    The Pro daily cap does not apply to that run. Pro stays light unless
+    the legacy universal flag is on.
+    """
+    if force_scout:
+        return "full"
+    if (local_status or "") == "capped":
+        return "none"
+    if universal_on:
+        return "full"
+    if light_on:
+        return "light"
+    return "none"
+
+
 async def run_pro_deep_analysis(
     *,
     address: str,
@@ -354,16 +377,16 @@ async def run_pro_deep_analysis(
         base["paid_local"] = {"status": "error", "error": str(sc_err)}
 
     pl = base.get("paid_local") or {}
-    scout_mode = "none"
-    if pl.get("status") == "capped":
-        scout_mode = "none"
+    scout_mode = scout_mode_for_paid_run(
+        force_scout=bool(force_scout),
+        local_status=str(pl.get("status") or ""),
+        universal_on=bool(paid_universal_scout_enabled()),
+        light_on=bool(_env_on("PAID_PRO_LIGHT_SCOUT", "1")),
+    )
+    if scout_mode == "none" and str(pl.get("status") or "") == "capped":
         logger.info("Skipping scout — paid local daily cap reached")
-    elif force_scout or paid_universal_scout_enabled():
-        scout_mode = "full"
-    elif _env_on("PAID_PRO_LIGHT_SCOUT", "1"):
-        scout_mode = "light"
-    else:
-        scout_mode = "none"
+    elif scout_mode == "full" and force_scout:
+        logger.info("IC Diligence Bundle — full Universal Scout (Pro daily cap does not apply)")
 
     if scout_mode == "none":
         out = dict(base)
@@ -489,10 +512,23 @@ async def run_pro_deep_analysis(
         base["research_depth"] = "pro_partial"
         base["preview"] = False
         base["finops_mode"] = "paid_local_confirm"
-        base["scout_mode"] = scout_mode
+        base["scout_mode"] = "full_incomplete" if force_scout else scout_mode
         base["pro_summary_markdown"] = base.get("pro_summary_markdown") or ""
         base["pro_source_urls"] = list(base.get("pro_source_urls") or [])
         base["pro_deep_error"] = str(e)[:240]
+        if force_scout:
+            try:
+                from ic_ultralocal_scout import run_ic_local_ultralocal_scout
+
+                base = run_ic_local_ultralocal_scout(
+                    base,
+                    address=address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                )
+            except Exception as ultra_err:
+                logger.warning("IC ultralocal scout failed after full scout error: %s", ultra_err)
         stamp_upgrade_offer(base, depth_tier=DEPTH_PRO_PARTIAL)
         stamp_pro_delta(base)
         return base

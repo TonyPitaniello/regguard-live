@@ -244,16 +244,20 @@ def score_gov_serp_hit(
         return -20
 
     tokens = _city_tokens(city)
-    host_compact = host.replace("-", "").replace(".", "")
+    host_compact = re.sub(r"[^a-z0-9]", "", host)
+    title_url = f"{title} {url}".lower()
+    # A .gov hit that does not name this city is another municipality.
+    # Fort Worth's electrical-code page was scoring as Allen's portal.
+    if tokens and not any(tok in title_url or tok in host_compact for tok in tokens):
+        return -100
     for tok in tokens:
         if tok in host or tok in host_compact:
             score += 35
             break
     else:
-        # Title/snippet city mention is weaker than host match
-        if any(tok in blob.lower() for tok in tokens):
+        if tokens and any(tok in blob.lower() for tok in tokens):
             score += 10
-        else:
+        elif tokens:
             score -= 15
 
     st = (state or "").strip().lower()
