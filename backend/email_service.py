@@ -322,7 +322,7 @@ class EmailService:
     def _build_plan_win_html(self, tier: str, *, day7: bool = False) -> str:
         app_url = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
         tier_l = (tier or "").strip().lower()
-        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        name = "Estimator / Permit Runner" if tier_l == "partner" else "Contractor Pro"
         if day7:
             subject_line = f"Week 1 with {name} — save every site you bid"
             body = f"""
@@ -875,7 +875,7 @@ RegGuard © 2026
         if not self.sg or not self.Mail:
             return False
         tier_l = (tier or "").strip().lower()
-        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        name = "Estimator / Permit Runner" if tier_l == "partner" else "Contractor Pro"
         subject = (
             f"Reg Guard — week 1 with {name}"
             if day7
@@ -1177,7 +1177,7 @@ class ResendEmailService(EmailService):
         if not self.resend:
             return False
         tier_l = (tier or "").strip().lower()
-        name = "Partner" if tier_l == "partner" else "Contractor Pro"
+        name = "Estimator / Permit Runner" if tier_l == "partner" else "Contractor Pro"
         subject = (
             f"Reg Guard — week 1 with {name}"
             if day7

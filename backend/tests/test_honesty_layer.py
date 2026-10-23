@@ -138,3 +138,25 @@ def test_sms_format_omits_stub_high_risk_count():
     assert "unavailable" in msg.lower() or "Preview" in msg
     assert "⚠️  0 High Risks" not in msg and "⚠️  1 High Risks" not in msg and "⚠️  2 High Risks" not in msg
     assert "3 High Risks" not in msg
+
+
+def test_public_sample_does_not_invent_a_fee_total():
+    import asyncio
+    from main import get_sample_report
+
+    payload = asyncio.run(get_sample_report())
+    report = payload["sample_report"]
+    blob = " ".join(
+        [
+            str(report.get("contractor_action_plan") or ""),
+            str(report.get("status") or ""),
+            " ".join(str(v) for v in (report.get("environmental_summary") or {}).values()),
+            " ".join(str(v) for v in (report.get("permit_requirements") or {}).values()),
+        ]
+    )
+    assert "600" not in blob
+    assert "150-200" not in blob
+    assert "300-500" not in blob
+    assert "verified via FEMA" not in blob
+    assert "reinspection" in blob
+    assert report["is_sample"] is True

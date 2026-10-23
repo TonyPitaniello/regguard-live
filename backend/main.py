@@ -2507,46 +2507,39 @@ async def get_sample_report() -> Dict[str, Any]:
             "address": "1601 Vontress Street, Plano, Texas",
             "zip_code": "75074",
             "project_type": "data-center",
-            "status": "Sample Report - Premium Features",
+            "status": "Sample only — not a research packet for this address",
             "environmental_summary": {
-                "floodplain": "Not in FEMA floodplain (verified via FEMA Map)",
-                "wetlands": "No jurisdictional wetlands detected within 0.5 miles",
-                "contamination": "No Phase I ESA on file; no CERCLIS sites detected",
-                "endangered_species": "Northern Long-eared Bat habitat possible - verify with USFWS",
+                "floodplain": "Sample only. This is not a FEMA determination for this address.",
+                "wetlands": "Sample only. This is not a wetlands determination.",
+                "contamination": "Sample only. No Phase I or Phase II was run for this address.",
+                "endangered_species": "Sample only. This is not a species screen.",
             },
             "permit_requirements": {
-                "electric": "City of Plano electrical permit required — confirm the line on the Jan 2, 2026 schedule",
-                "structural": "Structural permit required — confirm the amount on the city schedule",
-                "environmental": "Phase II ESA recommended for data center projects",
+                "electric": (
+                    "City of Plano electrical permit — confirm the line on the Jan 2, 2026 "
+                    "schedule (Ordinance 2025-11-4). $75 on that schedule is the first "
+                    "reinspection, not the permit total."
+                ),
+                "structural": "Structural permit — confirm the amount on the city schedule. This sample states no dollar amount.",
+                "environmental": "Sample only. An environmental study is not included.",
             },
-            "contractor_action_plan": """## Contractor Action Plan — AHJ permit & code audit
-
-### Mandatory Gotchas — Plano
-
-- [ ] Verify Site Plan Review with City of Plano Development Services (required for data center)
-- [ ] Check utility easements and underground utility locate requirements
-- [ ] Northern Long-eared Bat habitat - submit USFWS consultation letter if required
+            "contractor_action_plan": """## Contractor Action Plan — sample, not this address's research
 
 ### Permit Costs
-- [ ] Electrical permit: confirm the line on Ordinance 2025-11-4 (effective Jan 2, 2026). Do not use $75 as the permit total.
-- [ ] Site plan review: $150-200 (estimate)
-- [ ] Structural engineering review: $300-500 (estimate)
+- [ ] Electrical permit: confirm the line on Ordinance 2025-11-4 (effective Jan 2, 2026). $75 on that schedule is the first reinspection, not the permit total.
+- [ ] Site plan review: confirm the amount on the city schedule. This sample states no dollar amount.
+- [ ] Structural review: confirm the amount on the city schedule. This sample states no dollar amount.
 
 ### Technical Punch List
-- [ ] Grounding rods: Two 8-foot rods spaced 20 feet apart (Plano Ord. 250.50)
-- [ ] 2/0 AWG copper conductor between grounding rods
-- [ ] Underground utility locate completed (Call 811)
-- [ ] Verify 3-phase power availability at site
+- [ ] Plano Ord. 250.50 grounding (dual 8-ft rods, 2/0 bond) when that ordinance applies — confirm the text.
+- [ ] Underground utility locate (Call 811) when the job disturbs the ground.
 
 ### The Bottom Line
-**Estimated Permit Timeline:** 4-6 weeks
-**Total Estimated Fees:** $600-800
-**Key Risk:** USFWS consultation could extend timeline if bat habitat confirmed""",
+This sample does not state a fee total or a review timeline. Confirm both with City of Plano before you bid.
+""",
             "next_steps": [
-                "Contact City of Plano Development Services for Site Plan Review",
-                "Engage surveyor to verify utility easements",
-                "Submit Phase II ESA if contamination history found",
-                "Coordinate with USFWS if Northern Long-eared Bat habitat confirmed",
+                "Confirm the electrical line on the City of Plano schedule before you bid.",
+                "This sample is not a research packet for 1601 Vontress Street.",
             ],
             "is_sample": True,
         }
