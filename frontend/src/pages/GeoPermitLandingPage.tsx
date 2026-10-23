@@ -25,6 +25,15 @@ type ApiMetro = MetroLanding & {
   cta_path?: string;
 };
 
+function honestFeeLines(lines: string[] | undefined): string[] {
+  return (lines || []).filter((line) => {
+    const s = line.toLowerCase();
+    if (s.includes("laborer") || s.includes("$65")) return false;
+    if (s.includes("$75") && !s.includes("reinspection")) return false;
+    return true;
+  });
+}
+
 function runLookupPath(metro: MetroLanding, ctaPath?: string) {
   if (ctaPath) return ctaPath;
   return `/?city=${encodeURIComponent(metro.city)}&state=${encodeURIComponent(metro.state)}&utm_source=seo&utm_medium=organic&utm_campaign=metro_${metro.slug}&utm_content=permit-fees#free-trial-form`;
@@ -120,6 +129,7 @@ export default function GeoPermitLandingPage() {
   }
 
   const data = api || local;
+  const feeLines = honestFeeLines(api?.fee_summary);
   const canonical = `https://app.regguardagent.com/${local.slug}-permit-fees`;
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -173,9 +183,9 @@ export default function GeoPermitLandingPage() {
           ))}
         </ul>
 
-        {api?.fee_summary && api.fee_summary.length > 0 ? (
+        {feeLines.length > 0 ? (
           <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-50">
-            {api.fee_summary.map((f) => (
+            {feeLines.map((f) => (
               <p key={f} className="mb-1 last:mb-0">
                 {f}
               </p>
