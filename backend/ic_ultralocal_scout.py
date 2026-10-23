@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -53,30 +54,47 @@ def _query_lines(city: str, state: str, zip_code: str, address: str) -> List[Tup
     ]
 
 
-def _names_other_city(blob: str, city: str) -> bool:
-    """True when a search hit names a different city and not this site."""
-    site = (city or "").strip().lower()
-    if not site:
+def _city_tokens(city: str) -> List[str]:
+    return [t for t in re.split(r"[^a-z0-9]+", (city or "").lower()) if t]
+
+
+def _mentions_site_city(text: str, city: str) -> bool:
+    """True when text names this city, including cityofallen and fortworthtexas.gov."""
+    words = _city_tokens(city)
+    if not words:
         return False
-    others = (
-        "fort worth",
-        "dallas",
-        "plano",
-        "frisco",
-        "mckinney",
-        "arlington",
-        "irving",
-        "garland",
-        "richardson",
-        "austin",
-        "houston",
-        "san antonio",
-    )
-    for name in others:
-        if name == site:
-            continue
-        if name in blob and site not in blob:
+    tokens = _city_tokens(text)
+    glued = "".join(words)
+    n = len(words)
+    for i in range(0, max(0, len(tokens) - n + 1)):
+        if tokens[i : i + n] == words:
             return True
+    for token in tokens:
+        if token in (glued, f"cityof{glued}", f"{glued}texas", f"{glued}tx"):
+            return True
+    return False
+
+
+def _foreign_municipal_page(title: str, snippet: str, url: str, city: str) -> bool:
+    """
+    The Allen code query ranks City of Fort Worth's electrical-code page, because
+    that page is the strong DFW hit for "NEC" and "local amendments." The search
+    result is copied in with no check that the page is this city's code.
+
+    Drop it when the title or the URL is another municipality. A snippet that
+    merely echoes the query ("Allen") does not make a Fort Worth page local.
+    """
+    if not (city or "").strip():
+        return False
+    if _mentions_site_city(f"{title} {url}", city):
+        return False
+    if re.search(r"\bcity of\b", (title or "").lower()):
+        return True
+    hostpath = (url or "").lower()
+    if any(marker in hostpath for marker in ("texas.gov", "cityof", "municode.com/tx/")):
+        return True
+    if re.search(r"\bcity of\b", (snippet or "").lower()) and not _mentions_site_city(snippet, city):
+        return True
     return False
 
 
@@ -85,6 +103,8 @@ def _hit_to_killer(hit: Dict[str, Any], bucket: str, *, city: str = "") -> Optio
     url = str(hit.get("url") or hit.get("link") or hit.get("source_url") or "").strip()
     snippet = str(hit.get("description") or hit.get("snippet") or hit.get("markdown") or "").strip()
     if not title and not url:
+        return None
+    if _foreign_municipal_page(title, snippet, url, city):
         return None
     label = {
         "local_ahj": "Local AHJ / fees",
@@ -117,12 +137,6 @@ def _hit_to_killer(hit: Dict[str, Any], bucket: str, *, city: str = "") -> Optio
         priority = "NOTE"
     else:
         priority = "HIGH" if bucket.startswith("ultralocal") else "MEDIUM"
-    if _names_other_city(blob, city):
-        detail = (
-            f"Search hit names another city, not {city or 'this site'}. "
-            "Do not use it as this AHJ's code or fee schedule. Open the city's own portal."
-        )
-        priority = "NOTE"
     return {
         "title": f"[{label}] {title or url}"[:160],
         "detail": detail,
@@ -211,7 +225,16 @@ def run_ic_local_ultralocal_scout(
     all_hits: List[Dict[str, Any]] = []
 
     for bucket, query in _query_lines(city, state, zip_code, address):
-        hits = _search_bucket(query, limit=4)
+        hits = [
+            h
+            for h in _search_bucket(query, limit=4)
+            if not _foreign_municipal_page(
+                str(h.get("title") or h.get("name") or ""),
+                str(h.get("description") or h.get("snippet") or h.get("markdown") or ""),
+                str(h.get("url") or h.get("link") or h.get("source_url") or ""),
+                city,
+            )
+        ]
         buckets[bucket] = hits
         all_hits.extend(hits)
         for h in hits[:3]:

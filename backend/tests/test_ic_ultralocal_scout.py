@@ -19,6 +19,46 @@ def test_hit_to_killer():
     assert "MUD" in k["title"]
 
 
+def test_fort_worth_electrical_code_is_not_an_allen_finding():
+    """The Chelsea IC packet filed Fort Worth's NEC page as an Allen amendment."""
+    hit = {
+        "title": "Building & Energy Codes - the City of Fort Worth",
+        "url": "https://www.fortworthtexas.gov/departments/development-services/building-energy-codes",
+        "snippet": (
+            "The adopted electrical code is the 2026 National Electrical Code. "
+            "Allen TX 75013 local amendments."
+        ),
+    }
+    assert _hit_to_killer(hit, "local_codes", city="Allen") is None
+
+
+def test_allen_ordinance_page_stays():
+    k = _hit_to_killer(
+        {
+            "title": "Codes & Ordinances | Allen, TX",
+            "url": "https://library.municode.com/tx/allen/codes/code_of_ordinances",
+            "snippet": "View permits and contractor forms.",
+        },
+        "local_codes",
+        city="Allen",
+    )
+    assert k is not None
+    assert "Allen" in (k.get("title") or "")
+
+
+def test_fort_worth_keeps_its_own_electrical_code_page():
+    k = _hit_to_killer(
+        {
+            "title": "Building & Energy Codes - the City of Fort Worth",
+            "url": "https://www.fortworthtexas.gov/departments/development-services/building-energy-codes",
+            "snippet": "The adopted electrical code is the 2026 National Electrical Code.",
+        },
+        "local_codes",
+        city="Fort Worth",
+    )
+    assert k is not None
+
+
 def test_run_disabled_passthrough(monkeypatch):
     monkeypatch.setenv("IC_ULTRALOCAL_SCOUT", "0")
     base = {"project_info": {"city": "Plano", "state": "TX", "zip": "75074"}, "margin_killers": []}
