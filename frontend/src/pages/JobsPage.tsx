@@ -134,8 +134,22 @@ export default function JobsPage() {
         {!loading && !error && email.trim() && (
           <p className="text-emerald-200/90 text-sm mb-6">
             {jobs.length === 0
-              ? 'No saved addresses for this email on the server yet — run a lookup with this email to create the first row.'
+              ? 'No saved addresses for this email yet.'
               : `Showing ${jobs.length} saved address${jobs.length === 1 ? '' : 'es'} for ${email.trim().toLowerCase()}.`}
+          </p>
+        )}
+
+        {!loading && !error && jobs.length === 0 && (
+          <p className="text-gray-400 text-sm mb-6">
+            <button
+              type="button"
+              onClick={() => navigate('/bid-day')}
+              className="font-semibold text-emerald-300 hover:text-emerald-200"
+            >
+              Screen a bid-day list
+            </button>{' '}
+            or run one address from the home page. The receipt you paste into the thread is what
+            comes back.
           </p>
         )}
 
@@ -179,9 +193,26 @@ export default function JobsPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Open share link
+                    Open receipt
                   </a>
                 )}
+                <button
+                  type="button"
+                  className="text-emerald-300 text-sm font-semibold hover:text-white"
+                  onClick={() => {
+                    const place = [j.address, j.city, j.state, j.zip].filter(Boolean).join(', ');
+                    const stamp = stampLabel(j.last_stamp_grade);
+                    const body = [stamp ? `${stamp} — ${place}` : place, j.share_url || 'https://app.regguardagent.com']
+                      .filter(Boolean)
+                      .join('\n');
+                    void navigator.clipboard.writeText(body).then(
+                      () => setRecheckMsg('Receipt text copied. Paste it into the bid thread.'),
+                      () => setRecheckMsg(body)
+                    );
+                  }}
+                >
+                  Copy for the thread
+                </button>
                 <button
                   type="button"
                   disabled={recheckId === j.id}
@@ -221,9 +252,6 @@ export default function JobsPage() {
               </div>
             </li>
           ))}
-          {!loading && jobs.length === 0 && !error && (
-            <li className="text-gray-500 text-sm">No jobs yet — run a free lookup first.</li>
-          )}
         </ul>
       </section>
     </div>

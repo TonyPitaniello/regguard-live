@@ -70,6 +70,18 @@ function readAnalysis(payload: Record<string, unknown>) {
   return { grade, risk: String(killers[0]?.title || '').trim(), band, depth, firstFee, share, researchId };
 }
 
+function rowText(line: BidDayLine, row: RowResult): string {
+  const place = [line.address, line.city, line.state, line.zip].filter(Boolean).join(', ');
+  return [
+    row.stamp ? `${row.stamp} — ${place}` : place,
+    row.risk ? `Top risk: ${row.risk}` : '',
+    row.pct ? `Contingency: ${row.pct}` : 'Clear percent stays on Estimator.',
+    row.share || 'https://app.regguardagent.com',
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 export default function BidDayPage() {
   const [email, setEmail] = useState(getJobsEmail);
   const [projectType, setProjectType] = useState('commercial');
@@ -233,18 +245,28 @@ export default function BidDayPage() {
   };
 
   const copyText = async (line: BidDayLine, row: RowResult) => {
-    const place = [line.address, line.city, line.state, line.zip].filter(Boolean).join(', ');
-    const body = [
-      row.stamp ? `${row.stamp} — ${place}` : place,
-      row.risk ? `Top risk: ${row.risk}` : '',
-      row.pct ? `Contingency: ${row.pct}` : 'Clear percent stays on Estimator.',
-      row.share || 'https://app.regguardagent.com',
-    ]
-      .filter(Boolean)
-      .join('\n');
+    const body = rowText(line, row);
     try {
       await navigator.clipboard.writeText(body);
       setBanner('Text copied. Paste it into the bid thread.');
+    } catch {
+      setBanner(body);
+    }
+  };
+
+  const copyThread = async () => {
+    const blocks = lines
+      .map((line, index) => ({ line, row: rows[index] || EMPTY }))
+      .filter((item) => !item.line.error && item.row.status === 'ready')
+      .map((item) => rowText(item.line, item.row));
+    if (!blocks.length) {
+      setBanner('Screen the list first. The thread is one HOLD or CLEAR per address.');
+      return;
+    }
+    const body = [...blocks, 'Run your own address: https://app.regguardagent.com'].join('\n\n');
+    try {
+      await navigator.clipboard.writeText(body);
+      setBanner('Thread copied. Paste it where the bid is being discussed.');
     } catch {
       setBanner(body);
     }
@@ -330,6 +352,14 @@ export default function BidDayPage() {
               >
                 {running ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 {running ? 'Screening…' : 'Screen the list'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void copyThread()}
+                disabled={running || !rows.some((row) => row.status === 'ready')}
+                className="min-h-[44px] rounded-md border border-emerald-400/40 px-4 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/10 disabled:opacity-50"
+              >
+                Copy the thread
               </button>
             </div>
             <p className="text-xs leading-5 text-slate-500">

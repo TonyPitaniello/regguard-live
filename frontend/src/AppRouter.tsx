@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState, type ReactNode } from 'react';
-import App from './App';
 import { DataCenterRequestForm } from './DataCenterRequestForm';
 import { DataCenterHub } from './pages/DataCenterHub';
 import FreeTrialForm from './components/FreeTrialForm';
@@ -222,10 +221,10 @@ export function AppRouter() {
           <Route path="/admin/refund-freeze" element={<AdminRefundFreezePage />} />
           <Route path="/admin/zip-watch" element={<AdminZipWatchPage />} />
 
-          {/* Existing Compliance Routes */}
-          <Route path="/agent" element={<App />} />
-          <Route path="/dashboard" element={<App />} />
-          <Route path="/auth/success" element={<App />} />
+          {/* Old compliance shell. The product is the receipt. */}
+          <Route path="/agent" element={<Navigate to="/" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/" replace />} />
+          <Route path="/auth/success" element={<Navigate to="/" replace />} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

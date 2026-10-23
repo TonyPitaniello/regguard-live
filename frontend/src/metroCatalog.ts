@@ -63,7 +63,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Screen Frisco permit path before you price the job',
       'Citeable punch list when sources exist',
-      'Share to unlock the full free preview — upgrade for deep scout',
+      'Forward the receipt. Sharing the free page does not unlock the clear percent',
     ],
     feeNote: 'Confirm fees with Frisco Development Services before bid or filing.',
   },
@@ -154,7 +154,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Screen permit and inspection timing before you price',
       'Source or Unverified on every line',
-      'Share to unlock the full free preview',
+      'Forward the receipt to the GC. The clear percent stays on Estimator',
     ],
     feeNote: 'Confirm fees with City of Richardson before bid or filing.',
   },
