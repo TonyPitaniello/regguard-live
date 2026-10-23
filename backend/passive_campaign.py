@@ -96,6 +96,71 @@ def _slug_city(city: str) -> str:
     return s
 
 
+# Permit-fee pages are a commercial visit. Large-load clocks stay on the receipt.
+COMMERCIAL_BULLETS: Dict[str, List[str]] = {
+    "plano": [
+        "Plano Ord. 250.50 grounding (dual 8-ft rods @ 20 ft, 2/0 bond) when citeable",
+        "Electrical permit amounts are on the Jan 2, 2026 schedule (Ordinance 2025-11-4). Confirm the line for this job. $75 on that schedule is the first reinspection, not the permit total.",
+        "Every line is Source or Unverified — forward only what you can defend",
+    ],
+    "dallas": [
+        "Confirm trade permit type early — wrong path stalls review",
+        "Fee schedule is not a fixed number — recheck before bid",
+        "Forward the receipt. The clear percent stays on Estimator ($79/mo)",
+    ],
+    "austin": [
+        "Austin gas-relief clearance and service-upgrade patterns when citeable",
+        "Source or Unverified on every punch line",
+        "Next step is Estimator ($79/mo) for the clear percent. The $1,500 bundle is for one capital site, not this page.",
+    ],
+    "frisco": [
+        "Screen Frisco permit path before you price the job",
+        "Citeable punch list when sources exist",
+        "Forward the receipt. Sharing the free page does not unlock the clear percent",
+    ],
+    "fort-worth": [
+        "Confirm trade application type and inspection wait before bid",
+        "Source or Unverified on every line",
+        "Forward the receipt to your GC — planning aid, not a quote",
+    ],
+    "round-rock": [
+        "Screen AHJ risks before you price the job",
+        "City gotchas called out when citeable",
+        "Forwardable Bid Risk Receipt for the GC file",
+    ],
+    "arlington": [
+        "Confirm permit path and inspection timing",
+        "Source or Unverified on every punch line",
+        "Planning aid — not a sealed bid",
+    ],
+    "irving": [
+        "Screen Irving permit risks before bid day",
+        "Citeable lines when official sources exist",
+        "Forward the receipt. Sharing the free page does not unlock the clear percent",
+    ],
+    "garland": [
+        "AHJ path and fee-type clarity (permit vs connection)",
+        "Source or Unverified labels",
+        "Forward to GC before you submit the number",
+    ],
+    "mckinney": [
+        "Confirm trade permit type early",
+        "City gotchas when citeable",
+        "Planning aid — confirm with the AHJ",
+    ],
+    "richardson": [
+        "Screen permit and inspection timing before you price",
+        "Source or Unverified on every line",
+        "Forward the receipt to the GC. The clear percent stays on Estimator",
+    ],
+    "carrollton": [
+        "Confirm application type and fee path",
+        "Citeable punch list when sources exist",
+        "Not a quote — a Bid Risk Receipt",
+    ],
+}
+
+
 def metro_pages() -> List[Dict[str, Any]]:
     """One SEO landing per curated city pack (DFW + Austin beachhead)."""
     from city_packs import CITY_PACKS
@@ -107,16 +172,8 @@ def metro_pages() -> List[Dict[str, Any]]:
         slug = _slug_city(city)
         path = f"/{slug}-permit-fees"
         ahj = pack.get("ahj") or {}
-        gotchas = pack.get("gotchas") or []
         fees = pack.get("fees") or []
-        bullets: List[str] = []
-        for g in gotchas[:4]:
-            if not isinstance(g, dict):
-                continue
-            title = (g.get("title") or "").strip()
-            detail = (g.get("detail") or "").strip()
-            if title:
-                bullets.append(f"{title} — {detail}" if detail else title)
+        bullets = list(COMMERCIAL_BULLETS.get(slug) or [])
         fee_bits = []
         for f in fees[:2]:
             if not isinstance(f, dict):

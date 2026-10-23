@@ -93,7 +93,9 @@ export default function GeoPermitLandingPage() {
             ...local,
             title: row.title || local.title,
             headline: row.headline || local.headline,
-            bullets: row.bullets?.length ? row.bullets : local.bullets,
+            // Permit-fee copy lives on this page. The API pack still carries
+            // large-load clocks for the receipt; those must not replace this visit.
+            bullets: local.bullets,
             feeNote: row.fee_note || local.feeNote,
             portal_url: row.portal_url,
             fees_url: row.fees_url,

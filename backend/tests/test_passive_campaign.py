@@ -38,6 +38,19 @@ def test_metros_cover_city_packs():
     ):
         assert expected in slugs, expected
     assert metro_by_slug("fort-worth-permit-fees")["city"] == "Fort Worth"
+    by_slug = {m["slug"]: m for m in pages}
+    dallas = " ".join(by_slug["dallas"]["bullets"])
+    austin = " ".join(by_slug["austin"]["bullets"])
+    irving = " ".join(by_slug["irving"]["bullets"])
+    plano_fees = " ".join(by_slug["plano"]["fee_summary"])
+    assert "ERCOT" not in dallas and "TDSP" not in dallas
+    assert "Estimator" in dallas and "Estimator" in austin
+    assert "$1,500" in austin and "not this page" in austin
+    assert "sales force" not in irving.lower()
+    assert "reinspection" in plano_fees.lower()
+    assert "$75" not in " ".join(
+        bit for bit in by_slug["plano"]["fee_summary"] if "reinspection" not in bit.lower()
+    )
     xml = sitemap_xml(base="https://app.regguardagent.com")
     assert "/frisco-permit-fees" in xml
     assert "/permit-fees" in xml
