@@ -265,3 +265,17 @@ def test_thin_page_status(monkeypatch):
         use_llm=False,
     )
     assert out.get("status") == "thin_page"
+
+
+def test_empty_city_names_the_county(monkeypatch):
+    monkeypatch.setattr(
+        "jurisdiction_resolver.place_from_zip",
+        lambda _z: {"county": "Collin", "state": "TX"},
+    )
+    monkeypatch.setattr("jurisdiction_resolver.resolve_city_pack", lambda *_a, **_k: None)
+    monkeypatch.setattr("jurisdiction_resolver.resolve_metro_portal_pack", lambda *_a, **_k: None)
+    from jurisdiction_resolver import resolve_jurisdiction
+
+    resolved = resolve_jurisdiction(zip_code="75013", city="", state="TX")
+    name = str((resolved.get("local") or {}).get("ahj", {}).get("name") or "")
+    assert "Collin County" in name

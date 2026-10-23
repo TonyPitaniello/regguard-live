@@ -47,11 +47,13 @@ def _count_priorities(items: List[Dict[str, Any]]) -> Tuple[int, int, int]:
         if not _moves_contingency_band(it):
             continue
         p = str(it.get("priority") or "").upper()
+        verified = bool(it.get("verified")) and bool(it.get("source_url"))
         if p == "CRITICAL":
             crit += 1
-        elif p == "HIGH":
+        elif p == "HIGH" and verified:
+            # An unverified HIGH is a snippet until the page confirms it.
+            # Counting it here is how a deeper rung moved the mid-percent.
             high += 1
-        verified = bool(it.get("verified")) and bool(it.get("source_url"))
         if not verified:
             unverified += 1
     # A deeper rung adds boilerplate lines. Cap them so the same address
@@ -400,7 +402,7 @@ def _build_contingency(
     Data-center / large-load: floor at 18% mid for parallel-track schedule risk;
     hide laughable USD when rollup is a stub (<$100k).
     """
-    pct = 3.0 + (crit * 1.5) + (high * 0.75) + (min(unverified, 20) * 0.5)
+    pct = 3.0 + (crit * 1.5) + (high * 0.75) + (min(unverified, 8) * 0.5)
     pct = max(3.0, min(pct, 25.0))
     if is_dc:
         pct = max(pct, 18.0)
@@ -420,7 +422,8 @@ def _build_contingency(
         drivers["data_center_parallel_track"] = True
     disclaimer = (
         "Planning aid only — not a quote. Based on Critical/High/Unverified "
-        "punch counts. Confirm fees and scope with the AHJ before bid."
+        "punch counts. Confirm fees and scope with the AHJ before bid. "
+        "Search snippets do not move this percent."
     )
     if is_dc:
         disclaimer = (

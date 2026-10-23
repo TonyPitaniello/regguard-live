@@ -796,9 +796,15 @@ def resolve_city_pack(
     return out
 
 
-def generic_thin_pack(city: str = "", state: str = "") -> Dict[str, Any]:
+def generic_thin_pack(city: str = "", state: str = "", county: str = "") -> Dict[str, Any]:
     """Outside curated/portal coverage — honest thin pack (no null-URL punches)."""
-    label = f"{(city or 'Local').strip()}, {(state or '').strip()}".strip(", ")
+    county_label = (county or "").strip()
+    if (city or "").strip():
+        label = f"{city.strip()}, {(state or '').strip()}".strip(", ")
+    elif county_label:
+        label = f"{county_label}, {(state or '').strip()}".strip(", ")
+    else:
+        label = (state or "Local").strip() or "Local"
     return {
         "pack_key": "generic",
         "citeable": False,

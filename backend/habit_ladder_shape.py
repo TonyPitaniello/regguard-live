@@ -68,7 +68,8 @@ def shape_free_vs_estimator(analysis: Dict[str, Any], *, habit_paid: bool) -> Di
         out["depth_badge"] = "Estimator / Permit Runner — Receipt habit · unlocked punch"
         out["depth_claim_note"] = (
             "Estimator habit Receipt — full contingency + unlocked punch you can forward. "
-            "Contractor Pro adds fee dollars, Full City Pack PDF, CSV, and bid packet."
+            "Contractor Pro adds the City Pack PDF, punch/fee CSV, and bid packet. "
+            "Dollars only when the schedule states them."
         )
         out["soft_lock_contingency"] = False
         out["receipt_risk_clear"] = ESTIMATOR_RECEIPT_RISK_CLEAR

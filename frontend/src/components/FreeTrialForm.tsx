@@ -879,7 +879,7 @@ export default function FreeTrialForm({
           analysis.preview = false;
           analysis.depth_badge = 'Estimator / Permit Runner — Receipt habit · unlocked punch';
           analysis.depth_claim_note =
-            'Estimator habit Receipt — full contingency + unlocked punch you can forward. Contractor Pro adds fee dollars, Full City Pack PDF, CSV, and bid packet.';
+            'Estimator habit Receipt — full contingency + unlocked punch you can forward. Contractor Pro adds the City Pack PDF, punch/fee CSV, and bid packet. Dollars only when the schedule states them.';
           analysis.research_incomplete = false;
           analysis.depth_claim_honest = true;
           (analysis as AnalysisData & { access_tier?: string }).access_tier = 'partner';

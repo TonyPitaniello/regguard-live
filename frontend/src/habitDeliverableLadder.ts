@@ -88,5 +88,5 @@ export function proDeskGateMessage(artifact: ProDeskArtifact): string {
     city_pack_pdf: 'Full city pack PDF',
     bid_packet_pdf: 'Full bid packet',
   };
-  return `${labels[artifact]} is on the Contractor Pro bid desk ($149/mo) — Estimator ($79) is the Receipt you forward. Upgrade when you need fee dollars and City Pack on the estimate.`;
+  return `${labels[artifact]} is on the Contractor Pro bid desk ($149/mo) — Estimator ($79) is the Receipt you forward. Upgrade when you need the City Pack on the estimate. Dollars only when the schedule states them.`;
 }

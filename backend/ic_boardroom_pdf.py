@@ -36,6 +36,10 @@ from bid_packet_pdf import (
     _section_title,
 )
 
+def _norm_title(value: Any) -> str:
+    return " ".join(str(value or "").lower().split())[:140]
+
+
 def _origin(url: Any, label: Any = None) -> str:
     from pdf_stamp_helpers import named_origin
 
@@ -346,12 +350,13 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     killers = list(ex.get("top_risks") or [])[:5]
     if killers:
         _section_title(pdf, "Top risk flags")
+        _muted(pdf, "Titles only on the cover. The finding is written once in section 1.")
         for k in killers:
             _flag_card(
                 pdf,
                 str(k.get("priority") or "NOTE"),
                 str(k.get("title") or "Item"),
-                str(k.get("detail") or ""),
+                "",
             )
 
     _accent_card(
@@ -414,11 +419,25 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _accent_card(pdf, "Environmental screening", [f"Risk level: {ex.get('env_risk')}"], accent=SKY, title_size=9)
 
     _section_title(pdf, "Priority items before bid", y_pad=1.0)
-    for k in ex.get("top_risks") or []:
-        _flag_card(pdf, str(k.get("priority") or "NOTE"), str(k.get("title") or ""), str(k.get("detail") or ""))
-    for g in ex.get("local_gotchas") or []:
-        _flag_card(pdf, str(g.get("priority") or "NOTE"), str(g.get("title") or ""), str(g.get("detail") or ""))
-    if not (ex.get("top_risks") or []) and not (ex.get("local_gotchas") or []):
+    seen_titles = set()
+    printed_any = False
+    for bucket in (ex.get("top_risks") or [], ex.get("local_gotchas") or []):
+        for item in bucket:
+            if not isinstance(item, dict):
+                continue
+            key = _norm_title(item.get("title"))
+            if key and key in seen_titles:
+                continue
+            if key:
+                seen_titles.add(key)
+            _flag_card(
+                pdf,
+                str(item.get("priority") or "NOTE"),
+                str(item.get("title") or ""),
+                str(item.get("detail") or ""),
+            )
+            printed_any = True
+    if not printed_any:
         _muted(pdf, "No high-priority risk flags in this package payload.")
 
     _section_title(pdf, "Recommended next actions", y_pad=1.0)
@@ -459,9 +478,8 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
             str(rband.get("plain") or "")[:220],
         )
 
-    _section_title(pdf, "Three risk flags", y_pad=1.0)
-    for k in receipt.get("killers") or []:
-        _flag_card(pdf, str(k.get("priority") or "NOTE"), str(k.get("title") or ""), str(k.get("detail") or ""))
+    _section_title(pdf, "Risk flags", y_pad=1.0)
+    _muted(pdf, "Priority items are written once, in section 1. This page is the stamp and the band.")
     if receipt.get("share_url"):
         _link_line(pdf, "Interactive share", str(receipt.get("share_url")))
     pdf.ln(0.5)
@@ -637,9 +655,16 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _accent_card(pdf, "Submittals to confirm with AHJ", lines, accent=EMERALD, title_size=9)
 
     cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
-    if cards:
+    fresh_cards = []
+    for g in cards:
+        if not isinstance(g, dict):
+            continue
+        if _norm_title(g.get("title")) in seen_titles:
+            continue
+        fresh_cards.append(g)
+    if fresh_cards:
         _section_title(pdf, "Local gotcha confirm cards", y_pad=1.0)
-        for g in cards:
+        for g in fresh_cards:
             bits = [str(g.get("detail") or "")]
             if g.get("confirm_step"):
                 bits.append(f"Confirm: {g.get('confirm_step')}")

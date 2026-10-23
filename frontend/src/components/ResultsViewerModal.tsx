@@ -3642,7 +3642,7 @@ export default function ResultsViewerModal({
                         ))}
                       <div className="text-center border border-amber-500/30 rounded-lg px-3 py-2 bg-amber-500/10">
                         <p className="text-xs text-amber-100/90">
-                          Contractor Pro unlocks fee dollars, Full City Pack PDF, CSV, and bid packet.
+                          Contractor Pro unlocks the City Pack PDF, punch/fee CSV, and bid packet. Dollars only when the schedule states them.
                         </p>
                       </div>
                     </div>
@@ -4292,7 +4292,7 @@ export default function ResultsViewerModal({
             ) : blurProDesk ? (
               <div className="px-4 py-3 border-t border-amber-500/30 bg-amber-500/10">
                 <p className="text-xs font-bold text-amber-50">
-                  Estimator — fee dollars and the rest of the City Pack stay locked until Contractor Pro.
+                  Estimator — City Pack dollars stay locked until Contractor Pro, and only when the schedule states them.
                 </p>
               </div>
             ) : (

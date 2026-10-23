@@ -297,7 +297,8 @@ class ResearchMemoPDF(RegGuardPDF):
             killers = [
                 k for k in (analysis_data.get("margin_killers") or []) if isinstance(k, dict)
             ][:6]
-            if killers:
+            # Gotcha lines already carry these titles. Printing them again filled the memo with the same snippet.
+            if killers and not gotcha_lines:
                 self.add_section_title("Top margin risk flags")
                 for i, k in enumerate(killers, 1):
                     pri = str(k.get("priority") or "").upper()

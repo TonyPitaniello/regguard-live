@@ -72,10 +72,10 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     oneLiner:
       'Stop losing the thread with the GC — full forwardable Receipt + unlocked punch + Saved Jobs for client sites.',
     cta: 'Start Estimator / Permit Runner — $79/mo',
-    upsellHeadline: 'Still hunting fee dollars and city schedules by hand?',
+    upsellHeadline: 'Still opening the city portal before every bid?',
     upsellBody:
-      'Estimator got you a Receipt the GC can file. You’re still the one scraping portals for fee lines before every bid. Contractor Pro ($149/mo) puts fee dollars, Full City Pack PDF, paste-ready CSV, and bid packet on the desk — for jobs where your number has to hold.',
-    upsellOffers: 'Fee dollars on the schedule · City Pack PDF · CSV · bid packet',
+      'Estimator got you a Receipt the GC can file. Contractor Pro ($149/mo) adds paid local confirm, the City Pack PDF, a punch/fee CSV, and the bid packet. Fee dollars print only when a citeable pack or the official schedule states them.',
+    upsellOffers: 'City Pack PDF · punch/fee CSV · bid packet · dollars only when stated',
     upsellCta: 'Upgrade to Contractor Pro — $149/mo',
   },
 
@@ -86,13 +86,13 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'Contractors who bid every week and own the number.',
     pain: 'One missed fee line or local gotcha blows the margin — and you burn hours chasing portals before every bid.',
     promise:
-      'Your bid-week desk: everything in Estimator, plus paid local confirm, fee dollars, Full City Pack PDF, fee/punch CSV, and bid packet. A heavy day can hit the daily confirm cap — come back tomorrow rather than treating a capped run as a full desk.',
-    proof: 'Download City Pack + CSV + packet beside the Receipt — paste into the estimate the same day.',
+      'Your bid-week desk: everything in Estimator, plus paid local confirm, City Pack PDF, punch/fee CSV, and bid packet. Fee dollars print only when a citeable pack or the official page states them. A heavy day can hit the daily confirm cap — come back tomorrow rather than treating a capped run as a full desk.',
+    proof: 'Download City Pack + CSV + packet beside the Receipt. Paste the lines the schedule actually stated.',
     vsBelow: 'Estimator forwards the stamp. Pro arms the estimate.',
     notThis:
       'Not a counsel ZIP. City Pack is the AHJ fee/gotcha desk — not the boardroom / Word / exhibit package counsel opens.',
     oneLiner:
-      'Bid-week desk if you own the number — City Pack, fee CSV, bid packet. One missed fee line pays for the month.',
+      'Bid-week desk if you own the number — City Pack, punch/fee CSV, bid packet. Dollars only when the schedule states them.',
     cta: 'Start Contractor Pro — $149/mo',
     upsellHeadline: 'Counsel won’t mark up a City Pack PDF',
     upsellBody:

@@ -103,11 +103,11 @@ const UPSELL_PACK: Record<
     name: 'Contractor Pro',
     price: '$149/mo',
     summary:
-      'The bid desk when your number has to hold — fee dollars, Full City Pack PDF, CSV, and bid packet beside the Receipt.',
+      'The bid desk beside the Receipt — City Pack PDF, punch/fee CSV, and bid packet. Fee dollars only when the official schedule or a citeable pack states them.',
     features: [
       'Everything in Estimator / Permit Runner',
-      'Full City Pack PDF — fees, gotchas, AHJ links',
-      'Fee/punch CSV, bid sheet, and bid packet',
+      'Full City Pack PDF — AHJ links, gotchas, and fees when the pack states them',
+      'Punch/fee CSV and bid packet — no invented dollar amounts',
       'Paid local confirm on lookups (planning aid — confirm the live schedule)',
     ],
     notThis: 'Not included: counsel ZIP (memo, boardroom, Word, Excel). City Pack is not that package.',

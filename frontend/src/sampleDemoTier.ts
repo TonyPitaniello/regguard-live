@@ -151,7 +151,7 @@ export function analysisForSampleDemo(
       clone.punch_list = { ...clone.punch_list, habit_unlocked: true };
     }
     clone.depth_claim_note =
-      'Estimator habit Receipt — full contingency + unlocked punch. Contractor Pro adds fee dollars and City Pack PDF.';
+      'Estimator habit Receipt — full contingency + unlocked punch. Contractor Pro adds the City Pack PDF. Dollars only when the schedule states them.';
   } else if (tier === 'pro') {
     clone.depth_tier = 'pro_light';
     clone.research_depth = 'pro';
@@ -167,7 +167,7 @@ export function analysisForSampleDemo(
       clone.punch_list = { ...clone.punch_list, habit_unlocked: true };
     }
     clone.depth_claim_note =
-      'Contractor Pro — fee dollars and City Pack open. IC Diligence Bundle adds the counsel ZIP.';
+      'Contractor Pro — City Pack open. Fee dollars only when the schedule states them. IC Diligence Bundle adds the counsel ZIP.';
   } else {
     clone.depth_tier = 'ic_full';
     clone.research_depth = 'ic';
@@ -224,15 +224,15 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
   }
   if (tier === 'partner') {
     return {
-      message: 'Still hunting fee dollars and city schedules by hand?',
+      message: 'Still opening the city portal before every bid?',
       detail:
-        'Estimator got you a Receipt the GC can file. Contractor Pro ($149/mo) puts fee dollars, Full City Pack PDF, paste-ready CSV, and bid packet on the desk — for jobs where your number has to hold.',
+        'Estimator got you a Receipt the GC can file. Contractor Pro ($149/mo) adds the City Pack PDF, punch/fee CSV, and bid packet. Fee dollars print only when a citeable pack or the official schedule states them.',
       cta_label: 'Upgrade to Contractor Pro — $149/mo',
       cta_tier: 'contractor_pro',
       secondary_cta_label: undefined,
       secondary_cta_tier: undefined,
       current_label: 'Estimator / Permit Runner',
-      next_label: 'Pro bid desk — fee dollars · City Pack PDF · CSV · bid packet',
+      next_label: 'Pro bid desk — City Pack PDF · punch/fee CSV · bid packet',
       primary_once: true,
       honesty_note: 'Pro arms the estimate — still confirm dollars on the live AHJ schedule.',
     };
@@ -271,7 +271,7 @@ export function sampleDemoLabel(tier: SampleDemoTier): string {
   if (tier === 'free')
     return 'Free — bid-or-walk preview · next: Estimator $79 (Receipt the GC can file)';
   if (tier === 'partner')
-    return 'Estimator — Receipt habit · next: Pro $149 (fee dollars · City Pack · CSV)';
+    return 'Estimator — Receipt habit · next: Pro $149 (City Pack · CSV · dollars when stated)';
   if (tier === 'pro')
     return 'Pro — bid desk · next: IC $1,500 (counsel ZIP — not a bigger City Pack)';
   return 'IC Diligence Bundle — counsel ZIP open · next: Annual $15,000 after about ~10 sites';

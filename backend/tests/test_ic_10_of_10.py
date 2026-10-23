@@ -42,6 +42,28 @@ def test_dc_contingency_floor_hides_stub_usd():
     assert band2["usd_mid"] is not None
 
 
+def test_unverified_high_does_not_move_the_band_like_a_source():
+    from arbitrage_enrichment import _count_priorities
+
+    snippets = [
+        {"priority": "HIGH", "title": "Building hours", "verified": False, "source_url": "https://example.com"},
+        {"priority": "HIGH", "title": "Another snippet", "verified": False},
+    ]
+    _crit, high, unverified = _count_priorities(snippets)
+    assert high == 0
+    assert unverified == 2
+    sourced = [
+        {
+            "priority": "HIGH",
+            "title": "Adopted fee schedule",
+            "verified": True,
+            "source_url": "https://www.cityofallen.org/fees",
+        }
+    ]
+    _crit, high_sourced, _unverified = _count_priorities(sourced)
+    assert high_sourced == 1
+
+
 def test_catalog_fees_surface_on_generic_pack():
     analysis = {
         "project_info": {

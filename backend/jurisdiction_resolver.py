@@ -170,8 +170,12 @@ def resolve_jurisdiction(
         local = resolve_metro_portal_pack(city_out, state_out, z)
         if local:
             portal_only = True
+    county = str(place.get("county") or "").strip()
+    county_label = county
+    if county and not county.lower().endswith(" county"):
+        county_label = f"{county} County"
     if not local:
-        local = generic_thin_pack(city_out, state_out)
+        local = generic_thin_pack(city_out, state_out, county_label)
         # If seed knows a city name, surface it on thin pack
         if city_out and not (local.get("city") or "").strip():
             local = dict(local)
@@ -180,6 +184,14 @@ def resolve_jurisdiction(
             local["ahj"] = dict(local.get("ahj") or {})
             label = f"{city_out}, {state_out}".strip(", ")
             local["ahj"]["name"] = f"{label} AHJ (confirm locally)"
+    if county_label and isinstance(local, dict):
+        local = dict(local)
+        local["county"] = county_label
+        if not city_out:
+            ahj = dict(local.get("ahj") or {})
+            label = f"{county_label}, {state_out}".strip(", ")
+            ahj["name"] = f"{label} AHJ (confirm locally)"
+            local["ahj"] = ahj
 
     federal = dict(FEDERAL_PACK)
     state_pack = get_state_pack(state_out)

@@ -238,7 +238,7 @@ def _receipt_product_face(data: Dict[str, Any], free_preview: bool) -> tuple:
         "ESTIMATOR / PERMIT RUNNER - FORWARDABLE",
         "BID RISK RECEIPT - ESTIMATOR HABIT",
         "Full Bid Risk Receipt habit - forward to GC / owner / client before bid.",
-        "ESTIMATOR HABIT - forward this Receipt. Contractor Pro adds City Pack / fee dollars.",
+        "ESTIMATOR HABIT - forward this Receipt. Contractor Pro adds City Pack, punch/fee CSV, and bid packet.",
     )
 
 

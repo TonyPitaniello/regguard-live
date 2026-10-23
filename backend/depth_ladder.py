@@ -87,6 +87,11 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         bullets.append(
             f"Extracted {fee_n} fee/timeline line(s) as planning aids — confirm on the official schedule."
         )
+    else:
+        bullets.append(
+            "No fee dollars on this run. A portal-seed city stays a confirm link — "
+            "the CSV does not invent amounts."
+        )
     if sources:
         bullets.append(f"Attached {len(sources)} scout source link(s) Free preview does not run.")
     if verified_punch > 0:
@@ -114,8 +119,9 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
     if not is_ic:
         bullets.append(
-            "Pro desk formats unlocked: fee/punch CSV, full city pack PDF, bid packet "
-            "(not on Free or Estimator / Permit Runner)."
+            "Pro desk formats unlocked: punch/fee CSV, full city pack PDF, bid packet "
+            "(not on Free or Estimator / Permit Runner). Dollars only when a citeable pack "
+            "or the official schedule states them."
         )
 
     analysis["pro_delta"] = {
@@ -167,19 +173,19 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
     """Estimator → Contractor Pro."""
     site = f" on this {ptype} site" if ptype else ""
     return {
-        "message": "Still hunting fee dollars and city schedules by hand?",
+        "message": "Still opening the city portal before every bid?",
         "detail": (
             f"Estimator got you a Receipt the GC can file{site}. "
-            "You're still the one scraping portals for fee lines before every bid. "
-            "Contractor Pro ($149/mo) puts fee dollars, Full City Pack PDF, paste-ready CSV, "
-            "and bid packet on the desk — for jobs where your number has to hold."
+            "Contractor Pro ($149/mo) adds paid local confirm, the City Pack PDF, "
+            "a punch/fee CSV, and the bid packet. Fee dollars print only when a citeable "
+            "pack or the official schedule states them."
         ),
         "cta_label": "Upgrade to Contractor Pro — $149/mo",
         "cta_tier": "contractor_pro",
         "secondary_cta_label": None,
         "secondary_cta_tier": None,
         "current_label": "Estimator / Permit Runner",
-        "next_label": "Pro bid desk — fee dollars · City Pack PDF · CSV · bid packet",
+        "next_label": "Pro bid desk — City Pack PDF · punch/fee CSV · bid packet",
         "primary_once": True,
         "honesty_note": (
             "Pro arms the estimate — still confirm dollars on the live AHJ schedule."
