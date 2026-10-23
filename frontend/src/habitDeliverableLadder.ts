@@ -54,11 +54,11 @@ export const HABIT_TIERS = {
     priceLabel: '$149',
     billing: 'per month',
     oneLiner:
-      'Bid-week desk if you own the number — City Pack, fee CSV, bid packet. One missed fee line pays for the month.',
+      'Bid-week desk if you own the number — City Pack, punch/fee CSV, bid packet. Dollars only when the schedule states them.',
     features: [
       'Everything in Estimator / Permit Runner',
       'Paid local confirm on the lookups you run (daily cap applies)',
-      'Fee / punch CSV — trade · owner · due window · source_url (estimator paste)',
+      'Punch/fee CSV — fee rows only when a citeable pack or the official schedule states an amount',
       'Full City Pack PDF + bid sheet PDF + bid packet',
       'Day-7 re-check habit for live bids',
       'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
