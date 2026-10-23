@@ -36,6 +36,25 @@ import {
   ladderTierFromResearchDepth,
 } from '../resultsAccessLadder';
 
+function paidRerunHint(): string {
+  try {
+    const raw = sessionStorage.getItem('regguardEntitlementTiers') || '[]';
+    const tiers = (JSON.parse(raw) as string[]).map((t) => String(t).toLowerCase());
+    if (tiers.some((t) => t.includes('ic'))) {
+      return 'Payment detected. Re-run this site with the same email. The IC Diligence Bundle writes the counsel ZIP for this address.';
+    }
+    if (tiers.includes('contractor_pro')) {
+      return 'Payment detected. Re-run this site with the same email to unlock Contractor Pro: city pack, fee CSV, and bid packet. The counsel ZIP stays on the Diligence Bundle.';
+    }
+    if (tiers.includes('partner')) {
+      return 'Payment detected. Re-run this site with the same email to unlock the Estimator receipt: full punch and the clear contingency band. Fee dollars stay on Contractor Pro.';
+    }
+  } catch {
+    /* ignore */
+  }
+  return 'Payment detected. Re-run this site with the same email to unlock the receipt you paid for.';
+}
+
 function generateClientResearchId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return `ft-${crypto.randomUUID()}`;
@@ -1344,7 +1363,7 @@ export default function FreeTrialForm({
                     ? `${formData.address}, ${formData.city}, ${formData.state} ${formData.zip}`
                     : 'the saved site'
                 }. Confirm the address when prompted — you will get the counsel ZIP (memo + boardroom PDF + DOCX + CSVs).`
-              : 'Payment detected. Re-run this site with the same email to unlock deeper Contractor Pro / IC research results.'}
+              : paidRerunHint()}
           </p>
           <div className="flex flex-col sm:flex-row gap-2 shrink-0">
             <button

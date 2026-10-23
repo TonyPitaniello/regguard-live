@@ -184,6 +184,32 @@ def evaluate_ic_site_access(
         if label:
             prior.append(label)
     prior_s = prior[0] if prior else "another address"
+    # Empty form address fingerprints as "||". That is not a second site.
+    if not fp or fp == "||":
+        bound_order = next(
+            (
+                o
+                for o in orders
+                if normalize_tier(str(o.get("tier") or "")) in ("ic_project", "ic_consultant")
+            ),
+            None,
+        )
+        return {
+            "allowed": False,
+            "mode": "address_required",
+            "order_id": (
+                str((bound_order or {}).get("order_id") or (bound_order or {}).get("id") or "")
+                or None
+            ),
+            "bound_site": prior_s,
+            "site_fingerprint": fp,
+            "message": (
+                f"Your IC Diligence Bundle is bound to:\n\n{prior_s}\n\n"
+                "Enter that same address to refresh the counsel ZIP. "
+                "A different address is a new $1,500 bundle. "
+                "This is not an interconnection study."
+            ),
+        }
     return {
         "allowed": False,
         "mode": "need_purchase",

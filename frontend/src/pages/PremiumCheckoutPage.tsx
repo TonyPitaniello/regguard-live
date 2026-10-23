@@ -548,7 +548,11 @@ function SuccessStep({ tier }: { tier: TierKey }) {
       <p className="text-gray-300 mb-8 max-w-2xl mx-auto">
         {tier === 'ic_project' || tier === 'ic_annual'
           ? IC_BUNDLE.successBody
-          : `Thank you! Your ${tierInfo.name} purchase has been processed. Re-run your site lookup with this same email to unlock deeper research results.`}
+          : tier === 'contractor_pro'
+            ? 'Contractor Pro is active on this email. Re-run the site for the city pack, fee CSV, and bid packet. If Estimator is also on this email, that $79/month stays until you cancel it in Stripe. Buying Pro does not replace it.'
+            : tier === 'partner'
+              ? 'Estimator is active. Re-run this site with the same email for the full punch and the clear contingency band. Fee dollars stay on Contractor Pro.'
+              : `Thank you. Your ${tierInfo.name} purchase is processed. Re-run this site with the same email to open the results you paid for.`}
       </p>
       {(tier === 'ic_project' || tier === 'ic_annual') && (
         <IcDiligenceBundlePitch variant="compact" className="mb-8 text-left max-w-2xl mx-auto" />
@@ -564,7 +568,13 @@ function SuccessStep({ tier }: { tier: TierKey }) {
           }}
           className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-green-600 text-white font-bold rounded-lg hover:shadow-lg transition"
         >
-          Unlock deeper results
+          {tier === 'ic_project' || tier === 'ic_annual'
+            ? 'Open the Diligence Bundle'
+            : tier === 'contractor_pro'
+              ? 'Open Contractor Pro results'
+              : tier === 'partner'
+                ? 'Open the Estimator receipt'
+                : 'Open results'}
         </button>
         <button
           onClick={() => navigate('/orders')}

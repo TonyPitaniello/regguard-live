@@ -44,7 +44,7 @@ def _query_lines(city: str, state: str, zip_code: str, address: str) -> List[Tup
         ),
         (
             "ultralocal_township",
-            f"{loc} township special district overlay zoning floodplain parcel",
+            f"{loc} city county special district overlay zoning floodplain parcel",
         ),
         (
             "ultralocal_neighborhood",
@@ -53,7 +53,34 @@ def _query_lines(city: str, state: str, zip_code: str, address: str) -> List[Tup
     ]
 
 
-def _hit_to_killer(hit: Dict[str, Any], bucket: str) -> Optional[Dict[str, Any]]:
+def _names_other_city(blob: str, city: str) -> bool:
+    """True when a search hit names a different city and not this site."""
+    site = (city or "").strip().lower()
+    if not site:
+        return False
+    others = (
+        "fort worth",
+        "dallas",
+        "plano",
+        "frisco",
+        "mckinney",
+        "arlington",
+        "irving",
+        "garland",
+        "richardson",
+        "austin",
+        "houston",
+        "san antonio",
+    )
+    for name in others:
+        if name == site:
+            continue
+        if name in blob and site not in blob:
+            return True
+    return False
+
+
+def _hit_to_killer(hit: Dict[str, Any], bucket: str, *, city: str = "") -> Optional[Dict[str, Any]]:
     title = str(hit.get("title") or hit.get("name") or "").strip()
     url = str(hit.get("url") or hit.get("link") or hit.get("source_url") or "").strip()
     snippet = str(hit.get("description") or hit.get("snippet") or hit.get("markdown") or "").strip()
@@ -64,15 +91,43 @@ def _hit_to_killer(hit: Dict[str, Any], bucket: str) -> Optional[Dict[str, Any]]
         "local_codes": "Local code amendments",
         "ultralocal_hoa": "HOA / covenants",
         "ultralocal_mud": "MUD / PID / CID",
-        "ultralocal_township": "Township / overlay",
+        "ultralocal_township": "Overlay / special district",
         "ultralocal_neighborhood": "Neighborhood restrictions",
     }.get(bucket, "Ultralocal")
     detail = (snippet[:220] + "…") if len(snippet) > 220 else snippet
+    blob = f"{title} {snippet}".lower()
+    directory = any(
+        needle in blob
+        for needle in ("business hours", "hours of", "get permits", "a.m.", "p.m.")
+    )
+    residential_rate = bucket == "ultralocal_mud" and (
+        "per month" in blob or "residents" in blob
+    )
+    if directory:
+        detail = (
+            "Official page located. Open the link and confirm fees and process. "
+            "The search snippet is the page description, not a site finding."
+        )
+        priority = "NOTE"
+    elif residential_rate:
+        detail = (
+            "Search hit is a residential rate article. Confirm whether this parcel "
+            "is in a MUD, PID, or CID before treating it as a site cost."
+        )
+        priority = "NOTE"
+    else:
+        priority = "HIGH" if bucket.startswith("ultralocal") else "MEDIUM"
+    if _names_other_city(blob, city):
+        detail = (
+            f"Search hit names another city, not {city or 'this site'}. "
+            "Do not use it as this AHJ's code or fee schedule. Open the city's own portal."
+        )
+        priority = "NOTE"
     return {
         "title": f"[{label}] {title or url}"[:160],
         "detail": detail,
-        "priority": "HIGH" if bucket.startswith("ultralocal") else "MEDIUM",
-        "verified": bool(url.startswith("http")),
+        "priority": priority,
+        "verified": False,
         "source_url": url or None,
         "source_label": label,
         "citation_tier": "link" if url.startswith("http") else "unverified",
@@ -160,7 +215,7 @@ def run_ic_local_ultralocal_scout(
         buckets[bucket] = hits
         all_hits.extend(hits)
         for h in hits[:3]:
-            k = _hit_to_killer(h, bucket)
+            k = _hit_to_killer(h, bucket, city=city)
             if k:
                 killers.append(k)
 

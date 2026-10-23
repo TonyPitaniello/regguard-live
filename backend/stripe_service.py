@@ -169,7 +169,10 @@ async def create_checkout_session(
     try:
         tier_config = TIER_PRICING[tier]
         mode = tier_config.get("mode") or "subscription"
-        price_id = (tier_config.get("price_id") or "").strip() or None
+        # Dashboard Price objects have drifted. One live Contractor Pro Price
+        # still told buyers "unlimited site diligence lookups." Checkout copy
+        # comes from TIER_PRICING so the line they read matches the product.
+        price_id = None
         amount_cents = tier_config["amount_cents"]
         credit_applied_usd = 0.0
         email_clean = (email or "").strip().lower()
@@ -270,6 +273,8 @@ async def create_checkout_session(
             "success_url": success_with_session,
             "cancel_url": cancel_url,
             "metadata": metadata,
+            # Present USD. Adaptive pricing was quoting lira to non-US browsers.
+            "adaptive_pricing": {"enabled": False},
         }
 
         customer_id = _find_or_create_stripe_customer(email_clean, name) if email_clean else None
@@ -287,6 +292,7 @@ async def create_checkout_session(
         except stripe.error.InvalidRequestError as e:
             # Older Stripe accounts / API versions may reject saved_payment_method_options
             logger.warning("Checkout create with saved PM options failed (%s); retrying plain", e)
+            create_kwargs.pop("adaptive_pricing", None)
             create_kwargs.pop("saved_payment_method_options", None)
             create_kwargs.pop("payment_method_collection", None)
             session = stripe.checkout.Session.create(**create_kwargs)

@@ -223,7 +223,7 @@ def build_moratorium_radar_card(analysis: Dict[str, Any]) -> Dict[str, Any]:
             else (
                 f"STALE RADAR — re-verify before LOI ({st or 'site'})"
                 if stale.get("is_stale") and high
-                else f"Monitor township/county pauses near {city or st or 'site'}"
+                else f"Monitor city or county pauses near {city or st or 'site'}"
             )
         ),
         "high_alert_state": effective_high,

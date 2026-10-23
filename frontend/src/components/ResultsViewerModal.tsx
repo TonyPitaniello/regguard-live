@@ -40,6 +40,18 @@ import TierUpgradeStack from './TierUpgradeStack';
 
 const FREE_FINDINGS_VISIBLE = 3;
 
+/** Free receipts frost the band. Stamp reasons must not print the digits beside it. */
+export function hideFreeBandDigits(text: string, locked: boolean): string {
+  if (!locked || !text) return text;
+  return text
+    .replace(/\(\s*mid\s*[\d.]+%\s*\)/gi, '')
+    .replace(/contingency mid\s*[\d.]+%/gi, 'high contingency band')
+    .replace(/\bmid\s*[\d.]+%/gi, 'high band')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([,.;:])/g, '$1')
+    .trim();
+}
+
 export type PunchListItemData = {
   priority: string;
   task: string;
@@ -755,7 +767,11 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
             ? 'linked source'
             : 'Unverified';
       const pri = (k.priority || 'Note').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
-      const title = (k.title || 'Item').slice(0, 90);
+      const freeLine =
+        ['free', 'instant', 'preview', 'free_preview'].includes(
+          String(analysis.research_depth || analysis.receipt_mode || '').toLowerCase()
+        ) || analysis.soft_lock_contingency === true;
+      const title = hideFreeBandDigits((k.title || 'Item').slice(0, 90), freeLine);
       return `${i + 1}. ${title} — ${pri} · ${ver}`;
     })
     .join('\n');
@@ -772,7 +788,17 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const stampGrade = (stamp?.grade || analysis.stamp_grade || '').toUpperCase();
   const display = stampCustomerDisplay(stampGrade);
   const until = formatShareDate(stamp?.valid_until || analysis.stamp_valid_until);
-  const headline = stampShareHeadline(stampGrade, stamp?.headline || stamp?.label);
+  const depthNow = String(analysis.research_depth || analysis.receipt_mode || '').toLowerCase();
+  const freeShare =
+    depthNow === 'free' ||
+    depthNow === 'instant' ||
+    depthNow === 'preview' ||
+    depthNow === 'free_preview' ||
+    analysis.soft_lock_contingency === true;
+  const headline = hideFreeBandDigits(
+    stampShareHeadline(stampGrade, stamp?.headline || stamp?.label),
+    freeShare
+  );
   let stampBlock = '';
   if (display) {
     const validity = stamp?.is_stale
@@ -784,13 +810,6 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   }
 
   const cityLine = [p?.city, p?.state, p?.zip].filter(Boolean).join(', ');
-  const depthNow = String(analysis.research_depth || analysis.receipt_mode || '').toLowerCase();
-  const freeShare =
-    depthNow === 'free' ||
-    depthNow === 'instant' ||
-    depthNow === 'preview' ||
-    depthNow === 'free_preview' ||
-    analysis.soft_lock_contingency === true;
   const bandBlock = freeShare
     ? [
         'SUGGESTED CONTINGENCY',
@@ -1517,7 +1536,10 @@ export default function ResultsViewerModal({
       '',
       'Top items before bid:',
       ...killers.map(
-        (k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}${k.detail ? ` — ${k.detail}` : ''}`
+        (k, i) =>
+          `${i + 1}. [${k.priority || 'NOTE'}] ${hideFreeBandDigits(k.title || '', softLocked)}${
+            k.detail && !softLocked ? ` — ${hideFreeBandDigits(k.detail, softLocked)}` : ''
+          }`
       ),
       '',
       share ? `Full report / PDFs: ${share}` : '',
@@ -1605,17 +1627,17 @@ export default function ResultsViewerModal({
       const priorityLines = [
         ...killers.map((k) => ({
           sev: formatStampSeverity(k.priority),
-          title: String(k.title || 'Risk item'),
+          title: hideFreeBandDigits(String(k.title || 'Risk item'), softLocked),
           detail: k.detail,
         })),
         ...gotchas.map((g) => ({
           sev: formatStampSeverity(g.priority),
-          title: String(g.title || 'Gotcha'),
+          title: hideFreeBandDigits(String(g.title || 'Gotcha'), softLocked),
           detail: g.detail,
         })),
         ...stampDrivers.map((d) => ({
           sev: formatStampSeverity(d.severity),
-          title: String(d.label || 'Driver'),
+          title: hideFreeBandDigits(String(d.label || 'Driver'), softLocked),
           detail: d.detail,
         })),
       ]
@@ -3020,7 +3042,7 @@ export default function ResultsViewerModal({
                       <span className="font-semibold text-white">
                         [{formatStampSeverity(d.severity)}]
                       </span>{' '}
-                      {d.label}
+                      {hideFreeBandDigits(d.label, softLocked)}
                       {d.detail ? ` — ${d.detail}` : ''}
                     </li>
                   ))}
@@ -3267,7 +3289,7 @@ export default function ResultsViewerModal({
                     <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
                       {k.priority || 'NOTE'}
                     </span>
-                    <span className="text-white font-medium">{k.title}</span>
+                    <span className="text-white font-medium">{hideFreeBandDigits(k.title || '', softLocked)}</span>
                     {k.detail && (
                       <p
                         className={`text-gray-400 text-xs mt-0.5 line-clamp-2 ${
@@ -3773,7 +3795,13 @@ export default function ResultsViewerModal({
                       Permit ≠ tap ≠ impact. Mixing these is how bids get blown — each line is labeled.
                     </p>
                     <p className="text-white text-sm mb-2">
-                      Timeline: {view.fee_card?.timeline || view.summary?.estimated_timeline || 'Confirm with AHJ'}
+                      Timeline: {(() => {
+                        const raw = String(
+                          view.fee_card?.timeline || view.summary?.estimated_timeline || 'Confirm with AHJ'
+                        );
+                        if (/unverified|confirm with/i.test(raw)) return raw;
+                        return `${raw} (unverified — confirm with the AHJ)`;
+                      })()}
                     </p>
                     {!coverage.feesAllowed ? (
                       <p className="text-amber-200/90 text-sm">

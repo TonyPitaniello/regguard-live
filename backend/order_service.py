@@ -151,7 +151,18 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
         created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
     except Exception:
         created_dt = datetime.now(timezone.utc)
-    expires = order.get("expires_at") or (created_dt + timedelta(days=365)).isoformat().replace("+00:00", "Z")
+    tier_n = normalize_tier(str(tier))
+    # Monthly plans bill again next month. A 365-day "access expires" date
+    # made a $79 subscription look like a year of access.
+    if tier_n in ("partner", "contractor_pro"):
+        period_days = 31
+    elif tier_n == "ic_annual":
+        period_days = 365
+    else:
+        period_days = 365
+    expires = order.get("expires_at") or (
+        created_dt + timedelta(days=period_days)
+    ).isoformat().replace("+00:00", "Z")
     amount = order.get("amount")
     if amount is None:
         amount = _TIER_AMOUNTS.get(normalize_tier(tier), 0)

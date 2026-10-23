@@ -670,7 +670,11 @@ function OrderCard({
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Access Expires</dt>
+                <dt className="text-sm text-gray-500">
+                  {order.tier === 'partner' || order.tier === 'contractor_pro'
+                    ? 'Current period ends'
+                    : 'Access expires'}
+                </dt>
                 <dd className="text-white font-semibold">
                   {formatDate(order.expires_at)}
                   {daysRemaining < 7 && (

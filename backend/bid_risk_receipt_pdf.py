@@ -724,7 +724,7 @@ def generate_bid_risk_receipt_pdf(
                     if ver.startswith("SOURCE")
                     else (56, 189, 248)
                 )
-                bw = _badge(pdf, ver[:22], fg=BG, bg=bg_c, x=bx2, y=by)
+                bw = _badge(pdf, ver[:42], fg=BG, bg=bg_c, x=bx2, y=by)
                 if cite_url:
                     try:
                         pdf.link(bx2, by, bw, 5, cite_url)
@@ -784,7 +784,7 @@ def generate_bid_risk_receipt_pdf(
                 if not _ensure_space(pdf, 8):
                     break
                 task = _soft_cut(str(item.get("task") or "Punch line"), 62)
-                owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 16)
+                owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 32)
                 due = _soft_cut(str(item.get("due_window") or item.get("timeline") or "Pre-bid"), 12)
                 src, punch_url = citation_badge_and_url(item)
                 pdf.set_x(MARGIN)
