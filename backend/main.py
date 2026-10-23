@@ -369,7 +369,7 @@ When the digest locality is **Plano, Texas**, you **MUST** include under **Techn
 
 When the digest locality is **Plano, Texas**, also prioritize City of Plano amendments vs base NEC, fee schedules (including **2026** when cited), and inspection nuance from **only** Plano-applicable hits.
 
-When the digest locality is **Plano, Texas**, under **Permit Costs** include a `- [ ]` line for **Reg Guard 2026 sync**: **$75.00** total electrical permit (**$65.00** base + **$10.00** laborer) — confirm on official City of Plano fee schedule.
+When the digest locality is **Plano, Texas**, under **Permit Costs** do **not** state a single electrical permit total. Ordinance **2025-11-4** (effective Jan 2, 2026) prices commercial electrical inspections by floor area. **$75** on that schedule is the first reinspection fee, not the permit. Tell the reader to confirm the line for this job.
 
 When ``job_fast41_eligibility`` is **true** in the digest JSON, include **### Federal FAST-41 Eligibility** (exact title from ``required_checklist_headings``) with `- [ ]` federal coordination / counsel diligence lines tied only to FAST-41 or Permitting Council **.gov** materials present in the digest — never invent a designation.
 
@@ -843,7 +843,7 @@ def _research_action_plan_fallback_markdown(
         lines.extend(
             [
                 "",
-                "- [ ] **Reg Guard 2026 sync (Plano, TX):** Electrical permit **$75.00** total — **$65.00** base + **$10.00** laborer fee. Confirm on the official City of Plano fee schedule before posting.",
+                "- [ ] **Plano electrical permit:** Confirm the line for this job on Ordinance 2025-11-4 (effective Jan 2, 2026). Do not budget a flat $75 — on that schedule $75 is the first reinspection.",
                 "",
             ]
         )
@@ -970,7 +970,7 @@ def _research_action_plan_fallback_markdown(
         )
         punch_core.insert(
             1,
-            "- [ ] **Plano permit fee (2026 sync)** — Budget **$75.00** total (**$65.00** base + **$10.00** laborer); confirm against current City of Plano fee table.",
+            "- [ ] **Plano permit fee** — Confirm the electrical line on Ordinance 2025-11-4 (effective Jan 2, 2026). $75 on that schedule is the first reinspection, not the permit total.",
         )
     if city.lower() == "austin" and (state or "").strip().upper() == "TX":
         punch_core.insert(
@@ -2515,8 +2515,8 @@ async def get_sample_report() -> Dict[str, Any]:
                 "endangered_species": "Northern Long-eared Bat habitat possible - verify with USFWS",
             },
             "permit_requirements": {
-                "electric": "City of Plano electrical permit required ($75 fee)",
-                "structural": "Structural permit required ($150-300 fee)",
+                "electric": "City of Plano electrical permit required — confirm the line on the Jan 2, 2026 schedule",
+                "structural": "Structural permit required — confirm the amount on the city schedule",
                 "environmental": "Phase II ESA recommended for data center projects",
             },
             "contractor_action_plan": """## Contractor Action Plan — AHJ permit & code audit
@@ -2528,7 +2528,7 @@ async def get_sample_report() -> Dict[str, Any]:
 - [ ] Northern Long-eared Bat habitat - submit USFWS consultation letter if required
 
 ### Permit Costs
-- [ ] Electrical permit: $75.00 (base $65.00 + laborer $10.00)
+- [ ] Electrical permit: confirm the line on Ordinance 2025-11-4 (effective Jan 2, 2026). Do not use $75 as the permit total.
 - [ ] Site plan review: $150-200 (estimate)
 - [ ] Structural engineering review: $300-500 (estimate)
 
@@ -6337,6 +6337,26 @@ async def public_share_html(
     if not html:
         raise HTTPException(status_code=404, detail="Report not found")
     return HTMLResponse(content=html)
+
+
+@app.get("/email/opt-out", tags=["Results"], include_in_schema=False)
+def email_opt_out(e: str = "", t: str = "") -> HTMLResponse:
+    """One-click stop for day-2, day-5, and quota notes. The receipt already sent still works."""
+    from nurture_store import opt_out_marketing
+    from passive_campaign import opt_out_token_ok
+
+    email = (e or "").strip().lower()
+    if "@" not in email or not opt_out_token_ok(email, t):
+        return HTMLResponse(
+            "<p>This stop link is not valid. Write support@regguardagent.com and we will stop the notes.</p>",
+            status_code=400,
+        )
+    opt_out_marketing(email)
+    return HTMLResponse(
+        "<p>You are off the day-2, day-5, and quota notes. "
+        "A receipt you already have still opens. "
+        "Support: support@regguardagent.com</p>"
+    )
 
 
 @app.post("/cron/nurture-drip", tags=["Cron"])

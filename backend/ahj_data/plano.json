@@ -21,21 +21,13 @@
     {
       "id": "electrical_permit_2026",
       "trade": "electrical",
-      "label": "Electrical permit (2026 Reg Guard sync)",
-      "amount_usd": 75.0,
-      "components": [
-        {
-          "label": "Base permit",
-          "amount_usd": 65.0
-        },
-        {
-          "label": "Laborer fee",
-          "amount_usd": 10.0
-        }
-      ],
-      "citation_url": "https://www.plano.gov/292/Building-Inspections",
-      "citation_note": "Confirm on the official City of Plano building fee schedule / Building Inspections pages.",
-      "verified": true
+      "label": "Electrical permit — confirm on the Jan 2, 2026 schedule",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.plano.gov/350/Building-Inspections-Permits",
+      "citation_note": "Ordinance 2025-11-4, effective Jan 2, 2026. Commercial electrical inspections are by floor area. $75 on that schedule is the first reinspection, not a permit total. Do not publish a single electrical total.",
+      "verified": false,
+      "amount_requires_schedule": true
     },
     {
       "id": "building_permit_schedule",
@@ -79,8 +71,8 @@
       "id": "plano_electrical_fee_2026",
       "title": "Plano electrical permit fee — 2026 sync",
       "checklist": [
-        "Confirm $75 total ($65 base + $10 laborer) on current Building Inspections schedule",
-        "Do not bid using prior-year fee sheets without re-check"
+        "Confirm the electrical line for this job on Ordinance 2025-11-4 (effective Jan 2, 2026)",
+        "Do not use $75 as the electrical permit total — on that schedule it is the first reinspection"
       ],
       "anti_patterns": [
         "Using a sister-city (Frisco/Allen) fee as Plano"

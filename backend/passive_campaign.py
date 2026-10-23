@@ -7,6 +7,8 @@ Honesty: planning aid, not a quote / sealed bid / interconnection study.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import html as html_lib
 import os
 import re
@@ -63,6 +65,28 @@ def app_base_url() -> str:
         or os.getenv("FRONTEND_APP_URL")
         or APP_HOST
     ).rstrip("/")
+
+
+def api_base_url() -> str:
+    return (os.getenv("REG_GUARD_API_URL") or "https://api.regguardagent.com").rstrip("/")
+
+
+def opt_out_token(email: str) -> str:
+    secret = (
+        os.getenv("CRON_SECRET")
+        or os.getenv("REGGUARD_EMAIL_OPT_OUT_SECRET")
+        or "regguard-opt-out"
+    ).encode()
+    return hmac.new(secret, (email or "").strip().lower().encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def opt_out_token_ok(email: str, token: str) -> bool:
+    return hmac.compare_digest(opt_out_token(email), (token or "").strip())
+
+
+def opt_out_url(email: str) -> str:
+    query = urlencode({"e": (email or "").strip().lower(), "t": opt_out_token(email)})
+    return f"{api_base_url()}/email/opt-out?{query}"
 
 
 def _slug_city(city: str) -> str:
@@ -314,6 +338,12 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
     esc = html_lib.escape
 
     def wrap(title: str, body: str) -> str:
+        stop = opt_out_url(email) if "@" in email else ""
+        stop_line = (
+            f'<br><a href="{esc(stop)}" style="color:#1d4ed8;">Stop these notes</a>'
+            if stop
+            else ""
+        )
         return f"""<!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f5;padding:24px;">
   <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;padding:28px;">
@@ -323,6 +353,7 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
     <p style="margin-top:28px;font-size:12px;color:#888;">
       Planning aid only — not a quote, sealed bid, or interconnection study.
       Confirm fees and timelines with the AHJ. {SUPPORT_EMAIL}
+      {stop_line}
     </p>
   </div>
 </body></html>"""
@@ -351,7 +382,6 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
     <p style="color:#555;font-size:14px;line-height:1.5;">
       <strong>{esc(place)}</strong> is still in your account. Estimator / Permit Runner ($79/mo)
       is the receipt you can forward with the clear percent, the rest of the punch list, and Saved Jobs.
-      Contractor Pro ($149/mo) is the fee desk after that — City Pack, CSV, and bid packet.
     </p>
     <p style="margin:20px 0;">
       <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
@@ -369,8 +399,7 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
       This email used this month’s free scans. The next lookup needs Estimator / Permit Runner
-      ($79/mo). We did not charge you for the blocked run. Contractor Pro ($149/mo) adds fee
-      dollars when the estimate has to hold.
+      ($79/mo). We did not charge you for the blocked run.
     </p>
     <p style="margin:20px 0;">
       <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">

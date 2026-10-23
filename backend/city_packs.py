@@ -80,9 +80,12 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
         },
         "fees": [
             {
-                "label": "Electrical permit (2026 sync note)",
-                "amount_usd": 75,
-                "detail": "$65 base + $10 laborer — confirm on official fee schedule",
+                "label": "Electrical permit — confirm on the Jan 2, 2026 schedule",
+                "amount_usd": None,
+                "detail": (
+                    "Ordinance 2025-11-4. Commercial electrical inspections are by floor area. "
+                    "$75 on that schedule is the first reinspection, not a permit total."
+                ),
                 "verified": False,
                 "source_url": "https://www.plano.gov/350/Building-Inspections-Permits",
                 "source_label": "City of Plano Building Inspections",

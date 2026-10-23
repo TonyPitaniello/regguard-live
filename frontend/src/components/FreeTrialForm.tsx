@@ -1508,7 +1508,7 @@ export default function FreeTrialForm({
               disabled={loading}
             />
             <p className="text-xs text-gray-400 mt-2">
-              Email is required to run a lookup. SMS is optional after results (separate consent).
+              Email is required to run a lookup. A free run gets two short notes, on day 2 and day 5. Each note has a way to stop them. SMS is optional after results (separate consent).
             </p>
           </div>
             </>

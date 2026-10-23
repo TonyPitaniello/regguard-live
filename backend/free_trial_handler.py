@@ -323,7 +323,7 @@ PRELIMINARY FINDINGS
     # Add jurisdiction-specific costs and requirements
     if city.lower() == "plano":
         memo += f"""PERMIT INFORMATION (Plano, TX)
-• Electrical Permit Cost: $75.00 total ($65 base + $10 laborer)
+• Electrical permit: confirm the line for this job on Ordinance 2025-11-4 (effective Jan 2, 2026). $75 on that schedule is the first reinspection, not the permit total.
 • Key Regulation: Plano Ordinance 250.50 (Grounding Requirements)
   - Must use two 8-foot grounding rods
   - Spaced 20 feet apart

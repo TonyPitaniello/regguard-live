@@ -28,9 +28,9 @@ def test_instant_fallback_hides_stub_risk_level():
     )
     assert analysis["preview"] is True
     assert analysis["honesty"]["risk_verified"] is False
-    # Plano AHJ catalog may verify the $75 fee line; env risk remains stub-hidden
+    # Ordinance 2025-11-4 has no single electrical total, so cost stays unverified.
     assert analysis["honesty"].get("ahj_catalog") == "plano_tx" or analysis["summary"].get("ahj_id") == "plano_tx"
-    assert analysis["honesty"]["cost_verified"] is True
+    assert analysis["honesty"]["cost_verified"] is not True
     assert analysis["environmental_screening"]["risk_level"] == UNAVAILABLE
     assert analysis["summary"]["high_risk_count"] == 0
     assert "unverified" in analysis["summary"]["estimated_timeline"].lower()

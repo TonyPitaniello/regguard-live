@@ -81,6 +81,8 @@ def test_drip_copy_has_ctas():
     assert "HOLD" in subj or "HOLD" in html
     assert "does not unlock" in html
     assert "/r/rid1" in html
+    assert "Stop these notes" in html
+    assert "/email/opt-out" in html
     assert "Partner" not in html
     _, html5 = drip_email("free_run_d5", {"email": "a@b.com", "research_id": "rid1"})
     assert "checkout/partner" in html5
@@ -111,6 +113,18 @@ def test_nurture_drip_schedule_and_cancel(tmp_path, monkeypatch):
     assert any(i["kind"] == "quota_paywall" for i in due_now)
     n = cancel_free_run_for_email("est@example.com")
     assert n >= 2
+
+
+def test_opt_out_stops_later_drip(tmp_path, monkeypatch):
+    import nurture_store
+    from nurture_store import opt_out_marketing, schedule_free_run_drip
+
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    nurture_store._ITEMS = {}
+    opt_out_marketing("stop@example.com")
+    out = schedule_free_run_drip(email="stop@example.com", research_id="r2", city="Plano")
+    assert out["d2"] is None
+    assert out["d5"] is None
 
 
 def test_share_html_og_tags():

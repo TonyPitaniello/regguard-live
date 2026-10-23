@@ -23,8 +23,6 @@ _ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_ROOT / ".env")
 
 # Hard-coded field sync — Plano fee floor (AHJ confirms on official schedule).
-REG_GUARD_PLANO_ELECTRICAL_PERMIT_TOTAL_USD: float = 75.0
-
 
 # City of Austin — Development Services fee page (safety surcharges, permit calculators).
 REG_GUARD_AUSTIN_DEVELOPMENT_SERVICES_FEES_URL: str = "https://www.austintexas.gov/development-services/fees"
@@ -224,7 +222,6 @@ def _build_inspector_digest_directive(
     is_austin_tx = city.lower() == "austin" and (state or "").strip().upper() in ("TX",)
     zip_project = str(raw.get("zip") or ju.get("zip") or "").strip()
     empty_scout = scout_has_no_trusted_results(raw)
-    _pf_amt = f"${REG_GUARD_PLANO_ELECTRICAL_PERMIT_TOTAL_USD:.2f}"
 
     consultant_role = (
         f"Act as a Master Electrician for **{loc_focus}** (the specific city or county for this job). "
@@ -235,8 +232,8 @@ def _build_inspector_digest_directive(
         consultant_role += (
             " For **Plano, Texas**, use only **City of Plano** **.gov** and **Municode** hits in this digest when stating local rules; "
             f"anchor tasks to {addr} and Plano, TX."
-            f" **2026 data fence:** cite **{_pf_amt}** total electrical permit (**$65.00** base + **$10.00** laborer) from the official fee table "
-            "and **Ordinance 250.50**: **two 8-foot grounding rods** **20 feet** apart **connected by 2/0 AWG** between rods (**not** **6-foot** NEC-spacing narrative)."
+            f" **2026 fee rule:** do not state a single electrical permit total. Ordinance 2025-11-4 (effective Jan 2, 2026) prices commercial electrical inspections by floor area. **$75** on that schedule is the first reinspection, not the permit."
+            " **Ordinance 250.50**: **two 8-foot grounding rods** **20 feet** apart **connected by 2/0 AWG** between rods (**not** **6-foot** NEC-spacing narrative)."
         )
     if is_austin_tx:
         ztxt = f" **ZIP {zip_project}**" if zip_project else ""
@@ -340,8 +337,9 @@ def _build_inspector_digest_directive(
             "Plano Ordinance 250.50** with `- [ ]` tasks requiring **two 8-foot grounding rods** spaced **20 feet** apart, "
             "**connected by a 2/0 AWG conductor** between rods (Plano **local** rule — **not** the typical **6-foot** NEC minimum-spacing narrative "
             "some crews assume). Cross-check wording on current Plano codified ordinance / Municode when reconciling.\n"
-            f"**Permit Costs — Plano:** include an explicit `- [ ]` line stating **{_pf_amt}** total (**$65.00** base + **$10.00** laborer) "
-            "per **Reg Guard 2026 sync**, with AHJ confirmation on the official fee schedule.\n"
+            "**Permit Costs — Plano:** do not state a single electrical permit total. Ordinance 2025-11-4 "
+            "(effective Jan 2, 2026) prices commercial electrical inspections by floor area. **$75** on that schedule "
+            "is the first reinspection, not the permit.\n"
             "Identify other **City of Plano** local amendments that **differ from** or **add to** the adopted NEC only when "
             "the digest text supports them."
         )
@@ -450,8 +448,9 @@ def _build_inspector_digest_directive(
     fee_extra = ""
     if is_plano_tx:
         fee_extra = (
-            f" **Reg Guard 2026 sync (Plano, TX):** Electrical permit **{_pf_amt}** total (**$65.00** base + **$10.00** laborer) — "
-            "confirm on the official City of Plano fee schedule. Tie to **Ordinance 250.50** (**20-foot** rod spacing, **2/0 AWG** between rods)."
+            " **Plano fees:** do not state a single electrical permit total. Ordinance 2025-11-4 (effective Jan 2, 2026) "
+            "prices commercial electrical inspections by floor area. $75 on that schedule is the first reinspection. "
+            "Tie grounding tasks to **Ordinance 250.50** (**20-foot** rod spacing, **2/0 AWG** between rods)."
         )
     elif is_austin_tx:
         fee_extra = (
@@ -683,16 +682,16 @@ def build_research_digest(
             payload.update(ahj_block)
             # Keep legacy Plano/Austin keys for existing prompt fences
             if ahj_block.get("ahj_id") == "plano_tx":
-                payload["plano_electrical_permit_fee_sync_usd"] = REG_GUARD_PLANO_ELECTRICAL_PERMIT_TOTAL_USD
-                pf = f"${REG_GUARD_PLANO_ELECTRICAL_PERMIT_TOTAL_USD:.2f}"
+                payload["plano_electrical_permit_fee_sync_usd"] = None
                 payload["plano_electrical_permit_fee_2026_note"] = (
-                    f"Reg Guard 2026 data fence: City of Plano electrical permit **{pf}** total — **$65.00** base permit + **$10.00** laborer fee. "
-                    "Confirm on the official City of Plano fee schedule."
+                    "Ordinance 2025-11-4, effective Jan 2, 2026. Do not state a single electrical permit total. "
+                    "Commercial electrical inspections are by floor area. $75 on that schedule is the first reinspection, not the permit."
                 )
                 payload["plano_ord_250_50_requirement"] = (
                     "HARD REQUIREMENT (Plano, TX): Under **### Technical Punch List**, include **MANDATORY GOTCHA: Plano Ordinance 250.50** "
                     "with `- [ ]` tasks for **two 8-foot grounding rods** **20 feet** apart **connected by 2/0 AWG** between rods (**not** **6-foot** "
-                    f"rod-spacing from generic NEC narrative). Under **Permit Costs**, state the **{pf}** sync fee line with citation URL from ahj_fee_lines."
+                    "rod-spacing from generic NEC narrative). Under **Permit Costs**, tell the reader to confirm the electrical line on the "
+                    "Jan 2, 2026 schedule. Do not print $75 as the permit total."
                 )
             if ahj_block.get("ahj_id") == "austin_tx":
                 z = str(raw.get("zip") or ju_blob.get("zip") or "").strip()
@@ -776,7 +775,7 @@ def iter_contractor_action_plan_stream(system_prompt: str, user_digest: str) -> 
                         "`tagged_priority_hits` and the rest of the JSON. "
                         "Follow the role and logic steps; obey `output_format` and `gotchas_guidance`. "
                         f"When `plano_ord_250_50_requirement` is set, you MUST satisfy it under **### Technical Punch List** "
-                        f"and include the **${REG_GUARD_PLANO_ELECTRICAL_PERMIT_TOTAL_USD:.2f}** permit-cost line from `plano_electrical_permit_fee_2026_note`. "
+                        "and you must not print a flat electrical permit total. $75 on the Plano schedule is the first reinspection."
                         "When `empty_scout_nec_2023_fallback` is true, apply the system prompt: fill Technical + Inspection "
                         "using NEC 2023 training knowledge for 200A scope. "
                         "When `data_center_intelligence` is present, satisfy **Conflict Intelligence Engine** tasks in `consultant_role` "

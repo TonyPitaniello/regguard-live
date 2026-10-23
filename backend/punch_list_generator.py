@@ -40,7 +40,7 @@ _AHJ_CITATIONS: Dict[str, Dict[str, tuple]] = {
         ),
         "fees": (
             "https://www.plano.gov/269/Building-Inspections",
-            "City of Plano — electrical permit fee schedule ($75 total)",
+            "City of Plano — Building Inspections fee schedule (Ordinance 2025-11-4)",
         ),
     },
     "dallas, tx": {

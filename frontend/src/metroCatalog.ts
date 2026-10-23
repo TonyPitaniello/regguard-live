@@ -20,7 +20,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     headline: 'Bid-day CYA for Plano AHJ work — not a code encyclopedia',
     bullets: [
       'Plano Ord. 250.50 grounding (dual 8-ft rods @ 20 ft, 2/0 bond) when citeable',
-      '2026 electrical permit fee sync noted as $75 total — confirm on City of Plano schedule',
+      'Electrical permit amounts are on the Jan 2, 2026 schedule (Ordinance 2025-11-4). Confirm the line for this job. $75 on that schedule is the first reinspection, not the permit total.',
       'Every line is Source or Unverified — forward only what you can defend',
     ],
     feeNote:
@@ -36,7 +36,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Confirm trade permit type early — wrong path stalls review',
       'Fee schedule is not a fixed number — recheck before bid',
-      'ERCOT / TDSP large-load clocks run parallel to city permits',
+      'Forward the receipt. The clear percent stays on Estimator ($79/mo)',
     ],
     feeNote: 'Dallas fees and amendments change. Confirm with Dallas Building Inspection before filing.',
   },
@@ -49,7 +49,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Austin gas-relief clearance and service-upgrade patterns when citeable',
       'Source or Unverified on every punch line',
-      'IC Diligence Bundle adds memo + counsel DOCX + estimator Excel + evidence (not official filings)',
+      'Next step is Estimator ($79/mo) for the clear percent. The $1,500 bundle is for one capital site, not this page',
     ],
     feeNote:
       'Austin Development Services fees and Design Criteria override generic NEC narratives — verify before bid.',
@@ -115,7 +115,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     bullets: [
       'Screen Irving permit risks before bid day',
       'Citeable lines when official sources exist',
-      'Share the /r/ link — that is the sales force',
+      'Forward the receipt. Sharing the free page does not unlock the clear percent',
     ],
     feeNote: 'Confirm fees with City of Irving before filing.',
   },

@@ -140,15 +140,55 @@ def mark_cancelled(item_id: str) -> bool:
     return True
 
 
-def _pending_same(email_n: str, kind: str) -> Optional[Dict[str, Any]]:
-    for item in _ITEMS.values():
-        if (
-            item.get("email") == email_n
-            and item.get("kind") == kind
-            and item.get("status") == "pending"
-        ):
-            return deepcopy(item)
-    return None
+def _optout_path() -> Path:
+    return _store_path().parent / "email_opt_outs.json"
+
+
+def _read_optouts() -> set:
+    try:
+        path = _optout_path()
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                return {str(item).strip().lower() for item in data if isinstance(item, str)}
+    except Exception as e:
+        logger.warning("opt-out load failed: %s", e)
+    return set()
+
+
+def is_opted_out(email: str) -> bool:
+    email_n = (email or "").strip().lower()
+    return bool(email_n) and email_n in _read_optouts()
+
+
+def opt_out_marketing(email: str) -> int:
+    """Stop day-2, day-5, and quota notes. Later schedules for this address do not send."""
+    email_n = (email or "").strip().lower()
+    if not email_n or "@" not in email_n:
+        return 0
+    current = _read_optouts()
+    current.add(email_n)
+    try:
+        _optout_path().parent.mkdir(parents=True, exist_ok=True)
+        _optout_path().write_text(json.dumps(sorted(current), indent=2), encoding="utf-8")
+    except Exception as e:
+        logger.warning("opt-out persist failed: %s", e)
+    _load()
+    n = 0
+    with _LOCK:
+        for item in _ITEMS.values():
+            if (
+                item.get("email") == email_n
+                and item.get("status") == "pending"
+                and str(item.get("kind") or "") in ("free_run_d2", "free_run_d5", "quota_paywall")
+            ):
+                item["status"] = "cancelled"
+                item["cancelled_at"] = _iso()
+                item["cancel_reason"] = "opt_out"
+                n += 1
+    if n:
+        _persist()
+    return n
 
 
 def schedule_item(
@@ -162,6 +202,8 @@ def schedule_item(
     email_n = (email or "").strip().lower()
     kind_n = (kind or "").strip().lower()
     if not email_n or "@" not in email_n or not kind_n:
+        return None
+    if is_opted_out(email_n):
         return None
     _load()
     due = datetime.now(timezone.utc) + timedelta(hours=max(0.0, float(delay_hours)))
@@ -260,7 +302,7 @@ def due_nurture(now: Optional[datetime] = None, kinds: Optional[List[str]] = Non
                 due = datetime.fromisoformat(str(item.get("due_at") or "").replace("Z", "+00:00"))
             except Exception:
                 continue
-            if due <= now:
+            if due <= now and not is_opted_out(str(item.get("email") or "")):
                 out.append(deepcopy(item))
     return out
 

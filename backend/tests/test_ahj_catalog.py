@@ -26,13 +26,16 @@ def test_catalog_loads_beachhead_ahjs():
     assert {"plano_tx", "dallas_tx", "austin_tx", "frisco_tx", "fort_worth_tx", "round_rock_tx"} <= ids
 
 
-def test_plano_zip_lookup_75():
+def test_plano_zip_lookup_has_no_flat_electrical_total():
     rec = lookup_ahj("Plano", "TX", "75074")
     assert rec and rec["ahj_id"] == "plano_tx"
     fee = rec["fees"][0]
-    assert fee["amount_usd"] == 75.0
+    assert fee["amount_usd"] is None
+    assert fee.get("amount_requires_schedule") is True
     block = digest_ahj_block("Plano", "TX", "75074")
-    assert any("$75.00" in line for line in block["ahj_fee_lines"])
+    assert block["ahj_fee_lines"]
+    assert not any("$75.00" in line for line in block["ahj_fee_lines"])
+    assert any("reinspection" in line.lower() for line in block["ahj_fee_lines"])
     assert any("250.50" in g.get("title", "") for g in block["ahj_gotchas"])
     assert len(block["ahj_inspection_sequence"]) >= 3
 
@@ -73,7 +76,7 @@ def test_lake_dallas_does_not_resolve_to_dallas():
     assert lookup_ahj("Dallas", "TX", "75201")["ahj_id"] == "dallas_tx"
 
 
-def test_enrich_plano_marks_cost_verified():
+def test_enrich_plano_does_not_verify_a_flat_electrical_total():
     analysis = {
         "project_info": {"city": "Plano", "state": "TX", "zip": "75074"},
         "punch_list": {"punch_list": []},
@@ -83,9 +86,10 @@ def test_enrich_plano_marks_cost_verified():
     }
     out = enrich_analysis_with_ahj(analysis)
     assert out["summary"]["ahj_id"] == "plano_tx"
-    assert out["honesty"]["cost_verified"] is True
-    assert out["summary"].get("ahj_verified_fee_total_usd") == 75.0
-    assert any(i.get("estimated_cost") == 75.0 and i.get("cost_verified") for i in out["punch_list"]["punch_list"])
+    assert out["honesty"]["cost_verified"] is not True
+    assert out["summary"].get("ahj_verified_fee_total_usd") in (None, 0)
+    tasks = " ".join(i.get("task", "") for i in out["punch_list"]["punch_list"])
+    assert "75.00" not in tasks
     assert len(out["punch_list"]["inspection_sequence"]) >= 3
 
 
@@ -123,9 +127,10 @@ def test_digest_includes_citation_required_fees():
     digest = json.loads(build_research_digest(raw, [], ""))
     assert digest["ahj_id"] == "plano_tx"
     assert digest["ahj_citation_required"] is True
-    assert digest["plano_electrical_permit_fee_sync_usd"] == 75.0
+    assert digest["plano_electrical_permit_fee_sync_usd"] is None
     assert "250.50" in digest["plano_ord_250_50_requirement"]
-    assert any("$75.00" in line for line in digest["ahj_fee_lines"])
+    assert digest["ahj_fee_lines"]
+    assert not any("$75.00" in line for line in digest["ahj_fee_lines"])
 
 
 def test_digest_dallas_167_and_open_data():
