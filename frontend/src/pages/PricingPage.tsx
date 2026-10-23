@@ -65,7 +65,7 @@ const TIERS = [
     billing: 'per year',
     description: IC_BUNDLE.annualDescription,
     features: [...IC_BUNDLE.annualFeatures],
-    cta: 'Subscribe Annually',
+    cta: 'After one $1,500 bundle',
     highlight: false,
   },
 ] as const;
@@ -286,6 +286,14 @@ export default function PricingPage() {
                 onClick={() => navigate('/austin-permit-fees')}
               >
                 Austin
+              </button>
+              ,{' '}
+              <button
+                type="button"
+                className="text-purple-300 hover:text-white underline"
+                onClick={() => navigate('/fort-worth-permit-fees')}
+              >
+                Fort Worth
               </button>
               . Outside those AHJs, expect more Unverified lines.
             </p>

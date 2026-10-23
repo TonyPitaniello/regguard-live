@@ -110,98 +110,32 @@ def _planning_exposure_for_killer(
     fee_amount: Optional[float] = None,
     estimated_total: float = 0.0,
     is_dc: bool = False,
+    schedule_verified: bool = False,
 ) -> Dict[str, Any]:
-    """
-    Honest planning exposure band for bid discussion — NOT guaranteed savings.
-    Prefer real fee $ when present; otherwise conservative priority heuristics.
-    """
-    disclaimer = (
-        "Planning exposure only — not a quote and not guaranteed savings. "
-        "Use for contingency talk; confirm fees/schedule with AHJ and utility."
-    )
-    pri = (priority or "NOTE").upper()
-    blob = f"{title} {detail}".lower()
-
-    # 1) Known fee extract → exposure ≈ fee itself (most honest)
-    if isinstance(fee_amount, (int, float)) and fee_amount > 0:
-        mid = int(fee_amount)
+    """A dollar prints only when a cited schedule states that amount."""
+    _ = (title, detail, kind, priority, estimated_total, is_dc)
+    if schedule_verified and isinstance(fee_amount, (int, float)) and fee_amount > 0:
+        amt = int(fee_amount)
         return {
-            "label": "Planning exposure (fee line)",
-            "usd_low": max(0, int(mid * 0.8)),
-            "usd_mid": mid,
-            "usd_high": int(mid * 1.25),
-            "basis": "fee_extract",
-            "verified": False,
-            "disclaimer": disclaimer,
+            "label": "Schedule line",
+            "usd_low": amt,
+            "usd_mid": amt,
+            "usd_high": amt,
+            "basis": "schedule_line",
+            "verified": True,
+            "disclaimer": "This amount is the cited schedule line. Confirm it still matches this job before you bid.",
         }
-
-    # 2) DC / interconnect / large-load language on THIS killer → wider planning band
-    killer_dc = any(
-        k in blob
-        for k in (
-            "data center",
-            "large-load",
-            "large load",
-            "ercot",
-            "interconnect",
-            "tdsp",
-            "fast-41",
-            "fast 41",
-            "colo",
-            "utility interconnection",
-            "parallel track",
-            "parallel-track",
-            "mission-critical",
-            "mission critical",
-        )
-    )
-    if killer_dc and pri in ("CRITICAL", "HIGH"):
-        # Schedule miss on DC is often >> permit fee; keep labeled as planning only
-        if pri == "CRITICAL":
-            low, mid, high = 15000, 40000, 120000
-        else:
-            low, mid, high = 8000, 25000, 75000
-        # Soft-cap vs rollup if we have one
-        if estimated_total and estimated_total > 0:
-            high = min(high, int(estimated_total * 0.15))
-            mid = min(mid, int(estimated_total * 0.08))
-            low = min(low, int(estimated_total * 0.03))
-        return {
-            "label": "Planning exposure (schedule / parallel-track)",
-            "usd_low": low,
-            "usd_mid": mid,
-            "usd_high": high,
-            "basis": "dc_schedule_heuristic",
-            "verified": False,
-            "disclaimer": disclaimer
-            + " Large-load delay risk is order-of-magnitude only.",
-        }
-
-    # 3) Generic priority heuristic (trade / AHJ gotcha)
-    # Slightly wider on data-center projects for Critical only (still not savings)
-    if is_dc and pri == "CRITICAL":
-        low, mid, high = 4000, 12000, 30000
-    elif pri == "CRITICAL":
-        low, mid, high = 2500, 8000, 20000
-    elif pri == "HIGH":
-        low, mid, high = 1000, 4000, 12000
-    else:
-        low, mid, high = 500, 1500, 5000
-
-    if estimated_total and estimated_total > 0:
-        # Cap heuristics to a small slice of known rollup
-        high = min(high, max(1000, int(estimated_total * 0.08)))
-        mid = min(mid, max(500, int(estimated_total * 0.04)))
-        low = min(low, max(250, int(estimated_total * 0.015)))
-
     return {
-        "label": "Planning exposure (heuristic)",
-        "usd_low": low,
-        "usd_mid": mid,
-        "usd_high": high,
-        "basis": "priority_heuristic",
+        "label": "No schedule amount",
+        "usd_low": None,
+        "usd_mid": None,
+        "usd_high": None,
+        "basis": "unverified",
         "verified": False,
-        "disclaimer": disclaimer,
+        "disclaimer": (
+            "No dollar is stated. A fee prints only when the official schedule states it. "
+            "This is not a quote."
+        ),
     }
 
 
@@ -246,6 +180,7 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
             fee_amount=fee_amount,
             estimated_total=est,
             is_dc=is_dc,
+            schedule_verified=bool(verified) and bool(source_url),
         )
         from citation_honesty import citation_badge_label, citation_tier_for
 
@@ -395,6 +330,7 @@ def _build_contingency(
     estimated_total: float,
     *,
     is_dc: bool = False,
+    cost_verified: bool = False,
 ) -> Dict[str, Any]:
     """
     Heuristic contingency band for bid — labeled estimate, not a quote.
@@ -410,8 +346,8 @@ def _build_contingency(
     low_pct = max(2.0, pct - 2.0)
     high_pct = min(35.0 if is_dc else 30.0, pct + 3.0)
     base = max(0.0, float(estimated_total or 0))
-    # Stub rollups understate interconnect — show % only for DC when base is tiny
-    show_usd = base >= 100_000 or not is_dc
+    # A guessed project total is not a schedule. The product sells the percent.
+    show_usd = bool(cost_verified) and base > 0
     drivers: Dict[str, Any] = {
         "critical_items": crit,
         "high_items": high,
@@ -692,7 +628,10 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     is_dc = _project_is_data_center(out)
-    out["contingency_band"] = _build_contingency(crit, high, unverified, est, is_dc=is_dc)
+    cost_verified = bool((out.get("honesty") or {}).get("cost_verified"))
+    out["contingency_band"] = _build_contingency(
+        crit, high, unverified, est, is_dc=is_dc, cost_verified=cost_verified
+    )
     out["margin_killers"] = build_margin_killers(out, limit=3)
 
     try:
@@ -723,8 +662,9 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "killer_count": len(out["margin_killers"]),
         "verified": False,
         "disclaimer": (
-            "Sum of heuristic planning-exposure midpoints for top killers — "
-            "not guaranteed savings and not a quote. Confirm with AHJ/utility."
+            "Sum of cited schedule lines on the top killers. "
+            "A blank total means the schedule did not state those amounts. "
+            "Not a quote. Confirm with the AHJ."
         ),
         "data_center_mode": _project_is_data_center(out),
     }
@@ -754,7 +694,10 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         items = _punch_items(out)
         crit, high, unverified = _count_priorities(items)
         out["margin_killers"] = build_margin_killers(out, limit=3)
-        out["contingency_band"] = _build_contingency(crit, high, unverified, est, is_dc=is_dc)
+        cost_verified = bool((out.get("honesty") or {}).get("cost_verified"))
+        out["contingency_band"] = _build_contingency(
+            crit, high, unverified, est, is_dc=is_dc, cost_verified=cost_verified
+        )
         exp_mids = []
         for k in out["margin_killers"]:
             pe = (k or {}).get("planning_exposure") or {}
@@ -766,8 +709,9 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             "killer_count": len(out["margin_killers"]),
             "verified": False,
             "disclaimer": (
-                "Sum of heuristic planning-exposure midpoints for top killers — "
-                "not guaranteed savings and not a quote. Confirm with AHJ/utility."
+                "Sum of cited schedule lines on the top killers. "
+                "A blank total means the schedule did not state those amounts. "
+                "Not a quote. Confirm with the AHJ."
             ),
             "data_center_mode": is_dc,
         }

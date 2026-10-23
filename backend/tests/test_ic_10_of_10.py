@@ -39,7 +39,32 @@ def test_dc_contingency_floor_hides_stub_usd():
     assert band["usd_mid"] is None  # stub rollup
     assert band["drivers"].get("data_center_parallel_track") is True
     band2 = _build_contingency(2, 10, 0, 500_000, is_dc=True)
-    assert band2["usd_mid"] is not None
+    assert band2["pct_mid"] >= 18.0
+    assert band2["usd_mid"] is None  # a guessed rollup is not a schedule
+    band3 = _build_contingency(2, 10, 0, 500_000, is_dc=True, cost_verified=True)
+    assert band3["usd_mid"] is not None
+
+
+def test_killer_exposure_does_not_invent_a_dollar_band():
+    from arbitrage_enrichment import _planning_exposure_for_killer
+
+    invented = _planning_exposure_for_killer(
+        title="ERCOT / TDSP large-load timing",
+        detail="Parallel clock",
+        kind="gotcha",
+        priority="CRITICAL",
+        is_dc=True,
+    )
+    assert invented["usd_mid"] is None
+    cited = _planning_exposure_for_killer(
+        title="Electrical inspection",
+        detail="Schedule line",
+        kind="fee",
+        priority="HIGH",
+        fee_amount=110,
+        schedule_verified=True,
+    )
+    assert cited["usd_low"] == cited["usd_mid"] == cited["usd_high"] == 110
 
 
 def test_unverified_high_does_not_move_the_band_like_a_source():

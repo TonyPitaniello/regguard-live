@@ -108,7 +108,7 @@ export const IC_BUNDLE = {
     'Evidence index Excel: Exhibits · Claims · Index — every claim mapped to a numbered exhibit',
     'Optional CSV paste exports of the same schedule + evidence index',
     'Data-center parallel clocks: AHJ · interconnect · water/NPDES',
-    'Strongest citeable coverage today: Dallas / Plano / Austin TX',
+    'Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth',
   ] as const,
 
   /**
@@ -125,7 +125,7 @@ export const IC_BUNDLE = {
     'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',
     'Ahead of $1,500 per site once you pass about 10 sites in a year',
     'For deal-ready IC / lender packages — not day-to-day Contractor Pro lookups',
-    'Strongest citeable coverage: Dallas / Plano / Austin TX',
+    'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     'Email support via support@regguardagent.com',
   ] as const,
   /** Results / capped-scrape — quality pace; no scrape counter, no firehose invite */

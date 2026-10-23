@@ -274,7 +274,6 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
             f"📌 {finding['category'].upper()}",
             f"   Risk Level: {finding['risk_level']}",
             f"   Description: {finding['description']}",
-            f"   Research Cost: ${finding['research_cost_usd']}",
             "",
         ])
     
@@ -286,8 +285,11 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
         f"Total Action Items: {analysis['summary']['total_punch_list_items']}",
         f"Estimated Timeline: {analysis['summary']['estimated_timeline']} "
         f"{'(unverified)' if not (analysis.get('honesty') or {}).get('timeline_verified') else ''}",
-        f"Estimated Total Cost: ${analysis['summary']['estimated_total_cost']:,.0f} "
-        f"{'(unverified — not an AHJ quote)' if not (analysis.get('honesty') or {}).get('cost_verified') else ''}",
+        (
+            f"Schedule total on file: ${analysis['summary']['estimated_total_cost']:,.0f}"
+            if (analysis.get("honesty") or {}).get("cost_verified")
+            else "Fee total: not stated. Confirm each line on the city schedule."
+        ),
         "",
         "TOP PRIORITY ITEMS:",
         "",
@@ -372,7 +374,6 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
         html += f"""
                         </ul>
                     </div>
-                    <p class="research-cost">Research Cost: ${finding['research_cost_usd']}</p>
                 </div>
         """
     
@@ -383,15 +384,19 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
         <section class="punch-list-preview">
             <h2>Your Action Plan</h2>
             <p>Total Action Items: {count}</p>
-            <p>Estimated Timeline: {timeline}</p>
-            <p>Estimated Cost: ${cost:,.0f}</p>
+            <p>Estimated Timeline: {timeline} (confirm with the AHJ)</p>
+            <p>{cost_line}</p>
             <div class="critical-path">
                 <h3>Critical Path (Top Priority):</h3>
                 <ol>
     """.format(
         count=analysis['summary']['total_punch_list_items'],
         timeline=analysis['summary']['estimated_timeline'],
-        cost=analysis['summary']['estimated_total_cost'],
+        cost_line=(
+            f"Schedule total on file: ${analysis['summary']['estimated_total_cost']:,.0f}"
+            if (analysis.get("honesty") or {}).get("cost_verified")
+            else "Fee total: not stated. Confirm each line on the city schedule."
+        ),
     )
     
     for task in analysis['punch_list']['critical_path'][:5]:

@@ -210,7 +210,7 @@ class PunchListGenerator:
                 item.verified = True
                 if fees and any(k in task_l or k in notes_l for k in ("fee", "cost", "electrical")):
                     item.source_url, item.source_label = fees
-                    item.cost_verified = "plano" in _normalize_location_key(location)
+                    item.cost_verified = False
                 continue
 
             if fees and any(k in task_l for k in ("fee", "permit cost", "electrical permit")):
@@ -239,7 +239,7 @@ class PunchListGenerator:
                 task="Contact municipal permitting office for preliminary consultation",
                 responsible_party="Contractor",
                 timeline="Immediately (Day 1)",
-                estimated_cost=0,
+                estimated_cost=None,
                 notes="Confirm what permits are required for your project type"
             ),
             PunchListItem(
@@ -247,7 +247,7 @@ class PunchListGenerator:
                 task="Request complete permit application checklist",
                 responsible_party="Contractor",
                 timeline="Day 1-3",
-                estimated_cost=50,
+                estimated_cost=None,
                 notes="Get comprehensive list of required documents and forms"
             ),
             PunchListItem(
@@ -255,7 +255,7 @@ class PunchListGenerator:
                 task="Prepare site plans and engineering drawings",
                 responsible_party="Engineer/Contractor",
                 timeline="Week 1",
-                estimated_cost=3000,
+                estimated_cost=None,
                 notes="Typically required by all municipalities"
             ),
             PunchListItem(
@@ -263,7 +263,7 @@ class PunchListGenerator:
                 task="File complete permit application",
                 responsible_party="Contractor",
                 timeline="Week 2",
-                estimated_cost=500,
+                estimated_cost=None,
                 notes="Include all required documents to avoid delays"
             ),
         ]
@@ -311,7 +311,7 @@ class PunchListGenerator:
                     task=f"Contact {utility} interconnection department for study requirements",
                     responsible_party="Developer/Contractor",
                     timeline="Week 1",
-                    estimated_cost=0,
+                    estimated_cost=None,
                     notes="Confirm application requirements and timeline"
                 ),
                 PunchListItem(
@@ -319,7 +319,7 @@ class PunchListGenerator:
                     task=f"Submit {utility} interconnection study request",
                     responsible_party="Developer",
                     timeline="Week 2-3",
-                    estimated_cost=5000,
+                    estimated_cost=None,
                     notes="Includes feasibility study, system impact study, facility study"
                 ),
                 PunchListItem(
@@ -327,7 +327,7 @@ class PunchListGenerator:
                     task=f"Obtain {utility} approval for protective relay coordination",
                     responsible_party="Engineer",
                     timeline="Week 4-6",
-                    estimated_cost=2000,
+                    estimated_cost=None,
                     notes="Critical for parallel generation"
                 ),
                 PunchListItem(
@@ -335,7 +335,7 @@ class PunchListGenerator:
                     task=f"Execute {utility} interconnection agreement",
                     responsible_party="Developer",
                     timeline="Week 6-8",
-                    estimated_cost=1000,
+                    estimated_cost=None,
                     notes="Final contractual agreement for grid connection"
                 ),
             ])
@@ -350,7 +350,7 @@ class PunchListGenerator:
                 task="Conduct environmental site assessment (Phase 1 ESA)",
                 responsible_party="Environmental Consultant",
                 timeline="Week 1-2",
-                estimated_cost=3000,
+                estimated_cost=None,
                 notes="Identify historical contamination risks"
             ),
             PunchListItem(
@@ -358,7 +358,7 @@ class PunchListGenerator:
                 task="Obtain surveys (topographic, boundary, environmental)",
                 responsible_party="Surveyor",
                 timeline="Week 1-2",
-                estimated_cost=4000,
+                estimated_cost=None,
                 notes="Essential for site plans and engineering"
             ),
             PunchListItem(
@@ -366,7 +366,7 @@ class PunchListGenerator:
                 task="Conduct geotechnical investigation",
                 responsible_party="Geotechnical Engineer",
                 timeline="Week 2-3",
-                estimated_cost=5000,
+                estimated_cost=None,
                 notes="Required for foundation design"
             ),
             PunchListItem(
@@ -374,7 +374,7 @@ class PunchListGenerator:
                 task="Notify public of project (if required by AHJ)",
                 responsible_party="Contractor",
                 timeline="Week 2-3",
-                estimated_cost=500,
+                estimated_cost=None,
                 notes="Typically required in newspapers or AHJ website"
             ),
             PunchListItem(
@@ -382,7 +382,7 @@ class PunchListGenerator:
                 task="Attend public hearing (if applicable)",
                 responsible_party="Developer",
                 timeline="Week 3-5",
-                estimated_cost=0,
+                estimated_cost=None,
                 notes="Address public comments and concerns"
             ),
         ]
@@ -395,7 +395,7 @@ class PunchListGenerator:
                 task="Obtain final permit approval from municipality",
                 responsible_party="Contractor",
                 timeline="Week 5-8",
-                estimated_cost=0,
+                estimated_cost=None,
                 notes="Resolution of any conditional requirements"
             ),
             PunchListItem(
@@ -403,7 +403,7 @@ class PunchListGenerator:
                 task="Schedule final inspection before construction start",
                 responsible_party="Contractor",
                 timeline="Week 7-9",
-                estimated_cost=0,
+                estimated_cost=None,
                 notes="AHJ final review and approval to begin work"
             ),
             PunchListItem(
@@ -411,7 +411,7 @@ class PunchListGenerator:
                 task="Obtain certificate of occupancy (if applicable)",
                 responsible_party="Contractor",
                 timeline="Week 10-12",
-                estimated_cost=500,
+                estimated_cost=None,
                 notes="Final sign-off for operational use"
             ),
         ]
@@ -457,22 +457,14 @@ class PunchListGenerator:
         return mapping.get(category, "Week 2-4")
     
     def _estimate_cost_for_action(self, category: str, action: str) -> Optional[float]:
-        """Estimate cost for specific action"""
-        cost_ranges = {
-            "wetlands": 5000,
-            "endangered_species": 3000,
-            "flood_zones": 500,
-            "noise_ordinances": 1500,
-            "nepa": 25000,
-            "state_requirements": 2000,
-        }
-        return cost_ranges.get(category, 1000)
+        """No invented professional-fee dollar. Confirm the line on the city schedule."""
+        _ = (category, action)
+        return None
     
     def _calculate_timeline(self, punch_list: List[PunchListItem]) -> str:
         """Calculate overall project timeline"""
         # Simplified - in production would build dependency graph
-        week_count = len(set(item.timeline for item in punch_list))
-        return f"{week_count}-{week_count + 4} weeks"
+        return "Confirm the review window with the AHJ. This list does not state a city clock."
     
     def _identify_critical_path(self, punch_list: List[PunchListItem]) -> List[Dict[str, Any]]:
         """Identify critical path tasks with citation metadata for the UI."""

@@ -177,7 +177,7 @@ async def _run_research_and_email(
                     "- Forward the Bid Risk Receipt — it flags AHJ + utility parallel-track risk.\n"
                     "- Planning exposure on killers is heuristic only (not guaranteed savings).\n"
                     "- Reg Guard does not run interconnection studies or file AHJ applications.\n"
-                    "- Strongest citeable coverage: Dallas / Plano / Austin TX.\n"
+                    "- Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth.\n"
                     "- IC Diligence Bundle ($1,500) is the counsel ZIP for one colo site.\n\n"
                 )
             else:
@@ -191,7 +191,7 @@ async def _run_research_and_email(
                     "- Contractor Pro ($149/mo) adds the City Pack, fee CSV, and bid packet.\n"
                     "- IC Diligence Bundle ($1,500) is the counsel ZIP for one site "
                     "(planning diligence — not an official AHJ filing).\n\n"
-                    "Strongest citeable coverage today: Dallas / Plano / Austin TX.\n"
+                    "Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth.\n"
                 )
             logger.info(
                 "Free trial light email (set FREE_TRIAL_HEAVY_EMAIL=1 for full digest path)"
