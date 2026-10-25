@@ -1,0 +1,53 @@
+{
+  "ahj_id": "san_antonio_tx",
+  "city": "San Antonio",
+  "state": "TX",
+  "zips": [
+    "78205",
+    "78207",
+    "78208",
+    "78209",
+    "78210",
+    "78212",
+    "78215"
+  ],
+  "aliases": [
+    "san antonio",
+    "sanantonio",
+    "city of san antonio"
+  ],
+  "portal_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+  "fees": [
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Commercial plan review and permit \u2014 valuation tables",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+      "citation_note": "FY 2027 Development Fee Schedule, revised October 2026. Commercial plan review and commercial permit fees follow valuation tables. Unless a line says otherwise, fees are subject to a 4% technological improvement surcharge and a 4% Development Services surcharge. This page does not state a permit total. Do not use the residential square-foot table on a commercial bid.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "san_antonio_not_residential_table",
+      "title": "Do not use the residential square-foot table on a commercial bid",
+      "checklist": [
+        "Commercial fees follow the valuation tables",
+        "SAWS fees are a separate section"
+      ],
+      "anti_patterns": [
+        "Using a new-home square-foot total as the commercial permit"
+      ],
+      "citation_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+      "severity": "CRITICAL"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough MEP inspections",
+    "Final building / electrical inspection"
+  ]
+}

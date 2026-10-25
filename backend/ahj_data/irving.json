@@ -18,11 +18,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on Irving fee schedule",
+      "label": "Commercial building permit \u2014 per square foot",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.cityofirving.org/353/Building-Inspections",
-      "citation_note": "Amount requires live Irving fee schedule. Do not invent dollars.",
+      "citation_url": "https://irvingtx.gov/gov-rates-fees",
+      "citation_note": "Ordinances 2025-11146 and 2025-11165. Commercial building permit is $0.45 per square foot of the area of work, $1,200 minimum. Plan review is additional. That rate is not a permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

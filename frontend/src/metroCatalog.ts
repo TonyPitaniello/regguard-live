@@ -61,11 +61,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Frisco TX permit fees & pre-bid gotchas',
     headline: 'Forwardable Bid Risk Receipt for Frisco AHJ work',
     bullets: [
-      'Screen Frisco permit path before you price the job',
-      'Citeable punch list when sources exist',
+      'Commercial building permit is 80% of the valuation table on the Oct 1, 2026 schedule. $300 is the application fee. $75 is the commercial reinspection, not the permit total.',
+      'Do not copy a Plano fee line onto a Frisco bid',
       'Forward the receipt. Sharing the free page does not unlock the clear percent',
     ],
-    feeNote: 'Confirm fees with Frisco Development Services before bid or filing.',
+    feeNote: 'Confirm the bracket on the City of Frisco consolidated fee schedule before bid or filing.',
   },
   {
     slug: 'fort-worth',
@@ -87,11 +87,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Round Rock TX permit fees & pre-bid gotchas',
     headline: 'Pre-bid diligence for Round Rock sites',
     bullets: [
-      'Screen AHJ risks before you price the job',
-      'City gotchas called out when citeable',
+      'Remodel, finish-out, and addition permits follow the valuation table in the August 2023 fees summary. Re-inspection on that summary is $75. The summary\'s example does not match its table, so no permit total is stated here.',
+      'Do not assume Austin Design Criteria',
       'Forwardable Bid Risk Receipt for the GC file',
     ],
-    feeNote: 'Confirm fees with Round Rock Planning & Development Services before bid.',
+    feeNote: 'Confirm the valuation bracket on the Round Rock Planning & Development Fees Summary before bid.',
   },
   {
     slug: 'arlington',
@@ -100,11 +100,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Arlington TX permit fees & pre-bid gotchas',
     headline: 'Bid-day CYA for Arlington AHJ work',
     bullets: [
-      'Confirm permit path and inspection timing',
+      'Commercial building permits and plan review follow the city fee schedule. Phase 2 took effect Oct 1, 2025. This page does not state a permit total.',
       'Source or Unverified on every punch line',
       'Planning aid — not a sealed bid',
     ],
-    feeNote: 'Confirm fees with City of Arlington before you lock contingency.',
+    feeNote: 'Open the current Planning and Development Services fee schedule before you lock contingency. This page does not state a permit total.',
   },
   {
     slug: 'irving',
@@ -113,11 +113,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Irving TX permit fees & pre-bid gotchas',
     headline: 'Forwardable receipt for Irving AHJ work',
     bullets: [
-      'Screen Irving permit risks before bid day',
-      'Citeable lines when official sources exist',
+      'Commercial building permit is $0.45 per square foot of the area of work, $1,200 minimum (Ordinances 2025-11146 and 2025-11165). Plan review is additional. That rate is not a permit total.',
+      'Do not copy a Dallas or Plano fee line onto an Irving bid',
       'Forward the receipt. Sharing the free page does not unlock the clear percent',
     ],
-    feeNote: 'Confirm fees with City of Irving before filing.',
+    feeNote: 'Confirm the square footage and plan-review line on the City of Irving rates page before filing.',
   },
   {
     slug: 'garland',
@@ -126,11 +126,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Garland TX permit fees & pre-bid gotchas',
     headline: 'Pre-bid punch list for Garland sites',
     bullets: [
-      'AHJ path and fee-type clarity (permit vs connection)',
+      'Commercial permit fee is a percent of valuation on the Building Permit page. Plan review is 40% of the permit fee, due at submittal, and Building Inspections permits carry a 4.5% technology surcharge. This page does not state a permit total.',
       'Source or Unverified labels',
       'Forward to GC before you submit the number',
     ],
-    feeNote: 'Confirm fees with City of Garland Building Inspection before bid.',
+    feeNote: 'Confirm the valuation bracket on the City of Garland Building Permit page before bid.',
   },
   {
     slug: 'mckinney',
@@ -139,11 +139,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'McKinney TX permit fees & pre-bid gotchas',
     headline: 'Bid-day CYA for McKinney AHJ work',
     bullets: [
-      'Confirm trade permit type early',
-      'City gotchas when citeable',
+      'Commercial permit fees are on the Permit Fees PDF linked from the city Fee Schedule page. This page does not state a permit total.',
+      'Do not copy a Plano or Frisco fee line onto a McKinney bid',
       'Planning aid — confirm with the AHJ',
     ],
-    feeNote: 'Confirm fees with McKinney Development Services before filing.',
+    feeNote: 'Open the Permit Fees PDF on the McKinney Fee Schedule page before filing. This page does not state a permit total.',
   },
   {
     slug: 'richardson',
@@ -152,11 +152,11 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Richardson TX permit fees & pre-bid gotchas',
     headline: 'Forwardable Bid Risk Receipt for Richardson sites',
     bullets: [
-      'Screen permit and inspection timing before you price',
+      'The permit fee schedule is the PDF linked from Building Inspection forms. This page does not state a permit total.',
       'Source or Unverified on every line',
       'Forward the receipt to the GC. The clear percent stays on Estimator',
     ],
-    feeNote: 'Confirm fees with City of Richardson before bid or filing.',
+    feeNote: 'Open the permit fee schedule PDF on the Richardson Building Inspection forms page before bid or filing.',
   },
   {
     slug: 'carrollton',
@@ -165,11 +165,37 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'Carrollton TX permit fees & pre-bid gotchas',
     headline: 'Pre-bid diligence for Carrollton AHJ work',
     bullets: [
-      'Confirm application type and fee path',
-      'Citeable punch list when sources exist',
+      'New commercial work is $6 per $1,000 of value, $125 minimum, on the Building Inspection fees page. $125 is the application fee. $50 is the re-inspection, not the permit total.',
+      'Do not use Plano or Dallas fee lines',
       'Not a quote — a Bid Risk Receipt',
     ],
-    feeNote: 'Confirm fees with City of Carrollton before you lock contingency.',
+    feeNote: 'Confirm the comprehensive fee schedule. The Building Inspection fees page says it is not the full schedule.',
+  },
+  {
+    slug: 'houston',
+    city: 'Houston',
+    state: 'TX',
+    title: 'Houston TX permit fees & pre-bid gotchas',
+    headline: 'Bid-day CYA for City of Houston work',
+    bullets: [
+      'Commercial building permit follows the 2026 valuation table on the Houston Permitting Center schedule. Plan review is 25% of the estimated building permit fee and is non-refundable. This page does not state a permit total.',
+      'Pasadena, Sugar Land, and The Woodlands are different schedules',
+      'Next step is Estimator ($79/mo). Forwarding this page does not unlock the clear percent',
+    ],
+    feeNote: 'City of Houston only. Confirm the valuation bracket on the 2026 Houston Permitting Center schedule before bid.',
+  },
+  {
+    slug: 'san-antonio',
+    city: 'San Antonio',
+    state: 'TX',
+    title: 'San Antonio TX permit fees & pre-bid gotchas',
+    headline: 'Bid-day CYA for San Antonio Development Services',
+    bullets: [
+      'Commercial plan review and permit fees follow the valuation tables in the FY 2027 Development Fee Schedule, revised October 2026. A 4% technology surcharge and a 4% Development Services surcharge apply unless a line says otherwise. This page does not state a permit total.',
+      'Do not use the residential square-foot table on a commercial bid',
+      'Next step is Estimator ($79/mo). The $1,500 bundle is for one capital site, not this page',
+    ],
+    feeNote: 'Confirm the valuation bracket on the FY 2027 Development Fee Schedule before bid. SAWS fees are a separate section.',
   },
 ];
 

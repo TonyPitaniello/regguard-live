@@ -17,11 +17,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on McKinney fee schedule",
+      "label": "Commercial permit fees",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.mckinneytexas.org/149/Building-Inspections",
-      "citation_note": "Amount requires live McKinney fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.mckinneytexas.org/258/Fee-Schedule",
+      "citation_note": "Commercial permit fees are on the Permit Fees PDF linked from the city Fee Schedule page. This page does not state a permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

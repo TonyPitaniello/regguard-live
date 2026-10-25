@@ -120,6 +120,8 @@ export default function PricingPage() {
             habit →{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
             counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth.
+            Fourteen city pages are live. A permit total is not printed when the schedule uses
+            valuation or floor area.
           </p>
         </div>
       </section>

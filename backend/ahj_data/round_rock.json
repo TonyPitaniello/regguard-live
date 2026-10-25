@@ -2,17 +2,25 @@
   "ahj_id": "round_rock_tx",
   "city": "Round Rock",
   "state": "TX",
-  "zips": ["78664", "78665", "78681"],
-  "aliases": ["round rock", "roundrock", "city of round rock"],
+  "zips": [
+    "78664",
+    "78665",
+    "78681"
+  ],
+  "aliases": [
+    "round rock",
+    "roundrock",
+    "city of round rock"
+  ],
   "fees": [
     {
       "id": "pds_fees_schedule",
       "trade": "electrical",
-      "label": "Planning & Development Services fees — confirm live schedule",
+      "label": "Remodel, finish-out, and addition permits \u2014 valuation table",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
-      "citation_note": "Amount requires live Round Rock fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.roundrocktexas.gov/wp-content/uploads/2025/11/pds-fees-summary.pdf",
+      "citation_note": "Planning & Development Fees Summary, updated August 2023. Those permits follow the valuation table. Re-inspection on that summary is $75. The summary's worked example does not match its own table, so no permit total is stated.",
       "verified": true,
       "amount_requires_schedule": true
     }
@@ -20,12 +28,14 @@
   "gotchas": [
     {
       "id": "rr_fee_schedule_recheck",
-      "title": "Fee schedule is not a fixed number — recheck before bid",
+      "title": "Fee schedule is not a fixed number \u2014 recheck before bid",
       "checklist": [
         "Pull current Round Rock Planning & Development Services fee schedule",
         "Do not copy Austin fee lines into a Round Rock bid"
       ],
-      "anti_patterns": ["Using Austin Design Criteria as Round Rock"],
+      "anti_patterns": [
+        "Using Austin Design Criteria as Round Rock"
+      ],
       "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
       "severity": "CRITICAL"
     },
@@ -36,7 +46,9 @@
         "Treat utility interconnection as parallel to Round Rock permits",
         "Build contingency for both clocks"
       ],
-      "anti_patterns": ["Assuming AHJ permit alone clears large-load path"],
+      "anti_patterns": [
+        "Assuming AHJ permit alone clears large-load path"
+      ],
       "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
       "severity": "CRITICAL"
     },
@@ -46,7 +58,9 @@
       "checklist": [
         "Verify Round Rock local amendments separately from Austin"
       ],
-      "anti_patterns": ["Bidding Austin Design Criteria as Round Rock"],
+      "anti_patterns": [
+        "Bidding Austin Design Criteria as Round Rock"
+      ],
       "citation_url": "https://www.roundrocktexas.gov/departments/planning-and-development-services/",
       "severity": "HIGH"
     }

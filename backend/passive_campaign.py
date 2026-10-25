@@ -114,8 +114,8 @@ COMMERCIAL_BULLETS: Dict[str, List[str]] = {
         "Next step is Estimator ($79/mo) for the clear percent. The $1,500 bundle is for one capital site, not this page.",
     ],
     "frisco": [
-        "Screen Frisco permit path before you price the job",
-        "Citeable punch list when sources exist",
+        "Commercial building permit is 80% of the valuation table on the Oct 1, 2026 schedule. $300 is the application fee. $75 is the commercial reinspection, not the permit total.",
+        "Do not copy a Plano fee line onto a Frisco bid",
         "Forward the receipt. Sharing the free page does not unlock the clear percent",
     ],
     "fort-worth": [
@@ -124,39 +124,49 @@ COMMERCIAL_BULLETS: Dict[str, List[str]] = {
         "Forward the receipt to your GC — planning aid, not a quote",
     ],
     "round-rock": [
-        "Screen AHJ risks before you price the job",
-        "City gotchas called out when citeable",
+        "Remodel, finish-out, and addition permits follow the valuation table in the August 2023 fees summary. Re-inspection on that summary is $75. The summary's example does not match its table, so no permit total is stated here.",
+        "Do not assume Austin Design Criteria",
         "Forwardable Bid Risk Receipt for the GC file",
     ],
     "arlington": [
-        "Confirm permit path and inspection timing",
+        "Commercial building permits and plan review follow the city fee schedule. Phase 2 took effect Oct 1, 2025. This page does not state a permit total.",
         "Source or Unverified on every punch line",
         "Planning aid — not a sealed bid",
     ],
     "irving": [
-        "Screen Irving permit risks before bid day",
-        "Citeable lines when official sources exist",
+        "Commercial building permit is $0.45 per square foot of the area of work, $1,200 minimum (Ordinances 2025-11146 and 2025-11165). Plan review is additional. That rate is not a permit total.",
+        "Do not copy a Dallas or Plano fee line onto an Irving bid",
         "Forward the receipt. Sharing the free page does not unlock the clear percent",
     ],
     "garland": [
-        "AHJ path and fee-type clarity (permit vs connection)",
+        "Commercial permit fee is a percent of valuation on the Building Permit page. Plan review is 40% of the permit fee, due at submittal, and Building Inspections permits carry a 4.5% technology surcharge. This page does not state a permit total.",
         "Source or Unverified labels",
         "Forward to GC before you submit the number",
     ],
     "mckinney": [
-        "Confirm trade permit type early",
-        "City gotchas when citeable",
+        "Commercial permit fees are on the Permit Fees PDF linked from the city Fee Schedule page. This page does not state a permit total.",
+        "Do not copy a Plano or Frisco fee line onto a McKinney bid",
         "Planning aid — confirm with the AHJ",
     ],
     "richardson": [
-        "Screen permit and inspection timing before you price",
+        "The permit fee schedule is the PDF linked from Building Inspection forms. This page does not state a permit total.",
         "Source or Unverified on every line",
         "Forward the receipt to the GC. The clear percent stays on Estimator",
     ],
     "carrollton": [
-        "Confirm application type and fee path",
-        "Citeable punch list when sources exist",
+        "New commercial work is $6 per $1,000 of value, $125 minimum, on the Building Inspection fees page. $125 is the application fee. $50 is the re-inspection, not the permit total.",
+        "Do not use Plano or Dallas fee lines",
         "Not a quote — a Bid Risk Receipt",
+    ],
+    "houston": [
+        "Commercial building permit follows the 2026 valuation table on the Houston Permitting Center schedule. Plan review is 25% of the estimated building permit fee and is non-refundable. This page does not state a permit total.",
+        "Pasadena, Sugar Land, and The Woodlands are different schedules",
+        "Next step is Estimator ($79/mo). Forwarding this page does not unlock the clear percent",
+    ],
+    "san-antonio": [
+        "Commercial plan review and permit fees follow the valuation tables in the FY 2027 Development Fee Schedule, revised October 2026. A 4% technology surcharge and a 4% Development Services surcharge apply unless a line says otherwise. This page does not state a permit total.",
+        "Do not use the residential square-foot table on a commercial bid",
+        "Next step is Estimator ($79/mo). The $1,500 bundle is for one capital site, not this page",
     ],
 }
 
@@ -278,6 +288,8 @@ def _sitemap_paths() -> List[str]:
                 "/mckinney-permit-fees",
                 "/richardson-permit-fees",
                 "/carrollton-permit-fees",
+                "/houston-permit-fees",
+                "/san-antonio-permit-fees",
             ]
         )
     seen = set()

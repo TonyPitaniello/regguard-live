@@ -16,11 +16,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on Richardson fee schedule",
+      "label": "Permit fee schedule",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.cor.net/departments/development-services/building-inspection",
-      "citation_note": "Amount requires live Richardson fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.cor.net/departments/building-inspection/pdf-forms",
+      "citation_note": "The permit fee schedule is linked from the Building Inspection PDF forms page. This page does not state a permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

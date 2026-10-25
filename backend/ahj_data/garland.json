@@ -17,11 +17,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on Garland fee schedule",
+      "label": "Commercial building permit \u2014 percent of valuation",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.garlandtx.gov/353/Building-Inspection",
-      "citation_note": "Amount requires live Garland fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.garlandtx.gov/2152/Building-Permit",
+      "citation_note": "The permit fee is a percent of project valuation. Plan review is 40% of the permit fee, due at submittal. Building Inspections permits also carry a 4.5% technology surcharge. This page does not state a permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

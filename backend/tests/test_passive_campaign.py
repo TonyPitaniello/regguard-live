@@ -35,6 +35,8 @@ def test_metros_cover_city_packs():
         "mckinney",
         "richardson",
         "carrollton",
+        "houston",
+        "san-antonio",
     ):
         assert expected in slugs, expected
     assert metro_by_slug("fort-worth-permit-fees")["city"] == "Fort Worth"
@@ -47,6 +49,15 @@ def test_metros_cover_city_packs():
     assert "Estimator" in dallas and "Estimator" in austin
     assert "$1,500" in austin and "not this page" in austin
     assert "sales force" not in irving.lower()
+    frisco_fees = " ".join(by_slug["frisco"]["fee_summary"]).lower()
+    irving_fees = " ".join(by_slug["irving"]["fee_summary"]).lower()
+    houston_fees = " ".join(by_slug["houston"]["fee_summary"]).lower()
+    sa_fees = " ".join(by_slug["san-antonio"]["fee_summary"]).lower()
+    assert "80%" in frisco_fees and "reinspection" in frisco_fees
+    assert "not the permit total" in frisco_fees
+    assert "$0.45" in irving_fees and "not a permit total" in irving_fees
+    assert "valuation" in houston_fees and "permit total" in houston_fees
+    assert "fy 2027" in sa_fees and "permit total" in sa_fees
     assert "reinspection" in plano_fees.lower()
     assert "$75" not in " ".join(
         bit for bit in by_slug["plano"]["fee_summary"] if "reinspection" not in bit.lower()

@@ -15,11 +15,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on Carrollton fee schedule",
+      "label": "New commercial permit \u2014 per $1,000 of value",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection",
-      "citation_note": "Amount requires live Carrollton fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.cityofcarrollton.com/departments/departments-a-f/building-inspection/fees",
+      "citation_note": "New commercial work, apartments, accessory additions, remodels, and finish-outs are $6 per $1,000 of value, $125 minimum. $125 is the nonrefundable application processing fee. $50 is the re-inspection, not the permit total. Impact fees are separate. The page says it is not the comprehensive fee schedule.",
       "verified": true,
       "amount_requires_schedule": true
     },

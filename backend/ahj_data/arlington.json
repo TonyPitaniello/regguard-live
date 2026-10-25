@@ -21,11 +21,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm on Arlington fee schedule",
+      "label": "Commercial building permit and plan review",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.arlingtontx.gov/city_hall/departments/planning_and_development_services",
-      "citation_note": "Amount requires live Arlington fee schedule. Do not invent dollars.",
+      "citation_url": "https://www.arlingtontx.gov/News-Articles/2025/September/Arlington-Implementing-Phased-Permit-Fee-Adjustments-in-2025",
+      "citation_note": "Phase 2 took effect Oct 1, 2025 and covers commercial building permits and plan review. The current schedule is the PDF linked from the city permits page. This page does not state a permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

@@ -141,6 +141,8 @@ export function AppRouter() {
           <Route path="/mckinney-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/richardson-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/carrollton-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/houston-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/san-antonio-permit-fees" element={<GeoPermitLandingPage />} />
 
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />

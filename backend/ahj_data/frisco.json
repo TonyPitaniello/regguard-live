@@ -16,11 +16,11 @@
     {
       "id": "building_permit_schedule",
       "trade": "building",
-      "label": "Building permit \u2014 confirm Frisco Building Inspections schedule",
+      "label": "Commercial building permit \u2014 80% of the valuation table",
       "amount_usd": null,
       "components": [],
-      "citation_url": "https://www.friscotexas.gov/292/Building-Inspections",
-      "citation_note": "Amount requires live Frisco fee schedule.",
+      "citation_url": "https://www.friscotexas.gov/DocumentCenter/View/864/Permit-Fee-Schedule-PDF",
+      "citation_note": "City of Frisco consolidated fee schedule, effective Oct 1, 2026. Commercial building permit is 80% of Table 1-A. $300 is the nonrefundable application fee. $75 is the commercial reinspection, not the permit total.",
       "verified": true,
       "amount_requires_schedule": true
     },

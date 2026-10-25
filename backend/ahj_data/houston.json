@@ -1,0 +1,54 @@
+{
+  "ahj_id": "houston_tx",
+  "city": "Houston",
+  "state": "TX",
+  "zips": [
+    "77002",
+    "77003",
+    "77004",
+    "77006",
+    "77007",
+    "77008",
+    "77009",
+    "77010",
+    "77019",
+    "77098"
+  ],
+  "aliases": [
+    "houston",
+    "city of houston"
+  ],
+  "portal_url": "https://www.houstonpermittingcenter.org/media/2636/download",
+  "fees": [
+    {
+      "id": "building_permit_schedule",
+      "trade": "building",
+      "label": "Commercial building permit \u2014 2026 valuation table",
+      "amount_usd": null,
+      "components": [],
+      "citation_url": "https://www.houstonpermittingcenter.org/media/2636/download",
+      "citation_note": "2026 Building Code Enforcement permit fee schedule. Commercial building permit follows the valuation table. Plan review is 25% of the estimated building permit fee and is non-refundable. A minimum permit fee and an administrative fee are separate lines. This page does not state a permit total. Pasadena, Sugar Land, and The Woodlands are different schedules.",
+      "verified": true,
+      "amount_requires_schedule": true
+    }
+  ],
+  "gotchas": [
+    {
+      "id": "houston_not_the_metro",
+      "title": "City of Houston is not the metro",
+      "checklist": [
+        "Do not use this table for Pasadena, Sugar Land, or The Woodlands"
+      ],
+      "anti_patterns": [
+        "Bidding a suburb on the City of Houston valuation table"
+      ],
+      "citation_url": "https://www.houstonpermittingcenter.org/media/2636/download",
+      "severity": "CRITICAL"
+    }
+  ],
+  "inspection_sequence": [
+    "Permit application / plan intake",
+    "Rough MEP inspections",
+    "Final building / electrical inspection"
+  ]
+}
