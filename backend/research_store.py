@@ -325,6 +325,12 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
     (Estimator / Pro paid for those). Never print FAIL.
     """
     out = public_analysis(analysis or {})
+    try:
+        from depth_ladder import clear_foreign_site_bundle_copy
+
+        out = clear_foreign_site_bundle_copy(out)
+    except Exception:
+        pass
     tier = share_ladder_tier(out)
     out["share_tier"] = tier
     _drop_receipt_debris(out)

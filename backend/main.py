@@ -2426,6 +2426,20 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     depth_tier=str(analysis.get("depth_tier") or DEPTH_PRO_LIGHT),
                     ic_pending=True,
                 )
+            if ic_site_blocked:
+                from depth_ladder import clear_foreign_site_bundle_copy
+
+                analysis = clear_foreign_site_bundle_copy(analysis)
+                message = str(analysis.get("depth_claim_note") or message)
+                try:
+                    from research_store import save_research as _save_bound
+
+                    _save_bound(
+                        analysis,
+                        research_id=str(analysis.get("research_id") or research_id),
+                    )
+                except Exception as save_err:
+                    logger.warning("Bound-site receipt save failed (non-blocking): %s", save_err)
         except Exception as ladder_err:
             logger.warning("Depth ladder stamp failed: %s", ladder_err)
 

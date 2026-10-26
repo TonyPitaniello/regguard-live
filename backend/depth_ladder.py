@@ -278,6 +278,48 @@ def stamp_ladder_access_offer(
     return analysis
 
 
+def clear_foreign_site_bundle_copy(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """This address is not the purchased counsel site. Do not call it the bundle."""
+    if not isinstance(analysis, dict) or analysis.get("ic_bundle_for_this_site") is not False:
+        return analysis
+    bound = str(analysis.get("ic_bound_site") or "the purchased site")
+    note = (
+        f"Counsel ZIP was not issued for this address. "
+        f"The IC order on this email is bound to {bound}."
+    )
+    analysis["depth_claim_note"] = note
+    analysis["ic_pdfs_ready"] = False
+    analysis["ic_package"] = False
+    badge = str(analysis.get("depth_badge") or "")
+    if "IC Diligence" in badge:
+        analysis["depth_badge"] = "Contractor Pro — paid local confirm"
+    analysis["upgrade_offer"] = {
+        "message": "Counsel ZIP stays on the purchased site",
+        "detail": note + " No new bundle was purchased for this address.",
+        "cta_label": None,
+        "cta_tier": None,
+        "secondary_cta_label": None,
+        "secondary_cta_tier": None,
+        "current_label": "This address",
+        "next_label": None,
+        "primary_once": True,
+        "honesty_note": "No new bundle was purchased for this address.",
+    }
+    delta = analysis.get("pro_delta")
+    if isinstance(delta, dict):
+        delta["bullets"] = [
+            b for b in (delta.get("bullets") or []) if "IC Diligence" not in str(b)
+        ]
+        if "IC Diligence" in str(delta.get("title") or ""):
+            delta["title"] = "What Contractor Pro added vs Free / Estimator"
+        honesty = str(delta.get("honesty") or "")
+        if "Diligence Bundle" in honesty:
+            delta["honesty"] = (
+                "More sources and deeper scout — not a guarantee fees match the live AHJ schedule."
+            )
+    return analysis
+
+
 def stamp_upgrade_offer(
     analysis: Dict[str, Any],
     *,
