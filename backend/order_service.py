@@ -737,7 +737,11 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
     site_project_type = (metadata.get("site_project_type") or "").strip()
     site_label = (metadata.get("site_label") or "").strip()
     if not site_label and site_address and site_city and site_state and site_zip:
-        site_label = f"{site_address}, {site_city}, {site_state} {site_zip}"
+        z = "".join(c for c in site_zip if c.isdigit())[:5]
+        if z and z in site_address:
+            site_label = site_address
+        else:
+            site_label = f"{site_address}, {site_city}, {site_state} {site_zip}"
     if site_address:
         order["site_address"] = site_address
     if site_city:
