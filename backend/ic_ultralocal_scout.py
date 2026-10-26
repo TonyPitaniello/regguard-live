@@ -91,6 +91,30 @@ def _qualified_other_city(text: str, city: str) -> bool:
     return False
 
 
+_PROMPT_LEAKS = (
+    "for each local amendment",
+    "in the digest",
+    "if scout results",
+    "use only resources that apply",
+    "add explicit",
+    "search results",
+    "county engineer",
+)
+
+
+def customer_line_blocked(text: str, city: str = "") -> bool:
+    """Scraped chrome, another city, or a prompt line does not belong on a receipt."""
+    raw = text or ""
+    if _excerpt_is_page_chrome(raw):
+        return True
+    low = raw.lower()
+    if any(marker in low for marker in _PROMPT_LEAKS):
+        return True
+    if city and _qualified_other_city(raw, city):
+        return True
+    return False
+
+
 def _excerpt_is_page_chrome(text: str) -> bool:
     raw = text or ""
     low = raw.lower()

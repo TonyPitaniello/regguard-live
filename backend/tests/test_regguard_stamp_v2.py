@@ -84,6 +84,19 @@ def test_stamp_stale_on_expiry():
     assert fresh["is_stale"] is True
 
 
+def test_pin_high_gis_cannot_stamp_clear():
+    stamp = build_regguard_stamp(
+        {
+            "coverage": {"tier": "full_pack", "badge": "Full city pack"},
+            "margin_killers": [],
+            "environmental_screening": {"risk_level": "HIGH"},
+            "contingency_band": {"pct_mid": 5},
+        }
+    )
+    assert stamp["grade"] == "CAUTION"
+    assert any("pin" in (d.get("label") or "").lower() for d in stamp["drivers"])
+
+
 def test_stamp_no_pass_on_thin_coverage():
     stamp = build_regguard_stamp(
         {

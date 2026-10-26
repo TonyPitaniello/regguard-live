@@ -94,6 +94,86 @@ def test_page_chrome_is_not_a_risk():
     assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
 
 
+def test_receipt_blocks_the_houston_scrape_lines():
+    from ic_ultralocal_scout import customer_line_blocked
+
+    assert customer_line_blocked(
+        "Permits / Inspection | South Houston, TX", "Houston"
+    )
+    assert customer_line_blocked(
+        "Office of the County Engineer > Services > Permits > FAQ", "Houston"
+    )
+    assert customer_line_blocked(
+        "[Skip to main content](https://www.houstontx.gov/) ![](https://www.google.com/images/cleardot.gif)",
+        "Houston",
+    )
+    assert customer_line_blocked(
+        "MANDATORY GOTCHA: For each local amendment in the digest, add explicit tasks.",
+        "Houston",
+    )
+    assert not customer_line_blocked(
+        "Commercial building permit — 2026 valuation table", "Houston"
+    )
+
+
+def test_public_share_drops_those_lines_and_softens_a_buffer_high():
+    from research_store import redact_for_public_share
+
+    out = redact_for_public_share(
+        {
+            "project_info": {"city": "Houston", "state": "TX", "zip": "77002"},
+            "research_depth": "ic",
+            "margin_killers": [
+                {
+                    "title": "[Local AHJ / fees] Permits / Inspection | South Houston, TX",
+                    "detail": "1018 Dallas St.",
+                    "priority": "MEDIUM",
+                },
+                {
+                    "title": "Valuation is not a permit total",
+                    "detail": "Plan review is extra.",
+                    "priority": "HIGH",
+                },
+            ],
+            "punch_list": {
+                "punch_list": [
+                    {
+                        "task": "MANDATORY GOTCHA: For each local amendment in the digest that is stricter than base NEC, add explicit tasks.",
+                        "priority": "HIGH",
+                    },
+                    {"task": "Confirm fees with Houston Permitting Center", "priority": "HIGH"},
+                ]
+            },
+            "environmental_screening": {
+                "risk_level": "HIGH",
+                "findings": [
+                    {
+                        "category": "wetlands",
+                        "risk_level": "HIGH",
+                        "verified": True,
+                        "description": "NWI wetlands feature intersects this map pin (or within ~120 m).",
+                    },
+                    {
+                        "category": "flood_zones",
+                        "risk_level": "LOW",
+                        "verified": True,
+                        "description": "FEMA NFHL at pin: zone X.",
+                    },
+                ],
+            },
+            "regguard_stamp": {"grade": "PASS", "drivers": []},
+            "stamp_grade": "PASS",
+            "coverage": {"tier": "full_pack", "badge": "Full city pack"},
+        }
+    )
+    titles = [k["title"] for k in out["margin_killers"]]
+    assert titles == ["Valuation is not a permit total"]
+    tasks = [p["task"] for p in out["punch_list"]["punch_list"]]
+    assert tasks == ["Confirm fees with Houston Permitting Center"]
+    assert out["environmental_screening"]["risk_level"] == "MEDIUM"
+    assert out["stamp_grade"] == "PASS"
+
+
 def test_houston_permitting_center_stays():
     k = _hit_to_killer(
         {

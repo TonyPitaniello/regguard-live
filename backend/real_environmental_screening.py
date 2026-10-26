@@ -81,6 +81,39 @@ def _finding_verified(finding: Any) -> bool:
     return getattr(finding, "verified", False) is True
 
 
+def soften_buffer_only_high(screening: Dict[str, Any]) -> Dict[str, Any]:
+    """A stored 'intersects or within 120 m' HIGH is a buffer, not a pin hit."""
+    if not isinstance(screening, dict):
+        return screening
+    findings = screening.get("findings") or []
+    if not isinstance(findings, list):
+        return screening
+    changed = False
+    out_findings = []
+    for row in findings:
+        if not isinstance(row, dict):
+            out_findings.append(row)
+            continue
+        desc = str(row.get("description") or "")
+        level = str(row.get("risk_level") or "").upper()
+        if level == "HIGH" and "or within" in desc.lower():
+            row = dict(row)
+            row["risk_level"] = "MEDIUM"
+            row["description"] = (
+                "No confirmed polygon on this map pin. A feature is within about 120 m. "
+                "Open the mapper before treating it as a site condition."
+            )
+            changed = True
+        out_findings.append(row)
+    if not changed:
+        return screening
+    out = dict(screening)
+    out["findings"] = out_findings
+    meta = calculate_overall_env_risk(out_findings)
+    out["risk_level"] = meta.get("risk_level") or out.get("risk_level")
+    return out
+
+
 def classify_pin_vs_buffer(*, point_hit: bool, buffer_hit: bool, any_success: bool):
     """Pin intersection is a site condition. A nearby polygon is a mapper check."""
     if point_hit:

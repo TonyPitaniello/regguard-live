@@ -94,6 +94,23 @@ def _drivers_and_grade(analysis: Dict[str, Any]) -> Tuple[str, List[Dict[str, st
     fail = False
     caution = False
 
+    env = analysis.get("environmental_screening") or {}
+    gis_level = str(env.get("risk_level") or "").upper()
+    if gis_level in ("HIGH", "CRITICAL"):
+        caution = True
+        reasons.append("Parcel GIS risk is high at this pin")
+        drivers.append(
+            {
+                "severity": "CAUTION",
+                "label": "Parcel GIS risk is high at this pin",
+                "detail": (
+                    "A verified flood, wetlands, or habitat polygon hits the pin. "
+                    "A feature only nearby is a mapper check and does not set this."
+                ),
+                "source_url": "",
+            }
+        )
+
     killers = [k for k in (analysis.get("margin_killers") or []) if isinstance(k, dict)]
     crit = [k for k in killers if str(k.get("priority") or "").upper() in ("CRITICAL", "CRIT")]
     if len(crit) >= 2:

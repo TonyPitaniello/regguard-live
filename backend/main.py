@@ -1810,6 +1810,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     habit_paid = bool(run_access["habit_paid"])
     pro_research = bool(run_access["pro_research"])
     force_scout_requested = bool(run_access["force_scout"])
+    ic_site_blocked = None
     paid = pro_research  # paid_local / deep path — NOT Estimator
     research_depth = "pro" if pro_research else ("partner" if habit_paid else "free")
 
@@ -1909,7 +1910,10 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
 
         # The IC order can land after the first entitlement read (checkout webhook).
         # Re-check immediately before research so the bundle run is full scout, not Pro light.
-        if bool(getattr(request_body, "generate_ic_report", False)):
+        want_ic_run = bool(getattr(request_body, "generate_ic_report", False)) or str(
+            getattr(request_body, "research_mode", None) or ""
+        ).strip().lower() == "ic"
+        if want_ic_run:
             latest_access = resolve_run_access(
                 email_for_ent,
                 research_mode=getattr(request_body, "research_mode", None),
@@ -1919,6 +1923,27 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                 force_scout_requested = True
                 pro_research = True
                 paid = True
+            try:
+                from ic_project_fulfillment import evaluate_ic_site_access
+
+                site_access = evaluate_ic_site_access(
+                    str(email_for_ent or ""),
+                    address=request_body.address,
+                    city=city,
+                    state=state,
+                    zip_code=zip_code,
+                )
+                if not site_access.get("allowed"):
+                    # The counsel ZIP stays on the purchased site. Do not label this address as that bundle.
+                    force_scout_requested = False
+                    ic_site_blocked = site_access
+                    from entitlement import has_pro_research_access
+
+                    if not has_pro_research_access(email_for_ent):
+                        pro_research = False
+                        paid = False
+            except Exception as site_err:
+                logger.warning("IC site check failed (non-blocking): %s", site_err)
 
         if pro_research:
             from pro_deep_analysis import run_pro_deep_analysis
@@ -1964,6 +1989,21 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                         f"Contractor Pro — paid local confirm "
                         f"({pl.get('pages_scraped', 0)}/{pl.get('pages_cap', 8)} pages)."
                     )
+            if ic_site_blocked and isinstance(analysis, dict):
+                bound = str(ic_site_blocked.get("bound_site") or "the purchased site")
+                analysis["ic_pdfs_ready"] = False
+                analysis["ic_bundle_for_this_site"] = False
+                analysis["ic_bound_site"] = bound
+                analysis["ic_package"] = False
+                if str(analysis.get("research_depth") or "").lower().startswith("ic"):
+                    analysis["research_depth"] = "pro"
+                if str(analysis.get("depth_tier") or "").lower().startswith("ic"):
+                    analysis["depth_tier"] = "pro"
+                analysis["depth_claim_note"] = (
+                    f"Counsel ZIP was not issued for this address. "
+                    f"The IC order on this email is bound to {bound}."
+                )
+                message = analysis["depth_claim_note"]
             research_depth = analysis.get("research_depth") or "pro"
         else:
             # Free + Estimator: same FinOps pack path. Estimator pays for habit unlocks
@@ -2364,8 +2404,10 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
             )
 
             if ic_pdfs_ready or (
-                paid and bool(getattr(request_body, "generate_ic_report", False))
+                paid
+                and bool(getattr(request_body, "generate_ic_report", False))
                 and str(analysis.get("scout_mode") or "") == "full"
+                and not ic_site_blocked
             ):
                 stamp_upgrade_offer(analysis, depth_tier=DEPTH_IC_FULL, ic_pending=ic_pending)
             elif not analysis.get("upgrade_offer"):
@@ -2417,8 +2459,11 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     zip_code=str(pi.get("zip") or ""),
                 )
                 tiers = [str(t).lower() for t in (summary.get("tiers") or [])]
-                if any(
-                    t in ("ic_project", "ic_consultant", "ic_annual", "sponsor") for t in tiers
+                if (
+                    not ic_site_blocked
+                    and any(
+                        t in ("ic_project", "ic_consultant", "ic_annual", "sponsor") for t in tiers
+                    )
                 ):
                     analysis["access_tier"] = "ic"
                 elif "contractor_pro" in tiers or pro_research:

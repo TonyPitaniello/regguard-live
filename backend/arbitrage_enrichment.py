@@ -171,6 +171,13 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
         key = (title or "")[:60].lower()
         if not title or key in seen or len(killers) >= limit:
             return
+        try:
+            from ic_ultralocal_scout import customer_line_blocked
+
+            if customer_line_blocked(title, city) or customer_line_blocked(detail or "", city):
+                return
+        except Exception:
+            pass
         seen.add(key)
         exposure = _planning_exposure_for_killer(
             title=title,

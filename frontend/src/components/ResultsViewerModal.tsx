@@ -252,6 +252,8 @@ export interface AnalysisData {
     drivers?: { critical_items?: number; high_items?: number; unverified_items?: number };
   };
   /** Premortem honesty: full_pack | portal_seed | federal_state */
+  ic_bundle_for_this_site?: boolean;
+  ic_bound_site?: string;
   coverage?: {
     tier?: string;
     badge?: string;

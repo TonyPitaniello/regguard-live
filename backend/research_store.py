@@ -327,8 +327,39 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
     out = public_analysis(analysis or {})
     tier = share_ladder_tier(out)
     out["share_tier"] = tier
+    _drop_receipt_debris(out)
+    try:
+        from real_environmental_screening import soften_buffer_only_high
+
+        env = out.get("environmental_screening")
+        if isinstance(env, dict):
+            out["environmental_screening"] = soften_buffer_only_high(env)
+    except Exception:
+        pass
 
     rg = out.get("regguard_stamp")
+    env_level = str((out.get("environmental_screening") or {}).get("risk_level") or "").upper()
+    if isinstance(rg, dict) and env_level in ("HIGH", "CRITICAL"):
+        grade_now = str(rg.get("grade") or out.get("stamp_grade") or "").upper()
+        if grade_now in ("", "PASS", "CLEAR"):
+            rg["grade"] = "CAUTION"
+            rg["display_grade"] = "CAUTION"
+            rg["headline"] = (
+                "Parcel GIS risk is high at this pin — confirm the polygon before you treat the site as clear."
+            )
+            rg["label"] = "REGGUARD STAMP: CAUTION — review before bid"
+            drivers = [d for d in (rg.get("drivers") or []) if isinstance(d, dict)]
+            drivers.insert(
+                0,
+                {
+                    "severity": "CAUTION",
+                    "label": "Parcel GIS risk is high at this pin",
+                    "detail": "A verified flood, wetlands, or habitat polygon hits the pin.",
+                },
+            )
+            rg["drivers"] = drivers[:3]
+            out["stamp_grade"] = "CAUTION"
+            out["stamp_label"] = rg["label"]
     if isinstance(rg, dict):
         grade = str(rg.get("grade") or "").upper()
         if grade == "FAIL":
@@ -392,6 +423,45 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
             punch["punch_list"] = punch["punch_list"][:5]
             punch["habit_unlocked"] = False
     return out
+
+
+def _drop_receipt_debris(out: Dict[str, Any]) -> None:
+    """Wrong-city scrapes and prompt lines never stay on a forwarded receipt."""
+    try:
+        from ic_ultralocal_scout import customer_line_blocked
+    except Exception:
+        return
+    pi = out.get("project_info") if isinstance(out.get("project_info"), dict) else {}
+    city = str(pi.get("city") or "")
+
+    def _blocked(text: Any) -> bool:
+        return customer_line_blocked(str(text or ""), city)
+
+    killers = out.get("margin_killers")
+    if isinstance(killers, list):
+        out["margin_killers"] = [
+            k
+            for k in killers
+            if isinstance(k, dict)
+            and not _blocked(k.get("title"))
+            and not _blocked(k.get("detail"))
+        ]
+    gotcha = out.get("gotcha_watchlist")
+    if isinstance(gotcha, dict) and isinstance(gotcha.get("items"), list):
+        gotcha["items"] = [
+            g
+            for g in gotcha["items"]
+            if isinstance(g, dict)
+            and not _blocked(g.get("title"))
+            and not _blocked(g.get("detail"))
+        ]
+    punch = out.get("punch_list")
+    if isinstance(punch, dict) and isinstance(punch.get("punch_list"), list):
+        punch["punch_list"] = [
+            item
+            for item in punch["punch_list"]
+            if not isinstance(item, dict) or not _blocked(item.get("task"))
+        ]
 
 
 def _share_line_is_debris(label: str) -> bool:

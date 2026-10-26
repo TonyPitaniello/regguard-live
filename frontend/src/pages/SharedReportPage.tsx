@@ -328,6 +328,12 @@ export default function SharedReportPage() {
             .slice(0, 10)}
           . Fees and portal asks move.
         </p>
+        {analysis.ic_bundle_for_this_site === false && analysis.ic_bound_site ? (
+          <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
+            Counsel ZIP was not issued for this address. The IC order on this email is bound to{' '}
+            {analysis.ic_bound_site}.
+          </p>
+        ) : null}
         {!citeablePack && (
           <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
             No full city pack is on file for this site. Confirm every line with the AHJ before you
