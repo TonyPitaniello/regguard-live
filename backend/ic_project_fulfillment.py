@@ -49,18 +49,24 @@ def site_fingerprint(
     return f"{street}|{z}|{st}"
 
 
+def stored_site_zip(order: Dict[str, Any]) -> str:
+    """Postal ZIP written on the counsel order. A checkout label is not this field."""
+    if not isinstance(order, dict):
+        return ""
+    return "".join(c for c in str(order.get("site_zip") or "") if c.isdigit())[:5]
+
+
 def order_site_fingerprint(order: Dict[str, Any]) -> str:
     if not isinstance(order, dict):
         return ""
     addr = str(order.get("site_address") or "").strip()
     city = str(order.get("site_city") or "").strip()
     state = str(order.get("site_state") or "").strip()
-    zip_code = str(order.get("site_zip") or "").strip()
-    if not addr:
-        # Fulfill historically stored full line in order["address"]
+    zip_code = stored_site_zip(order)
+    if not addr or not zip_code:
+        # Older orders stored only "street, city, ST ZIP" on the label.
         raw = str(order.get("address") or order.get("site_label") or "").strip()
         if raw:
-            # Prefer parsing "street, city, ST ZIP"
             import re
 
             m = re.match(
@@ -68,13 +74,12 @@ def order_site_fingerprint(order: Dict[str, Any]) -> str:
                 raw,
             )
             if m:
-                return site_fingerprint(
-                    address=m.group(1),
-                    city=m.group(2),
-                    state=m.group(3),
-                    zip_code=m.group(4),
-                )
-            return site_fingerprint(address=raw)
+                addr = addr or m.group(1)
+                city = city or m.group(2)
+                state = state or m.group(3)
+                zip_code = zip_code or m.group(4)
+            elif not addr:
+                addr = raw
     return site_fingerprint(address=addr, city=city, state=state, zip_code=zip_code)
 
 
@@ -136,24 +141,31 @@ def evaluate_ic_site_access(
                 ),
             }
 
-    # Unused IC Project (PDFs not ready) — bind this address once
+    # Unused IC Project (PDFs not ready) — bind this address once.
+    # A ready order with no stored site ZIP is the same case: the checkout label
+    # is not the location ZIP. The counsel ZIP is the ZIP just entered.
+    entered_zip = "".join(c for c in str(zip_code or "") if c.isdigit())[:5]
     for o in orders:
         tier = normalize_tier(str(o.get("tier") or ""))
         if tier not in ("ic_project", "ic_consultant"):
             continue
-        if not pdfs_are_ready(o.get("pdfs")):
-            return {
-                "allowed": True,
-                "mode": "bind_unused",
-                "order_id": str(o.get("order_id") or o.get("id") or "") or None,
-                "bound_site": "",
-                "site_fingerprint": fp,
-                "message": (
-                    f"OK uses your $1,500 IC Diligence Bundle for THIS address only:\n\n{site_label}\n\n"
-                    "Additional sites require a new $1,500 purchase. Cancel researches without "
-                    "the counsel ZIP. Reg Guard does not store your credit card."
-                ),
-            }
+        if pdfs_are_ready(o.get("pdfs")) and stored_site_zip(o):
+            continue
+        if pdfs_are_ready(o.get("pdfs")) and not entered_zip:
+            continue
+        return {
+            "allowed": True,
+            "mode": "bind_unused",
+            "order_id": str(o.get("order_id") or o.get("id") or "") or None,
+            "bound_site": "",
+            "site_fingerprint": fp,
+            "message": (
+                f"OK uses your $1,500 IC Diligence Bundle for THIS address only:\n\n{site_label}\n\n"
+                f"The counsel ZIP is {entered_zip or 'the ZIP on this location'}. "
+                "Additional sites require a new $1,500 purchase. Cancel researches without "
+                "the counsel ZIP. Reg Guard does not store your credit card."
+            ),
+        }
 
     # Same-site refresh
     if fp and fp != "||":
@@ -617,7 +629,15 @@ async def fulfill_ic_project_artifacts(
     site_addr = str(pi.get("address") or "").strip()
     site_city = str(pi.get("city") or "").strip()
     site_state = str(pi.get("state") or "").strip()
-    site_zip = str(pi.get("zip") or "").strip()
+    site_zip = "".join(c for c in str(pi.get("zip") or "") if c.isdigit())[:5]
+    if not site_zip:
+        import re
+
+        found = re.search(r"\b(\d{5})(?:-\d{4})?\b", site_addr)
+        if found:
+            site_zip = found.group(1)
+    if isinstance(pi, dict) and site_zip:
+        pi["zip"] = site_zip
 
     access = evaluate_ic_site_access(
         email_l,

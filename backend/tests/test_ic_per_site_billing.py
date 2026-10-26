@@ -133,6 +133,82 @@ def test_ic_annual_allows_new_site(monkeypatch):
     assert access["mode"] == "annual"
 
 
+def test_label_only_order_binds_the_entered_location_zip(monkeypatch):
+    """A checkout label is not a stored site ZIP. The counsel ZIP is the ZIP entered."""
+    ready_pdfs = [
+        {
+            "type": "ic_package",
+            "name": "IC Diligence Package",
+            "url": "https://api.example/orders/ord-1/pdfs/ic_package",
+            "status": "ready",
+        }
+    ]
+    orders = [
+        _order(
+            pdfs=ready_pdfs,
+            site_zip="",
+            site_label="2300 Chelsea Blvd, Allen, TX 75013",
+            address="2300 Chelsea Blvd, Allen, TX 75013",
+        )
+    ]
+    monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
+    access = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="1000 Louisiana Street",
+        city="Houston",
+        state="TX",
+        zip_code="77002",
+    )
+    assert access["allowed"] is True
+    assert access["mode"] == "bind_unused"
+    assert "77002" in access["message"]
+
+
+def test_stored_site_zip_still_blocks_a_different_zip(monkeypatch):
+    ready_pdfs = [
+        {
+            "type": "ic_package",
+            "name": "IC Diligence Package",
+            "url": "https://api.example/orders/ord-1/pdfs/ic_package",
+            "status": "ready",
+        }
+    ]
+    orders = [
+        _order(
+            pdfs=ready_pdfs,
+            site_address="1000 Louisiana Street",
+            site_city="Houston",
+            site_state="TX",
+            site_zip="77002",
+            site_label="1000 Louisiana Street, Houston, TX 77002",
+        )
+    ]
+    monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
+    other = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="2300 Chelsea Blvd",
+        city="Allen",
+        state="TX",
+        zip_code="75013",
+    )
+    assert other["allowed"] is False
+    assert other["mode"] == "need_purchase"
+
+
+def test_fingerprint_uses_stored_site_zip_not_stale_label():
+    o = _order(
+        site_address="1000 Louisiana Street",
+        site_city="Houston",
+        site_state="TX",
+        site_zip="77002",
+        site_label="2300 Chelsea Blvd, Allen, TX 75013",
+        address="2300 Chelsea Blvd, Allen, TX 75013",
+    )
+    fp = order_site_fingerprint(o)
+    assert "77002" in fp
+    assert "75013" not in fp
+
+
 def test_order_site_fingerprint_from_address_line():
     o = _order(address="9999 Chapin School Road, Fort Worth, TX 76126")
     fp = order_site_fingerprint(o)
