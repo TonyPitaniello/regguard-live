@@ -366,6 +366,9 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
                 if not isinstance(row, dict):
                     continue
                 row = dict(row)
+                label = str(row.get("label") or "")
+                if _share_line_is_debris(label):
+                    continue
                 row.pop("amount_usd", None)
                 row["amount_redacted"] = True
                 stripped.append(row)
@@ -374,10 +377,37 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
             fee["amounts_redacted"] = True
 
     punch = out.get("punch_list")
-    if tier == "free" and isinstance(punch, dict) and isinstance(punch.get("punch_list"), list):
-        punch["punch_list"] = punch["punch_list"][:5]
-        punch["habit_unlocked"] = False
+    if isinstance(punch, dict) and isinstance(punch.get("punch_list"), list):
+        kept_items = []
+        for item in punch["punch_list"]:
+            if not isinstance(item, dict):
+                kept_items.append(item)
+                continue
+            task = str(item.get("task") or "")
+            if _share_line_is_debris(task):
+                continue
+            kept_items.append(item)
+        punch["punch_list"] = kept_items
+        if tier == "free":
+            punch["punch_list"] = punch["punch_list"][:5]
+            punch["habit_unlocked"] = False
     return out
+
+
+def _share_line_is_debris(label: str) -> bool:
+    """True when a line is PDF bytes, including a readable prefix glued to a stray $7."""
+    raw = label or ""
+    weird = sum(1 for c in raw if ord(c) > 126)
+    if weird >= 3:
+        return True
+    if "$" not in raw:
+        return False
+    try:
+        from cheap_page_confirm import _readable_fee_label
+
+        return not _readable_fee_label(raw)
+    except Exception:
+        return False
 
 
 def _file_path(research_id: str) -> Path:

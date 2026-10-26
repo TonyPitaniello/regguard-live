@@ -23,6 +23,58 @@ FIXTURE_HTML = """
 """
 
 
+def test_regex_drops_a_dollar_buried_in_pdf_debris():
+    from cheap_page_confirm import _regex_fee_rows
+
+    debris = "u\u07cboa\ufffd>\ufffdf\u03e4\ufffd\ufffd\ufffd $7\nElectrical permit base fee $75.00"
+    rows = _regex_fee_rows(debris, "https://www.houstonpermittingcenter.org/media/2636/download")
+    assert [r.get("amount_usd") for r in rows] == [75.0]
+
+
+def test_pdf_schedule_is_not_read_as_html():
+    from cheap_page_confirm import _is_schedule_file
+
+    assert _is_schedule_file(
+        "https://www.houstonpermittingcenter.org/media/2636/download",
+        "application/pdf",
+        b"%PDF-1.7 junk $7",
+    )
+    assert not _is_schedule_file(
+        "https://www.plano.gov/fees",
+        "text/html",
+        b"<html><p>Electrical permit base fee $75</p></html>",
+    )
+
+
+def test_public_share_drops_the_stray_dollar_line():
+    from research_store import redact_for_public_share
+
+    debris = "u\u07cboa\ufffd>\ufffdf\u03e4 (~$7)"
+    out = redact_for_public_share(
+        {
+            "research_depth": "free",
+            "fee_card": {
+                "fees": [
+                    {"label": "Commercial building permit — 2026 valuation table", "amount_usd": None},
+                    {"label": debris, "amount_usd": 7},
+                ]
+            },
+            "punch_list": {
+                "punch_list": [
+                    {"task": "City of Houston is not the metro", "estimated_cost": 0},
+                    {"task": f"Confirm AHJ fee extract: {debris}", "estimated_cost": 7},
+                ]
+            },
+        }
+    )
+    labels = [row.get("label") for row in out["fee_card"]["fees"]]
+    tasks = [row.get("task") for row in out["punch_list"]["punch_list"]]
+    assert debris not in labels
+    assert any("valuation table" in (label or "") for label in labels)
+    assert all("$7" not in (task or "") for task in tasks)
+    assert any("Houston" in (task or "") for task in tasks)
+
+
 def test_clean_and_markdown_extract_fees():
     from cheap_page_confirm import clean_html, html_to_markdown, _regex_fee_rows
 

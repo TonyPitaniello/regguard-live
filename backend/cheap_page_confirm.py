@@ -99,8 +99,36 @@ def url_allowed_for_cheap_confirm(
     return False
 
 
+def _is_schedule_file(url: str, content_type: str, body: bytes) -> bool:
+    """A fee PDF is not an HTML page. Reading it as text invents dollars."""
+    if (body or b"")[:5] == b"%PDF-":
+        return True
+    if "pdf" in (content_type or "").lower():
+        return True
+    path = (url or "").lower().split("?", 1)[0]
+    return path.endswith(".pdf")
+
+
+def _readable_fee_label(label: str) -> bool:
+    """A fee line needs real words. Binary PDF debris is not a fee."""
+    text = " ".join((label or "").split())
+    if len(text) < 8:
+        return False
+    letters = sum(1 for c in text if c.isalpha())
+    if letters < 8:
+        return False
+    weird = sum(
+        1
+        for c in text
+        if ord(c) > 126 or (not c.isalnum() and c not in " $.,:;+%/'-()&")
+    )
+    if weird / len(text) > 0.15:
+        return False
+    return len(re.findall(r"[A-Za-z]{3,}", text)) >= 2
+
+
 def fetch_page(url: str, *, timeout: Optional[float] = None) -> str:
-    """Download raw HTML."""
+    """Download raw HTML. A PDF schedule returns empty so no dollar is parsed from it."""
     t = timeout if timeout is not None else _timeout_sec()
     resp = requests.get(
         url,
@@ -109,6 +137,9 @@ def fetch_page(url: str, *, timeout: Optional[float] = None) -> str:
         allow_redirects=True,
     )
     resp.raise_for_status()
+    body = resp.content or b""
+    if _is_schedule_file(url, resp.headers.get("Content-Type") or "", body):
+        return ""
     return resp.text or ""
 
 
@@ -274,6 +305,8 @@ def _regex_fee_rows(markdown: str, source_url: str) -> List[Dict[str, Any]]:
             continue
         label = re.sub(r"[#*_`]+", "", m.group("label")).strip(" :-|") or "Fee line"
         if amt <= 0 or amt > 5_000_000:
+            continue
+        if not _readable_fee_label(label):
             continue
         rows.append(
             {
