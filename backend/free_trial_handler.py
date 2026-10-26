@@ -182,7 +182,7 @@ async def _run_research_and_email(
                 )
             else:
                 combined_memo += (
-                    "Tips for DFW / Austin bids:\n"
+                    "Tips before you bid:\n"
                     "- Forward the preview — HOLD and top risks. The clear contingency stays on Estimator.\n"
                     "- A fee dollar prints only when the city schedule states it. The clear percent stays on Estimator.\n"
                     "- Every punch line shows a Source link or Unverified — forward only what you can defend.\n"
@@ -192,6 +192,7 @@ async def _run_research_and_email(
                     "- IC Diligence Bundle ($1,500) is the counsel ZIP for one site "
                     "(planning diligence — not an official AHJ filing).\n\n"
                     "Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth.\n"
+                    "Houston and San Antonio pages name the city schedule and do not print a permit total.\n"
                 )
             logger.info(
                 "Free trial light email (set FREE_TRIAL_HEAVY_EMAIL=1 for full digest path)"

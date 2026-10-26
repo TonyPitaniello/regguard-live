@@ -148,7 +148,7 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
     _body(pdf, "Lead magnet. Soft-locked preview of the Bid Risk Receipt structure.", bold=True)
     pdf.ln(1)
     for line in (
-        "Site lookup on a US address (DFW / Austin strongest citeable coverage)",
+        "Site lookup on a US address (deepest packs: Dallas, Plano, Austin, Fort Worth)",
         "Top punch-list actions (soft-locked preview — top ~5 lines)",
         "Source or Unverified on every visible line",
         "Text or email the HOLD. Forwarding does not unlock the punch or the clear percent",

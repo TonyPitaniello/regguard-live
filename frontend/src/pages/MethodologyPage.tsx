@@ -233,7 +233,7 @@ export default function MethodologyPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>
-                  <span>Nationwide full-pack depth (DFW / Austin beachhead first)</span>
+                  <span>Full-pack depth outside Dallas, Plano, Austin, and Fort Worth</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>

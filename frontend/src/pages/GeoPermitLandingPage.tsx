@@ -34,6 +34,13 @@ function honestFeeLines(lines: string[] | undefined): string[] {
   });
 }
 
+function shelfLabel(slug: string): string {
+  if (slug === 'houston') return 'City of Houston';
+  if (slug === 'san-antonio') return 'City of San Antonio';
+  if (slug === 'austin' || slug === 'round-rock') return 'Austin area';
+  return 'Dallas–Fort Worth';
+}
+
 function runLookupPath(metro: MetroLanding, ctaPath?: string) {
   if (ctaPath) return ctaPath;
   return `/?city=${encodeURIComponent(metro.city)}&state=${encodeURIComponent(metro.state)}&utm_source=seo&utm_medium=organic&utm_campaign=metro_${metro.slug}&utm_content=permit-fees#free-trial-form`;
@@ -44,8 +51,8 @@ function MetroHub() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <SeoHead
-        title="Texas metro permit fees — DFW & Austin Bid Risk Receipts | Reg Guard"
-        description="Pre-bid permit diligence for Plano, Dallas, Austin, Fort Worth, Frisco and more. Forwardable Bid Risk Receipt — planning aid, not a quote."
+        title="Texas permit fees by city | Reg Guard"
+        description="Pre-bid permit pages for Dallas, Plano, Austin, Fort Worth, Houston, and San Antonio. A permit total is not printed when the fee depends on valuation or floor area."
         canonical="https://app.regguardagent.com/permit-fees"
       />
       <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20">
@@ -61,7 +68,7 @@ function MetroHub() {
         </div>
       </header>
       <section className="px-4 py-14 max-w-3xl mx-auto">
-        <p className="text-emerald-400 text-sm font-semibold mb-2">Passive beachhead · DFW / Austin</p>
+        <p className="text-emerald-400 text-sm font-semibold mb-2">Fourteen city pages · no permit total from a valuation table</p>
         <h1 className="text-4xl font-black text-white mb-4">Permit fees &amp; bid-day gotchas by city</h1>
         <p className="text-lg text-gray-300 mb-8">
           Built for estimators and permit runners. Run an address, forward the Bid Risk Receipt.
@@ -170,7 +177,7 @@ export default function GeoPermitLandingPage() {
       </header>
 
       <section className="px-4 py-14 max-w-2xl mx-auto">
-        <p className="text-emerald-400 text-sm font-semibold mb-2">DFW / Austin beachhead</p>
+        <p className="text-emerald-400 text-sm font-semibold mb-2">{shelfLabel(local.slug)}</p>
         <h1 className="text-4xl font-black text-white mb-4">{data.title}</h1>
         <p className="text-xl text-gray-300 mb-8">{data.headline}</p>
 

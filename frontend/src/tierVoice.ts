@@ -65,7 +65,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'Permit runners and estimators screening client sites every week.',
     pain: 'The GC asks “send me something I can put in the bid file” — and all you’ve got is a chat dump and half a punch list.',
     promise:
-      'Your client-site habit: full Bid Risk Receipt PDF, unlocked punch (owner · due · Source or Unverified), and Saved Jobs with reminders — strongest in DFW / Austin.',
+      'Your client-site habit: full Bid Risk Receipt PDF, unlocked punch (owner · due · Source or Unverified), and Saved Jobs with reminders. The deepest packs are Dallas, Plano, Austin, and Fort Worth.',
     proof: 'One tap: forward the Receipt. Punch stays unlocked when you reopen the job.',
     vsBelow: 'Free proved bid-or-walk. Estimator makes it a weekly habit.',
     notThis: 'Not fee/punch CSV, not Full City Pack PDF, not deep scout every lookup, not counsel Word/Excel.',
