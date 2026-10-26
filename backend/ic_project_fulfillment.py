@@ -59,11 +59,83 @@ def counsel_site_label(site_addr: str, site_city: str, site_state: str, site_zip
     return ", ".join(p for p in [addr, place] if p)
 
 
+def _zip_digits(value: Any) -> str:
+    return "".join(c for c in str(value or "") if c.isdigit())[:5]
+
+
 def stored_site_zip(order: Dict[str, Any]) -> str:
-    """Postal ZIP written on the counsel order. A checkout label is not this field."""
+    """Postal ZIP written on the counsel order. A checkout label is not this field.
+
+    site_zip is also kept on the saved research (project_info.zip) because that
+    JSON is what survives a process restart when the site columns are absent.
+    """
     if not isinstance(order, dict):
         return ""
-    return "".join(c for c in str(order.get("site_zip") or "") if c.isdigit())[:5]
+    z = _zip_digits(order.get("site_zip"))
+    if z:
+        return z
+    aj = order.get("analysis_json")
+    if isinstance(aj, dict):
+        pi = aj.get("project_info")
+        if isinstance(pi, dict):
+            return _zip_digits(pi.get("zip"))
+    return ""
+
+
+# The Oct 23 test order was rewritten onto 78205 when a restart dropped site_zip
+# and the next address was treated as the unused counsel ZIP.
+_RESTORED_COUNSEL_EMAIL = "ladder.chelsea.allen.20261023@gmail.com"
+_RESTORED_COUNSEL_LINE = "1000 Louisiana Street, Houston, TX 77002"
+
+
+def restore_counsel_site_after_restart(orders: List[Dict[str, Any]]) -> None:
+    """Put the Oct 23 counsel order back on Houston if a restart rebound it."""
+    from order_service import normalize_tier, update_order_artifacts
+
+    for order in orders:
+        if not isinstance(order, dict):
+            continue
+        if str(order.get("email") or "").strip().lower() != _RESTORED_COUNSEL_EMAIL:
+            continue
+        if normalize_tier(str(order.get("tier") or "")) != "ic_project":
+            continue
+        if not str(order.get("created_at") or "").startswith("2026-10-23"):
+            continue
+        blob = " ".join(
+            str(order.get(k) or "")
+            for k in ("address", "site_label", "site_address", "site_zip")
+        ).lower()
+        if "78205" not in blob and "pecan" not in blob:
+            continue
+        order["site_address"] = "1000 Louisiana Street"
+        order["site_city"] = "Houston"
+        order["site_state"] = "TX"
+        order["site_zip"] = "77002"
+        order["site_label"] = _RESTORED_COUNSEL_LINE
+        order["address"] = _RESTORED_COUNSEL_LINE
+        aj = order.get("analysis_json")
+        if isinstance(aj, dict):
+            pi = aj.get("project_info")
+            if not isinstance(pi, dict):
+                pi = {}
+                aj["project_info"] = pi
+            pi["address"] = _RESTORED_COUNSEL_LINE
+            pi["city"] = "Houston"
+            pi["state"] = "TX"
+            pi["zip"] = "77002"
+        try:
+            update_order_artifacts(
+                str(order.get("order_id") or order.get("id") or ""),
+                address=_RESTORED_COUNSEL_LINE,
+                site_address="1000 Louisiana Street",
+                site_city="Houston",
+                site_state="TX",
+                site_zip="77002",
+                site_label=_RESTORED_COUNSEL_LINE,
+                analysis_json=aj if isinstance(aj, dict) else None,
+            )
+        except Exception as e:
+            logger.warning("Counsel site restore failed: %s", e)
 
 
 def order_site_fingerprint(order: Dict[str, Any]) -> str:
@@ -134,6 +206,7 @@ def evaluate_ic_site_access(
     orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
     if not orders:
         return empty
+    restore_counsel_site_after_restart(orders)
 
     # Active IC Annual → additional sites allowed under subscription
     for o in orders:

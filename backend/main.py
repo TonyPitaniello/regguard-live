@@ -1989,6 +1989,28 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                         f"Contractor Pro — paid local confirm "
                         f"({pl.get('pages_scraped', 0)}/{pl.get('pages_cap', 8)} pages)."
                     )
+            if (
+                pro_research
+                and isinstance(analysis, dict)
+                and not ic_site_blocked
+            ):
+                try:
+                    from ic_project_fulfillment import evaluate_ic_site_access
+
+                    paid_site = evaluate_ic_site_access(
+                        str(email_for_ent or ""),
+                        address=request_body.address,
+                        city=city,
+                        state=state,
+                        zip_code=zip_code,
+                    )
+                    if paid_site.get("mode") == "need_purchase" and str(
+                        paid_site.get("bound_site") or ""
+                    ).strip():
+                        ic_site_blocked = paid_site
+                except Exception as site_err:
+                    logger.warning("Paid site check failed (non-blocking): %s", site_err)
+
             if ic_site_blocked and isinstance(analysis, dict):
                 bound = str(ic_site_blocked.get("bound_site") or "the purchased site")
                 analysis["ic_pdfs_ready"] = False

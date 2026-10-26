@@ -94,6 +94,19 @@ def test_page_chrome_is_not_a_risk():
     assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
 
 
+def test_alamo_heights_link_is_dropped_from_the_writeup():
+    from pro_deep_analysis import _drop_foreign_city_urls
+
+    text = (
+        "Reference Links\n"
+        "- https://www.alamoheightstx.gov/services/development/building-and-misc-permits/\n"
+        "- https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf\n"
+    )
+    cleaned = _drop_foreign_city_urls(text, "San Antonio")
+    assert "alamoheightstx.gov" not in cleaned
+    assert "docsonline.sanantonio.gov" in cleaned
+
+
 def test_alamo_heights_is_not_a_san_antonio_page():
     from ic_ultralocal_scout import _foreign_municipal_page
 

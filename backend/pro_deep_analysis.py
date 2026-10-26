@@ -116,6 +116,27 @@ def _run_research_static_sync(
     return out
 
 
+def _drop_foreign_city_urls(summary: str, city: str) -> str:
+    """A scout writeup can still name another city's permit page after the link list is filtered."""
+    import re
+
+    if not summary or not city:
+        return summary
+    from ic_ultralocal_scout import _foreign_municipal_page, _mentions_site_city
+
+    def _keep(match: re.Match) -> str:
+        url = match.group(0)
+        if _mentions_site_city(url, city):
+            return url
+        if _foreign_municipal_page("", "", url, city):
+            return ""
+        return url
+
+    cleaned = re.sub(r"https?://[^\s)>\]]+", _keep, summary)
+    lines = [line for line in cleaned.splitlines() if not re.match(r"^\s*[-*]\s*$", line)]
+    return "\n".join(lines)
+
+
 def _prepend_pack_gotchas(
     analysis: Dict[str, Any],
     items: List[Dict[str, Any]],
@@ -137,6 +158,25 @@ def _prepend_pack_gotchas(
         if isinstance(i, dict)
     }
     front: List[Dict[str, Any]] = []
+    ahj = pack.get("ahj") if isinstance(pack.get("ahj"), dict) else {}
+    confirm_url = str(ahj.get("fees_url") or ahj.get("portal_url") or "").strip()
+    confirm_task = f"Confirm fees & intake with {ahj.get('name') or 'the city building department'}"
+    if confirm_url and confirm_task.strip().lower() not in existing:
+        front.append(
+            {
+                "priority": "CRITICAL",
+                "task": confirm_task,
+                "responsible_party": "Estimator / permit runner",
+                "timeline": "Before bid",
+                "estimated_cost": None,
+                "notes": "Paid desk keeps the city intake line. Fee dollars print only when the schedule states them.",
+                "verified": True,
+                "cost_verified": False,
+                "source_url": confirm_url,
+                "source_label": ahj.get("name") or "City pack",
+                "priority_locked": True,
+            }
+        )
     for g in list(pack.get("gotchas") or [])[:4]:
         if not isinstance(g, dict) or not (g.get("source_url") or "").strip():
             continue
@@ -194,7 +234,7 @@ def _merge_deep_into_analysis(
     analysis = dict(base)
     analysis["research_depth"] = "pro"
     analysis["preview"] = False
-    analysis["pro_summary_markdown"] = summary[:12000] if summary else ""
+    analysis["pro_summary_markdown"] = _drop_foreign_city_urls(summary[:12000], pi_city) if summary else ""
     analysis["pro_source_urls"] = source_urls
 
     punch = dict(analysis.get("punch_list") or {})

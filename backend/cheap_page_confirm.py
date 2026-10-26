@@ -303,18 +303,28 @@ def fetch_page_markdown(
             return hit[1]
 
     try:
-        raw = fetch_page(url)
-        if raw:
-            cleaned = clean_html(raw)
-            md = html_to_markdown(cleaned, max_chars=max_chars)
-        else:
-            md = fetch_schedule_text(url)
-            if md and "valuation" in md.lower():
+        path = (urlparse(url).path or "").lower()
+        if path.endswith(".pdf"):
+            md = fetch_schedule_text(url, timeout=25)
+            if md:
                 md = (
                     "Fee schedule PDF was read. Commercial permit fees follow the valuation tables. "
                     "No permit total was taken from this file.\n"
                     + md
                 )
+        else:
+            raw = fetch_page(url)
+            if raw:
+                cleaned = clean_html(raw)
+                md = html_to_markdown(cleaned, max_chars=max_chars)
+            else:
+                md = fetch_schedule_text(url, timeout=25)
+                if md:
+                    md = (
+                        "Fee schedule PDF was read. Commercial permit fees follow the valuation tables. "
+                        "No permit total was taken from this file.\n"
+                        + md
+                    )
     except Exception as e:
         logger.warning("Cheap confirm fetch failed for %s: %s", url, e)
         return None

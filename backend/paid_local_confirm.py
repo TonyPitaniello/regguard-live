@@ -608,7 +608,7 @@ def run_paid_local_confirm(
             portal,
             pack_urls=pack_urls,
             use_llm=not pdf_schedule,
-            deadline_sec=20.0 if pdf_schedule else None,
+            deadline_sec=32.0 if pdf_schedule else None,
         )
         if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
             analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
@@ -634,6 +634,7 @@ def run_paid_local_confirm(
                 "pages_scraped": 0,
                 "pages_cap": pages_cap,
                 "fee_rows_extracted": len(fee_rows),
+                "markdown_chars": cheap.get("markdown_chars") or 0,
                 "quota": usage,
             }
             analysis["smart_confirm"] = {

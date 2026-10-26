@@ -210,6 +210,45 @@ def test_fingerprint_uses_stored_site_zip_not_stale_label():
     assert "75013" not in fp
 
 
+def test_saved_research_zip_blocks_a_different_site_after_restart(monkeypatch):
+    """site_zip can be missing after a restart. The ZIP on the saved research still binds the order."""
+    ready_pdfs = [
+        {
+            "type": "ic_package",
+            "name": "IC Diligence Package",
+            "url": "https://api.example/orders/ord-1/pdfs/ic_package",
+            "status": "ready",
+        }
+    ]
+    orders = [
+        _order(
+            pdfs=ready_pdfs,
+            site_zip="",
+            address="1000 Louisiana Street, Houston, TX 77002",
+            site_label="1000 Louisiana Street, Houston, TX 77002",
+        )
+    ]
+    orders[0]["analysis_json"] = {
+        "project_info": {
+            "address": "1000 Louisiana Street, Houston, TX 77002",
+            "city": "Houston",
+            "state": "TX",
+            "zip": "77002",
+        }
+    }
+    monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
+    access = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="112 E Pecan Street",
+        city="San Antonio",
+        state="TX",
+        zip_code="78205",
+    )
+    assert access["allowed"] is False
+    assert access["mode"] == "need_purchase"
+    assert "77002" in str(access.get("bound_site") or "") or "Louisiana" in str(access.get("bound_site") or "")
+
+
 def test_counsel_site_label_keeps_the_entered_zip_once():
     label = counsel_site_label(
         "1000 Louisiana Street, Houston, TX 77002",

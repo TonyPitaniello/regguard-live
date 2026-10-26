@@ -205,6 +205,30 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _apply_saved_site(mapped: Dict[str, Any], row: Optional[Dict[str, Any]] = None) -> None:
+    """Copy counsel site fields off the row, then off the saved research ZIP."""
+    src = row or {}
+    for key in ("site_address", "site_city", "site_state", "site_zip", "site_label"):
+        if src.get(key) and not mapped.get(key):
+            mapped[key] = src.get(key)
+    aj = mapped.get("analysis_json")
+    if mapped.get("site_zip") or not isinstance(aj, dict):
+        return
+    pi = aj.get("project_info") if isinstance(aj.get("project_info"), dict) else {}
+    z = "".join(c for c in str(pi.get("zip") or "") if c.isdigit())[:5]
+    if not z:
+        return
+    mapped["site_zip"] = z
+    if not mapped.get("site_city"):
+        mapped["site_city"] = str(pi.get("city") or "")
+    if not mapped.get("site_state"):
+        mapped["site_state"] = str(pi.get("state") or "")
+    if not mapped.get("site_address"):
+        mapped["site_address"] = str(pi.get("address") or "")
+    if not mapped.get("site_label"):
+        mapped["site_label"] = str(mapped.get("address") or "")
+
+
 def remember_order(order: Dict[str, Any]) -> Dict[str, Any]:
     session_id = (order.get("stripe_session_id") or "").strip()
     email = (order.get("email") or "").strip().lower()
@@ -312,6 +336,7 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
                 mapped["pdfs"] = mem["pdfs"]
             if mem and mem.get("analysis_json"):
                 mapped["analysis_json"] = mem["analysis_json"]
+            _apply_saved_site(mapped, row)
             if row.get("stripe_session_id"):
                 remember_order({**mapped, "order_id": mapped["order_id"]})
             out.append(order_to_frontend(mapped))
@@ -369,6 +394,7 @@ def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
             "download_token": row.get("download_token"),
             "pdf_status": row.get("pdf_status"),
         }
+        _apply_saved_site(hydrated, row)
         remember_order(hydrated)
         return order_to_frontend(hydrated)
     return None
@@ -425,6 +451,7 @@ def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
             "share_url": row.get("share_url") or "",
             "research_id": row.get("research_id") or "",
         }
+        _apply_saved_site(hydrated, row)
         remember_order(hydrated)
         return hydrated
     # Last resort: disk-only analysis after hard wipe
@@ -617,6 +644,16 @@ def _persist_order_artifacts_supabase(order: Dict[str, Any]) -> bool:
                 "(run migration 015_orders_share_research.sql if columns missing)",
                 oid,
             )
+
+    site_body: Dict[str, Any] = {}
+    for key in ("site_address", "site_city", "site_state", "site_zip", "site_label"):
+        if order.get(key):
+            site_body[key] = order.get(key)
+    if site_body and not _patch(site_body):
+        logger.warning(
+            "Supabase site-column PATCH failed order=%s (counsel ZIP remains on the address line)",
+            oid,
+        )
 
     # Also mirror analysis to disk so PDFs can regenerate after restart even if Supabase lags
     if isinstance(order.get("analysis_json"), dict) and oid:

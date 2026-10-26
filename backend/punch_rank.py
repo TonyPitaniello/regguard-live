@@ -198,7 +198,13 @@ def normalize_punch_items(
         else:
             break
 
-    out.sort(key=lambda i: (_PRIORITY_RANK.get(_pri(i), 9), _task(i)[:40]))
+    out.sort(
+        key=lambda i: (
+            _PRIORITY_RANK.get(_pri(i), 9),
+            0 if i.get("priority_locked") else 1,
+            _task(i)[:40],
+        )
+    )
     return out
 
 

@@ -90,7 +90,7 @@ def test_run_paid_local_sets_finops_mode(monkeypatch, tmp_path):
         "punch_list": {"punch_list": []},
     }
 
-    def fake_cheap(portal, pack_urls=None, use_llm=True):
+    def fake_cheap(portal, pack_urls=None, use_llm=True, deadline_sec=None):
         return {
             "status": "ok",
             "fees": [
