@@ -267,7 +267,7 @@ def jurisdiction_punch_items(
                     "task": f"[{label}] {g.get('title') or 'Check'}",
                     "responsible_party": "Estimator",
                     "timeline": "Before bid",
-                    "estimated_cost": 0,
+                    "estimated_cost": None,
                     "notes": str(g.get("detail") or ""),
                     # Portal / catalog URL — LINK, not parcel-verified SOURCE
                     "verified": False,

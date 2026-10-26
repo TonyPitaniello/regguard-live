@@ -164,10 +164,16 @@ class PunchListGenerator:
 
         # Calculate timeline and costs from ranked items
         timeline = self._calculate_timeline(punch_list)
-        total_cost = sum(int(i.get("estimated_cost") or 0) for i in ranked)
+        stated = [
+            int(i.get("estimated_cost"))
+            for i in ranked
+            if isinstance(i.get("estimated_cost"), (int, float)) and i.get("estimated_cost") > 0
+        ]
+        total_cost = sum(stated) if stated else None
 
         logger.info(
-            f"✅ Punch list generated: {len(ranked)} items ranked, {timeline} duration, ${total_cost:,.0f} estimated"
+            f"Punch list generated: {len(ranked)} items ranked, {timeline} duration, "
+            f"{'$' + format(total_cost, ',.0f') if total_cost else 'no dollar'} estimated"
         )
 
         return {

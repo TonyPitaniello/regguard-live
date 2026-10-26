@@ -15,6 +15,12 @@ import { SeoHead } from '../SeoHead';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 
+function statedDollar(value: unknown): string | null {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return `$${n.toLocaleString()}`;
+}
+
 function punchPriorityChipClass(priority: string) {
   switch ((priority || '').toUpperCase()) {
     case 'CRITICAL':
@@ -617,7 +623,7 @@ export default function SharedReportPage() {
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
             <p className="text-xs text-gray-400 mb-1">Est. cost {unverified ? '(unverified)' : ''}</p>
             <p className="text-lg font-bold text-emerald-300">
-              ${(analysis.summary?.estimated_total_cost || 0).toLocaleString()}
+              {statedDollar(analysis.summary?.estimated_total_cost) || 'No dollar stated'}
             </p>
           </div>
         </section>
@@ -664,8 +670,8 @@ export default function SharedReportPage() {
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   {item.timeline} · {item.responsible_party}
-                  {item.estimated_cost != null
-                    ? ` · $${Number(item.estimated_cost).toLocaleString()}${unverified ? ' (unverified)' : ''}`
+                  {statedDollar(item.estimated_cost)
+                    ? ` · ${statedDollar(item.estimated_cost)}${unverified ? ' (unverified)' : ''}`
                     : ''}
                 </p>
                 {item.notes ? <p className="text-xs text-gray-500 mt-1">{item.notes}</p> : null}

@@ -426,7 +426,8 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     punch["punch_list"] = safe_items
     punch.setdefault("timeline_summary", "8-12 weeks (planning estimate)")
     punch["timeline_summary"] = _ascii_safe(punch.get("timeline_summary"), 80)
-    punch.setdefault("estimated_total_cost", 0)
+    if not punch.get("estimated_total_cost"):
+        punch["estimated_total_cost"] = None
     data["punch_list"] = punch
     if data.get("pro_summary_markdown"):
         data["pro_summary_markdown"] = _ascii_safe(data["pro_summary_markdown"], 8000)

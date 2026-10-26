@@ -100,9 +100,9 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
     summary.timeline
       ? `Timeline: ${summary.timeline}${unverified && !String(summary.timeline).toLowerCase().includes('unverified') ? ' (unverified)' : ''}`
       : '',
-    summary.cost != null
+    summary.cost != null && Number(summary.cost) > 0
       ? `Est. cost: $${Number(summary.cost).toLocaleString()}${unverified ? ' (unverified)' : ''}`
-      : '',
+      : 'Est. cost: no dollar stated',
     '',
     'TOP RISK FLAGS:',
     ...killers.slice(0, 3).map((k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}`),
@@ -110,7 +110,9 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
     'PUNCH LIST:',
     ...punch.slice(0, 12).map((item, i) => {
       const cost =
-        item.estimated_cost != null ? ` | $${Number(item.estimated_cost).toLocaleString()}` : '';
+        item.estimated_cost != null && Number(item.estimated_cost) > 0
+          ? ` | $${Number(item.estimated_cost).toLocaleString()}`
+          : '';
       return `${i + 1}. [${item.priority}] ${item.task}${cost}`;
     }),
     '',

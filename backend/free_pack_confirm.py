@@ -268,7 +268,7 @@ def _punch_from_pack(
                 "task": f"Confirm fees & intake with {ahj.get('name') or f'{city} AHJ'}",
                 "responsible_party": "Estimator / permit runner",
                 "timeline": "Before bid",
-                "estimated_cost": 0,
+                "estimated_cost": None,
                 "notes": ahj.get("notes")
                 or (
                     "Portal seed — confirm fees on the official schedule."
@@ -296,7 +296,7 @@ def _punch_from_pack(
                 "task": str(g.get("title") or "Local gotcha"),
                 "responsible_party": "Field / estimator",
                 "timeline": "Before bid",
-                "estimated_cost": 0,
+                "estimated_cost": None,
                 "notes": str(g.get("detail") or ""),
                 "verified": bool(g.get("source_url")) and citeable,
                 "cost_verified": False,
@@ -314,7 +314,7 @@ def _punch_from_pack(
                     "task": f"Have ready: {d}",
                     "responsible_party": "Permit package lead",
                     "timeline": "Submittal",
-                    "estimated_cost": 0,
+                    "estimated_cost": None,
                     "notes": "Typical AHJ ask — confirm exact list",
                     "verified": True,
                     "cost_verified": False,
@@ -332,7 +332,7 @@ def _punch_from_pack(
                 "task": f"Review confirm hit: {hit.get('title')}",
                 "responsible_party": "Estimator",
                 "timeline": "Before bid",
-                "estimated_cost": 0,
+                "estimated_cost": None,
                 "notes": hit.get("snippet") or "Allowlisted / .gov SERP confirm (no page rescrape)",
                 "verified": True,
                 "cost_verified": False,
@@ -601,7 +601,7 @@ def build_free_pack_confirm_analysis(
         "punch_list": {
             "punch_list": punch_items,
             "timeline_summary": timeline,
-            "estimated_total_cost": 0,
+            "estimated_total_cost": None,
             "critical_path": [
                 {
                     "task": i["task"],
@@ -609,7 +609,7 @@ def build_free_pack_confirm_analysis(
                     "cost_verified": False,
                     "source_url": i.get("source_url"),
                     "source_label": i.get("source_label"),
-                    "estimated_cost": 0,
+                    "estimated_cost": None,
                 }
                 for i in high_punch[:5]
             ],
@@ -628,7 +628,7 @@ def build_free_pack_confirm_analysis(
             "high_risk_count": 1 if citeable else 0,
             "total_punch_list_items": len(punch_items),
             "estimated_timeline": timeline,
-            "estimated_total_cost": 0,
+            "estimated_total_cost": None,
         },
         "next_steps": [
             "Export / forward the Bid Risk Receipt",
