@@ -116,6 +116,24 @@ def due_day7_wins(now: Optional[datetime] = None) -> List[Dict[str, Any]]:
     return out
 
 
+def drip_desk_status() -> Dict[str, Any]:
+    """Counts only. No email address leaves this function."""
+    _load()
+    kinds = {"free_run_d2", "free_run_d5", "quota_paywall"}
+    pending = 0
+    last_sent: Optional[str] = None
+    with _LOCK:
+        for item in _ITEMS.values():
+            if str(item.get("kind") or "") not in kinds:
+                continue
+            if item.get("status") == "pending":
+                pending += 1
+            sent = str(item.get("sent_at") or "").strip()
+            if sent and (last_sent is None or sent > last_sent):
+                last_sent = sent
+    return {"pending_drip": pending, "last_drip_sent_at": last_sent}
+
+
 def mark_sent(item_id: str) -> bool:
     _load()
     with _LOCK:

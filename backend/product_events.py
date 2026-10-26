@@ -45,6 +45,28 @@ ALLOWED_EVENTS = frozenset(
         "demand_feedback",
         "gotcha_submitted",
         "pain_scout_note",
+        "city_page_view",
+    }
+)
+
+# Slugs the public city-page counter will accept. Anything else is dropped.
+CITY_VIEW_CHANNELS = frozenset(
+    {
+        "permit-fees",
+        "dallas",
+        "plano",
+        "fort-worth",
+        "frisco",
+        "arlington",
+        "irving",
+        "garland",
+        "mckinney",
+        "richardson",
+        "carrollton",
+        "austin",
+        "round-rock",
+        "houston",
+        "san-antonio",
     }
 )
 
@@ -71,6 +93,9 @@ def track_event(
     name = (event or "").strip()
     if name not in ALLOWED_EVENTS:
         raise ValueError(f"Unknown event: {name}")
+    channel_n = str(channel or "").strip().lower()[:40]
+    if name == "city_page_view" and channel_n not in CITY_VIEW_CHANNELS:
+        raise ValueError("Unknown city page")
     row: Dict[str, Any] = {
         "ts": _iso(),
         "event": name,
@@ -78,7 +103,7 @@ def track_event(
         "zip": str(zip_code or "")[:10],
         "stamp_grade": str(stamp_grade or "")[:16],
         "stamp_fingerprint": str(stamp_fingerprint or "")[:40],
-        "channel": str(channel or "")[:40],
+        "channel": channel_n,
         "meta": meta or {},
     }
     try:
@@ -399,4 +424,60 @@ def demand_scoreboard(*, hours: int = 168) -> Dict[str, Any]:
         "verdict_plain": verdict_plain,
         "stamp_funnel": stamp_funnel_stats(hours=hours),
         "disclaimer": "Planning metrics for a passive operator — not billing proof or PMF certificate.",
+    }
+
+
+def _supabase_rows_for_event(event: str, limit: int = 1000) -> Optional[List[Dict[str, Any]]]:
+    """Return rows, or None when Supabase is not configured or the read fails."""
+    if not (os.getenv("SUPABASE_URL") or "").strip() or not (
+        os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY") or ""
+    ).strip():
+        return None
+    try:
+        from supabase import create_client
+
+        url = os.environ["SUPABASE_URL"].strip()
+        key = (os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SUPABASE_KEY") or "").strip()
+        sb = create_client(url, key)
+        res = (
+            sb.table("product_events")
+            .select("ts,event,channel")
+            .eq("event", event)
+            .limit(max(1, min(limit, 1000)))
+            .execute()
+        )
+        data = getattr(res, "data", None)
+        if isinstance(data, list):
+            return [r for r in data if isinstance(r, dict)]
+        return None
+    except Exception as e:
+        logger.debug("product_events supabase read skip: %s", e)
+        return None
+
+
+def city_page_counts(*, hours: int = 168) -> Dict[str, Any]:
+    """Opens of a city page. Not unique people. No address and no email."""
+    cutoff = _utcnow() - timedelta(hours=max(1, hours))
+    remote = _supabase_rows_for_event("city_page_view")
+    source = "supabase" if remote is not None else "local"
+    rows = remote if remote is not None else _read_rows(12000)
+    counts: Dict[str, int] = {}
+    total = 0
+    for r in rows:
+        if str(r.get("event") or "") != "city_page_view":
+            continue
+        ts = _parse_ts(str(r.get("ts") or ""))
+        if not ts or ts < cutoff:
+            continue
+        slug = str(r.get("channel") or "").strip().lower()[:40]
+        if slug not in CITY_VIEW_CHANNELS:
+            continue
+        counts[slug] = counts.get(slug, 0) + 1
+        total += 1
+    return {
+        "window_hours": max(1, hours),
+        "total": total,
+        "by_city": counts,
+        "source": source,
+        "note": "Each open of a city page in this browser session. Not unique people.",
     }

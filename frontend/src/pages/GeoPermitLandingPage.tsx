@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { backendUrl } from '../env';
+import { trackStampEvent } from '../lib/trackStampEvent';
 import { SampleOpenButton } from '../components/SampleReportBlock';
 import { SeoHead } from '../SeoHead';
 import {
@@ -97,6 +98,20 @@ export default function GeoPermitLandingPage() {
   const { pathname } = useLocation();
   const local = useMemo(() => metroFromPath(pathname), [pathname]);
   const [api, setApi] = useState<ApiMetro | null>(null);
+
+  useEffect(() => {
+    const path = pathname.replace(/\/$/, '');
+    const slug = path === '/permit-fees' ? 'permit-fees' : local?.slug;
+    if (!slug) return;
+    try {
+      const key = `rg_city_view_${slug}`;
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, '1');
+    } catch {
+      /* record the open anyway */
+    }
+    trackStampEvent('city_page_view', { channel: slug });
+  }, [pathname, local]);
 
   useEffect(() => {
     if (!local) return;

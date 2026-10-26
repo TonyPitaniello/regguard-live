@@ -1298,6 +1298,12 @@ def health() -> Dict[str, Any]:
         out["war_room_backend"] = durable_backend()
     except Exception:
         pass
+    try:
+        from nurture_store import drip_desk_status
+
+        out["drip"] = drip_desk_status()
+    except Exception:
+        pass
     return out
 
 
@@ -6306,6 +6312,15 @@ async def seo_metros() -> Dict[str, Any]:
     from passive_campaign import architecture_brief, metro_pages
 
     return {"campaign": architecture_brief(), "metros": metro_pages()}
+
+
+@app.get("/seo/city-visits", tags=["SEO"])
+async def seo_city_visits(hours: int = 168) -> Dict[str, Any]:
+    """City-page opens for the weekday desk. Counts only."""
+    from product_events import city_page_counts
+
+    window = max(1, min(int(hours or 168), 24 * 90))
+    return city_page_counts(hours=window)
 
 
 @app.get("/seo/metros/{slug}", tags=["SEO"])
