@@ -63,8 +63,7 @@ def stamp_pro_delta(analysis: Dict[str, Any]) -> Dict[str, Any]:
         # cache hit may omit scraped count — still note confirm method
         pages = 0
     fee_n = int(pl.get("fee_rows_extracted") or 0)
-    if not fee_n:
-        fee_n = len(((analysis.get("fee_card") or {}).get("fees") or []))
+    # The city-pack row is already on Free. Do not call it a Pro extraction.
 
     sources = list(analysis.get("pro_source_urls") or [])
     punch = (analysis.get("punch_list") or {}).get("punch_list") or []
@@ -296,17 +295,24 @@ def clear_foreign_site_bundle_copy(analysis: Dict[str, Any]) -> Dict[str, Any]:
     badge = str(analysis.get("depth_badge") or "")
     if "IC Diligence" in badge:
         analysis["depth_badge"] = "Contractor Pro — paid local confirm"
+    pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+    entered_zip = "".join(c for c in str(pi.get("zip") or "") if c.isdigit())[:5]
+    entered = str(pi.get("address") or "this address")
+    zip_bit = f" ZIP {entered_zip}" if entered_zip else ""
     analysis["upgrade_offer"] = {
-        "message": "Counsel ZIP stays on the purchased site",
-        "detail": note + " No new bundle was purchased for this address.",
-        "cta_label": None,
-        "cta_tier": None,
+        "message": "This address needs its own counsel ZIP",
+        "detail": (
+            f"{note} {entered}{zip_bit} is a different site. "
+            "The IC Diligence Bundle for this address is a new $1,500 purchase."
+        ),
+        "cta_label": "Get IC Diligence Bundle — $1,500",
+        "cta_tier": "ic_project",
         "secondary_cta_label": None,
         "secondary_cta_tier": None,
         "current_label": "This address",
-        "next_label": None,
+        "next_label": f"Counsel ZIP for{zip_bit or ' this site'}",
         "primary_once": True,
-        "honesty_note": "No new bundle was purchased for this address.",
+        "honesty_note": "The purchased counsel ZIP stays on its site. This address is a separate purchase.",
     }
     delta = analysis.get("pro_delta")
     if isinstance(delta, dict):

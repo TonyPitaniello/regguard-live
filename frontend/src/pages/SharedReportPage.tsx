@@ -330,8 +330,10 @@ export default function SharedReportPage() {
         </p>
         {analysis.ic_bundle_for_this_site === false && analysis.ic_bound_site ? (
           <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
-            Counsel ZIP was not issued for this address. The IC order on this email is bound to{' '}
-            {analysis.ic_bound_site}. No new bundle was purchased.
+            Counsel ZIP was not issued for this address
+            {analysis.project_info?.zip ? ` (ZIP ${analysis.project_info.zip})` : ''}. The IC
+            order on this email is bound to {analysis.ic_bound_site}. A counsel ZIP for this
+            location is a separate $1,500 purchase.
           </p>
         ) : null}
         {!citeablePack && (

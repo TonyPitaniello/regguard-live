@@ -281,6 +281,7 @@ def _punch_from_pack(
                 "source_url": confirm_url,
                 "source_label": ahj.get("name")
                 or ("Portal seed" if portal_only else ("Source" if citeable else "AHJ portal")),
+                "priority_locked": True,
             }
         )
 
@@ -302,6 +303,7 @@ def _punch_from_pack(
                 "cost_verified": False,
                 "source_url": g.get("source_url"),
                 "source_label": g.get("source_label") or ("Source" if citeable else "Unverified"),
+                "priority_locked": True,
             }
         )
 
@@ -326,6 +328,22 @@ def _punch_from_pack(
     for hit in confirm_hits[:2]:
         if not hit.get("url"):
             continue
+        snippet = str(hit.get("snippet") or "")
+        low = snippet.lower()
+        registration = any(
+            phrase in low
+            for phrase in (
+                "residential builder",
+                "home improvement",
+                "license/registration",
+                "license registration",
+            )
+        )
+        notes = (
+            "The fee PDF opened on registration lines for a residential builder and a home improvement contractor. Those dollars are not the commercial permit. Use the valuation tables."
+            if registration
+            else snippet or "Allowlisted / .gov SERP confirm (no page rescrape)"
+        )
         items.append(
             {
                 "priority": "HIGH",
@@ -333,8 +351,8 @@ def _punch_from_pack(
                 "responsible_party": "Estimator",
                 "timeline": "Before bid",
                 "estimated_cost": None,
-                "notes": hit.get("snippet") or "Allowlisted / .gov SERP confirm (no page rescrape)",
-                "verified": True,
+                "notes": notes,
+                "verified": not registration,
                 "cost_verified": False,
                 "source_url": hit.get("url"),
                 "source_label": "Allowlisted confirm search",

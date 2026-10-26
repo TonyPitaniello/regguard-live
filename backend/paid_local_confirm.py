@@ -603,7 +603,13 @@ def run_paid_local_confirm(
     try:
         from cheap_page_confirm import merge_cheap_confirm_into_analysis, run_cheap_page_confirm
 
-        cheap = run_cheap_page_confirm(portal, pack_urls=pack_urls, use_llm=True)
+        pdf_schedule = str(portal or "").lower().split("?", 1)[0].endswith(".pdf")
+        cheap = run_cheap_page_confirm(
+            portal,
+            pack_urls=pack_urls,
+            use_llm=not pdf_schedule,
+            deadline_sec=20.0 if pdf_schedule else None,
+        )
         if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
             analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
             fee_rows = list(cheap.get("fees") or [])

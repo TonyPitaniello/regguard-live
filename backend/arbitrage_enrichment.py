@@ -700,6 +700,13 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         out = normalize_analysis_punch(out)
         items = _punch_items(out)
         crit, high, unverified = _count_priorities(items)
+        env_level = str(
+            ((out.get("environmental_screening") or {}).get("risk_level") or "")
+        ).upper()
+        if env_level == "CRITICAL":
+            crit += 1
+        elif env_level == "HIGH":
+            high += 1
         out["margin_killers"] = build_margin_killers(out, limit=3)
         cost_verified = bool((out.get("honesty") or {}).get("cost_verified"))
         out["contingency_band"] = _build_contingency(

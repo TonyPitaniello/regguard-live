@@ -1332,18 +1332,28 @@ export default function ResultsViewerModal({
   const renderPrimaryUpgrade = () => {
     if (view.ic_bundle_for_this_site === false) {
       const bound = view.ic_bound_site || 'the purchased site';
+      const here = view.project_info?.address || 'this address';
+      const zip = view.project_info?.zip || '';
       return (
         <section
           id="rg-primary-upgrade"
           className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 sm:p-5"
         >
           <h3 className="text-white font-bold text-sm sm:text-base">
-            Counsel ZIP stays on the purchased site
+            This address needs its own counsel ZIP
           </h3>
           <p className="text-amber-100 text-sm mt-1.5 leading-relaxed">
-            Counsel ZIP was not issued for this address. The IC order on this email is bound to{' '}
-            {bound}. No new bundle was purchased.
+            Counsel ZIP was not issued for {here}
+            {zip ? ` (ZIP ${zip})` : ''}. The IC order already on this email is bound to {bound}.
+            A counsel ZIP for this location is a new $1,500 purchase.
           </p>
+          <button
+            type="button"
+            onClick={() => goCheckout('ic_project')}
+            className="mt-3 px-4 py-3 min-h-[48px] rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm"
+          >
+            Get IC Diligence Bundle — $1,500
+          </button>
         </section>
       );
     }

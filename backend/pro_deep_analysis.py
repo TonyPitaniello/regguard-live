@@ -116,6 +116,51 @@ def _run_research_static_sync(
     return out
 
 
+def _prepend_pack_gotchas(
+    analysis: Dict[str, Any],
+    items: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """City-pack rules stay on the paid punch. Generic scout lines do not bury them."""
+    from city_packs import resolve_city_pack
+
+    pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+    pack = resolve_city_pack(
+        str(pi.get("city") or ""),
+        str(pi.get("state") or ""),
+        str(pi.get("zip") or ""),
+    )
+    if not pack:
+        return items
+    existing = {
+        str(i.get("task") or "").strip().lower()
+        for i in items
+        if isinstance(i, dict)
+    }
+    front: List[Dict[str, Any]] = []
+    for g in list(pack.get("gotchas") or [])[:4]:
+        if not isinstance(g, dict) or not (g.get("source_url") or "").strip():
+            continue
+        task = str(g.get("title") or "Local gotcha")
+        if task.strip().lower() in existing:
+            continue
+        front.append(
+            {
+                "priority": str(g.get("priority") or "HIGH").upper(),
+                "task": task,
+                "responsible_party": "Field / estimator",
+                "timeline": "Before bid",
+                "estimated_cost": None,
+                "notes": str(g.get("detail") or ""),
+                "verified": True,
+                "cost_verified": False,
+                "source_url": g.get("source_url"),
+                "source_label": g.get("source_label") or "City pack",
+                "priority_locked": True,
+            }
+        )
+    return front + items
+
+
 def _merge_deep_into_analysis(
     base: Dict[str, Any],
     research_payload: Dict[str, Any],
@@ -132,6 +177,15 @@ def _merge_deep_into_analysis(
         list(research_payload.get("source_urls") or [])
         + list(research_payload.get("unique_source_urls") or [])
     )
+    pi_city = str((base.get("project_info") or {}).get("city") or "")
+    if pi_city and source_urls:
+        from ic_ultralocal_scout import _foreign_municipal_page
+
+        source_urls = [
+            u
+            for u in source_urls
+            if not _foreign_municipal_page("", "", u, pi_city)
+        ]
     # complete envelope sometimes nests fields
     if not source_urls and isinstance(research_payload.get("complete"), dict):
         source_urls = _http_urls(research_payload["complete"].get("source_urls") or [])
@@ -244,6 +298,7 @@ def _merge_deep_into_analysis(
 
     from punch_rank import normalize_punch_items, rebuild_critical_path
 
+    items = _prepend_pack_gotchas(analysis, items)
     pi = analysis.get("project_info") or {}
     ptype = str(pi.get("type") or "").lower().replace(" ", "_").replace("-", "_")
     is_dc = any(x in ptype for x in ("data_center", "datacenter", "dc", "colo"))

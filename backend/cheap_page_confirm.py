@@ -127,6 +127,44 @@ def _readable_fee_label(label: str) -> bool:
     return len(re.findall(r"[A-Za-z]{3,}", text)) >= 2
 
 
+def fetch_schedule_text(url: str, *, timeout: Optional[float] = None) -> str:
+    """Read a fee PDF as text. Registration lines are dropped so they are not a permit total."""
+    t = timeout if timeout is not None else _timeout_sec()
+    resp = requests.get(
+        url,
+        headers={"User-Agent": UA, "Accept": "application/pdf,text/html"},
+        timeout=t,
+        allow_redirects=True,
+    )
+    resp.raise_for_status()
+    body = resp.content or b""
+    if not _is_schedule_file(url, resp.headers.get("Content-Type") or "", body):
+        return ""
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    reader = PdfReader(BytesIO(body))
+    parts = []
+    for page in reader.pages[:8]:
+        parts.append(page.extract_text() or "")
+    kept = []
+    for line in "\n".join(parts).splitlines():
+        low = line.lower()
+        if any(
+            phrase in low
+            for phrase in (
+                "residential builder",
+                "home improvement",
+                "license/registration",
+                "license registration",
+            )
+        ):
+            continue
+        kept.append(line)
+    return "\n".join(kept)[:12000]
+
+
 def fetch_page(url: str, *, timeout: Optional[float] = None) -> str:
     """Download raw HTML. A PDF schedule returns empty so no dollar is parsed from it."""
     t = timeout if timeout is not None else _timeout_sec()
@@ -266,8 +304,17 @@ def fetch_page_markdown(
 
     try:
         raw = fetch_page(url)
-        cleaned = clean_html(raw)
-        md = html_to_markdown(cleaned, max_chars=max_chars)
+        if raw:
+            cleaned = clean_html(raw)
+            md = html_to_markdown(cleaned, max_chars=max_chars)
+        else:
+            md = fetch_schedule_text(url)
+            if md and "valuation" in md.lower():
+                md = (
+                    "Fee schedule PDF was read. Commercial permit fees follow the valuation tables. "
+                    "No permit total was taken from this file.\n"
+                    + md
+                )
     except Exception as e:
         logger.warning("Cheap confirm fetch failed for %s: %s", url, e)
         return None
@@ -307,6 +354,17 @@ def _regex_fee_rows(markdown: str, source_url: str) -> List[Dict[str, Any]]:
         if amt <= 0 or amt > 5_000_000:
             continue
         if not _readable_fee_label(label):
+            continue
+        label_low = label.lower()
+        if any(
+            phrase in label_low
+            for phrase in (
+                "residential builder",
+                "home improvement",
+                "license/registration",
+                "license registration",
+            )
+        ):
             continue
         rows.append(
             {
@@ -540,10 +598,15 @@ def _run_cheap_page_confirm_inner(
             "reason": "page_shell_or_js_rendered",
         }
 
-    regex_fees = _regex_fee_rows(md, url)
+    schedule_read = md.startswith("Fee schedule PDF was read.")
+    regex_fees = [] if schedule_read else _regex_fee_rows(md, url)
     llm_part: Dict[str, Any] = {"fees": [], "notes": [], "timeline_hint": "", "llm": False}
-    if use_llm:
+    if use_llm and not schedule_read:
         llm_part = _llm_extract(md, url)
+    if schedule_read:
+        llm_part["notes"] = [
+            "Fee schedule PDF was read. Commercial permit fees follow the valuation tables. No permit total was taken from this file."
+        ]
 
     # Prefer regex (Source) first; add grounded LLM fees that don't duplicate labels
     fees = list(regex_fees)

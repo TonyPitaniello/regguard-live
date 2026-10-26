@@ -113,7 +113,7 @@ def test_pro_delta_lists_uniqueness():
 def test_other_site_does_not_say_ic_diligence_bundle():
     a = stamp_upgrade_offer(
         {
-            "project_info": {"type": "commercial"},
+            "project_info": {"type": "commercial", "address": "112 E Pecan Street", "zip": "78205"},
             "scout_mode": "light",
             "ic_bundle_for_this_site": False,
             "ic_bound_site": "2300 Chelsea Blvd, Allen, TX 75013",
@@ -124,12 +124,12 @@ def test_other_site_does_not_say_ic_diligence_bundle():
     a = stamp_pro_delta(a)
     a = clear_foreign_site_bundle_copy(a)
     a = stamp_ladder_access_offer(a, access_tier="contractor_pro")
-    blob = str(a)
-    assert "IC Diligence" not in blob
+    assert a["depth_badge"] == "Contractor Pro — paid local confirm"
     assert "2300 Chelsea Blvd, Allen, TX 75013" in a["depth_claim_note"]
-    assert "No new bundle was purchased" in a["upgrade_offer"]["detail"]
-    assert a["upgrade_offer"]["cta_tier"] is None
+    assert "78205" in a["upgrade_offer"]["detail"]
+    assert a["upgrade_offer"]["cta_tier"] == "ic_project"
     assert a["ic_package"] is False
+    assert a["ic_pdfs_ready"] is False
 
 
 def test_infer_persona_renewable_is_dc_infra():

@@ -94,6 +94,23 @@ def test_page_chrome_is_not_a_risk():
     assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
 
 
+def test_alamo_heights_is_not_a_san_antonio_page():
+    from ic_ultralocal_scout import _foreign_municipal_page
+
+    assert _foreign_municipal_page(
+        "Building and Misc Permits",
+        "",
+        "https://www.alamoheightstx.gov/services/development/building-and-misc-permits/",
+        "San Antonio",
+    )
+    assert not _foreign_municipal_page(
+        "FY 2027 Development Fee Schedule",
+        "",
+        "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+        "San Antonio",
+    )
+
+
 def test_receipt_blocks_the_houston_scrape_lines():
     from ic_ultralocal_scout import customer_line_blocked
 

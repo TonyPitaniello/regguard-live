@@ -144,6 +144,11 @@ def _foreign_municipal_page(title: str, snippet: str, url: str, city: str) -> bo
     if re.search(r"\bcity of\b", (title or "").lower()):
         return True
     hostpath = (url or "").lower()
+    host = hostpath.split("/")[2] if "://" in hostpath else hostpath.split("/")[0]
+    host = host.removeprefix("www.")
+    # alamoheightstx.gov is a different city from San Antonio. The state portal is not.
+    if host.endswith("tx.gov") and not host.endswith("texas.gov") and not _mentions_site_city(host, city):
+        return True
     if any(marker in hostpath for marker in ("texas.gov", "cityof", "municode.com/tx/")):
         return True
     if re.search(r"\bcity of\b", (snippet or "").lower()) and not _mentions_site_city(snippet, city):

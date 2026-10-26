@@ -117,6 +117,10 @@ def normalize_punch_items(
         if pri not in _PRIORITY_RANK:
             pri = "MEDIUM"
         # Demote process hygiene out of CRITICAL/HIGH
+        if item.get("priority_locked"):
+            item["priority"] = pri
+            out.append(item)
+            continue
         if _is_hygiene(item) and pri in ("CRITICAL", "HIGH"):
             pri = "MEDIUM"
         # Promote real schedule killers for DC / large-load
@@ -148,6 +152,8 @@ def normalize_punch_items(
     while _count("CRITICAL") > max_critical:
         demoted = False
         for i in reversed(out):
+            if i.get("priority_locked"):
+                continue
             if _pri(i) == "CRITICAL" and _is_hygiene(i):
                 i["priority"] = "MEDIUM"
                 demoted = True
@@ -155,6 +161,8 @@ def normalize_punch_items(
         if demoted:
             continue
         for i in reversed(out):
+            if i.get("priority_locked"):
+                continue
             if _pri(i) == "CRITICAL" and not _is_schedule_killer(i):
                 i["priority"] = "HIGH"
                 demoted = True
@@ -162,6 +170,8 @@ def normalize_punch_items(
         if demoted:
             continue
         for i in reversed(out):
+            if i.get("priority_locked"):
+                continue
             if _pri(i) == "CRITICAL":
                 i["priority"] = "HIGH"
                 break
@@ -171,6 +181,8 @@ def normalize_punch_items(
     while _count("HIGH") > max_high:
         demoted = False
         for i in reversed(out):
+            if i.get("priority_locked"):
+                continue
             if _pri(i) == "HIGH" and (_is_hygiene(i) or not _is_schedule_killer(i)):
                 i["priority"] = "MEDIUM"
                 demoted = True
@@ -178,6 +190,8 @@ def normalize_punch_items(
         if demoted:
             continue
         for i in reversed(out):
+            if i.get("priority_locked"):
+                continue
             if _pri(i) == "HIGH":
                 i["priority"] = "MEDIUM"
                 break
