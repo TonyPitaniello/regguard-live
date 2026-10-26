@@ -1217,6 +1217,7 @@ export default function ResultsViewerModal({
   const ownsIc = ladder.ownsIc && isIcDepth && !incompleteRun;
   // Generate-IC only on Pro/IC depth when a site credit is pending
   const canGenerateIcForSite =
+    view.ic_bundle_for_this_site !== false &&
     Boolean(icReportPending) &&
     !ownsIc &&
     (ladder.tier === 'pro' || ladder.tier === 'ic');
@@ -1329,6 +1330,23 @@ export default function ResultsViewerModal({
 
   /** Same upgrade stack on samples and live runs */
   const renderPrimaryUpgrade = () => {
+    if (view.ic_bundle_for_this_site === false) {
+      const bound = view.ic_bound_site || 'the purchased site';
+      return (
+        <section
+          id="rg-primary-upgrade"
+          className="rounded-xl border border-amber-500/35 bg-amber-500/10 p-4 sm:p-5"
+        >
+          <h3 className="text-white font-bold text-sm sm:text-base">
+            Counsel ZIP stays on the purchased site
+          </h3>
+          <p className="text-amber-100 text-sm mt-1.5 leading-relaxed">
+            Counsel ZIP was not issued for this address. The IC order on this email is bound to{' '}
+            {bound}. No new bundle was purchased.
+          </p>
+        </section>
+      );
+    }
     if (allowIcPackageDownload && ownsIcAnnual) return null;
     if (
       ladderTier === 'free' ||
@@ -4068,7 +4086,9 @@ export default function ResultsViewerModal({
                           : ladderTier === 'partner'
                             ? 'Included: full Receipt PDF + unlocked punch. Locked: City Pack / CSV / bid packet (Pro), counsel ZIP (IC).'
                             : ladderTier === 'pro'
-                              ? 'Included: Receipt + City Pack PDF / CSV / bid packet. Locked: IC Diligence Bundle counsel ZIP ($1,500).'
+                              ? view.ic_bundle_for_this_site === false
+                                ? `Included: Receipt + City Pack PDF / CSV / bid packet. The counsel ZIP stays on ${view.ic_bound_site || 'the purchased site'}.`
+                                : 'Included: Receipt + City Pack PDF / CSV / bid packet. Locked: IC Diligence Bundle counsel ZIP ($1,500).'
                               : 'Included: Receipt + Pro desk + IC Diligence Bundle ZIP.'}
                       </p>
                     </div>
@@ -4689,9 +4709,11 @@ export default function ResultsViewerModal({
               {dcBody !== 'open' ? (
                 <div className="absolute inset-0 z-10 flex items-end justify-center bg-slate-950/75 p-3 backdrop-blur-md">
                   <p className="text-xs font-bold text-center text-amber-50">
-                    {ladderTier === 'pro'
-                      ? 'IC Diligence Bundle — parallel clocks, FAST-41, water, and moratorium stay in the counsel package.'
-                      : 'Locked'}
+                    {view.ic_bundle_for_this_site === false
+                      ? `Counsel ZIP stays on ${view.ic_bound_site || 'the purchased site'}.`
+                      : ladderTier === 'pro'
+                        ? 'IC Diligence Bundle — parallel clocks, FAST-41, water, and moratorium stay in the counsel package.'
+                        : 'Locked'}
                   </p>
                 </div>
               ) : null}

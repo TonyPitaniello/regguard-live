@@ -123,6 +123,7 @@ def test_other_site_does_not_say_ic_diligence_bundle():
     )
     a = stamp_pro_delta(a)
     a = clear_foreign_site_bundle_copy(a)
+    a = stamp_ladder_access_offer(a, access_tier="contractor_pro")
     blob = str(a)
     assert "IC Diligence" not in blob
     assert "2300 Chelsea Blvd, Allen, TX 75013" in a["depth_claim_note"]

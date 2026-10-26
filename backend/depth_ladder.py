@@ -257,6 +257,9 @@ def stamp_ladder_access_offer(
     """
     if not isinstance(analysis, dict):
         return analysis
+    # A second address must not be sold the bundle that belongs to the purchased site.
+    if analysis.get("ic_bundle_for_this_site") is False:
+        return analysis
     ptype = _project_type_label(analysis)
     t = (access_tier or "free").strip().lower()
     if t in ("ic", "ic_project", "ic_consultant", "ic_annual", "sponsor"):
