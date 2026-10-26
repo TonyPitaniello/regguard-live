@@ -49,6 +49,16 @@ def site_fingerprint(
     return f"{street}|{z}|{st}"
 
 
+def counsel_site_label(site_addr: str, site_city: str, site_state: str, site_zip: str) -> str:
+    """One line for the location that was entered. ZIP appears once."""
+    place = f"{site_city}, {site_state} {site_zip}".strip(" ,")
+    addr = (site_addr or "").strip()
+    z = "".join(c for c in str(site_zip or "") if c.isdigit())[:5]
+    if addr and z and z in addr:
+        return addr
+    return ", ".join(p for p in [addr, place] if p)
+
+
 def stored_site_zip(order: Dict[str, Any]) -> str:
     """Postal ZIP written on the counsel order. A checkout label is not this field."""
     if not isinstance(order, dict):
@@ -730,14 +740,7 @@ async def fulfill_ic_project_artifacts(
     _PDF_BYTES[order_id] = byte_map
     token = str(order.get("download_token") or "")
     pdfs = build_pdf_meta(order_id, email_l, byte_map, download_token=token)
-    site_label = ", ".join(
-        p
-        for p in [
-            site_addr,
-            f"{site_city}, {site_state} {site_zip}".strip(" ,"),
-        ]
-        if p
-    )
+    site_label = counsel_site_label(site_addr, site_city, site_state, site_zip)
 
     # Bind site on the order (IC Project one-site lock)
     order["site_address"] = site_addr

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ic_project_fulfillment import (
+    counsel_site_label,
     evaluate_ic_site_access,
     order_site_fingerprint,
     pdfs_are_ready,
@@ -207,6 +208,17 @@ def test_fingerprint_uses_stored_site_zip_not_stale_label():
     fp = order_site_fingerprint(o)
     assert "77002" in fp
     assert "75013" not in fp
+
+
+def test_counsel_site_label_keeps_the_entered_zip_once():
+    label = counsel_site_label(
+        "1000 Louisiana Street, Houston, TX 77002",
+        "Houston",
+        "TX",
+        "77002",
+    )
+    assert label == "1000 Louisiana Street, Houston, TX 77002"
+    assert label.count("77002") == 1
 
 
 def test_order_site_fingerprint_from_address_line():
