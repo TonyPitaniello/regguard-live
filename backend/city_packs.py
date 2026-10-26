@@ -858,7 +858,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "id": "houston_not_the_metro",
                 "title": "City of Houston is not the metro",
                 "detail": "Pasadena, Sugar Land, and The Woodlands publish their own schedules. Do not use this table for those cities.",
-                "priority": "CRITICAL",
+                "priority": "NOTE",
                 "source_url": "https://www.houstonpermittingcenter.org/media/2636/download",
                 "source_label": "Houston Permitting Center",
             },

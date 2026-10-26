@@ -1,6 +1,14 @@
 from ic_ultralocal_scout import _hit_to_killer, _query_lines, run_ic_local_ultralocal_scout
 
 
+def test_houston_coverage_note_is_not_a_stamp_driver():
+    from city_packs import resolve_city_pack
+
+    pack = resolve_city_pack("Houston", "TX", "77002")
+    note = next(g for g in pack["gotchas"] if g["id"] == "houston_not_the_metro")
+    assert note["priority"] == "NOTE"
+
+
 def test_query_lines_cover_local_and_ultralocal():
     qs = _query_lines("Plano", "TX", "75074", "1201 14th St")
     buckets = {b for b, _ in qs}
@@ -55,6 +63,46 @@ def test_fort_worth_keeps_its_own_electrical_code_page():
         },
         "local_codes",
         city="Fort Worth",
+    )
+    assert k is not None
+
+
+def test_south_houston_is_not_houston():
+    hit = {
+        "title": "Permits / Inspection | South Houston, TX",
+        "url": "https://www.southhoustontx.gov/permits",
+        "snippet": "1018 Dallas St. Inspection department.",
+    }
+    assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
+
+
+def test_harris_county_engineer_is_not_the_houston_building_department():
+    hit = {
+        "title": "Office of the County Engineer > Services > Permits > FAQ",
+        "url": "https://oce.harriscountytx.gov/Services/Permits/FAQ",
+        "snippet": "Plans need to be dropped off at 1111 Fannin Street.",
+    }
+    assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
+
+
+def test_page_chrome_is_not_a_risk():
+    hit = {
+        "title": "Houston Business Portal",
+        "url": "https://www.houstontx.gov/business/plan/permits-inspections.html",
+        "snippet": "[Skip to main content](https://www.houstontx.gov/business/plan/permits-inspections.html#mainskip) ![](https://www.google.com/images/cleardot.gif)",
+    }
+    assert _hit_to_killer(hit, "local_ahj", city="Houston") is None
+
+
+def test_houston_permitting_center_stays():
+    k = _hit_to_killer(
+        {
+            "title": "Houston Permitting Center",
+            "url": "https://www.houstonpermittingcenter.org/",
+            "snippet": "Commercial building permits and inspections.",
+        },
+        "local_ahj",
+        city="Houston",
     )
     assert k is not None
 

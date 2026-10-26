@@ -1,6 +1,6 @@
 """Overall environmental risk: GIS-only, consistent across runs."""
 
-from real_environmental_screening import calculate_overall_env_risk
+from real_environmental_screening import calculate_overall_env_risk, classify_pin_vs_buffer
 
 
 def _f(cat, level, verified=True):
@@ -61,6 +61,23 @@ def test_species_unknown_does_not_block_high():
         ]
     )
     assert meta["risk_level"] == "HIGH"
+
+
+def test_buffer_is_not_a_pin_hit():
+    assert classify_pin_vs_buffer(point_hit=False, buffer_hit=True, any_success=True) == "buffer"
+    assert classify_pin_vs_buffer(point_hit=True, buffer_hit=True, any_success=True) == "point"
+    assert classify_pin_vs_buffer(point_hit=False, buffer_hit=False, any_success=True) is False
+
+
+def test_nearby_wetlands_do_not_set_overall_high():
+    meta = calculate_overall_env_risk(
+        [
+            _f("flood_zones", "LOW", True),
+            _f("wetlands", "MEDIUM", True),
+            _f("endangered_species", "LOW", True),
+        ]
+    )
+    assert meta["risk_level"] == "MEDIUM"
 
 
 def test_only_stubs_is_unknown():

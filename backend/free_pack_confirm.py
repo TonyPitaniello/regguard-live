@@ -633,7 +633,7 @@ def build_free_pack_confirm_analysis(
         "next_steps": [
             "Export / forward the Bid Risk Receipt",
             "Confirm fees on the AHJ schedule before bid",
-            "Upgrade to Partner or Contractor Pro for full Universal Scout",
+            "Estimator unlocks the clear contingency. Contractor Pro adds parcel flood and wetlands for this pin.",
         ],
         "free_confirm": {
             "pack_key": pack.get("pack_key"),

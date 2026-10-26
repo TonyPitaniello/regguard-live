@@ -15,6 +15,25 @@ from typing import Any, Dict, List, Optional, Sequence
 
 _PRIORITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "NOTE": 4}
 
+# Prompt text the model copied onto the receipt. A real city gotcha names the ordinance.
+_PROMPT_LEAKS = (
+    "for each local amendment",
+    "in the digest",
+    "search results",
+    "if scout results",
+    "use only resources that apply",
+    "add explicit",
+    "skip to main content",
+    "![](",
+    "](http",
+)
+
+
+def _is_prompt_leak(item: Dict[str, Any]) -> bool:
+    task = _task(item).lower()
+    return any(marker in task for marker in _PROMPT_LEAKS)
+
+
 _HYGIENE_PHRASES = (
     "contact municipal",
     "request complete permit application checklist",
@@ -199,7 +218,8 @@ def normalize_analysis_punch(analysis: Dict[str, Any]) -> Dict[str, Any]:
     pi = analysis.get("project_info") or {}
     ptype = str(pi.get("type") or analysis.get("project_type") or "").lower()
     is_dc = any(x in ptype.replace(" ", "_").replace("-", "_") for x in ("data_center", "datacenter", "dc", "colo"))
-    ranked = normalize_punch_items(items, is_dc=is_dc)
+    kept = [it for it in items if isinstance(it, dict) and not _is_prompt_leak(it)]
+    ranked = normalize_punch_items(kept, is_dc=is_dc)
     punch["punch_list"] = ranked
     punch["critical_path"] = rebuild_critical_path(ranked)
     punch["ranked"] = True

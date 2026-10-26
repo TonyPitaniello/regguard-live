@@ -9,7 +9,32 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 
 from community_friction import build_community_friction  # noqa: E402
-from punch_rank import normalize_punch_items, strip_md_bold  # noqa: E402
+from punch_rank import normalize_analysis_punch, normalize_punch_items, strip_md_bold  # noqa: E402
+
+
+def test_prompt_echo_is_dropped_from_the_receipt():
+    out = normalize_analysis_punch(
+        {
+            "punch_list": {
+                "punch_list": [
+                    {
+                        "priority": "HIGH",
+                        "task": "MANDATORY GOTCHA: For each local amendment in the digest that is stricter than base NEC, add explicit tasks.",
+                    },
+                    {
+                        "priority": "HIGH",
+                        "task": "If scout results do not state a permit fee: Verify exact fee with Houston Building Department.",
+                    },
+                    {
+                        "priority": "HIGH",
+                        "task": "Valuation is not a permit total",
+                    },
+                ]
+            }
+        }
+    )
+    tasks = [i["task"] for i in out["punch_list"]["punch_list"]]
+    assert tasks == ["Valuation is not a permit total"]
 
 
 def test_strip_md():

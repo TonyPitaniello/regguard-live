@@ -266,6 +266,17 @@ export default function SharedReportPage() {
     analysis.receipt_mode === 'free_preview';
   const showFeeDollars = shareTier.startsWith('pro') || shareTier === 'ic' || shareTier === 'ic_full';
   const localPack = (analysis as { local_pack?: { tier?: string; citeable?: boolean } }).local_pack;
+  const citeablePack =
+    Boolean(localPack?.citeable) || String(analysis.coverage?.tier || '') === 'full_pack';
+  const gisFindings = (analysis.environmental_screening?.findings || []).filter((f) =>
+    ['flood_zones', 'wetlands', 'endangered_species'].includes(String(f.category || ''))
+  );
+  const scoutPages =
+    (
+      analysis as {
+        ultralocal_scout?: { pages?: Array<{ title?: string; url?: string }> };
+      }
+    ).ultralocal_scout?.pages || [];
   const localPackLabel = localPack?.tier
     ? localPack.citeable
       ? `Local pack: ${localPack.tier}`
@@ -317,10 +328,10 @@ export default function SharedReportPage() {
             .slice(0, 10)}
           . Fees and portal asks move.
         </p>
-        {(!localPack?.citeable || unverified) && (
+        {!citeablePack && (
           <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
-            This site is not a full DFW/Austin pack (or is Unverified). Confirm every line with the
-            AHJ before you treat this as bid-ready.
+            No full city pack is on file for this site. Confirm every line with the AHJ before you
+            treat this as bid-ready.
           </p>
         )}
 
@@ -538,6 +549,58 @@ export default function SharedReportPage() {
             </p>
           ) : null}
         </section>
+
+        {!freeShare && gisFindings.length > 0 && (
+          <section className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-5 space-y-2">
+            <h2 className="text-xl font-bold">Parcel GIS</h2>
+            <p className="text-xs text-gray-400">
+              Contractor Pro and IC read flood, wetlands, and critical habitat at this pin. A nearby
+              polygon is a mapper check. It is not a permit fee.
+            </p>
+            <ul className="space-y-2">
+              {gisFindings.map((f) => (
+                <li key={f.category} className="text-sm text-gray-200">
+                  <span className="text-sky-200 font-semibold text-xs uppercase mr-2">
+                    {f.risk_level || 'NOTE'}
+                  </span>
+                  <span className="text-white">{f.description}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {(shareTier === 'ic' || shareTier === 'ic_full') && (
+          <section className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-5 space-y-2">
+            <h2 className="text-xl font-bold">Pages this scout kept</h2>
+            <p className="text-xs text-gray-400">
+              Only pages that name this city. South Houston, a county engineer desk, and scraped
+              page chrome stay off the receipt. The counsel ZIP is issued for the site on the IC
+              order.
+            </p>
+            {scoutPages.length > 0 ? (
+              <ul className="space-y-1">
+                {scoutPages.map((p) => (
+                  <li key={p.url} className="text-sm">
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-200 underline"
+                    >
+                      {p.title || p.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-300">
+                No HOA, MUD, or neighborhood page named this address. The city pack above is the
+                fee source.
+              </p>
+            )}
+          </section>
+        )}
 
         {(analysis.fee_card?.fees || []).length > 0 && (
           <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 space-y-3">

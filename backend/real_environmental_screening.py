@@ -81,6 +81,17 @@ def _finding_verified(finding: Any) -> bool:
     return getattr(finding, "verified", False) is True
 
 
+def classify_pin_vs_buffer(*, point_hit: bool, buffer_hit: bool, any_success: bool):
+    """Pin intersection is a site condition. A nearby polygon is a mapper check."""
+    if point_hit:
+        return "point"
+    if buffer_hit:
+        return "buffer"
+    if any_success:
+        return False
+    return None
+
+
 def calculate_overall_env_risk(findings: List[Any]) -> Dict[str, Any]:
     """
     Derive overall environmental risk from parcel GIS findings only.
@@ -320,12 +331,30 @@ class EnvironmentalScreeningEngine:
         pin = _pin_hint(latitude, longitude)
         try:
             hit = await self._nwi_point_intersect(latitude, longitude)
-            if hit is True:
+            if hit == "buffer":
+                return EnvironmentalRisk(
+                    category="wetlands",
+                    risk_level="MEDIUM",
+                    description=(
+                        "No NWI polygon on this map pin. A wetlands feature is within about 120 m. "
+                        "Open the mapper before treating it as a site condition."
+                    ),
+                    action_items=[
+                        "Open NWI Wetlands Mapper and confirm whether the polygon touches this pin",
+                        "Budget a delineation only if that polygon reaches the work area",
+                    ],
+                    data_sources=["USFWS National Wetlands Inventory"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=nwi_url,
+                    source_label="NWI Wetlands Mapper",
+                )
+            if hit == "point" or hit is True:
                 return EnvironmentalRisk(
                     category="wetlands",
                     risk_level="HIGH",
                     description=(
-                        "NWI wetlands feature intersects this map pin (or within ~120 m). "
+                        "NWI wetlands polygon intersects this map pin. "
                         "Confirm delineation with Corps before assuming impact."
                     ),
                     action_items=[
@@ -377,7 +406,25 @@ class EnvironmentalScreeningEngine:
         pin = _pin_hint(latitude, longitude)
         try:
             ch = await self._fws_critical_habitat_intersect(latitude, longitude)
-            if ch is True:
+            if ch == "buffer":
+                return EnvironmentalRisk(
+                    category="endangered_species",
+                    risk_level="MEDIUM",
+                    description=(
+                        "No critical-habitat polygon on this map pin. "
+                        f"A polygon is within about 120 m. {pin} Open IPaC before assuming consultation."
+                    ),
+                    action_items=[
+                        "Open IPaC and generate a resource list for this footprint",
+                        "If habitat may be affected, budget a biologist / ESA consult",
+                    ],
+                    data_sources=["USFWS critical habitat GIS", "USFWS IPaC"],
+                    research_cost_usd=0.0,
+                    verified=True,
+                    source_url=ipac,
+                    source_label="USFWS IPaC",
+                )
+            if ch == "point" or ch is True:
                 return EnvironmentalRisk(
                     category="endangered_species",
                     risk_level="HIGH",
@@ -598,22 +645,30 @@ class EnvironmentalScreeningEngine:
 
         geometries = [
             (
+                f"{lng},{lat}",
+                "esriGeometryPoint",
+                {},
+                "point",
+            ),
+            (
                 f"{lng - pad},{lat - pad},{lng + pad},{lat + pad}",
                 "esriGeometryEnvelope",
                 {},
+                "buffer",
             ),
             (
                 f"{lng},{lat}",
                 "esriGeometryPoint",
                 {"distance": "120", "units": "esriSRUnit_Meter"},
+                "buffer",
             ),
         ]
 
         last_err: Optional[str] = None
         saw_success = False
-        saw_hit = False
+        saw_buffer = False
         for base in endpoints:
-            for geom, gtype, extra in geometries:
+            for geom, gtype, extra, kind in geometries:
                 params = {
                     "geometry": geom,
                     "geometryType": gtype,
@@ -672,16 +727,18 @@ class EnvironmentalScreeningEngine:
                     gtype,
                     hit,
                 )
+                if hit and kind == "point":
+                    return "point"
                 if hit:
-                    saw_hit = True
-                    # Conservative CYA: one confirmed intersect is enough
-                    return True
+                    saw_buffer = True
 
-        if saw_success:
-            return False
-        if last_err:
+        if not saw_success and last_err:
             logger.warning("%s GIS all hosts failed: %s", label, last_err)
-        return None
+        return classify_pin_vs_buffer(
+            point_hit=False,
+            buffer_hit=saw_buffer,
+            any_success=saw_success,
+        )
 
     async def _check_noise_ordinances(self, city: str, state: str) -> EnvironmentalRisk:
         """Check municipal noise ordinances and zoning"""

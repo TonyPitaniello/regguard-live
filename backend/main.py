@@ -2159,6 +2159,15 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
     except Exception as arb_err:
         logger.warning("Arbitrage enrichment failed (non-blocking): %s", arb_err)
 
+    # The first save is before fees, contingency, and the stamp. Paid shares
+    # were forwarding that earlier snapshot. Write the enriched receipt.
+    try:
+        from research_store import save_research as _save_enriched
+
+        _save_enriched(analysis, research_id=str(analysis.get("research_id") or research_id))
+    except Exception as persist_err:
+        logger.warning("Enriched receipt persist failed (non-blocking): %s", persist_err)
+
     # Auto-save Saved Job for weekly habit (non-blocking)
     job_id = None
     try:

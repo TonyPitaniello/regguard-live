@@ -5,7 +5,7 @@ Runs after Universal Scout (full) on generate_ic_report paths:
   - Local: deepen AHJ / fee / inspection / code amendment SERP + optional page confirm
   - Ultralocal: HOA / CID / MUD / PID / township / subdivision / neighborhood covenants
 
-Findings merge into margin_killers, gotcha_watchlist, and ultralocal_scout for PDFs.
+On-city pages are stored on ultralocal_scout.pages. They do not replace the city-pack risks.
 """
 
 from __future__ import annotations
@@ -75,6 +75,30 @@ def _mentions_site_city(text: str, city: str) -> bool:
     return False
 
 
+_PLACE_QUALIFIERS = {"south", "north", "east", "west", "port", "lake"}
+
+
+def _qualified_other_city(text: str, city: str) -> bool:
+    """South Houston is not Houston. The extra word is a different city."""
+    words = _city_tokens(city)
+    if len(words) != 1:
+        return False
+    tokens = _city_tokens(text)
+    target = words[0]
+    for i, token in enumerate(tokens):
+        if token == target and i > 0 and tokens[i - 1] in _PLACE_QUALIFIERS:
+            return True
+    return False
+
+
+def _excerpt_is_page_chrome(text: str) -> bool:
+    raw = text or ""
+    low = raw.lower()
+    if "skip to main content" in low or "![](" in raw or "](http" in raw:
+        return True
+    return raw.count("](") >= 2
+
+
 def _foreign_municipal_page(title: str, snippet: str, url: str, city: str) -> bool:
     """
     The Allen code query ranks City of Fort Worth's electrical-code page, because
@@ -86,7 +110,12 @@ def _foreign_municipal_page(title: str, snippet: str, url: str, city: str) -> bo
     """
     if not (city or "").strip():
         return False
-    if _mentions_site_city(f"{title} {url}", city):
+    identity = f"{title} {url}"
+    if _qualified_other_city(identity, city):
+        return True
+    if "county engineer" in identity.lower():
+        return True
+    if _mentions_site_city(identity, city):
         return False
     if re.search(r"\bcity of\b", (title or "").lower()):
         return True
@@ -103,6 +132,8 @@ def _hit_to_killer(hit: Dict[str, Any], bucket: str, *, city: str = "") -> Optio
     url = str(hit.get("url") or hit.get("link") or hit.get("source_url") or "").strip()
     snippet = str(hit.get("description") or hit.get("snippet") or hit.get("markdown") or "").strip()
     if not title and not url:
+        return None
+    if _excerpt_is_page_chrome(title) or _excerpt_is_page_chrome(snippet):
         return None
     if _foreign_municipal_page(title, snippet, url, city):
         return None
@@ -232,38 +263,17 @@ def run_ic_local_ultralocal_scout(
                 killers.append(k)
 
     confirmed = _confirm_top_urls(all_hits, max_pages=2)
-
-    existing = [k for k in (out.get("margin_killers") or []) if isinstance(k, dict)]
-    # Prefer new ultralocal flags first, keep prior killers
-    merged_killers = killers[:8] + existing
-    # Dedupe by title
-    seen_t = set()
-    deduped: List[Dict[str, Any]] = []
-    for k in merged_killers:
-        t = str(k.get("title") or "").lower()
-        if not t or t in seen_t:
+    pages: List[Dict[str, str]] = []
+    seen_urls = set()
+    for k in killers:
+        url = str(k.get("source_url") or "").strip()
+        title = str(k.get("title") or "").strip()
+        if not url.startswith("http") or url in seen_urls:
             continue
-        seen_t.add(t)
-        deduped.append(k)
-    out["margin_killers"] = deduped[:12]
-
-    gotcha = out.get("gotcha_watchlist") if isinstance(out.get("gotcha_watchlist"), dict) else {}
-    items = [i for i in (gotcha.get("items") or []) if isinstance(i, dict)]
-    for k in killers[:6]:
-        items.append(
-            {
-                "title": k.get("title"),
-                "detail": k.get("detail"),
-                "severity": k.get("priority") or "HIGH",
-                "source_url": k.get("source_url"),
-                "verified": k.get("verified"),
-            }
-        )
-    out["gotcha_watchlist"] = {
-        **gotcha,
-        "title": gotcha.get("title") or "Local + ultralocal gotcha watchlist",
-        "items": items[:16],
-    }
+        if _excerpt_is_page_chrome(title) or _excerpt_is_page_chrome(str(k.get("detail") or "")):
+            continue
+        seen_urls.add(url)
+        pages.append({"title": title[:140], "url": url})
 
     out["ultralocal_scout"] = {
         "enabled": True,
@@ -273,35 +283,17 @@ def run_ic_local_ultralocal_scout(
         "buckets": {k: len(v) for k, v in buckets.items()},
         "hit_count": sum(len(v) for v in buckets.values()),
         "confirmed_pages": confirmed,
-        "killers_added": len(killers),
+        "pages": pages[:8],
+        "killers_added": 0,
     }
     out["scout_locality_depth"] = "local_ultralocal"
-    # Surface on depth badge note
     note = str(out.get("depth_claim_note") or "").strip()
     add = (
-        f"IC local + ultralocal scout: {sum(len(v) for v in buckets.values())} sources "
-        f"across AHJ/fees, codes, HOA/MUD/township overlays."
+        f"IC scout kept {len(pages)} on-city pages. "
+        "HOA, MUD, and neighborhood pages are listed only when the page names this city."
     )
     if add not in note:
         out["depth_claim_note"] = f"{note} {add}".strip() if note else add
-
-    # Feed local_pack gotchas when thin
-    local = out.get("local_pack") if isinstance(out.get("local_pack"), dict) else {}
-    local_gotchas = [g for g in (local.get("gotchas") or []) if isinstance(g, dict)]
-    if len(local_gotchas) < 3:
-        for k in killers[:5]:
-            local_gotchas.append(
-                {
-                    "title": k.get("title"),
-                    "detail": k.get("detail"),
-                    "source_url": k.get("source_url"),
-                    "verified": k.get("verified"),
-                }
-            )
-        local = dict(local)
-        local["gotchas"] = local_gotchas[:12]
-        local["ultralocal"] = True
-        out["local_pack"] = local
 
     logger.info(
         "IC local/ultralocal scout city=%s zip=%s hits=%s killers=%s confirmed=%s",
