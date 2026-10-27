@@ -10,12 +10,11 @@ import { Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-
 import { backendUrl } from '../env';
 import { viewInAppBlob } from '../openAndDownload';
 import {
+  clearLastResearchForm,
   hasValidPendingIcReport,
   persistLastResearchForm,
-  readLastResearchForm,
   setPendingIcReport,
   siteFromConfirmPayload,
-  siteLabel,
   type BoundSite,
 } from '../icSiteBind';
 
@@ -91,29 +90,20 @@ function orderPdfsPreparing(order: Order): boolean {
   return order.pdfs.some(pdfIsPreparing);
 }
 
-function readSavedSite(): BoundSite | null {
-  const last = readLastResearchForm();
-  if (last.address && last.city && last.state && last.zip) {
-    return {
-      address: last.address,
-      city: last.city,
-      state: last.state,
-      zip: last.zip,
-      projectType: last.projectType,
-      email: last.email,
-      label: last.label || siteLabel({
-        address: last.address,
-        city: last.city,
-        state: last.state,
-        zip: last.zip,
-      }),
-    };
-  }
-  return null;
-}
-
-function startIcReportForSavedSite(email: string) {
+function startIcReportForSite(email: string, site: BoundSite | null) {
   try {
+    if (site?.address && site.city && site.state && site.zip) {
+      persistLastResearchForm({
+        address: site.address,
+        city: site.city,
+        state: site.state,
+        zip: site.zip,
+        projectType: site.projectType || 'commercial',
+        email,
+      });
+    } else {
+      clearLastResearchForm();
+    }
     setPendingIcReport(true);
     sessionStorage.setItem('icForceOnce', '1');
     sessionStorage.setItem('pendingDeepUnlock', '1');
@@ -135,9 +125,7 @@ export default function OrdersPage() {
     () => (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') || '' : '')
   );
   const [confirmed, setConfirmed] = useState(false);
-  const [savedSite, setSavedSite] = useState<BoundSite | null>(() =>
-    typeof window !== 'undefined' ? readSavedSite() : null
-  );
+  const [savedSite, setSavedSite] = useState<BoundSite | null>(null);
   const [icRedirectCountdown, setIcRedirectCountdown] = useState<number | null>(null);
   const autoIcRedirectTried = useRef(false);
 
@@ -149,14 +137,14 @@ export default function OrdersPage() {
   useEffect(() => {
     if (icRedirectCountdown === null) return;
     if (icRedirectCountdown <= 0) {
-      startIcReportForSavedSite(userEmail);
+      startIcReportForSite(userEmail, savedSite);
       return;
     }
     const id = window.setTimeout(() => {
       setIcRedirectCountdown((n) => (n === null ? null : n - 1));
     }, 1000);
     return () => window.clearTimeout(id);
-  }, [icRedirectCountdown, userEmail]);
+  }, [icRedirectCountdown, savedSite, userEmail]);
 
   // Poll while IC PDFs are still preparing (after research generates them)
   useEffect(() => {
@@ -191,6 +179,7 @@ export default function OrdersPage() {
     try {
       setLoading(true);
       setError('');
+      let confirmedSite: BoundSite | null = null;
 
       const params = new URLSearchParams(window.location.search);
       let sessionId = (params.get('session_id') || '').trim();
@@ -234,6 +223,7 @@ export default function OrdersPage() {
           // Premortem F1/F10: restore site from Stripe metadata / order
           const restored = siteFromConfirmPayload(confirmData.site, confirmData.order);
           if (restored) {
+            confirmedSite = restored;
             persistLastResearchForm({
               address: restored.address,
               city: restored.city,
@@ -293,22 +283,22 @@ export default function OrdersPage() {
         );
       }
 
-      // Prefer order-bound / freshly restored site
-      let siteNow = readSavedSite();
-      if (!siteNow) {
-        const icOrder = nextOrders.find((o) => isIcTier(o.tier));
-        const fromOrder = icOrder ? siteFromConfirmPayload(null, icOrder) : null;
-        if (fromOrder) {
-          persistLastResearchForm({
-            ...fromOrder,
-            projectType: fromOrder.projectType || 'commercial',
-            email,
-          });
-          setSavedSite(fromOrder);
-          siteNow = fromOrder;
-        }
-      } else {
+      const preparing = nextOrders.find((o) => isIcTier(o.tier) && orderPdfsPreparing(o));
+      const ownOrder = preparing || nextOrders.find((o) => isIcTier(o.tier));
+      const fromOrder = ownOrder ? siteFromConfirmPayload(null, ownOrder) : null;
+      const siteNow = confirmedSite || fromOrder;
+      if (siteNow) {
+        persistLastResearchForm({
+          address: siteNow.address,
+          city: siteNow.city,
+          state: siteNow.state,
+          zip: siteNow.zip,
+          projectType: siteNow.projectType || 'commercial',
+          email,
+        });
         setSavedSite(siteNow);
+      } else {
+        setSavedSite(null);
       }
 
       const hasIc = nextOrders.some((o) => isIcTier(o.tier));
@@ -425,8 +415,8 @@ export default function OrdersPage() {
                 <p className="mt-2 text-sm text-emerald-200/90">
                   {orders.some((o) => isIcTier(o.tier))
                     ? savedSite
-                      ? `One tap generates the IC Diligence Bundle for ${savedSite.label} — counsel ZIP (memo + DOCX + CSVs), no address re-entry.`
-                      : 'IC Diligence Bundle generates from the site bound at checkout (or your last researched site).'
+                      ? 'One tap generates the IC Diligence Bundle for the address on this order.'
+                      : 'The counsel ZIP uses the address stored on the order.'
                     : 'Next: unlock deeper research on your site (same email).'}
                 </p>
                 {orders
@@ -453,7 +443,7 @@ export default function OrdersPage() {
             {orders.some((o) => isIcTier(o.tier)) && savedSite ? (
               <button
                 type="button"
-                onClick={() => startIcReportForSavedSite(userEmail)}
+                onClick={() => startIcReportForSite(userEmail, savedSite)}
                 className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
               >
                 Generate IC Report for this site
@@ -485,15 +475,15 @@ export default function OrdersPage() {
                 <p className="font-bold">IC PDFs not ready yet</p>
                 <p className="mt-1 text-amber-100/90">
                   {savedSite
-                    ? `Click Generate to rebuild the IC Diligence Bundle (decision memo, boardroom PDF, counsel DOCX, Excel) for ${savedSite.label}.`
-                    : 'Run a site lookup with this purchase email to generate your IC Diligence Bundle.'}{' '}
+                    ? `Click Generate to build the counsel ZIP for ${savedSite.label}. That is the address on this order.`
+                    : 'This order has no address yet. Run the lookup with the address for this purchase.'}{' '}
                   Payment stays completed — this only rebuilds the downloadable package.
                 </p>
               </div>
             </div>
             <button
               type="button"
-              onClick={() => startIcReportForSavedSite(userEmail)}
+              onClick={() => startIcReportForSite(userEmail, savedSite)}
               disabled={!savedSite && !userEmail}
               className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
             >
@@ -806,7 +796,7 @@ function OrderCard({
               onClick={() => {
                 const email =
                   (typeof window !== 'undefined' && sessionStorage.getItem('userEmail')) || '';
-                startIcReportForSavedSite(email);
+                startIcReportForSite(email, siteFromConfirmPayload(null, order));
               }}
             >
               Generate IC Report now →

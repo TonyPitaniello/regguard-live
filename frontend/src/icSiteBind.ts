@@ -70,6 +70,60 @@ export function clearLastResearchForm(): void {
   }
 }
 
+const CHECKOUT_SITE_KEY = 'checkoutSite';
+
+export function persistCheckoutSite(data: {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  projectType?: string;
+  email?: string;
+}): void {
+  try {
+    sessionStorage.setItem(
+      CHECKOUT_SITE_KEY,
+      JSON.stringify({
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        projectType: data.projectType || 'commercial',
+        email: data.email || '',
+      })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Address for this purchase. A previous lookup on the same email is not included. */
+export function readCheckoutSite(): Partial<BoundSite> & { projectType?: string; email?: string } {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_SITE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const address = typeof parsed.address === 'string' ? parsed.address : undefined;
+    const city = typeof parsed.city === 'string' ? parsed.city : undefined;
+    const state = typeof parsed.state === 'string' ? parsed.state : undefined;
+    const zip = typeof parsed.zip === 'string' ? parsed.zip : undefined;
+    return {
+      address,
+      city,
+      state,
+      zip,
+      projectType: typeof parsed.projectType === 'string' ? parsed.projectType : undefined,
+      email: typeof parsed.email === 'string' ? parsed.email : undefined,
+      label:
+        address && city && state && zip
+          ? siteLabel({ address, city, state, zip })
+          : undefined,
+    };
+  } catch {
+    return {};
+  }
+}
+
 export function persistLastResearchForm(data: {
   address: string;
   city: string;

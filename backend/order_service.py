@@ -206,27 +206,11 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _apply_saved_site(mapped: Dict[str, Any], row: Optional[Dict[str, Any]] = None) -> None:
-    """Copy counsel site fields off the row, then off the saved research ZIP."""
+    """Copy the address stored on this order. A previous research blob is not the site."""
     src = row or {}
     for key in ("site_address", "site_city", "site_state", "site_zip", "site_label"):
         if src.get(key) and not mapped.get(key):
             mapped[key] = src.get(key)
-    aj = mapped.get("analysis_json")
-    if mapped.get("site_zip") or not isinstance(aj, dict):
-        return
-    pi = aj.get("project_info") if isinstance(aj.get("project_info"), dict) else {}
-    z = "".join(c for c in str(pi.get("zip") or "") if c.isdigit())[:5]
-    if not z:
-        return
-    mapped["site_zip"] = z
-    if not mapped.get("site_city"):
-        mapped["site_city"] = str(pi.get("city") or "")
-    if not mapped.get("site_state"):
-        mapped["site_state"] = str(pi.get("state") or "")
-    if not mapped.get("site_address"):
-        mapped["site_address"] = str(pi.get("address") or "")
-    if not mapped.get("site_label"):
-        mapped["site_label"] = str(mapped.get("address") or "")
 
 
 def remember_order(order: Dict[str, Any]) -> Dict[str, Any]:

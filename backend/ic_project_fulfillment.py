@@ -64,78 +64,35 @@ def _zip_digits(value: Any) -> str:
 
 
 def stored_site_zip(order: Dict[str, Any]) -> str:
-    """Postal ZIP written on the counsel order. A checkout label is not this field.
-
-    site_zip is also kept on the saved research (project_info.zip) because that
-    JSON is what survives a process restart when the site columns are absent.
-    """
+    """ZIP stored on this order. Another run on the same email is not a source."""
     if not isinstance(order, dict):
         return ""
     z = _zip_digits(order.get("site_zip"))
     if z:
         return z
-    aj = order.get("analysis_json")
-    if isinstance(aj, dict):
-        pi = aj.get("project_info")
-        if isinstance(pi, dict):
-            return _zip_digits(pi.get("zip"))
+    import re
+
+    for key in ("site_label", "address", "site_address"):
+        raw = str(order.get(key) or "")
+        found = re.search(r"\b(\d{5})(?:-\d{4})?\b", raw)
+        if found:
+            return found.group(1)
     return ""
 
 
-# The Oct 23 test order was rewritten onto 78205 when a restart dropped site_zip
-# and the next address was treated as the unused counsel ZIP.
-_RESTORED_COUNSEL_EMAIL = "ladder.chelsea.allen.20261023@gmail.com"
-_RESTORED_COUNSEL_LINE = "1000 Louisiana Street, Houston, TX 77002"
-
-
-def restore_counsel_site_after_restart(orders: List[Dict[str, Any]]) -> None:
-    """Put the Oct 23 counsel order back on Houston if a restart rebound it."""
-    from order_service import normalize_tier, update_order_artifacts
-
-    for order in orders:
-        if not isinstance(order, dict):
-            continue
-        if str(order.get("email") or "").strip().lower() != _RESTORED_COUNSEL_EMAIL:
-            continue
-        if normalize_tier(str(order.get("tier") or "")) != "ic_project":
-            continue
-        if not str(order.get("created_at") or "").startswith("2026-10-23"):
-            continue
-        blob = " ".join(
-            str(order.get(k) or "")
-            for k in ("address", "site_label", "site_address", "site_zip")
-        ).lower()
-        if "78205" not in blob and "pecan" not in blob:
-            continue
-        order["site_address"] = "1000 Louisiana Street"
-        order["site_city"] = "Houston"
-        order["site_state"] = "TX"
-        order["site_zip"] = "77002"
-        order["site_label"] = _RESTORED_COUNSEL_LINE
-        order["address"] = _RESTORED_COUNSEL_LINE
-        aj = order.get("analysis_json")
-        if isinstance(aj, dict):
-            pi = aj.get("project_info")
-            if not isinstance(pi, dict):
-                pi = {}
-                aj["project_info"] = pi
-            pi["address"] = _RESTORED_COUNSEL_LINE
-            pi["city"] = "Houston"
-            pi["state"] = "TX"
-            pi["zip"] = "77002"
-        try:
-            update_order_artifacts(
-                str(order.get("order_id") or order.get("id") or ""),
-                address=_RESTORED_COUNSEL_LINE,
-                site_address="1000 Louisiana Street",
-                site_city="Houston",
-                site_state="TX",
-                site_zip="77002",
-                site_label=_RESTORED_COUNSEL_LINE,
-                analysis_json=aj if isinstance(aj, dict) else None,
-            )
-        except Exception as e:
-            logger.warning("Counsel site restore failed: %s", e)
+def order_has_given_site(order: Dict[str, Any]) -> bool:
+    """True when this order already has the address that was given for it."""
+    if not isinstance(order, dict):
+        return False
+    fp = order_site_fingerprint(order)
+    if fp and fp != "||":
+        street, zip_code, _state = (fp.split("|") + ["", ""])[:3]
+        if street and zip_code:
+            return True
+    for key in ("site_address", "site_label", "address", "site_zip"):
+        if str(order.get(key) or "").strip():
+            return True
+    return False
 
 
 def order_site_fingerprint(order: Dict[str, Any]) -> str:
@@ -206,7 +163,6 @@ def evaluate_ic_site_access(
     orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
     if not orders:
         return empty
-    restore_counsel_site_after_restart(orders)
 
     # Active IC Annual → additional sites allowed under subscription
     for o in orders:
@@ -224,33 +180,8 @@ def evaluate_ic_site_access(
                 ),
             }
 
-    # Unused IC Project (PDFs not ready) — bind this address once.
-    # A ready order with no stored site ZIP is the same case: the checkout label
-    # is not the location ZIP. The counsel ZIP is the ZIP just entered.
-    entered_zip = "".join(c for c in str(zip_code or "") if c.isdigit())[:5]
-    for o in orders:
-        tier = normalize_tier(str(o.get("tier") or ""))
-        if tier not in ("ic_project", "ic_consultant"):
-            continue
-        if pdfs_are_ready(o.get("pdfs")) and stored_site_zip(o):
-            continue
-        if pdfs_are_ready(o.get("pdfs")) and not entered_zip:
-            continue
-        return {
-            "allowed": True,
-            "mode": "bind_unused",
-            "order_id": str(o.get("order_id") or o.get("id") or "") or None,
-            "bound_site": "",
-            "site_fingerprint": fp,
-            "message": (
-                f"OK uses your $1,500 IC Diligence Bundle for THIS address only:\n\n{site_label}\n\n"
-                f"The counsel ZIP is {entered_zip or 'the ZIP on this location'}. "
-                "Additional sites require a new $1,500 purchase. Cancel researches without "
-                "the counsel ZIP. Reg Guard does not store your credit card."
-            ),
-        }
-
-    # Same-site refresh
+    # Same address on this order, including when the PDFs are not ready yet.
+    # A different address on the same email does not move this order.
     if fp and fp != "||":
         for o in orders:
             tier = normalize_tier(str(o.get("tier") or ""))
@@ -271,6 +202,30 @@ def evaluate_ic_site_access(
                         "Cancel researches without regenerating the counsel ZIP."
                     ),
                 }
+
+    # A purchase with no address yet can take the address on this request once.
+    entered_zip = "".join(c for c in str(zip_code or "") if c.isdigit())[:5]
+    for o in orders:
+        tier = normalize_tier(str(o.get("tier") or ""))
+        if tier not in ("ic_project", "ic_consultant"):
+            continue
+        if order_has_given_site(o):
+            continue
+        if not entered_zip and not (address or "").strip():
+            continue
+        return {
+            "allowed": True,
+            "mode": "bind_unused",
+            "order_id": str(o.get("order_id") or o.get("id") or "") or None,
+            "bound_site": "",
+            "site_fingerprint": fp,
+            "message": (
+                f"OK uses your $1,500 IC Diligence Bundle for THIS address only:\n\n{site_label}\n\n"
+                f"The counsel ZIP is {entered_zip or 'the ZIP on this location'}. "
+                "Additional sites require a new $1,500 purchase. Cancel researches without "
+                "the counsel ZIP. Reg Guard does not store your credit card."
+            ),
+        }
 
     # Has IC purchase(s) but for other site(s)
     prior = []
@@ -634,20 +589,22 @@ def build_pdf_meta(
 
 
 def find_open_ic_order(email: str) -> Optional[Dict[str, Any]]:
-    """Newest IC-tier order for email that still needs PDFs (or any IC order)."""
-    from order_service import get_raw_orders_for_email
+    """An IC Project on this email that has no address yet. A filled order stays put."""
+    from order_service import get_raw_orders_for_email, normalize_tier
 
     email_l = (email or "").strip().lower()
     if not email_l:
         return None
     orders = get_raw_orders_for_email(email_l)
-    ic_orders = [o for o in orders if is_ic_tier(str(o.get("tier") or ""))]
-    if not ic_orders:
-        return None
-    for o in ic_orders:
-        if not pdfs_are_ready(o.get("pdfs")):
-            return o
-    return ic_orders[0]
+    for o in orders:
+        if normalize_tier(str(o.get("tier") or "")) not in ("ic_project", "ic_consultant"):
+            continue
+        if order_has_given_site(o):
+            continue
+        if pdfs_are_ready(o.get("pdfs")):
+            continue
+        return o
+    return None
 
 
 def resolve_ic_order_for_site(
@@ -679,14 +636,17 @@ def resolve_ic_order_for_site(
         for o in orders:
             if normalize_tier(str(o.get("tier") or "")) == "ic_annual":
                 return o
-    for o in orders:
-        if not pdfs_are_ready(o.get("pdfs")):
-            return o
+    # Match this address. Do not take another order on the same email.
     fp = site_fingerprint(address=address, city=city, state=state, zip_code=zip_code)
     for o in orders:
-        if order_site_fingerprint(o) == fp:
+        if fp and order_site_fingerprint(o) == fp:
             return o
-    return orders[0] if orders else None
+    if mode == "bind_unused":
+        for o in orders:
+            tier = normalize_tier(str(o.get("tier") or ""))
+            if tier in ("ic_project", "ic_consultant") and not order_has_given_site(o):
+                return o
+    return None
 
 
 async def fulfill_ic_project_artifacts(
@@ -756,6 +716,18 @@ async def fulfill_ic_project_artifacts(
     tier_ic = normalize_tier(str(order.get("tier") or ""))
     mode = str(access.get("mode") or "")
     already = pdfs_are_ready(order.get("pdfs"))
+    entered_fp = site_fingerprint(
+        address=site_addr, city=site_city, state=site_state, zip_code=site_zip
+    )
+    if tier_ic in ("ic_project", "ic_consultant") and order_has_given_site(order):
+        bound_fp = order_site_fingerprint(order)
+        if bound_fp and entered_fp and bound_fp != entered_fp:
+            logger.info(
+                "IC fulfill kept order %s on its address (%s)",
+                order_id,
+                bound_fp,
+            )
+            return None
 
     # Hard rule: ic_project cannot jump to a different site after PDFs are ready
     if already and mode == "need_purchase":

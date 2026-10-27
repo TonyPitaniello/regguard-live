@@ -23,6 +23,7 @@ import {
   clearPendingIcReport,
   getOrCreateIcRunId,
   hasValidPendingIcReport,
+  persistCheckoutSite,
   persistLastResearchForm,
   readLastResearchForm,
   setPendingIcReport,
@@ -741,6 +742,14 @@ export default function FreeTrialForm({
           email: emailNorm,
           lat: dataForApi.lat,
           lng: dataForApi.lng,
+        });
+        persistCheckoutSite({
+          address: dataForApi.address,
+          city: dataForApi.city,
+          state: dataForApi.state,
+          zip: dataForApi.zip,
+          projectType: dataForApi.projectType,
+          email: emailNorm,
         });
         setLoading(false);
         navigate(

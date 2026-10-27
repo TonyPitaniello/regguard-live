@@ -11,7 +11,7 @@ import CitationBadge from './CitationBadge';
 import { backendUrl } from '../env';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
-import { persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
+import { persistCheckoutSite, persistLastResearchForm, setPendingIcReport } from '../icSiteBind';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
 import { analysisForPdfExport, artifactDownloadFilename, postBinaryDownload, postPdfDownload } from '../pdfExport';
 import { downloadOnlyBlob } from '../openAndDownload';
@@ -2463,6 +2463,14 @@ export default function ResultsViewerModal({
     try {
       const pi = view.project_info;
       persistLastResearchForm({
+        address: pi.address || '',
+        city: pi.city || '',
+        state: pi.state || '',
+        zip: pi.zip || '',
+        projectType: pi.type || 'commercial',
+        email: emailForCheckout,
+      });
+      persistCheckoutSite({
         address: pi.address || '',
         city: pi.city || '',
         state: pi.state || '',

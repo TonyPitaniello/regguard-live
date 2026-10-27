@@ -9,7 +9,7 @@ import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { backendUrl } from '../env';
 import {
   hasValidPendingIcReport,
-  readLastResearchForm,
+  readCheckoutSite,
   setPendingIcReport,
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
@@ -347,7 +347,7 @@ function PaymentForm({
   );
   const [loading, setLoading] = useState(false);
   const [cardError, setCardError] = useState('');
-  const boundSite = readLastResearchForm();
+  const boundSite = readCheckoutSite();
   const hasBoundSite = Boolean(
     boundSite.address && boundSite.city && boundSite.state && boundSite.zip
   );
@@ -501,8 +501,8 @@ function PaymentForm({
             <>
               <p className="font-bold">No site bound yet</p>
               <p className="mt-1 text-xs text-amber-200/90">
-                Run a free site lookup first, then open Get IC Diligence Bundle from results — or
-                enter the address on My Orders after payment.
+                This purchase is not tied to an earlier address on this email. Open checkout from
+                the result for the address you want.
               </p>
             </>
           )}

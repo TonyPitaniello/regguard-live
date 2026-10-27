@@ -134,8 +134,8 @@ def test_ic_annual_allows_new_site(monkeypatch):
     assert access["mode"] == "annual"
 
 
-def test_label_only_order_binds_the_entered_location_zip(monkeypatch):
-    """A checkout label is not a stored site ZIP. The counsel ZIP is the ZIP entered."""
+def test_label_only_order_keeps_that_address(monkeypatch):
+    """The address on the order is the site. A later address on the email does not move it."""
     ready_pdfs = [
         {
             "type": "ic_package",
@@ -160,9 +160,82 @@ def test_label_only_order_binds_the_entered_location_zip(monkeypatch):
         state="TX",
         zip_code="77002",
     )
-    assert access["allowed"] is True
-    assert access["mode"] == "bind_unused"
-    assert "77002" in access["message"]
+    assert access["allowed"] is False
+    assert access["mode"] == "need_purchase"
+    assert "75013" in str(access.get("bound_site") or "")
+
+
+def test_unready_order_keeps_its_address(monkeypatch):
+    orders = [
+        _order(
+            pdfs=[{"type": "ic_package", "name": "Preparing", "url": "", "status": "preparing"}],
+            site_address="1000 Louisiana Street",
+            site_city="Houston",
+            site_state="TX",
+            site_zip="77002",
+            site_label="1000 Louisiana Street, Houston, TX 77002",
+        )
+    ]
+    monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
+    other = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="112 E Pecan Street",
+        city="San Antonio",
+        state="TX",
+        zip_code="78205",
+    )
+    assert other["allowed"] is False
+    assert other["mode"] == "need_purchase"
+    same = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="1000 Louisiana Street",
+        city="Houston",
+        state="TX",
+        zip_code="77002",
+    )
+    assert same["allowed"] is True
+    assert same["mode"] == "same_site_refresh"
+
+
+def test_each_order_matches_only_its_address(monkeypatch):
+    ready = [{"type": "ic_package", "name": "IC", "url": "https://api.example/orders/x/pdfs/ic_package", "status": "ready"}]
+    orders = [
+        _order(
+            order_id="hou",
+            pdfs=ready,
+            site_address="1000 Louisiana Street",
+            site_city="Houston",
+            site_state="TX",
+            site_zip="77002",
+            site_label="1000 Louisiana Street, Houston, TX 77002",
+        ),
+        _order(
+            order_id="sa",
+            pdfs=ready,
+            site_address="112 E Pecan Street",
+            site_city="San Antonio",
+            site_state="TX",
+            site_zip="78205",
+            site_label="112 E Pecan Street, San Antonio, TX 78205",
+        ),
+    ]
+    monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
+    pecan = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="112 E Pecan Street",
+        city="San Antonio",
+        state="TX",
+        zip_code="78205",
+    )
+    assert pecan["order_id"] == "sa"
+    louisiana = evaluate_ic_site_access(
+        "buyer@example.com",
+        address="1000 Louisiana Street",
+        city="Houston",
+        state="TX",
+        zip_code="77002",
+    )
+    assert louisiana["order_id"] == "hou"
 
 
 def test_stored_site_zip_still_blocks_a_different_zip(monkeypatch):
@@ -211,7 +284,7 @@ def test_fingerprint_uses_stored_site_zip_not_stale_label():
 
 
 def test_saved_research_zip_blocks_a_different_site_after_restart(monkeypatch):
-    """site_zip can be missing after a restart. The ZIP on the saved research still binds the order."""
+    """The address line on the order is the site. A research blob on the email is not."""
     ready_pdfs = [
         {
             "type": "ic_package",
@@ -230,10 +303,10 @@ def test_saved_research_zip_blocks_a_different_site_after_restart(monkeypatch):
     ]
     orders[0]["analysis_json"] = {
         "project_info": {
-            "address": "1000 Louisiana Street, Houston, TX 77002",
-            "city": "Houston",
+            "address": "112 E Pecan Street",
+            "city": "San Antonio",
             "state": "TX",
-            "zip": "77002",
+            "zip": "78205",
         }
     }
     monkeypatch.setattr("order_service.get_raw_orders_for_email", lambda email: orders)
