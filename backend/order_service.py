@@ -85,7 +85,13 @@ def _supabase_rest(path: str, method: str = "GET", json_body: Any = None, prefer
             else:
                 return None
             if r.status_code >= 400:
-                logger.warning("Supabase orders %s %s -> %s %s", method, path, r.status_code, r.text[:200])
+                logger.warning(
+                    "Supabase orders %s %s -> %s %s",
+                    method,
+                    path,
+                    r.status_code,
+                    r.text[:400],
+                )
                 return None
             if not r.content:
                 return []

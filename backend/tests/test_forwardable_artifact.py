@@ -138,6 +138,7 @@ def test_report_survives_disk_wipe(sample_analysis, tmp_path, monkeypatch):
     save_research(sample_analysis, research_id="ft-durable01")
     assert str(store["row"]["stripe_session_id"]).startswith("share_")
     assert store["row"]["amount"] == 0
+    assert store["row"]["tier"] == "contractor_pro"
     assert store["row"]["email"] == "share-archive@regguard.invalid"
     for path in tmp_path.glob("*.json"):
         path.unlink()

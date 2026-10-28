@@ -518,6 +518,8 @@ def _share_archive_session(research_id: str) -> str:
 def _durable_upsert(record: Dict[str, Any]) -> bool:
     """Copy the receipt onto the orders table, which survives a Render restart."""
     try:
+        from urllib.parse import quote
+
         from order_service import _supabase_rest, email_to_user_uuid
     except Exception as e:
         logger.warning("Durable report store unavailable: %s", e)
@@ -526,26 +528,41 @@ def _durable_upsert(record: Dict[str, Any]) -> bool:
     if not rid:
         return False
     archive_email = "share-archive@regguard.invalid"
+    sid = _share_archive_session(rid)
+    sid_q = quote(sid, safe="-_")
+    address = str(record.get("project_address") or "")[:500]
+    patch = {
+        "analysis_json": record,
+        "address": address,
+        "email": archive_email,
+        "pdf_status": "share",
+    }
+    existing = _supabase_rest(
+        f"orders?stripe_session_id=eq.{sid_q}&select=id&limit=1",
+        method="GET",
+    )
+    if isinstance(existing, list) and existing:
+        result = _supabase_rest(
+            f"orders?stripe_session_id=eq.{sid_q}",
+            method="PATCH",
+            json_body=patch,
+            prefer="return=minimal",
+        )
+        return result is not None
     row = {
         "user_id": email_to_user_uuid(archive_email),
-        "stripe_session_id": _share_archive_session(rid),
+        "stripe_session_id": sid,
         "amount": 0,
         "currency": "usd",
         "status": "completed",
-        "tier": "partner",
+        "tier": "contractor_pro",
         "email": archive_email,
-        "address": str(record.get("project_address") or "")[:500],
+        "address": address,
+        "project_type": "commercial",
         "analysis_json": record,
         "pdf_status": "share",
     }
-    result = _supabase_rest(
-        "orders?on_conflict=stripe_session_id",
-        method="POST",
-        json_body=row,
-        prefer="resolution=merge-duplicates,return=minimal",
-    )
-    if result is None:
-        result = _supabase_rest("orders", method="POST", json_body=row, prefer="return=minimal")
+    result = _supabase_rest("orders", method="POST", json_body=row, prefer="return=minimal")
     if result is None:
         logger.warning("Durable report copy failed for %s", rid)
         return False
