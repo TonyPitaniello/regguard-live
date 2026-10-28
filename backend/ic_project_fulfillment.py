@@ -139,7 +139,7 @@ def evaluate_ic_site_access(
       same_site_refresh — paid IC Project already bound to this exact site
       need_purchase     — must buy another IC Project for this address
     """
-    from order_service import get_raw_orders_for_email, normalize_tier
+    from order_service import get_raw_orders_for_email, normalize_tier, order_grants_access
 
     email_l = (email or "").strip().lower()
     fp = site_fingerprint(address=address, city=city, state=state, zip_code=zip_code)
@@ -160,7 +160,11 @@ def evaluate_ic_site_access(
     if not email_l or "@" not in email_l:
         return empty
 
-    orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
+    orders = [
+        o
+        for o in get_raw_orders_for_email(email_l)
+        if is_ic_tier(str(o.get("tier") or "")) and order_grants_access(o)
+    ]
     if not orders:
         return empty
 
@@ -590,13 +594,15 @@ def build_pdf_meta(
 
 def find_open_ic_order(email: str) -> Optional[Dict[str, Any]]:
     """An IC Project on this email that has no address yet. A filled order stays put."""
-    from order_service import get_raw_orders_for_email, normalize_tier
+    from order_service import get_raw_orders_for_email, normalize_tier, order_grants_access
 
     email_l = (email or "").strip().lower()
     if not email_l:
         return None
     orders = get_raw_orders_for_email(email_l)
     for o in orders:
+        if not order_grants_access(o):
+            continue
         if normalize_tier(str(o.get("tier") or "")) not in ("ic_project", "ic_consultant"):
             continue
         if order_has_given_site(o):
@@ -616,7 +622,7 @@ def resolve_ic_order_for_site(
     zip_code: str = "",
 ) -> Optional[Dict[str, Any]]:
     """Pick the IC order that may fulfill THIS site (or None if a new purchase is required)."""
-    from order_service import get_raw_orders_for_email, normalize_tier
+    from order_service import get_raw_orders_for_email, normalize_tier, order_grants_access
 
     access = evaluate_ic_site_access(
         email, address=address, city=city, state=state, zip_code=zip_code
@@ -630,7 +636,11 @@ def resolve_ic_order_for_site(
                 return o
     # Annual / fallback: prefer unfulfilled, else newest annual, else matching site
     email_l = (email or "").strip().lower()
-    orders = [o for o in get_raw_orders_for_email(email_l) if is_ic_tier(str(o.get("tier") or ""))]
+    orders = [
+        o
+        for o in get_raw_orders_for_email(email_l)
+        if is_ic_tier(str(o.get("tier") or "")) and order_grants_access(o)
+    ]
     mode = str(access.get("mode") or "")
     if mode == "annual":
         for o in orders:
@@ -952,6 +962,10 @@ def ensure_pdf_bytes(
     order = get_raw_order_by_id(order_id)
     if not order:
         return None, "Order not found"
+    from order_service import order_grants_access
+
+    if not order_grants_access(order):
+        return None, "This order has ended"
 
     order_token = (order.get("download_token") or "").strip()
     provided_token = (token or "").strip()

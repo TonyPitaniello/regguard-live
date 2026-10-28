@@ -6,13 +6,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loadStripe, Stripe } from '@stripe/stripe-js';
-import axios from 'axios';
-import { backendUrl } from '../env';
 import { ArrowLeft, CheckCircle } from 'lucide-react';
 
 interface FormData {
   email: string;
-  password: string;
   company_name: string;
   first_name: string;
   last_name: string;
@@ -21,18 +18,16 @@ interface FormData {
 export default function SignupPage() {
   const navigate = useNavigate();
   const stripeRef = useRef<Stripe | null>(null);
-  const cardElementRef = useRef<any>(null);
   
   const [formData, setFormData] = useState<FormData>({
     email: '',
-    password: '',
     company_name: '',
     first_name: '',
     last_name: '',
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [error] = useState('');
+  const [success] = useState(false);
 
   // Initialize Stripe
   useEffect(() => {
@@ -51,87 +46,8 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    // Validate form
-    if (!formData.email || !formData.password || !formData.company_name || !formData.first_name || !formData.last_name) {
-      setError('Please fill in all fields');
-      setLoading(false);
-      return;
-    }
-
-    // Basic card validation
-    const cardNumber = (document.getElementById('card-number') as HTMLInputElement)?.value;
-    const cardExpiry = (document.getElementById('card-expiry') as HTMLInputElement)?.value;
-    const cardCvc = (document.getElementById('card-cvc') as HTMLInputElement)?.value;
-
-    if (!cardNumber || !cardExpiry || !cardCvc) {
-      setError('Please enter valid card details');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      if (!stripeRef.current) {
-        setError('Stripe not loaded');
-        setLoading(false);
-        return;
-      }
-
-      // Create payment token
-      const { token, error: tokenError } = await stripeRef.current.createToken('card', {
-        number: cardNumber,
-        exp_month: parseInt(cardExpiry.split('/')[0]),
-        exp_year: parseInt(cardExpiry.split('/')[1]),
-        cvc: cardCvc,
-      });
-
-      if (tokenError) {
-        setError(tokenError.message || 'Card error occurred');
-        setLoading(false);
-        return;
-      }
-
-      if (!token) {
-        setError('Failed to create payment token');
-        setLoading(false);
-        return;
-      }
-
-      // Send to backend
-      const response = await axios.post(
-        backendUrl('/auth/create-checkout-session'),
-        {
-          email: formData.email,
-          password: formData.password,
-          company_name: formData.company_name,
-          first_name: formData.first_name,
-          last_name: formData.last_name,
-          stripe_token: token.id,
-          project_name: `${formData.company_name} - Initial Project`,
-        }
-      );
-
-      if (response.data.success || response.status === 200) {
-        // If checkout URL is provided, redirect to Stripe
-        if (response.data.checkout_url) {
-          window.location.href = response.data.checkout_url;
-        } else {
-          // Otherwise show success and redirect to dashboard
-          setSuccess(true);
-          setTimeout(() => {
-            navigate('/');
-          }, 2000);
-        }
-      } else {
-        setError(response.data.message || 'Signup failed');
-      }
-    } catch (err: any) {
-      setError(err.response?.data?.detail || err.message || 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
+    setLoading(false);
+    navigate('/pricing');
   };
 
   if (success) {
@@ -229,54 +145,9 @@ export default function SignupPage() {
               />
             </div>
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-2">Password</label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="••••••••"
-                className="w-full px-4 py-2 bg-slate-900/50 border border-purple-500/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
-              />
-            </div>
-
-            {/* Card Number */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-300 mb-2">Card Number</label>
-              <input
-                id="card-number"
-                type="text"
-                placeholder="4242 4242 4242 4242"
-                maxLength={19}
-                className="w-full px-4 py-2 bg-slate-900/50 border border-purple-500/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
-              />
-            </div>
-
-            {/* Expiry & CVC */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">Expiry</label>
-                <input
-                  id="card-expiry"
-                  type="text"
-                  placeholder="MM/YY"
-                  maxLength={5}
-                  className="w-full px-4 py-2 bg-slate-900/50 border border-purple-500/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">CVC</label>
-                <input
-                  id="card-cvc"
-                  type="text"
-                  placeholder="123"
-                  maxLength={4}
-                  className="w-full px-4 py-2 bg-slate-900/50 border border-purple-500/20 rounded-lg text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none transition"
-                />
-              </div>
-            </div>
+            <p className="text-sm text-gray-400">
+              Reg Guard does not create a password account. Buy a plan and use that email on My Orders.
+            </p>
 
             {/* Terms */}
             <p className="text-xs text-gray-400 text-center">

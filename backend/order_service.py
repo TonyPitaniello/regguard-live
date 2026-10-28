@@ -43,6 +43,41 @@ _TIER_AMOUNTS = {
     "sponsor": 150000,
 }
 
+# Status values the orders table accepts include completed, failed, and refunded.
+# A canceled subscription is failed plus an ended: subscription id so a later
+# paid invoice cannot turn it back on. A denied renewal is failed with the
+# subscription id left in place so a successful retry can restore it.
+ACCESS_STATUSES = {"completed", "active", "paid", ""}
+ENDED_STATUSES = {"failed", "refunded", "canceled", "cancelled", "past_due", "unpaid"}
+SUBSCRIPTION_TIERS = {"partner", "contractor_pro", "ic_annual", "sponsor"}
+
+
+def order_grants_access(order: Optional[Dict[str, Any]]) -> bool:
+    """True when this order is still a paid seat. Ended, failed, and refunded are not."""
+    if not isinstance(order, dict):
+        return False
+    status = str(order.get("status") or "").strip().lower()
+    return status in ACCESS_STATUSES
+
+
+def billing_state_for(order: Optional[Dict[str, Any]]) -> str:
+    """UI state. status stays inside the orders-table check constraint."""
+    if not isinstance(order, dict):
+        return "pending"
+    status = str(order.get("status") or "completed").strip().lower()
+    sub = str(order.get("stripe_subscription_id") or "")
+    if status == "refunded":
+        return "refunded"
+    if status == "failed" and sub.startswith("ended:"):
+        return "canceled"
+    if status == "failed" or status == "past_due":
+        return "past_due"
+    if status in ("canceled", "cancelled"):
+        return "canceled"
+    if status in ACCESS_STATUSES:
+        return "active"
+    return "pending"
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -208,6 +243,7 @@ def order_to_frontend(order: Dict[str, Any]) -> Dict[str, Any]:
         or "",
         "research_id": order.get("research_id") or "",
         "share_url": order.get("share_url") or "",
+        "billing_state": billing_state_for(order),
     }
 
 
@@ -279,6 +315,132 @@ def persist_order_supabase(order: Dict[str, Any]) -> bool:
     return result is not None
 
 
+def _merge_db_billing(mem: Dict[str, Any], row: Dict[str, Any]) -> None:
+    """Copy Stripe ids onto an in-memory order. An ended database row wins."""
+    db_sub = str(row.get("stripe_subscription_id") or "")
+    mem_sub = str(mem.get("stripe_subscription_id") or "")
+    if db_sub.startswith("ended:") or not mem_sub:
+        if db_sub:
+            mem["stripe_subscription_id"] = db_sub
+    db_pi = str(row.get("stripe_payment_intent_id") or "")
+    if db_pi and not mem.get("stripe_payment_intent_id"):
+        mem["stripe_payment_intent_id"] = db_pi
+    db_state = billing_state_for(
+        {"status": row.get("status"), "stripe_subscription_id": db_sub}
+    )
+    mem_state = billing_state_for(mem)
+    if db_state in ("canceled", "refunded") or (
+        db_state == "past_due" and mem_state == "active"
+    ):
+        mem["status"] = "refunded" if db_state == "refunded" else "failed"
+        if db_state == "canceled" and db_sub:
+            mem["stripe_subscription_id"] = db_sub if db_sub.startswith("ended:") else f"ended:{db_sub}"
+
+
+def _sync_listed_billing(sid: str, row: Dict[str, Any], out: List[Dict[str, Any]]) -> None:
+    mem = _ORDERS_BY_SESSION.get(sid)
+    if mem is not None:
+        _merge_db_billing(mem, row)
+        state = billing_state_for(mem)
+        status = mem.get("status")
+    else:
+        state = billing_state_for(row)
+        status = row.get("status")
+    if state == "active":
+        return
+    for item in out:
+        if item.get("stripe_session_id") == sid or item.get("order_id") == row.get("id"):
+            item["status"] = status
+            item["billing_state"] = state
+            break
+
+
+def set_order_billing(
+    order: Dict[str, Any],
+    *,
+    status: str,
+    stripe_subscription_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Update access status in memory and on the orders row."""
+    order["status"] = status
+    if stripe_subscription_id is not None:
+        order["stripe_subscription_id"] = stripe_subscription_id
+    remember_order(order)
+    sid = str(order.get("stripe_session_id") or "").strip()
+    if not sid or sid.startswith(("share_", "disk_", "local_")):
+        return order
+    from urllib.parse import quote
+
+    path = f"orders?stripe_session_id=eq.{quote(sid, safe='')}"
+    body: Dict[str, Any] = {"status": status}
+    if stripe_subscription_id is not None:
+        body["stripe_subscription_id"] = stripe_subscription_id
+    result = _supabase_rest(path, method="PATCH", json_body=body, prefer="return=minimal")
+    if result is None and stripe_subscription_id is not None:
+        _supabase_rest(path, method="PATCH", json_body={"status": status}, prefer="return=minimal")
+    return order
+
+
+def _order_from_billing_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    tier = row.get("tier") or "contractor_pro"
+    amount = row.get("amount")
+    if amount is None:
+        amount = row.get("amount_cents")
+    if str(tier).lower() == "ic_consultant":
+        amt = int(amount or 0)
+        tier = "ic_annual" if amt >= 1_000_000 else "ic_project"
+    return {
+        "order_id": row.get("id") or row.get("order_id"),
+        "tier": tier,
+        "status": row.get("status") or "completed",
+        "created_at": row.get("created_at"),
+        "amount": amount,
+        "stripe_session_id": row.get("stripe_session_id"),
+        "stripe_subscription_id": row.get("stripe_subscription_id") or "",
+        "stripe_payment_intent_id": row.get("stripe_payment_intent_id") or "",
+        "email": (row.get("email") or "").strip().lower(),
+        "address": row.get("address") or "",
+        "download_token": row.get("download_token") or "",
+        "pdf_status": row.get("pdf_status"),
+    }
+
+
+def find_orders_by_stripe_field(field: str, value: str) -> List[Dict[str, Any]]:
+    """Orders whose Stripe subscription or payment intent matches."""
+    if field not in ("stripe_subscription_id", "stripe_payment_intent_id"):
+        return []
+    value = (value or "").strip()
+    if not value:
+        return []
+    found: Dict[str, Dict[str, Any]] = {}
+    for order in list(_ORDERS_BY_SESSION.values()):
+        if str(order.get(field) or "") == value:
+            key = str(order.get("stripe_session_id") or order.get("order_id") or "")
+            if key:
+                found[key] = order
+    from urllib.parse import quote
+
+    rows = _supabase_rest(
+        f"orders?{field}=eq.{quote(value, safe='')}&limit=20",
+        method="GET",
+    )
+    if isinstance(rows, list):
+        for row in rows:
+            sid = str(row.get("stripe_session_id") or "")
+            if sid.startswith("share_"):
+                continue
+            if sid and sid in found:
+                _merge_db_billing(found[sid], row)
+                continue
+            hydrated = _order_from_billing_row(row)
+            if sid:
+                remember_order(hydrated)
+                found[sid] = _ORDERS_BY_SESSION.get(sid, hydrated)
+            else:
+                found[str(row.get("id") or id(row))] = hydrated
+    return list(found.values())
+
+
 def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
     email_l = (email or "").strip().lower()
     # Defensive: strip accidental "?session_id=..." glued onto email from bad success URLs
@@ -298,9 +460,12 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
             return
         for row in rows:
             sid = row.get("stripe_session_id") or row.get("id")
-            if not sid or sid in seen:
+            if not sid:
                 continue
             if str(row.get("stripe_session_id") or "").startswith("share_"):
+                continue
+            if sid in seen:
+                _sync_listed_billing(str(row.get("stripe_session_id") or sid), row, out)
                 continue
             tier = row.get("tier") or "contractor_pro"
             if str(tier).lower() == "ic_consultant":
@@ -320,10 +485,18 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
                 "analysis_json": row.get("analysis_json"),
                 "download_token": row.get("download_token"),
                 "pdf_status": row.get("pdf_status"),
+                "stripe_subscription_id": row.get("stripe_subscription_id") or "",
+                "stripe_payment_intent_id": row.get("stripe_payment_intent_id") or "",
             }
             mem = _ORDERS_BY_SESSION.get(row.get("stripe_session_id") or "")
             if mem and mem.get("tier"):
                 mapped["tier"] = mem["tier"]
+            if mem and billing_state_for(mem) in ("canceled", "refunded", "past_due"):
+                if billing_state_for(mapped) == "active":
+                    mapped["status"] = mem.get("status")
+                    mapped["stripe_subscription_id"] = mem.get("stripe_subscription_id") or mapped.get(
+                        "stripe_subscription_id"
+                    )
             if mem and mem.get("pdfs"):
                 mapped["pdfs"] = mem["pdfs"]
             if mem and mem.get("analysis_json"):
@@ -379,6 +552,8 @@ def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
             "created_at": row.get("created_at"),
             "amount": row.get("amount"),
             "stripe_session_id": sid,
+            "stripe_subscription_id": row.get("stripe_subscription_id") or "",
+            "stripe_payment_intent_id": row.get("stripe_payment_intent_id") or "",
             "email": (row.get("email") or "").strip().lower(),
             "pdfs": row.get("pdfs"),
             "address": row.get("address"),
@@ -434,6 +609,8 @@ def get_raw_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
             "created_at": row.get("created_at"),
             "amount": row.get("amount"),
             "stripe_session_id": row.get("stripe_session_id") or f"db_{oid}",
+            "stripe_subscription_id": row.get("stripe_subscription_id") or "",
+            "stripe_payment_intent_id": row.get("stripe_payment_intent_id") or "",
             "email": (row.get("email") or "").strip().lower(),
             "pdfs": row.get("pdfs"),
             "address": row.get("address"),

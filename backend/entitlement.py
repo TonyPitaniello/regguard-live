@@ -62,17 +62,49 @@ def _stripe_paid_for_email(email_l: str) -> bool:
         for cust in customers.data:
             subs = stripe.Subscription.list(customer=cust.id, status="all", limit=10)
             for sub in subs.data:
-                if getattr(sub, "status", "") in ("active", "trialing", "past_due"):
+                # past_due is a denied renewal. Access ends until Stripe is paid again.
+                if getattr(sub, "status", "") in ("active", "trialing"):
                     return True
             sessions = stripe.checkout.Session.list(customer=cust.id, limit=10)
             for sess in sessions.data:
-                if getattr(sess, "payment_status", "") == "paid":
-                    return True
-                if getattr(sess, "status", "") == "complete":
-                    return True
+                # Subscription seats come from the subscription status above.
+                if getattr(sess, "mode", "") == "subscription":
+                    continue
+                if getattr(sess, "payment_status", "") != "paid":
+                    continue
+                if _checkout_charge_refunded(sess):
+                    continue
+                return True
     except Exception as e:
         logger.warning("Stripe entitlement fallback failed for %s: %s", email_l, e)
     return False
+
+
+def _checkout_charge_refunded(session: Any) -> bool:
+    """True when the one-time Checkout charge was fully refunded."""
+    try:
+        import stripe
+    except ImportError:
+        return False
+    payment_intent = getattr(session, "payment_intent", None)
+    if not payment_intent:
+        return False
+    try:
+        if isinstance(payment_intent, str):
+            payment_intent = stripe.PaymentIntent.retrieve(payment_intent)
+        charge = getattr(payment_intent, "latest_charge", None)
+        if isinstance(charge, str):
+            charge = stripe.Charge.retrieve(charge)
+        if charge is None:
+            return False
+        if getattr(charge, "refunded", False):
+            return True
+        amount = int(getattr(charge, "amount", 0) or 0)
+        refunded = int(getattr(charge, "amount_refunded", 0) or 0)
+        return amount > 0 and refunded >= amount
+    except Exception as e:
+        logger.warning("Refund check failed: %s", e)
+        return False
 
 
 def has_paid_access(email: Optional[str]) -> bool:
@@ -82,7 +114,15 @@ def has_paid_access(email: Optional[str]) -> bool:
         return False
     if _order_tiers_for_email(email_l):
         return True
-    # Survive Render restarts when in-memory orders were cleared
+    # A recorded order that no longer grants access must not be revived by an
+    # old paid Checkout session. Stripe is the fallback only when no order exists.
+    try:
+        from order_service import list_orders_for_email
+
+        if list_orders_for_email(email_l):
+            return False
+    except Exception as e:
+        logger.warning("order list failed for %s: %s", email_l, e)
     if _stripe_paid_for_email(email_l):
         return True
     return False

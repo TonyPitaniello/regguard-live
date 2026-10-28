@@ -262,6 +262,12 @@ async def create_checkout_session(
         if sa and sc and ss and sz:
             metadata["site_label"] = _meta_trim(f"{sa}, {sc}, {ss} {sz}")
 
+        billing_meta = {
+            key: metadata[key]
+            for key in ("tier", "email", "user_id")
+            if metadata.get(key)
+        }
+
         # success_url may already include ?unlock=&email= — never append a second "?"
         sep = "&" if "?" in (success_url or "") else "?"
         success_with_session = f"{success_url}{sep}session_id={{CHECKOUT_SESSION_ID}}"
@@ -276,6 +282,12 @@ async def create_checkout_session(
             # Present USD. Adaptive pricing was quoting lira to non-US browsers.
             "adaptive_pricing": {"enabled": False},
         }
+        # Tie the Stripe subscription or charge to this email and tier so a
+        # later cancel, failed renewal, or refund can end this seat only.
+        if billing_meta and mode == "subscription":
+            create_kwargs["subscription_data"] = {"metadata": billing_meta}
+        elif billing_meta:
+            create_kwargs["payment_intent_data"] = {"metadata": billing_meta}
 
         customer_id = _find_or_create_stripe_customer(email_clean, name) if email_clean else None
         if customer_id:
@@ -345,6 +357,10 @@ async def handle_webhook(event: Dict[str, Any]) -> Dict[str, Any]:
             return await handle_invoice_payment_failed(data)
         elif event_type == "customer.subscription.deleted":
             return await handle_subscription_deleted(data)
+        elif event_type == "customer.subscription.updated":
+            return await handle_subscription_updated(data)
+        elif event_type == "charge.refunded":
+            return await handle_charge_refunded(data)
         else:
             logger.info(f"ℹ️ Unhandled event type: {event_type}")
             return {"status": "unhandled"}
@@ -371,20 +387,47 @@ async def handle_checkout_session_completed(session_data: Dict[str, Any]) -> Dic
 
 async def handle_invoice_payment_succeeded(invoice_data: Dict[str, Any]) -> Dict[str, Any]:
     invoice_id = invoice_data.get("id")
+    from billing_lifecycle import apply_stripe_event
+
+    apply_stripe_event({"type": "invoice.payment_succeeded", "data": {"object": invoice_data}})
     logger.info(f"💰 Invoice payment succeeded: {invoice_id}")
     return {"status": "success", "invoice_id": invoice_id}
 
 
 async def handle_invoice_payment_failed(invoice_data: Dict[str, Any]) -> Dict[str, Any]:
     invoice_id = invoice_data.get("id")
+    from billing_lifecycle import apply_stripe_event
+
+    apply_stripe_event({"type": "invoice.payment_failed", "data": {"object": invoice_data}})
     logger.warning(f"⚠️ Invoice payment failed: {invoice_id}")
     return {"status": "failed", "invoice_id": invoice_id}
 
 
 async def handle_subscription_deleted(subscription_data: Dict[str, Any]) -> Dict[str, Any]:
     subscription_id = subscription_data.get("id")
+    from billing_lifecycle import apply_stripe_event
+
+    apply_stripe_event(
+        {"type": "customer.subscription.deleted", "data": {"object": subscription_data}}
+    )
     logger.info(f"🔄 Subscription deleted: {subscription_id}")
     return {"status": "deleted", "subscription_id": subscription_id}
+
+
+async def handle_subscription_updated(subscription_data: Dict[str, Any]) -> Dict[str, Any]:
+    from billing_lifecycle import apply_stripe_event
+
+    result = apply_stripe_event(
+        {"type": "customer.subscription.updated", "data": {"object": subscription_data}}
+    )
+    return {"status": str(result.get("status") or "acknowledged"), "subscription_id": subscription_data.get("id")}
+
+
+async def handle_charge_refunded(charge_data: Dict[str, Any]) -> Dict[str, Any]:
+    from billing_lifecycle import apply_stripe_event
+
+    result = apply_stripe_event({"type": "charge.refunded", "data": {"object": charge_data}})
+    return {"status": str(result.get("status") or "acknowledged"), "charge_id": charge_data.get("id")}
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:

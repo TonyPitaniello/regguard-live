@@ -5,7 +5,7 @@
  * Shows user's orders and provides PDF download links
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, CheckCircle, AlertCircle, ExternalLink, FileText } from 'lucide-react';
 import { backendUrl } from '../env';
 import { viewInAppBlob } from '../openAndDownload';
@@ -47,6 +47,7 @@ interface Order {
   site_label?: string;
   research_id?: string;
   share_url?: string;
+  billing_state?: string;
 }
 
 function tierLabel(tier: string): string {
@@ -84,7 +85,24 @@ function pdfIsPreparing(pdf: PDF): boolean {
   );
 }
 
+function accessState(order: { status?: string; billing_state?: string }): { label: string; open: boolean } {
+  const state = (order.billing_state || '').toLowerCase();
+  if (state === 'canceled' || state === 'cancelled') return { label: 'Ended', open: false };
+  if (state === 'past_due') return { label: 'Payment failed', open: false };
+  if (state === 'refunded') return { label: 'Refunded', open: false };
+  const status = (order.status || 'completed').toLowerCase();
+  if (status === 'refunded') return { label: 'Refunded', open: false };
+  if (status === 'failed' || status === 'canceled' || status === 'cancelled' || status === 'past_due' || status === 'unpaid') {
+    return { label: 'Ended', open: false };
+  }
+  if (status === 'completed' || status === 'active' || status === 'paid' || status === '') {
+    return { label: 'Completed', open: true };
+  }
+  return { label: 'Pending', open: false };
+}
+
 function orderPdfsPreparing(order: Order): boolean {
+  if (!accessState(order).open) return false;
   if (!isIcTier(order.tier)) return false;
   if (!order.pdfs || order.pdfs.length === 0) return true;
   return order.pdfs.some(pdfIsPreparing);
@@ -127,6 +145,8 @@ export default function OrdersPage() {
   const [confirmed, setConfirmed] = useState(false);
   const [savedSite, setSavedSite] = useState<BoundSite | null>(null);
   const [icRedirectCountdown, setIcRedirectCountdown] = useState<number | null>(null);
+  const [billingBusy, setBillingBusy] = useState(false);
+  const [billingError, setBillingError] = useState('');
   const autoIcRedirectTried = useRef(false);
 
   useEffect(() => {
@@ -370,6 +390,28 @@ export default function OrdersPage() {
     return Math.max(0, days);
   };
 
+  const openBilling = async () => {
+    if (!userEmail) return;
+    setBillingBusy(true);
+    setBillingError('');
+    try {
+      const res = await fetch(backendUrl('/billing/portal'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; detail?: string };
+      if (!res.ok || !data.url) {
+        throw new Error(typeof data.detail === 'string' ? data.detail : 'Billing portal is unavailable');
+      }
+      window.location.assign(data.url);
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : 'Billing portal is unavailable');
+    } finally {
+      setBillingBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
@@ -388,6 +430,20 @@ export default function OrdersPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <h1 className="text-3xl font-black text-white">My Orders</h1>
           <p className="text-gray-400 mt-1">{userEmail}</p>
+          {userEmail ? (
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void openBilling()}
+                disabled={billingBusy}
+                className="px-4 py-2.5 min-h-[44px] bg-white/10 hover:bg-white/20 disabled:opacity-50 border border-white/20 text-white text-sm font-semibold rounded-lg"
+              >
+                {billingBusy ? 'Opening billing…' : 'Manage billing'}
+              </button>
+              <p className="text-gray-400 text-sm">Cancel, update the card, or view invoices.</p>
+            </div>
+          ) : null}
+          {billingError ? <p className="text-red-300 text-sm mt-2">{billingError}</p> : null}
         </div>
       </header>
 
@@ -492,8 +548,8 @@ export default function OrdersPage() {
           </div>
         )}
 
-        {orders.some((o) => (o.tier || '').toLowerCase() === 'partner') &&
-          !orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
+        {orders.some((o) => (o.tier || '').toLowerCase() === 'partner' && accessState(o).open) &&
+          !orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro' && accessState(o).open) && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-lg mb-8">
               <p className="text-emerald-100 text-sm">
                 On Estimator / Permit Runner? Upgrade to Contractor Pro ($149/mo) if you run your own bid-week sites.
@@ -507,12 +563,11 @@ export default function OrdersPage() {
             </div>
           )}
 
-        {orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro') && (
+        {orders.some((o) => (o.tier || '').toLowerCase() === 'contractor_pro' && accessState(o).open) && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-teal-500/10 border border-teal-500/25 rounded-lg mb-8">
             <p className="text-teal-100 text-sm">
               Prefer a lighter plan? Switch to Estimator / Permit Runner ($79/mo) for client
-              screening — cancel Pro in Stripe email receipts if you already subscribed, then start
-              Estimator / Permit Runner here.
+              screening. Manage billing to cancel Pro, then start Estimator / Permit Runner here.
             </p>
             <a
               href={`/checkout/partner${userEmail ? `?email=${encodeURIComponent(userEmail)}` : ''}`}
@@ -592,6 +647,7 @@ function OrderCard({
   tierLabel: (tier: string) => string;
 }) {
   const daysRemaining = getDaysRemaining(order.expires_at);
+  const access = accessState(order);
   const tierColors = {
     free: 'from-gray-500 to-slate-500',
     premium: 'from-blue-600 to-purple-600',
@@ -615,12 +671,12 @@ function OrderCard({
               </h2>
               <span
                 className={`px-3 py-1 rounded text-sm font-semibold ${
-                  order.status === 'completed'
+                  access.open
                     ? 'bg-green-500/20 text-green-400'
-                    : 'bg-yellow-500/20 text-yellow-400'
+                    : 'bg-amber-500/20 text-amber-200'
                 }`}
               >
-                {order.status === 'completed' ? '✓ Completed' : 'Pending'}
+                {access.open ? '✓ Completed' : access.label}
               </span>
             </div>
             <p className="text-sm text-gray-200">
@@ -646,19 +702,20 @@ function OrderCard({
               <div>
                 <dt className="text-sm text-gray-500">Status</dt>
                 <dd className="text-white font-semibold flex items-center gap-2">
-                  {order.status === 'completed' ? (
+                  {access.open ? (
                     <>
                       <CheckCircle className="w-4 h-4 text-green-400" />
                       Completed
                     </>
                   ) : (
                     <>
-                      <Clock className="w-4 h-4 text-yellow-400" />
-                      Processing
+                      <AlertCircle className="w-4 h-4 text-amber-300" />
+                      {access.label}
                     </>
                   )}
                 </dd>
               </div>
+              {access.open ? (
               <div>
                 <dt className="text-sm text-gray-500">
                   {order.tier === 'partner' || order.tier === 'contractor_pro'
@@ -674,7 +731,13 @@ function OrderCard({
                   )}
                 </dd>
               </div>
-              {isIcTier(order.tier) && order.download_token ? (
+              ) : (
+              <div>
+                <dt className="text-sm text-gray-500">Access</dt>
+                <dd className="text-white font-semibold">{access.label}. Manage billing to update the card or view the invoice.</dd>
+              </div>
+              )}
+              {access.open && isIcTier(order.tier) && order.download_token ? (
                 <div>
                   <dt className="text-sm text-gray-500">IC access code</dt>
                   <dd className="text-emerald-300 font-mono text-sm break-all select-all mt-1">
@@ -690,7 +753,7 @@ function OrderCard({
             <h3 className="text-sm font-bold text-gray-300 tracking-wide mb-4">
               Included Files
             </h3>
-            {order.status === 'completed' && order.pdfs && order.pdfs.length > 0 ? (
+            {access.open && order.pdfs && order.pdfs.length > 0 ? (
               <div className="grid gap-2">
                 {order.pdfs.map((pdf) => {
                   const preparing = pdfIsPreparing(pdf);
@@ -712,7 +775,7 @@ function OrderCard({
                   );
                 })}
               </div>
-            ) : (
+            ) : access.open ? (
               <ul className="space-y-2 text-sm text-gray-300">
                 <li className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -727,12 +790,16 @@ function OrderCard({
                   Counsel DOCX + estimator Excel workbooks
                 </li>
               </ul>
+            ) : (
+              <p className="text-sm text-amber-100/90">
+                {access.label}. Downloads for this order have stopped.
+              </p>
             )}
           </div>
         </div>
 
         {/* In-app results — primary for IC buyers (PDFs are exports) */}
-        {isIcTier(order.tier) && !orderPdfsPreparing(order) ? (
+        {access.open && isIcTier(order.tier) && !orderPdfsPreparing(order) ? (
           <div className="mb-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4">
             <p className="text-emerald-200 font-bold text-sm sm:text-base flex items-center gap-2">
               <FileText className="w-4 h-4 shrink-0" />
@@ -782,7 +849,7 @@ function OrderCard({
           </div>
         ) : null}
 
-        {order.status === 'completed' && orderPdfsPreparing(order) ? (
+        {access.open && orderPdfsPreparing(order) ? (
           <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
             <p className="text-amber-50 text-sm font-semibold">
               Downloads unlock after you generate the IC report for this site.

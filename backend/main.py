@@ -89,12 +89,6 @@ from vision_agent import (
     normalize_vision_text,
     scout_summary_for_reality_capture,
 )
-from auth import (
-    create_checkout_session,
-    handle_checkout_session_completed,
-    verify_stripe_webhook_signature,
-    stripe_configured,
-)
 from jurisdiction_cache import (
     lookup_cached_jurisdiction,
     store_cached_jurisdiction,
@@ -286,19 +280,11 @@ try:
 except ImportError:
     SLOWAPI_AVAILABLE = False
 # ========== Auth Models ==========
-class SignupRequest(BaseModel):
-    """User signup request with email, password, and company name."""
-    email: str = Field(..., description="User email address")
-    password: str = Field(..., description="User password (min 8 chars)")
-    company_name: str = Field(..., description="Contractor company name")
-    
+class BillingPortalRequest(BaseModel):
+    """Email on the order. That email opens the Stripe billing portal."""
+    email: str = Field(..., description="Email on the paid order")
+
     model_config = ConfigDict(str_strip_whitespace=True)
-
-
-class CheckoutSessionResponse(BaseModel):
-    """Response containing Stripe checkout session URL."""
-    checkout_url: str = Field(..., description="URL to redirect user to Stripe Checkout")
-    session_id: str = Field(..., description="Stripe Checkout Session ID")
 
 
 class TierCheckoutRequest(BaseModel):
@@ -1545,37 +1531,35 @@ async def confirm_checkout(session_id: str = "") -> Dict[str, Any]:
 
 
 @app.post("/auth/create-checkout-session")
-async def create_checkout_session_endpoint(request: SignupRequest) -> CheckoutSessionResponse:
+async def create_checkout_session_endpoint() -> Dict[str, str]:
     """
-    Create a Stripe Checkout Session for the 14-day free trial.
-    
-    Accepts email, password, and company_name. Returns a checkout URL
-    to redirect the user to Stripe.
+    Password signup is not a product. The payer is the email on the order.
     """
-    if not stripe_configured():
-        raise HTTPException(
-            status_code=503,
-            detail="Payment processing is not configured. Contact support.",
-        )
-    
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "Reg Guard does not create a password account. "
+            "Buy a plan at https://app.regguardagent.com/pricing and use that email on My Orders."
+        ),
+    )
+
+
+@app.post("/billing/portal")
+async def billing_portal(body: BillingPortalRequest) -> Dict[str, str]:
+    """Open Stripe's billing portal so the payer can cancel, update the card, or view invoices."""
+    from billing_lifecycle import create_billing_portal_url
+
     try:
-        result = await create_checkout_session(
-            email=request.email,
-            password=request.password,
-            company_name=request.company_name,
-        )
-        return CheckoutSessionResponse(
-            checkout_url=result["checkout_url"],
-            session_id=result["session_id"],
-        )
+        url = create_billing_portal_url(body.email)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        logger.exception("Checkout session creation failed")
+        logger.exception("Billing portal failed")
         raise HTTPException(
-            status_code=500,
-            detail="Failed to create checkout session. Please try again.",
+            status_code=502,
+            detail="Billing portal is unavailable. Email support@regguardagent.com",
         ) from e
+    return {"url": url}
 
 
 @app.post("/auth/webhook/stripe")
@@ -1652,20 +1636,18 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
                 logger.exception("Tier order fulfillment failed")
                 raise HTTPException(status_code=500, detail="Webhook processing failed") from e
 
-        # Legacy signup checkout (email + company_name metadata)
-        try:
-            result = await handle_checkout_session_completed(session_id)
-            logger.info(f"Checkout completed for {result['email']}")
-            return {"status": "success", "user_id": result["user_id"]}
-        except ValueError as e:
-            logger.error(f"Checkout handling failed: {e}")
-            raise HTTPException(status_code=400, detail=str(e)) from e
-        except Exception as e:
-            logger.exception("Stripe webhook handler failed")
-            raise HTTPException(status_code=500, detail="Webhook processing failed") from e
-    
-    # Acknowledge other event types
-    return {"status": "acknowledged"}
+        # A checkout with no tier is not an account. Do not create a password user.
+        logger.info("Ignoring checkout.session.completed with no tier")
+        return {"status": "ignored"}
+
+    try:
+        from billing_lifecycle import apply_stripe_event
+
+        result = apply_stripe_event(event if isinstance(event, dict) else {})
+    except Exception as e:
+        logger.exception("Billing event failed")
+        raise HTTPException(status_code=500, detail="Webhook processing failed") from e
+    return {"status": str(result.get("status") or "acknowledged")}
 
 
 # ========== Free Trial Endpoint ==========
