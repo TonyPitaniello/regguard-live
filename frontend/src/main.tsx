@@ -13,7 +13,7 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20261027-site-v34';
+const RG_BUILD_ID = 'launch-20261028-share-v35';
 
 /** Internal params that must never linger in the address bar. */
 const VANITY_QUERY_KEYS = ['v', 'forceclear', 'rgbuild', 'source', 'repaired'] as const;
@@ -82,18 +82,10 @@ async function migrateStalePwaCaches(): Promise<boolean> {
 }
 
 function redirectHardRefreshToHome(): boolean {
-  try {
-    const nav = performance.getEntriesByType?.(
-      'navigation'
-    )?.[0] as PerformanceNavigationTiming | undefined;
-    if (!nav || nav.type !== 'reload') return false;
-    const path = (window.location.pathname || '/').replace(/\/+$/, '') || '/';
-    if (path === '/' || path === '/index.html') return false;
-    window.location.replace('/');
-    return true;
-  } catch {
-    return false;
-  }
+  // A reload stays on the page that was opened. A forwarded /r/ receipt, checkout,
+  // and a city page must survive refresh and the cache-bust reload. A blank shell
+  // is recovered in index.html by reloading that same URL.
+  return false;
 }
 
 function registerInstallableServiceWorker(): void {
