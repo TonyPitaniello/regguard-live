@@ -3,8 +3,10 @@ Persistent store for forwardable research reports.
 
 Priority:
 1. Supabase table ``research_reports`` when SUPABASE_URL/KEY are set
-2. Local JSON files under ``data/research_reports/`` (works on Render disk / local)
-3. Process-local memory cache for hot reads
+2. A zero-dollar archive row on ``orders`` (survives a Render disk wipe)
+3. Local JSON files under ``data/research_reports/``
+4. A seed file shipped with the app for a receipt that must stay up
+5. Process-local memory cache for hot reads
 
 Public reports strip contact PII (email/phone) before return.
 """
@@ -494,6 +496,83 @@ def _supabase_available() -> bool:
     return bool((os.getenv("SUPABASE_URL") or "").strip() and (os.getenv("SUPABASE_KEY") or "").strip())
 
 
+def _seed_analysis(research_id: str) -> Optional[Dict[str, Any]]:
+    """A receipt shipped with the app. The deploy image keeps it when the disk is wiped."""
+    path = Path(__file__).resolve().parent / "data" / "research_seeds" / f"{research_id}.json"
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        logger.warning("Research seed read failed for %s: %s", research_id, e)
+        return None
+    if isinstance(data, dict) and isinstance(data.get("analysis"), dict):
+        return data["analysis"]
+    return data if isinstance(data, dict) else None
+
+
+def _share_archive_session(research_id: str) -> str:
+    return f"share_{research_id}"
+
+
+def _durable_upsert(record: Dict[str, Any]) -> bool:
+    """Copy the receipt onto the orders table, which survives a Render restart."""
+    try:
+        from order_service import _supabase_rest, email_to_user_uuid
+    except Exception as e:
+        logger.warning("Durable report store unavailable: %s", e)
+        return False
+    rid = str(record.get("id") or "")
+    if not rid:
+        return False
+    archive_email = "share-archive@regguard.invalid"
+    row = {
+        "user_id": email_to_user_uuid(archive_email),
+        "stripe_session_id": _share_archive_session(rid),
+        "amount": 0,
+        "currency": "usd",
+        "status": "completed",
+        "tier": "partner",
+        "email": archive_email,
+        "address": str(record.get("project_address") or "")[:500],
+        "analysis_json": record,
+        "pdf_status": "share",
+    }
+    result = _supabase_rest(
+        "orders?on_conflict=stripe_session_id",
+        method="POST",
+        json_body=row,
+        prefer="resolution=merge-duplicates,return=minimal",
+    )
+    if result is None:
+        result = _supabase_rest("orders", method="POST", json_body=row, prefer="return=minimal")
+    if result is None:
+        logger.warning("Durable report copy failed for %s", rid)
+        return False
+    return True
+
+
+def _durable_get(research_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        from urllib.parse import quote
+
+        from order_service import _supabase_rest
+    except Exception:
+        return None
+    sid = quote(_share_archive_session(research_id), safe="-_")
+    rows = _supabase_rest(
+        f"orders?stripe_session_id=eq.{sid}&select=analysis_json&limit=1",
+        method="GET",
+    )
+    if not isinstance(rows, list) or not rows:
+        return None
+    stored = rows[0].get("analysis_json") if isinstance(rows[0], dict) else None
+    if isinstance(stored, dict) and isinstance(stored.get("analysis"), dict):
+        stored.setdefault("share_url", share_url_for(research_id))
+        return stored
+    return None
+
+
 def _supabase_upsert(record: Dict[str, Any]) -> bool:
     if not _supabase_available():
         return False
@@ -644,6 +723,7 @@ def save_research(
             logger.error(f"Failed writing local research report {rid}: {e}")
 
     _supabase_upsert(record)
+    _durable_upsert(record)
     logger.info(f"Persisted research report {rid} → {record['share_url']}")
     return {
         "research_id": rid,
@@ -695,6 +775,25 @@ def get_research(research_id: str) -> Optional[Dict[str, Any]]:
         with _LOCK:
             _MEMORY[rid] = remote
         return deepcopy(remote)
+
+    archived = _durable_get(rid)
+    if archived:
+        if _expired(archived):
+            return None
+        with _LOCK:
+            _MEMORY[rid] = archived
+        return deepcopy(archived)
+
+    seed = _seed_analysis(rid)
+    if seed:
+        try:
+            save_research(seed, research_id=rid)
+        except Exception as e:
+            logger.warning("Research seed restore failed for %s: %s", rid, e)
+            return None
+        with _LOCK:
+            restored = _MEMORY.get(rid)
+        return deepcopy(restored) if restored else None
     return None
 
 

@@ -122,6 +122,70 @@ def test_missing_report_returns_none(tmp_path, monkeypatch):
     assert get_analysis("does-not-exist-xyz") is None
 
 
+def test_report_survives_disk_wipe(sample_analysis, tmp_path, monkeypatch):
+    store = {}
+
+    def fake_rest(path, method="GET", json_body=None, prefer=""):
+        if method == "POST" and isinstance(json_body, dict):
+            store["row"] = json_body
+            return []
+        if method == "GET" and "share_" in path and store.get("row"):
+            return [{"analysis_json": store["row"]["analysis_json"]}]
+        return None
+
+    monkeypatch.setattr("order_service._supabase_rest", fake_rest)
+    monkeypatch.setenv("REG_GUARD_REPORT_DIR", str(tmp_path))
+    save_research(sample_analysis, research_id="ft-durable01")
+    assert str(store["row"]["stripe_session_id"]).startswith("share_")
+    assert store["row"]["amount"] == 0
+    assert store["row"]["email"] == "share-archive@regguard.invalid"
+    for path in tmp_path.glob("*.json"):
+        path.unlink()
+    from research_store import _MEMORY
+
+    _MEMORY.pop("ft-durable01", None)
+    loaded = get_analysis("ft-durable01")
+    assert loaded is not None
+    assert loaded["project_info"]["city"] == "Plano"
+
+
+def test_share_archive_is_not_listed_as_a_purchase(monkeypatch):
+    from order_service import list_orders_for_email
+
+    def fake_rest(path, method="GET", json_body=None, prefer=""):
+        if "email=eq." in path:
+            return [
+                {
+                    "id": "ord-real",
+                    "stripe_session_id": "cs_test_real",
+                    "tier": "partner",
+                    "status": "completed",
+                    "amount": 7900,
+                    "email": "buyer@example.com",
+                    "created_at": "2026-10-28T00:00:00Z",
+                },
+                {
+                    "id": "ord-share",
+                    "stripe_session_id": "share_abc",
+                    "tier": "partner",
+                    "status": "completed",
+                    "amount": 0,
+                    "email": "buyer@example.com",
+                    "created_at": "2026-10-28T00:00:00Z",
+                    "analysis_json": {"id": "abc", "analysis": {}},
+                },
+            ]
+        return None
+
+    monkeypatch.setattr("order_service._supabase_rest", fake_rest)
+    monkeypatch.setattr("order_service._ORDERS_BY_EMAIL", {})
+    monkeypatch.setattr("order_service._ORDERS_BY_SESSION", {})
+    rows = list_orders_for_email("buyer@example.com")
+    sessions = [str(r.get("stripe_session_id") or "") for r in rows]
+    assert "cs_test_real" in sessions
+    assert "share_abc" not in sessions
+
+
 def test_resolve_prefers_full_analysis(tmp_path, monkeypatch):
     monkeypatch.setenv("REG_GUARD_REPORT_DIR", str(tmp_path))
     # Import after env so store dir is respected on first write inside resolve

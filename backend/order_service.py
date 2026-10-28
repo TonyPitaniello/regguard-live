@@ -294,6 +294,8 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
             sid = row.get("stripe_session_id") or row.get("id")
             if not sid or sid in seen:
                 continue
+            if str(row.get("stripe_session_id") or "").startswith("share_"):
+                continue
             tier = row.get("tier") or "contractor_pro"
             if str(tier).lower() == "ic_consultant":
                 amt = int(row.get("amount") or 0)
@@ -349,7 +351,7 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
 
 def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
     sid = (session_id or "").strip()
-    if not sid:
+    if not sid or sid.startswith("share_"):
         return None
     order = _ORDERS_BY_SESSION.get(sid)
     if order:
