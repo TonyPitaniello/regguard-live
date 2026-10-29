@@ -3,7 +3,7 @@
  * Contractor free / Pro, IC project / annual, Sponsor
  */
 
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Check, ArrowLeft } from 'lucide-react';
 import { trackStampEvent } from '../lib/trackStampEvent';
@@ -303,8 +303,15 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Do you offer refunds?</h3>
             <p className="text-gray-400">
-              Refund window and honest labeling: planning aids with Source / Unverified. We do not
-              invent fees or claim sealed-bid / interconnection / geotech completeness.
+              Monthly plans cancel any time from My Orders → Manage billing; access runs to the end
+              of the period already paid. A lookup or IC Diligence Bundle is non-refundable once the
+              results are delivered, except where the law requires otherwise. If a line we labeled
+              Source is wrong against the official schedule on that date, email
+              support@regguardagent.com with the receipt and we review it. Full terms:{' '}
+              <Link className="text-purple-300 underline" to="/terms">
+                Terms of Service
+              </Link>
+              .
             </p>
           </div>
           <div>

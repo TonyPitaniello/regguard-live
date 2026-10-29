@@ -13,7 +13,7 @@ import './onboarding-system.css';
 import './mobile-optimizations.css'; // Mobile performance optimization
 
 /** Bump on every user-facing UI ship that must defeat stale SW / Arc / PWA caches. */
-const RG_BUILD_ID = 'launch-20261028-billing-v36';
+const RG_BUILD_ID = 'launch-20261029-orders-v37';
 
 /** Internal params that must never linger in the address bar. */
 const VANITY_QUERY_KEYS = ['v', 'forceclear', 'rgbuild', 'source', 'repaired'] as const;

@@ -466,7 +466,12 @@ class EmailService:
         lookup_url = f"{app_url}/?email={email_q}" if email_q else f"{app_url}/"
         orders_url = f"{app_url}/orders"
         if email_q:
-            orders_url = f"{app_url}/orders?email={email_q}"
+            try:
+                from orders_access import orders_link
+
+                orders_url = orders_link(to_email)
+            except Exception:
+                orders_url = f"{app_url}/orders?email={email_q}"
         token_block = ""
         if token:
             token_block = f"""

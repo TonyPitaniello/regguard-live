@@ -24,6 +24,37 @@ interface PDF {
   size: string;
   url: string;
   icon: string;
+  locked?: boolean;
+}
+
+const ORDERS_KEY_STORAGE = 'rgOrdersKey';
+
+function readOrdersKey(email: string): string {
+  try {
+    const raw = localStorage.getItem(ORDERS_KEY_STORAGE);
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { email?: string; key?: string };
+    if ((parsed.email || '').toLowerCase() !== email.toLowerCase()) return '';
+    return parsed.key || '';
+  } catch {
+    return '';
+  }
+}
+
+function storeOrdersKey(email: string, key: string): void {
+  try {
+    if (!email || !key) return;
+    localStorage.setItem(ORDERS_KEY_STORAGE, JSON.stringify({ email: email.toLowerCase(), key }));
+  } catch {
+    /* ignore */
+  }
+}
+
+function ordersUrl(email: string): string {
+  const key = readOrdersKey(email);
+  const q = new URLSearchParams({ email });
+  if (key) q.set('key', key);
+  return backendUrl(`/orders?${q.toString()}`);
 }
 
 interface Order {
@@ -147,6 +178,8 @@ export default function OrdersPage() {
   const [icRedirectCountdown, setIcRedirectCountdown] = useState<number | null>(null);
   const [billingBusy, setBillingBusy] = useState(false);
   const [billingError, setBillingError] = useState('');
+  const [locked, setLocked] = useState(false);
+  const [linkState, setLinkState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
   const autoIcRedirectTried = useRef(false);
 
   useEffect(() => {
@@ -184,14 +217,28 @@ export default function OrdersPage() {
 
   const refreshOrdersQuiet = async (email: string) => {
     try {
-      const response = await fetch(
-        backendUrl(`/orders?email=${encodeURIComponent(email)}`)
-      );
+      const response = await fetch(ordersUrl(email));
       if (!response.ok) return;
       const data = await response.json();
       setOrders(data.orders || []);
+      setLocked(Boolean(data.locked));
     } catch {
       /* ignore poll errors */
+    }
+  };
+
+  const emailOrdersLink = async () => {
+    if (!userEmail) return;
+    setLinkState('sending');
+    try {
+      const res = await fetch(backendUrl('/orders/send-link'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      setLinkState(res.ok ? 'sent' : 'failed');
+    } catch {
+      setLinkState('failed');
     }
   };
 
@@ -219,6 +266,18 @@ export default function OrdersPage() {
         sessionStorage.setItem('userEmail', emailFromUrl);
         setUserEmail(emailFromUrl);
       }
+      // Signed link from the orders email: keep the key on this device.
+      const keyFromUrl = (params.get('key') || '').trim();
+      if (keyFromUrl && emailFromUrl) {
+        storeOrdersKey(emailFromUrl, keyFromUrl);
+        try {
+          const clean = new URL(window.location.href);
+          clean.searchParams.delete('key');
+          window.history.replaceState({}, '', clean.pathname + (clean.search || '') + clean.hash);
+        } catch {
+          /* ignore */
+        }
+      }
 
       // After Stripe redirect: confirm session → create order even if webhook lagged
       if (sessionId) {
@@ -231,6 +290,9 @@ export default function OrdersPage() {
           if (emailFromSession) {
             sessionStorage.setItem('userEmail', emailFromSession);
             setUserEmail(emailFromSession);
+            if (confirmData.orders_key) {
+              storeOrdersKey(emailFromSession, String(confirmData.orders_key));
+            }
           }
           if (confirmData.order?.tier) {
             sessionStorage.setItem('regguardPaid', '1');
@@ -283,15 +345,14 @@ export default function OrdersPage() {
         return;
       }
 
-      const response = await fetch(
-        backendUrl(`/orders?email=${encodeURIComponent(email)}`)
-      );
+      const response = await fetch(ordersUrl(email));
 
       if (!response.ok) throw new Error('Failed to fetch orders');
 
       const data = await response.json();
       const nextOrders: Order[] = data.orders || [];
       setOrders(nextOrders);
+      setLocked(Boolean(data.locked));
       if (sessionId && nextOrders.length > 0) {
         setConfirmed(true);
         setError('');
@@ -449,6 +510,38 @@ export default function OrdersPage() {
 
       {/* Content */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {locked && orders.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-sky-500/10 border border-sky-500/30 rounded-lg mb-8">
+            <div className="flex gap-3">
+              <AlertCircle className="w-5 h-5 text-sky-300 flex-shrink-0 mt-0.5" />
+              <div className="text-sky-50 text-sm">
+                <p className="font-bold">Downloads are locked on this device</p>
+                <p className="mt-1 text-sky-100/90">
+                  Your plan is listed below. The IC access code and the files open from a link we
+                  send to {userEmail}. The link works for 30 days on any phone or laptop.
+                </p>
+                {linkState === 'sent' && (
+                  <p className="mt-2 font-semibold text-emerald-200">
+                    Sent. Open the newest Reg Guard email and tap Open My Orders.
+                  </p>
+                )}
+                {linkState === 'failed' && (
+                  <p className="mt-2 font-semibold text-red-200">
+                    Could not send. Email support@regguardagent.com from {userEmail}.
+                  </p>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void emailOrdersLink()}
+              disabled={linkState === 'sending' || linkState === 'sent'}
+              className="px-4 py-3 bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-sm font-bold rounded-lg text-center whitespace-nowrap min-h-[48px]"
+            >
+              {linkState === 'sending' ? 'Sending…' : linkState === 'sent' ? 'Link sent' : 'Email me my orders link'}
+            </button>
+          </div>
+        )}
         {confirmed && orders.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg mb-8">
             <div className="flex gap-3">
@@ -757,20 +850,25 @@ function OrderCard({
               <div className="grid gap-2">
                 {order.pdfs.map((pdf) => {
                   const preparing = pdfIsPreparing(pdf);
+                  const pdfLocked = Boolean(pdf.locked);
+                  const blocked = preparing || pdfLocked;
                   return (
                     <button
                       key={pdf.type}
                       type="button"
-                      onClick={() => !preparing && onDownload(pdf)}
-                      disabled={preparing}
+                      onClick={() => !blocked && onDownload(pdf)}
+                      disabled={blocked}
+                      title={pdfLocked ? 'Open My Orders from your orders email to download' : undefined}
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left text-sm font-semibold transition ${
-                        preparing
+                        blocked
                           ? 'bg-slate-700/40 border-slate-600/40 text-gray-500 cursor-not-allowed'
                           : 'bg-emerald-600/15 border-emerald-500/35 text-emerald-100 hover:bg-emerald-600/25'
                       }`}
                     >
                       <FileText className="w-4 h-4 shrink-0" />
-                      <span className="truncate">View {pdf.name}</span>
+                      <span className="truncate">
+                        {pdfLocked ? `${pdf.name} — locked` : `View ${pdf.name}`}
+                      </span>
                     </button>
                   );
                 })}

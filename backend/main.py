@@ -409,9 +409,14 @@ def compute_backend_source_fingerprint() -> str:
     return h.hexdigest()[:16]
 
 
+# Interactive API docs list every admin and cron route. Off unless an operator turns them on.
+_API_DOCS_ON = (os.getenv("RG_API_DOCS") or "").strip().lower() in ("1", "true", "yes")
 app = FastAPI(
     title="Reg Guard",
     description="Agentic Compliance Assistant for Contractors",
+    docs_url="/docs" if _API_DOCS_ON else None,
+    redoc_url="/redoc" if _API_DOCS_ON else None,
+    openapi_url="/openapi.json" if _API_DOCS_ON else None,
 )
 
 
@@ -1453,14 +1458,36 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
 
 
 @app.get("/orders", tags=["Payments"])
-async def list_orders(email: str = "") -> Dict[str, Any]:
-    """Return completed orders for an email (used by My Orders / checkout success)."""
+async def list_orders(email: str = "", key: str = "") -> Dict[str, Any]:
+    """
+    Orders for an email. The plan and status are visible to that email.
+    The IC access code and download links need the signed key that was
+    emailed to the payer or returned by a completed checkout.
+    """
     from order_service import list_orders_for_email
+    from orders_access import lock_orders, verify_orders_key
 
     email_clean = (email or "").strip().lower()
     if not email_clean:
-        return {"orders": []}
-    return {"orders": list_orders_for_email(email_clean)}
+        return {"orders": [], "locked": False}
+    orders = list_orders_for_email(email_clean)
+    if verify_orders_key(email_clean, key):
+        return {"orders": orders, "locked": False}
+    return {"orders": lock_orders(orders), "locked": bool(orders)}
+
+
+class OrdersLinkRequest(BaseModel):
+    email: str = Field(..., description="Email on the paid order")
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+
+@app.post("/orders/send-link", tags=["Payments"])
+async def send_orders_link_endpoint(body: OrdersLinkRequest) -> Dict[str, Any]:
+    """Email a 30-day link that opens My Orders with downloads unlocked."""
+    from orders_access import send_orders_link
+
+    return send_orders_link(body.email)
 
 
 @app.get("/orders/{order_id}/pdfs/{pdf_type}", tags=["Payments"])
@@ -1522,7 +1549,13 @@ async def confirm_checkout(session_id: str = "") -> Dict[str, Any]:
     if not sid:
         raise HTTPException(status_code=400, detail="session_id is required")
     try:
-        return await confirm_stripe_session(sid)
+        result = await confirm_stripe_session(sid)
+        email_l = str(result.get("email") or "").strip().lower()
+        if "@" in email_l:
+            from orders_access import make_orders_key
+
+            result["orders_key"] = make_orders_key(email_l)
+        return result
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
@@ -1652,31 +1685,46 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
 
 # ========== Free Trial Endpoint ==========
 
-@app.get("/debug/env")
-async def debug_env() -> Dict[str, Any]:
-    """Show environment variables (sanitized)"""
+def _require_debug_secret(x_admin_secret: Optional[str]) -> None:
+    """Debug routes are operator-only. They name the database host."""
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    if not expected or (x_admin_secret or "").strip() != expected:
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+@app.get("/debug/env", include_in_schema=False)
+async def debug_env(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    """Operator check: which env names are set. No values."""
+    _require_debug_secret(x_admin_secret)
     return {
-        "SUPABASE_URL": os.getenv("SUPABASE_URL", "NOT SET"),
-        "SUPABASE_KEY_PREFIX": os.getenv("SUPABASE_KEY", "NOT SET")[:20] + "...",
+        "SUPABASE_URL_SET": bool(os.getenv("SUPABASE_URL")),
+        "SUPABASE_KEY_SET": bool(os.getenv("SUPABASE_KEY")),
         "RESEND_API_KEY_SET": bool(os.getenv("RESEND_API_KEY")),
+        "STRIPE_WEBHOOK_SECRET_SET": bool(os.getenv("STRIPE_WEBHOOK_SECRET")),
     }
 
-@app.get("/debug/dns")
-async def debug_dns() -> Dict[str, Any]:
-    """Test DNS resolution from Render"""
+@app.get("/debug/dns", include_in_schema=False)
+async def debug_dns(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    """Operator check: the configured Supabase host resolves from this instance."""
+    _require_debug_secret(x_admin_secret)
     import socket
-    try:
-        hostname = "cuksjdvlydzxiqnjdaw.supabase.co"
-        ip = socket.gethostbyname(hostname)
-        return {"hostname": hostname, "ip": ip, "resolved": True}
-    except socket.gaierror as e:
-        return {"hostname": hostname, "error": str(e), "resolved": False}
-    except Exception as e:
-        return {"error": str(e), "resolved": False}
+    from urllib.parse import urlparse
 
-@app.get("/debug/test-supabase")
-async def test_supabase() -> Dict[str, Any]:
-    """Test Supabase connection and email service"""
+    hostname = urlparse(os.getenv("SUPABASE_URL") or "").hostname or ""
+    if not hostname:
+        return {"resolved": False, "error": "SUPABASE_URL not set"}
+    try:
+        socket.gethostbyname(hostname)
+        return {"resolved": True}
+    except socket.gaierror as e:
+        return {"resolved": False, "error": str(e)}
+    except Exception as e:
+        return {"resolved": False, "error": str(e)}
+
+@app.get("/debug/test-supabase", include_in_schema=False)
+async def test_supabase(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    """Operator check: Supabase connection and email service"""
+    _require_debug_secret(x_admin_secret)
     import httpx
     try:
         from email_service import get_email_service
