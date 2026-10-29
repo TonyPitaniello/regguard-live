@@ -1608,12 +1608,15 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
     """
     # Get raw body for signature verification
     body = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
-    
-    # Verify webhook signature with Stripe's construct_event (handles whsec_ secrets)
-    webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    sig_header = (request.headers.get("stripe-signature") or "").strip()
+
+    # When STRIPE_WEBHOOK_SECRET is set, every request must carry a valid Stripe-Signature.
+    # Missing signature used to skip verification and still process the body.
+    webhook_secret = (os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()
     event: Any
-    if webhook_secret and sig_header:
+    if webhook_secret:
+        if not sig_header:
+            raise HTTPException(status_code=401, detail="Webhook signature required")
         try:
             import stripe
 
@@ -1627,11 +1630,14 @@ async def stripe_webhook(request: Request) -> Dict[str, str]:
             else:
                 event = json.loads(body)
             logger.info("✅ Webhook signature verified via Stripe construct_event")
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"❌ Webhook verification error: {e}")
             raise HTTPException(status_code=401, detail="Webhook verification failed") from e
     else:
-        logger.warning("⚠️  No webhook secret or signature header - skipping verification")
+        # Local / CI only — production must set STRIPE_WEBHOOK_SECRET.
+        logger.warning("⚠️  STRIPE_WEBHOOK_SECRET not set — accepting unsigned webhook (dev only)")
         try:
             event = json.loads(body)
         except json.JSONDecodeError:

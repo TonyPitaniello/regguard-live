@@ -431,10 +431,13 @@ async def handle_charge_refunded(charge_data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:
-    """Verify Stripe webhook signature."""
+    """Verify Stripe webhook signature. Empty signature fails when the secret is set."""
     if not STRIPE_WEBHOOK_SECRET:
         logger.warning("⚠️ STRIPE_WEBHOOK_SECRET not set, skipping verification")
         return True
+    if not (signature or "").strip():
+        logger.warning("⚠️ Webhook signature missing")
+        return False
 
     try:
         stripe.Webhook.construct_event(payload, signature, STRIPE_WEBHOOK_SECRET)
