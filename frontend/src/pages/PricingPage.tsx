@@ -127,7 +127,61 @@ export default function PricingPage() {
       </section>
 
       <section className="px-4 pb-10 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <p className="text-xs font-bold tracking-wide text-purple-300 mb-4 text-center sm:text-left">
+            For estimators, permit runners, and GCs
+          </p>
+          <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {TIERS.filter((tier) => !tier.key.startsWith('ic_')).map((tier) => (
+              <div
+                key={tier.key}
+                className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-7 flex flex-col h-full border ${
+                  tier.highlight
+                    ? 'border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10'
+                    : 'border-purple-500/20'
+                }`}
+              >
+                <p className="text-xs font-bold tracking-wide text-purple-300 mb-2">
+                  {tier.segment}
+                </p>
+                <h2 className="text-2xl font-black text-white mb-1">{tier.name}</h2>
+                <p className="text-gray-400 text-sm mb-6">{tier.description}</p>
+
+                <div className="mb-6">
+                  <div className="text-4xl font-black text-white">{tier.price}</div>
+                  <p className="text-gray-400 text-sm">{tier.billing}</p>
+                </div>
+
+                <ul className="space-y-3 mb-8 flex-grow">
+                  {tier.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-gray-300 text-sm">
+                      <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <button
+                  onClick={() => handleCta(tier.key)}
+                  className={
+                    tier.key === 'free'
+                      ? 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer border border-emerald-400/50 text-emerald-50 hover:bg-emerald-500/10'
+                      : 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white'
+                  }
+                >
+                  {tier.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 pb-10 sm:px-6 lg:px-8 border-t border-purple-500/10 pt-12">
         <div className="max-w-4xl mx-auto">
+          <p className="text-xs font-bold tracking-wide text-emerald-300 mb-4 text-center">
+            When the site needs a counsel-ready package
+          </p>
           <IcDiligenceBundlePitch />
           <div className="mt-4 flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -149,15 +203,11 @@ export default function PricingPage() {
       </section>
 
       <section className="px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto grid md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {TIERS.map((tier) => (
+        <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-6">
+          {TIERS.filter((tier) => tier.key.startsWith('ic_')).map((tier) => (
             <div
               key={tier.key}
-              className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-7 flex flex-col h-full border ${
-                tier.highlight
-                  ? 'border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10'
-                  : 'border-purple-500/20'
-              }`}
+              className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-7 flex flex-col h-full border border-purple-500/20"
             >
               <p className="text-xs font-bold tracking-wide text-purple-300 mb-2">
                 {tier.segment}
@@ -181,11 +231,7 @@ export default function PricingPage() {
 
               <button
                 onClick={() => handleCta(tier.key)}
-                className={
-                  tier.key === 'free'
-                    ? 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer border border-emerald-400/50 text-emerald-50 hover:bg-emerald-500/10'
-                    : 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white'
-                }
+                className="w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white"
               >
                 {tier.cta}
               </button>
