@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 _ORDERS_BY_SESSION: Dict[str, Dict[str, Any]] = {}
 # email(lower) -> list of session_ids (newest first)
 _ORDERS_BY_EMAIL: Dict[str, List[str]] = {}
+# email -> unix time of last Stripe recovery pass (throttle listing polls)
+_STRIPE_RECOVERY_AT: Dict[str, float] = {}
+_STRIPE_RECOVERY_GAP_SEC = 45.0
 
 # DB CHECK in 008_orders_table uses ic_consultant; app tiers use ic_project / ic_annual
 _TIER_DB_MAP = {
@@ -277,42 +280,281 @@ def remember_order(order: Dict[str, Any]) -> Dict[str, Any]:
     return order
 
 
-def persist_order_supabase(order: Dict[str, Any]) -> bool:
-    """Best-effort insert into public.orders. Returns True if accepted."""
+def _orders_archive_path() -> Path:
+    root = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data")
+    return root / "orders_archive.json"
+
+
+def _mirror_order_disk(order: Dict[str, Any]) -> None:
+    """Local mirror so a warm instance can reload after a soft restart."""
+    sid = str(order.get("stripe_session_id") or "").strip()
+    if not sid or sid.startswith(("share_", "local_")):
+        return
+    try:
+        path = _orders_archive_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        blob: Dict[str, Any] = {}
+        if path.is_file():
+            try:
+                blob = __import__("json").loads(path.read_text(encoding="utf-8") or "{}")
+            except Exception:
+                blob = {}
+        if not isinstance(blob, dict):
+            blob = {}
+        slim = {
+            k: order.get(k)
+            for k in (
+                "order_id",
+                "tier",
+                "status",
+                "created_at",
+                "amount",
+                "currency",
+                "email",
+                "stripe_session_id",
+                "stripe_payment_intent_id",
+                "stripe_subscription_id",
+                "download_token",
+                "pdf_status",
+                "address",
+                "site_address",
+                "site_city",
+                "site_state",
+                "site_zip",
+                "site_label",
+                "site_project_type",
+                "user_id",
+                "name",
+                "referral_code",
+                "coverage_note",
+            )
+            if order.get(k) not in (None, "")
+        }
+        blob[sid] = slim
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(__import__("json").dumps(blob, default=str), encoding="utf-8")
+        tmp.replace(path)
+    except Exception as e:
+        logger.warning("Order disk mirror failed: %s", e)
+
+
+def _load_orders_archive() -> None:
+    """Hydrate memory from the local archive (best-effort)."""
+    try:
+        path = _orders_archive_path()
+        if not path.is_file():
+            return
+        blob = __import__("json").loads(path.read_text(encoding="utf-8") or "{}")
+        if not isinstance(blob, dict):
+            return
+        for sid, row in blob.items():
+            if not isinstance(row, dict):
+                continue
+            if sid in _ORDERS_BY_SESSION:
+                continue
+            remember_order({**row, "stripe_session_id": sid})
+    except Exception as e:
+        logger.warning("Order archive load failed: %s", e)
+
+
+def _app_tier_from_db_row(tier: Any, amount: Any) -> str:
+    """Map a database tier (+ amount) back to the app tier name."""
+    t = str(tier or "contractor_pro").strip().lower()
+    amt = int(amount or 0)
+    if t == "ic_consultant":
+        return "ic_annual" if amt >= 1_000_000 else "ic_project"
+    # Compatibility: older DBs rejected `partner` — those rows landed as contractor_pro @ $79.
+    if t == "contractor_pro" and amt == _TIER_AMOUNTS["partner"]:
+        return "partner"
+    return t or "contractor_pro"
+
+
+def _persist_core_row(order: Dict[str, Any], *, tier_for_db: str) -> Dict[str, Any]:
     email = (order.get("email") or "").strip().lower()
     tier = normalize_tier(order.get("tier") or "contractor_pro")
+    status = str(order.get("status") or "completed").strip().lower()
+    if status not in ("pending", "completed", "failed", "refunded"):
+        status = "completed"
     user_id = order.get("user_id") or email_to_user_uuid(email or "anonymous")
-    row = {
+    row: Dict[str, Any] = {
         "user_id": user_id,
         "stripe_session_id": order.get("stripe_session_id"),
-        "stripe_payment_intent_id": order.get("stripe_payment_intent_id"),
-        "stripe_subscription_id": order.get("stripe_subscription_id"),
         "amount": int(order.get("amount") or _TIER_AMOUNTS.get(tier, 0)),
         "currency": order.get("currency") or "usd",
-        "status": "completed",
-        "tier": db_tier(tier),
+        "status": status,
+        "tier": tier_for_db,
         "email": email or None,
     }
-    if order.get("pdfs") is not None:
-        row["pdfs"] = order["pdfs"]
-    if order.get("address"):
-        row["address"] = order["address"]
-    if order.get("download_token"):
-        row["download_token"] = order["download_token"]
-    if order.get("pdf_status"):
-        row["pdf_status"] = order["pdf_status"]
-    # Prefer upsert by session id when supported
-    result = _supabase_rest(
-        "orders?on_conflict=stripe_session_id",
-        method="POST",
-        json_body=row,
-        prefer="resolution=merge-duplicates,return=representation",
+    for key in ("stripe_payment_intent_id", "stripe_subscription_id"):
+        val = order.get(key)
+        if val:
+            row[key] = val
+    return row
+
+
+def persist_order_supabase(order: Dict[str, Any]) -> bool:
+    """Insert or update public.orders. Returns True if Supabase accepted the row."""
+    sid = str(order.get("stripe_session_id") or "").strip()
+    if not sid or sid.startswith(("share_", "disk_", "local_")):
+        return False
+    _mirror_order_disk(order)
+
+    tier = normalize_tier(order.get("tier") or "contractor_pro")
+    tier_candidates = [db_tier(tier)]
+    # Older live DBs may still reject `partner` until migration 015 is applied.
+    if tier == "partner" and "contractor_pro" not in tier_candidates:
+        tier_candidates.append("contractor_pro")
+
+    from urllib.parse import quote
+
+    existing = _supabase_rest(
+        f"orders?stripe_session_id=eq.{quote(sid, safe='')}&limit=1",
+        method="GET",
     )
-    if result is not None:
-        return True
-    # Plain insert fallback
-    result = _supabase_rest("orders", method="POST", json_body=row, prefer="return=representation")
-    return result is not None
+    already = isinstance(existing, list) and bool(existing)
+
+    extras: Dict[str, Any] = {}
+    if order.get("pdfs") is not None:
+        extras["pdfs"] = order["pdfs"]
+    if order.get("address"):
+        extras["address"] = order["address"]
+    if order.get("download_token"):
+        extras["download_token"] = order["download_token"]
+    if order.get("pdf_status"):
+        extras["pdf_status"] = order["pdf_status"]
+    for key in ("site_address", "site_city", "site_state", "site_zip", "site_label"):
+        if order.get(key):
+            extras[key] = order[key]
+
+    for tier_for_db in tier_candidates:
+        core = _persist_core_row(order, tier_for_db=tier_for_db)
+        path = f"orders?stripe_session_id=eq.{quote(sid, safe='')}"
+        if already:
+            patch_body = {**core, **extras}
+            patch_body.pop("stripe_session_id", None)
+            result = _supabase_rest(path, method="PATCH", json_body=patch_body, prefer="return=minimal")
+            if result is not None:
+                order["_supabase_persisted"] = True
+                return True
+            # Retry without optional columns (schema lag).
+            result = _supabase_rest(path, method="PATCH", json_body=core, prefer="return=minimal")
+            if result is not None:
+                order["_supabase_persisted"] = True
+                return True
+            continue
+
+        full = {**core, **extras}
+        result = _supabase_rest("orders", method="POST", json_body=full, prefer="return=representation")
+        if result is not None:
+            order["_supabase_persisted"] = True
+            return True
+        result = _supabase_rest("orders", method="POST", json_body=core, prefer="return=representation")
+        if result is not None:
+            order["_supabase_persisted"] = True
+            if extras:
+                _supabase_rest(path, method="PATCH", json_body=extras, prefer="return=minimal")
+            return True
+
+    logger.warning(
+        "Supabase persist failed for session=%s tier=%s email=%s",
+        sid,
+        tier,
+        (order.get("email") or "")[:80],
+    )
+    return False
+
+
+def recover_paid_checkouts_for_email(email: str) -> int:
+    """
+    Re-create any paid Stripe Checkout sessions that never landed in Supabase.
+    Render free instances forget in-memory orders on every deploy; Stripe is the source of truth.
+    """
+    import time
+
+    email_l = (email or "").strip().lower()
+    if not email_l or "@" not in email_l:
+        return 0
+    now = time.time()
+    last = _STRIPE_RECOVERY_AT.get(email_l, 0.0)
+    if now - last < _STRIPE_RECOVERY_GAP_SEC:
+        return 0
+    _STRIPE_RECOVERY_AT[email_l] = now
+
+    key = (os.getenv("STRIPE_SECRET_KEY") or "").strip()
+    if not key:
+        return 0
+    try:
+        import stripe
+    except Exception:
+        return 0
+
+    stripe.api_key = key
+    recovered = 0
+    sessions: List[Dict[str, Any]] = []
+    try:
+        customers = stripe.Customer.list(email=email_l, limit=10)
+        for cust in list(customers.data or [])[:10]:
+            listed = stripe.checkout.Session.list(customer=cust.id, limit=25, status="complete")
+            for sess in listed.data or []:
+                sessions.append(sess.to_dict() if hasattr(sess, "to_dict") else dict(sess))
+    except Exception as e:
+        logger.warning("Stripe customer session list failed for %s: %s", email_l, e)
+
+    # Also scan recent complete sessions for customer_email / metadata.email matches.
+    # Caps the walk so listing My Orders stays cheap.
+    try:
+        recent = stripe.checkout.Session.list(limit=40, status="complete")
+        for sess in recent.data or []:
+            raw = sess.to_dict() if hasattr(sess, "to_dict") else dict(sess)
+            details = raw.get("customer_details") if isinstance(raw.get("customer_details"), dict) else {}
+            md = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+            sess_email = (
+                (details.get("email") or raw.get("customer_email") or md.get("email") or "")
+                .strip()
+                .lower()
+            )
+            if sess_email == email_l:
+                sessions.append(raw)
+    except Exception as e:
+        logger.warning("Stripe recent session scan failed: %s", e)
+
+    seen_sids: set[str] = set()
+    for raw in sessions:
+        sid = str(raw.get("id") or "").strip()
+        if not sid or sid in seen_sids:
+            continue
+        seen_sids.add(sid)
+        if get_order_by_session(sid):
+            # Ensure a memory-only hit is also written to Supabase.
+            mem = _ORDERS_BY_SESSION.get(sid)
+            if mem and not mem.get("_supabase_persisted"):
+                if persist_order_supabase(mem):
+                    recovered += 1
+            continue
+        md = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+        if not md.get("tier"):
+            continue
+        payment_status = raw.get("payment_status")
+        if payment_status not in ("paid", "no_payment_required") and raw.get("status") != "complete":
+            continue
+        try:
+            order = build_order_from_checkout_session(raw)
+            remember_order(order)
+            if persist_order_supabase(order):
+                recovered += 1
+            else:
+                # Still keep it in memory for this instance.
+                recovered += 1
+            logger.info(
+                "Recovered checkout %s tier=%s email=%s supabase=%s",
+                sid,
+                order.get("tier"),
+                email_l,
+                bool(order.get("_supabase_persisted")),
+            )
+        except Exception as e:
+            logger.warning("Recover session %s failed: %s", sid, e)
+    return recovered
 
 
 def _merge_db_billing(mem: Dict[str, Any], row: Dict[str, Any]) -> None:
@@ -446,6 +688,13 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
     # Defensive: strip accidental "?session_id=..." glued onto email from bad success URLs
     if "?" in email_l:
         email_l = email_l.split("?", 1)[0]
+    _load_orders_archive()
+    if email_l:
+        try:
+            recover_paid_checkouts_for_email(email_l)
+        except Exception as e:
+            logger.warning("Stripe order recovery failed for %s: %s", email_l, e)
+
     out: List[Dict[str, Any]] = []
     seen = set()
 
@@ -467,10 +716,7 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
             if sid in seen:
                 _sync_listed_billing(str(row.get("stripe_session_id") or sid), row, out)
                 continue
-            tier = row.get("tier") or "contractor_pro"
-            if str(tier).lower() == "ic_consultant":
-                amt = int(row.get("amount") or 0)
-                tier = "ic_annual" if amt >= 1_000_000 else "ic_project"
+            tier = _app_tier_from_db_row(row.get("tier"), row.get("amount"))
             mapped = {
                 "order_id": row.get("id"),
                 "tier": tier,
@@ -541,13 +787,9 @@ def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
     )
     if isinstance(rows, list) and rows:
         row = rows[0]
-        tier = row.get("tier") or "contractor_pro"
-        if str(tier).lower() == "ic_consultant":
-            amt = int(row.get("amount") or 0)
-            tier = "ic_annual" if amt >= 1_000_000 else "ic_project"
         hydrated = {
             "order_id": row.get("id") or str(uuid.uuid4()),
-            "tier": tier,
+            "tier": _app_tier_from_db_row(row.get("tier"), row.get("amount")),
             "status": row.get("status") or "completed",
             "created_at": row.get("created_at"),
             "amount": row.get("amount"),
@@ -560,6 +802,7 @@ def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
             "analysis_json": row.get("analysis_json"),
             "download_token": row.get("download_token"),
             "pdf_status": row.get("pdf_status"),
+            "_supabase_persisted": True,
         }
         _apply_saved_site(hydrated, row)
         remember_order(hydrated)
@@ -840,16 +1083,12 @@ def _persist_order_artifacts_supabase(order: Dict[str, Any]) -> bool:
     return ok_core
 
 
-async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Create/remember an order from a Stripe Checkout Session object (dict).
-    Idempotent on stripe_session_id.
-    """
+def build_order_from_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the in-memory order dict from a Stripe Checkout Session (no side effects)."""
     session_id = session.get("id") or ""
-    if session_id and session_id in _ORDERS_BY_SESSION:
-        return order_to_frontend(_ORDERS_BY_SESSION[session_id])
-
     metadata = session.get("metadata") or {}
+    if not isinstance(metadata, dict):
+        metadata = {}
     tier = normalize_tier(metadata.get("tier") or "")
     details = session.get("customer_details") if isinstance(session.get("customer_details"), dict) else {}
     email = (
@@ -866,7 +1105,7 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
     if amount is None:
         amount = _TIER_AMOUNTS.get(tier, 0)
 
-    order = {
+    order: Dict[str, Any] = {
         "order_id": str(uuid.uuid4()),
         "trial_id": metadata.get("trial_id") or "",
         "tier": tier or "contractor_pro",
@@ -898,7 +1137,6 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
         "referral_code": (metadata.get("referral_code") or "").strip().lower(),
     }
 
-    # Bind checkout site into the order (IC auto-run / cross-device restore)
     site_address = (metadata.get("site_address") or "").strip()
     site_city = (metadata.get("site_city") or "").strip()
     site_state = (metadata.get("site_state") or "").strip()
@@ -924,12 +1162,37 @@ async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
     if site_label:
         order["site_label"] = site_label
         order["address"] = site_label
+    return order
+
+
+async def fulfill_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Create/remember an order from a Stripe Checkout Session object (dict).
+    Idempotent on stripe_session_id. Always retries Supabase persist.
+    """
+    session_id = session.get("id") or ""
+    if session_id and session_id in _ORDERS_BY_SESSION:
+        existing = _ORDERS_BY_SESSION[session_id]
+        if not existing.get("_supabase_persisted"):
+            persist_order_supabase(existing)
+        return order_to_frontend(existing)
+
+    # Already durable in Supabase (e.g. after a Render redeploy wiped memory).
+    prior = get_order_by_session(session_id) if session_id else None
+    if prior:
+        mem = _ORDERS_BY_SESSION.get(session_id)
+        if mem and not mem.get("_supabase_persisted"):
+            mem["_supabase_persisted"] = True
+        return prior
+
+    order = build_order_from_checkout_session(session)
+    email = (order.get("email") or "").strip().lower()
 
     remember_order(order)
     persisted = persist_order_supabase(order)
     if not persisted:
         logger.warning(
-            "Order %s fulfilled in-memory but Supabase persist failed — regenerate depends on this instance",
+            "Order %s fulfilled in-memory but Supabase persist failed — will retry on My Orders / confirm",
             order["order_id"],
         )
     logger.info(
