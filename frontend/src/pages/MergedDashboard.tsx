@@ -113,7 +113,8 @@ export function PlatformDashboard() {
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
-            Built for commercial, industrial, and data-center-adjacent bids.
+            Built for DFW–Austin commercial, industrial, and DC-adjacent bids — citeable in-pack,
+            Unverified outside. Not an ESA, interconnect study, or filing.
             {forwards != null && forwards > 0 ? (
               <>
                 {' '}

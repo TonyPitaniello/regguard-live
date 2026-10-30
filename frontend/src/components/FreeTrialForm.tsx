@@ -1344,7 +1344,8 @@ export default function FreeTrialForm({
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Try Reg Guard free</h2>
           <p className="text-gray-300 text-base md:text-lg">
-            One site. Seconds to a forwardable Bid Risk Receipt — not a quote.
+            One DFW–Austin site. Seconds to a forwardable Bid Risk Receipt — citeable in-pack,
+            Unverified outside. Not a quote, ESA, or interconnect study.
             Or tap the mic and say the address.
             {typeof window !== 'undefined' && sessionStorage.getItem('regguardPaid') === '1' ? (
               <span className="block mt-1 text-emerald-300/90 text-sm font-semibold">

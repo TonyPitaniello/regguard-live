@@ -413,7 +413,7 @@ def compute_backend_source_fingerprint() -> str:
 _API_DOCS_ON = (os.getenv("RG_API_DOCS") or "").strip().lower() in ("1", "true", "yes")
 app = FastAPI(
     title="Reg Guard",
-    description="Agentic Compliance Assistant for Contractors",
+    description="Citeable pre-bid / pre-LOI site diligence for DFW–Austin commercial–industrial and DC-adjacent work",
     docs_url="/docs" if _API_DOCS_ON else None,
     redoc_url="/redoc" if _API_DOCS_ON else None,
     openapi_url="/openapi.json" if _API_DOCS_ON else None,
@@ -1251,7 +1251,7 @@ async def _with_heartbeats(threadpool_coro):
 def root() -> Dict[str, str]:
     return {
         "name": "Reg Guard",
-        "tagline": "Agentic Compliance Assistant for Contractors",
+        "tagline": "Citeable pre-bid / pre-LOI site diligence for DFW–Austin",
     }
 
 
