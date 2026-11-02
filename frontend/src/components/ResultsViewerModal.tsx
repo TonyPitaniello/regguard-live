@@ -1064,9 +1064,24 @@ export default function ResultsViewerModal({
     setShareUnlocked(false);
   }, [isOpen, researchId, analysis?.research_id]);
 
+  // Sample / first open: land on the HOLD stamp, not empty chrome above the fold.
+  useEffect(() => {
+    if (!isOpen || !demoTier) return;
+    const t = window.setTimeout(() => {
+      document.getElementById('rg-executive-summary')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [isOpen, demoTier, analysis?.research_id]);
+
   if (!isOpen || !analysis) return null;
 
   const view = liveAnalysis || analysis;
+  const headerStamp = stampCustomerDisplay(
+    String(view.regguard_stamp?.grade || view.stamp_grade || '')
+  );
   const coverage = resolveCoverage(view);
 
   /** City-pack body: prefer fee_card / gotcha_watchlist, fall back to local_pack rows */
@@ -2630,9 +2645,24 @@ export default function ResultsViewerModal({
         <div className="flex flex-col gap-4 px-5 sm:px-8 py-5 border-b border-slate-700/80 bg-slate-900/90">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
-                {PRODUCT_COPY.resultsPanelTitle}
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="results-modal-title" className="text-2xl sm:text-3xl font-black text-white">
+                  {PRODUCT_COPY.resultsPanelTitle}
+                </h2>
+                {headerStamp ? (
+                  <span
+                    className={`inline-flex px-2.5 py-1 rounded text-xs font-black tracking-wide border ${
+                      headerStamp === 'HOLD'
+                        ? 'bg-amber-500/20 text-amber-100 border-amber-400/50'
+                        : headerStamp === 'CAUTION'
+                          ? 'bg-amber-500/15 text-amber-200 border-amber-500/40'
+                          : 'bg-emerald-500/20 text-emerald-200 border-emerald-500/40'
+                    }`}
+                  >
+                    {headerStamp}
+                  </span>
+                ) : null}
+              </div>
               <p className="text-gray-400 text-sm mt-1">
                 {(() => {
                   const pi = view.project_info || ({} as AnalysisData['project_info']);
@@ -2645,6 +2675,9 @@ export default function ResultsViewerModal({
                   }
                   return [street, place].filter(Boolean).join(' · ') || 'Site address';
                 })()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Planning aid — not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.
               </p>
               {(depthBadgeLabel || view.research_depth === 'pro' || view.research_depth === 'pro_partial') && (
                 <p

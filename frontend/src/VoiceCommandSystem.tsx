@@ -4,6 +4,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Mic, MicOff, AlertCircle, CheckCircle2 } from 'lucide-react';
 import {
   clearDictationSilenceTimer,
@@ -32,6 +33,9 @@ function formatPhoneChip(digits: string): string {
 }
 
 export function VoiceCommandSystem() {
+  const location = useLocation();
+  const path = (location.pathname || '/').replace(/\/$/, '') || '/';
+  const voiceHomeOnly = path === '/';
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [interimTranscript, setInterimTranscript] = useState('');
@@ -232,6 +236,11 @@ export function VoiceCommandSystem() {
   if (parsed?.phone) chips.push({ label: 'Phone', value: formatPhoneChip(parsed.phone) });
 
   const ready = parsed ? voiceFieldsReady(parsed) : false;
+
+  // Mic only on the home free-trial form. On /r, samples, checkout, orders it covers CTAs.
+  if (!voiceHomeOnly) {
+    return null;
+  }
 
   return (
     <div className="voice-command-system voice-fill-mode">

@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
-  const updated = 'September 4, 2026';
+  const updated = 'November 2, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -35,8 +35,9 @@ export default function PrivacyPolicyPage() {
           </div>
 
           <p>
-            RegGuard (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), operated by Pitaniello Perkins LLC, provides
-            construction permitting and site-research tools at{' '}
+            Reg Guard (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;), operated by Pitaniello Perkins LLC, provides
+            citeable pre-bid / pre-LOI site diligence for DFW–Austin commercial–industrial and DC-adjacent
+            work at{' '}
             <a className="text-purple-300 underline" href="https://app.regguardagent.com">
               app.regguardagent.com
             </a>

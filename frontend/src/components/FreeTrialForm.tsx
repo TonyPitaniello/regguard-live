@@ -1503,13 +1503,15 @@ export default function FreeTrialForm({
                 setFormData((prev) => ({ ...prev, email: e.target.value }));
               }}
               onFocus={unlockFields}
+              onPointerDown={unlockFields}
+              onTouchStart={unlockFields}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   void runResearch();
                 }
               }}
-              placeholder=""
+              placeholder="you@company.com"
               autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="off"

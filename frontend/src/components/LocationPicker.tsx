@@ -1062,20 +1062,23 @@ export function LocationPicker({
             id="job-site-address-label"
             className="block text-sm font-bold text-emerald-300"
           >
-            Optional: Enter The Address
+            Search an address
           </label>
           <AddressAutocomplete
             disabled={disabled}
             resetKey={resetKey}
             onSelection={handlePlacesSelection}
           />
-          <p className="hidden sm:block text-xs text-gray-400">
-            Or type street, city, state, and ZIP below — the map pin updates automatically.
+          <p className="text-xs text-gray-400">
+            Or tap Street below and type — then Find on map. Pin is optional for Free Lookups.
           </p>
         </div>
       )}
 
-      <div className="bg-slate-700/50 p-4 rounded-lg border border-purple-500/30 space-y-3">
+      <div
+        className="bg-slate-700/50 p-4 rounded-lg border border-purple-500/30 space-y-3"
+        onPointerDown={markSiteFieldFocused}
+      >
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm font-bold text-white flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-400" />

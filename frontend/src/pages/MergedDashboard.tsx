@@ -96,7 +96,7 @@ export function PlatformDashboard() {
             {PRODUCT_COPY.heroHeadline}
           </h2>
           <p className="sm:hidden text-sm text-gray-300">
-            HOLD, CAUTION, or CLEAR. No card.
+            DFW–Austin pre-bid diligence. HOLD, CAUTION, or CLEAR. No card.
           </p>
           <p className="hidden sm:block text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
             {PRODUCT_COPY.heroSubhead}

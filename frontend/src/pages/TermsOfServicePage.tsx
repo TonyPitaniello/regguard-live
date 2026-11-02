@@ -1,5 +1,6 @@
 /**
- * RegGuard Terms of Service — required for SMS / A2P compliance
+ * RegGuard Terms of Service — required for SMS / A2P compliance.
+ * Keep in sync with frontend/public/terms/index.html (Vercel serves that static file first).
  */
 
 import { Link } from 'react-router-dom';
@@ -87,7 +88,9 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-2xl font-bold text-white">Fees and payments</h2>
             <p>
-              Paid plans and one-time purchases are described at checkout or on the pricing page.
+              Paid plans and one-time purchases are described at checkout or on the pricing page. Plan
+              names are Free Lookups, Estimator / Permit Runner ($79/mo), Contractor Pro ($149/mo), IC
+              Diligence Bundle ($1,500/site), and IC Annual ($15,000/yr after one Diligence Bundle).
               Payments are processed by <strong className="text-white">Stripe</strong> (Stripe Checkout
               or Stripe Elements). Reg Guard does not store card numbers. Except where required by law
               or expressly stated otherwise, payments are non-refundable once research delivery has begun
