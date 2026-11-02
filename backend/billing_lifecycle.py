@@ -105,20 +105,36 @@ def _orders_for_subscription(obj: Dict[str, Any], subscription_id: str) -> List[
     tier = _tier_from_obj(obj)
     if not email:
         return []
-    matches: List[Dict[str, Any]] = []
+    # Exact id missed (the checkout stored an expanded object, or the id was blank).
+    # Never fan out across Estimator and Pro: a missing tier must not end every seat.
+    open_subs: List[Dict[str, Any]] = []
     for order in get_raw_orders_for_email(email):
         order_tier = normalize_tier(str(order.get("tier") or ""))
         if order_tier not in SUBSCRIPTION_TIERS:
-            continue
-        if tier and normalize_tier(tier) != order_tier:
             continue
         existing = str(order.get("stripe_subscription_id") or "")
         if existing.startswith("ended:"):
             continue
         if existing and subscription_id and existing != subscription_id:
             continue
-        matches.append(order)
-    return matches
+        open_subs.append(order)
+    if tier:
+        wanted = normalize_tier(tier)
+        return [order for order in open_subs if normalize_tier(str(order.get("tier") or "")) == wanted]
+    if subscription_id:
+        exact = [
+            order
+            for order in open_subs
+            if str(order.get("stripe_subscription_id") or "") == subscription_id
+        ]
+        if exact:
+            return exact
+        if len(open_subs) == 1 and not str(open_subs[0].get("stripe_subscription_id") or ""):
+            return open_subs
+        return []
+    if len(open_subs) == 1:
+        return open_subs
+    return []
 
 
 def _mark(orders: List[Dict[str, Any]], kind: str, subscription_id: str = "") -> List[str]:
@@ -342,7 +358,7 @@ def apply_stripe_event(event: Dict[str, Any]) -> Dict[str, Any]:
         return {"status": "acknowledged", "orders": 0}
     if event_type == "invoice.payment_failed":
         return mark_past_due(obj)
-    if event_type == "invoice.payment_succeeded":
+    if event_type in ("invoice.payment_succeeded", "invoice.paid"):
         return restore_paid_subscription(obj)
     if event_type == "charge.refunded":
         return apply_refund(obj)

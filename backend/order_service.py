@@ -95,6 +95,15 @@ def normalize_tier(tier: str) -> str:
     return t if t in _TIER_DB_MAP or t in _TIER_AMOUNTS else t
 
 
+def stripe_object_id(value: Any) -> str:
+    """Stripe fields are an id string, or an expanded object with id."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return str(value.get("id") or "").strip()
+    return ""
+
+
 def db_tier(tier: str) -> str:
     return _TIER_DB_MAP.get(normalize_tier(tier), "contractor_pro")
 
@@ -1128,12 +1137,8 @@ def build_order_from_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]
         "email": email,
         "user_id": email_to_user_uuid(email) if email else metadata.get("user_id"),
         "stripe_session_id": session_id,
-        "stripe_payment_intent_id": session.get("payment_intent")
-        if isinstance(session.get("payment_intent"), str)
-        else None,
-        "stripe_subscription_id": session.get("subscription")
-        if isinstance(session.get("subscription"), str)
-        else None,
+        "stripe_payment_intent_id": stripe_object_id(session.get("payment_intent")) or None,
+        "stripe_subscription_id": stripe_object_id(session.get("subscription")) or None,
         "name": metadata.get("name") or "",
         "download_token": uuid.uuid4().hex,
         "pdf_status": "preparing"
