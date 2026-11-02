@@ -238,3 +238,187 @@ def test_billing_portal_returns_stripe_url(monkeypatch):
     )
     url = billing_lifecycle.create_billing_portal_url("payer@example.com")
     assert url.startswith("https://billing.stripe.com/")
+
+
+def test_cancel_at_period_end_keeps_the_seat_until_deletion(monkeypatch):
+    _isolate(monkeypatch)
+    _order(email="period@example.com")
+    from billing_lifecycle import apply_stripe_event
+    from entitlement import has_paid_access
+
+    scheduled = apply_stripe_event(
+        {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "id": "sub_pro",
+                    "object": "subscription",
+                    "status": "active",
+                    "cancel_at_period_end": True,
+                }
+            },
+        }
+    )
+    assert scheduled["status"] == "unchanged"
+    assert has_paid_access("period@example.com") is True
+    ended = apply_stripe_event(
+        {
+            "type": "customer.subscription.deleted",
+            "data": {"object": {"id": "sub_pro", "object": "subscription", "status": "canceled"}},
+        }
+    )
+    assert ended["status"] == "canceled"
+    assert has_paid_access("period@example.com") is False
+
+
+def test_subscription_updated_canceled_ends_immediately(monkeypatch):
+    _isolate(monkeypatch)
+    _order(email="now@example.com")
+    from billing_lifecycle import apply_stripe_event
+    from entitlement import has_paid_access
+
+    result = apply_stripe_event(
+        {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "id": "sub_pro",
+                    "object": "subscription",
+                    "status": "canceled",
+                }
+            },
+        }
+    )
+    assert result["status"] == "canceled"
+    assert has_paid_access("now@example.com") is False
+
+
+def test_renewal_charge_refund_ends_the_subscription_seat(monkeypatch):
+    _isolate(monkeypatch)
+    _order(email="renew-refund@example.com", stripe_payment_intent_id="pi_original")
+    import billing_lifecycle
+
+    class Invoice:
+        @staticmethod
+        def retrieve(invoice_id):
+            return {"id": invoice_id, "subscription": "sub_pro"}
+
+    monkeypatch.setattr(billing_lifecycle, "_stripe_client", lambda: billing_lifecycle.stripe)
+    monkeypatch.setattr(billing_lifecycle.stripe, "Invoice", Invoice)
+    result = billing_lifecycle.apply_stripe_event(
+        {
+            "type": "charge.refunded",
+            "data": {
+                "object": {
+                    "id": "ch_renew",
+                    "payment_intent": "pi_renewal_not_on_the_order",
+                    "invoice": "in_renew",
+                    "amount": 14900,
+                    "amount_refunded": 14900,
+                    "refunded": True,
+                }
+            },
+        }
+    )
+    assert result["status"] == "refunded"
+    from entitlement import has_paid_access
+
+    assert has_paid_access("renew-refund@example.com") is False
+
+
+def test_recovery_does_not_reopen_a_canceled_subscription(monkeypatch, tmp_path):
+    _isolate(monkeypatch)
+    monkeypatch.setattr("order_service._STRIPE_RECOVERY_AT", {})
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_x")
+    import stripe
+
+    class Obj:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+        def to_dict(self):
+            return dict(self.__dict__)
+
+    class Listing:
+        def __init__(self, data):
+            self.data = data
+
+    session = Obj(
+        id="cs_test_canceled",
+        mode="subscription",
+        status="complete",
+        payment_status="paid",
+        subscription="sub_dead",
+        customer_email="revive@example.com",
+        metadata={"tier": "contractor_pro", "email": "revive@example.com"},
+        amount_total=14900,
+        currency="usd",
+    )
+
+    monkeypatch.setattr(stripe.Customer, "list", lambda **kwargs: Listing([Obj(id="cus_1")]))
+    monkeypatch.setattr(
+        stripe.checkout.Session,
+        "list",
+        lambda **kwargs: Listing([session]),
+    )
+    monkeypatch.setattr(
+        stripe.Subscription,
+        "retrieve",
+        lambda sub_id: Obj(id=sub_id, status="canceled", cancel_at_period_end=False),
+    )
+    from entitlement import has_paid_access
+    from order_service import list_orders_for_email
+
+    rows = list_orders_for_email("revive@example.com")
+    assert len(rows) == 1
+    assert rows[0]["billing_state"] == "canceled"
+    assert has_paid_access("revive@example.com") is False
+
+
+def test_recovery_marks_a_refunded_one_time_charge(monkeypatch, tmp_path):
+    _isolate(monkeypatch)
+    monkeypatch.setattr("order_service._STRIPE_RECOVERY_AT", {})
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_x")
+    import stripe
+
+    class Obj:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+
+        def to_dict(self):
+            return dict(self.__dict__)
+
+    class Listing:
+        def __init__(self, data):
+            self.data = data
+
+    session = Obj(
+        id="cs_test_refunded_ic",
+        mode="payment",
+        status="complete",
+        payment_status="paid",
+        payment_intent="pi_ic_refunded",
+        customer_email="icrefund@example.com",
+        metadata={"tier": "ic_project", "email": "icrefund@example.com"},
+        amount_total=150000,
+        currency="usd",
+    )
+    monkeypatch.setattr(stripe.Customer, "list", lambda **kwargs: Listing([Obj(id="cus_2")]))
+    monkeypatch.setattr(stripe.checkout.Session, "list", lambda **kwargs: Listing([session]))
+    monkeypatch.setattr(
+        stripe.PaymentIntent,
+        "retrieve",
+        lambda pi: {
+            "id": pi,
+            "latest_charge": {"id": "ch_ic", "amount": 150000, "amount_refunded": 150000, "refunded": True},
+        },
+    )
+    from entitlement import has_paid_access
+    from order_service import list_orders_for_email
+
+    rows = list_orders_for_email("icrefund@example.com")
+    assert rows[0]["billing_state"] == "refunded"
+    assert rows[0]["tier"] == "ic_project"
+    assert has_paid_access("icrefund@example.com") is False

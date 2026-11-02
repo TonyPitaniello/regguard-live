@@ -224,6 +224,97 @@ def _orders_for_charge(charge: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
+def reconcile_order_with_checkout(order: Dict[str, Any], session: Dict[str, Any]) -> bool:
+    """
+    A completed Checkout session stays "paid" after cancel or a full refund.
+    Recovery must not turn that session back into an open seat.
+    Cancel-at-period-end stays open until Stripe marks the subscription canceled.
+    Returns True when status or the subscription id changed.
+    """
+    before_status = str(order.get("status") or "")
+    before_sub = str(order.get("stripe_subscription_id") or "")
+    mode = str(session.get("mode") or "")
+    sub = session.get("subscription")
+    sub_id = ""
+    sub_status = ""
+    cancel_at_end = False
+    if isinstance(sub, dict):
+        sub_id = str(sub.get("id") or "")
+        sub_status = str(sub.get("status") or "").lower()
+        cancel_at_end = bool(sub.get("cancel_at_period_end"))
+    elif isinstance(sub, str):
+        sub_id = sub
+    if (mode == "subscription" or sub_id) and sub_id and not sub_status:
+        client = _stripe_client()
+        if client is None:
+            return False
+        try:
+            loaded = _as_dict(client.Subscription.retrieve(sub_id))
+        except Exception as e:
+            logger.warning("Subscription lookup during recovery failed: %s", e)
+            return False
+        sub_status = str(loaded.get("status") or "").lower()
+        cancel_at_end = bool(loaded.get("cancel_at_period_end"))
+    if mode == "subscription" or sub_id:
+        if not sub_status:
+            return False
+        if sub_status in ("canceled", "unpaid", "incomplete_expired"):
+            order["status"] = "failed"
+            order["stripe_subscription_id"] = f"ended:{sub_id}" if sub_id else "ended:"
+        elif sub_status == "past_due":
+            if not before_sub.startswith("ended:"):
+                order["status"] = "failed"
+                if sub_id:
+                    order["stripe_subscription_id"] = sub_id
+        elif sub_status in ("active", "trialing"):
+            # Period-end cancel is still active. Immediate cancel is status canceled.
+            order["status"] = "completed"
+            if sub_id:
+                order["stripe_subscription_id"] = sub_id
+            if cancel_at_end:
+                order["cancel_at_period_end"] = True
+        else:
+            return False
+    elif _checkout_session_fully_refunded(session):
+        order["status"] = "refunded"
+    changed = str(order.get("status") or "") != before_status or str(
+        order.get("stripe_subscription_id") or ""
+    ) != before_sub
+    return changed
+
+
+def _checkout_session_fully_refunded(session: Dict[str, Any]) -> bool:
+    payment_intent = session.get("payment_intent")
+    if isinstance(payment_intent, str) and payment_intent:
+        client = _stripe_client()
+        if client is None:
+            return False
+        try:
+            payment_intent = _as_dict(client.PaymentIntent.retrieve(payment_intent))
+        except Exception as e:
+            logger.warning("PaymentIntent lookup during recovery failed: %s", e)
+            return False
+    if not isinstance(payment_intent, dict):
+        return False
+    charge = payment_intent.get("latest_charge") or payment_intent.get("charge")
+    if isinstance(charge, str) and charge:
+        client = _stripe_client()
+        if client is None:
+            return False
+        try:
+            charge = _as_dict(client.Charge.retrieve(charge))
+        except Exception as e:
+            logger.warning("Charge lookup during recovery failed: %s", e)
+            return False
+    if isinstance(charge, dict):
+        return _charge_is_full_refund(charge)
+    charges = payment_intent.get("charges") if isinstance(payment_intent.get("charges"), dict) else {}
+    data = charges.get("data") if isinstance(charges.get("data"), list) else []
+    if data and isinstance(data[0], dict):
+        return _charge_is_full_refund(data[0])
+    return False
+
+
 def apply_refund(charge: Dict[str, Any]) -> Dict[str, Any]:
     if not _charge_is_full_refund(charge):
         return {"status": "partial_refund_kept", "orders": 0}

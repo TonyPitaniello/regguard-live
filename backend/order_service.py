@@ -525,11 +525,20 @@ def recover_paid_checkouts_for_email(email: str) -> int:
             continue
         seen_sids.add(sid)
         if get_order_by_session(sid):
-            # Ensure a memory-only hit is also written to Supabase.
             mem = _ORDERS_BY_SESSION.get(sid)
-            if mem and not mem.get("_supabase_persisted"):
-                if persist_order_supabase(mem):
+            if mem:
+                from billing_lifecycle import reconcile_order_with_checkout
+
+                if reconcile_order_with_checkout(mem, raw):
+                    set_order_billing(
+                        mem,
+                        status=str(mem.get("status") or "completed"),
+                        stripe_subscription_id=mem.get("stripe_subscription_id"),
+                    )
                     recovered += 1
+                elif not mem.get("_supabase_persisted"):
+                    if persist_order_supabase(mem):
+                        recovered += 1
             continue
         md = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
         if not md.get("tier"):
@@ -539,6 +548,9 @@ def recover_paid_checkouts_for_email(email: str) -> int:
             continue
         try:
             order = build_order_from_checkout_session(raw)
+            from billing_lifecycle import reconcile_order_with_checkout
+
+            reconcile_order_with_checkout(order, raw)
             remember_order(order)
             if persist_order_supabase(order):
                 recovered += 1
