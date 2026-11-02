@@ -1551,6 +1551,9 @@ async def confirm_checkout(session_id: str = "") -> Dict[str, Any]:
     sid = (session_id or "").strip()
     if not sid:
         raise HTTPException(status_code=400, detail="session_id is required")
+    # A Checkout session id is a capability (cs_…). Anything else must not hit Stripe.
+    if not sid.startswith("cs_"):
+        raise HTTPException(status_code=400, detail="session_id is not a checkout session")
     try:
         result = await confirm_stripe_session(sid)
         email_l = str(result.get("email") or "").strip().lower()
@@ -4514,6 +4517,13 @@ def _resolve_research_data(
 
     if analysis and isinstance(analysis, dict):
         rid = _usable_rid(research_id) or _usable_rid(str(analysis.get("research_id") or ""))
+        # An existing report is not replaced from an unauthenticated send.
+        # The caller already holds the analysis they asked to forward.
+        if rid and _get_research_data(rid):
+            data = dict(analysis)
+            data["research_id"] = rid
+            data["share_url"] = share_url_for(rid)
+            return data
         meta = save_research(analysis, research_id=rid)
         data = dict(analysis)
         data["research_id"] = meta["research_id"]
@@ -4524,8 +4534,12 @@ def _resolve_research_data(
     if rid:
         stored = _get_research_data(rid)
         if stored:
-            stored.setdefault("share_url", share_url_for(rid))
-            return stored
+            from research_store import redact_for_public_share
+
+            public = redact_for_public_share(stored)
+            public.setdefault("research_id", rid)
+            public.setdefault("share_url", share_url_for(rid))
+            return public
 
     if summary is not None:
         data = _research_data_from_summary(summary)
@@ -4792,10 +4806,21 @@ async def persist_research_report(body: PersistResearchRequest) -> Dict[str, Any
     Persist free-trial / research analysis and return a shareable /r/{id} URL.
     Safe to call repeatedly for the same research_id (upsert).
     """
-    from research_store import save_research
+    from research_store import get_research, save_research, share_url_for
 
     if not body.analysis or not isinstance(body.analysis, dict):
         raise HTTPException(status_code=400, detail="analysis object is required")
+    rid = (body.research_id or str(body.analysis.get("research_id") or "")).strip()
+    if rid and not rid.startswith("ephemeral-"):
+        existing = get_research(rid)
+        if existing:
+            kept = existing.get("id") or rid
+            return {
+                "status": "ok",
+                "research_id": kept,
+                "share_url": existing.get("share_url") or share_url_for(kept),
+                "existed": True,
+            }
     meta = save_research(body.analysis, research_id=body.research_id)
     return {"status": "ok", **meta}
 
@@ -4812,7 +4837,7 @@ async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUn
     from share_unlock_store import grant_unlock
 
     try:
-        data = grant_unlock(
+        grant_unlock(
             research_id,
             email=body.email or "",
             channel=(body.channel or "share")[:40],
@@ -4824,7 +4849,6 @@ async def post_share_unlock(research_id: str, body: ShareUnlockRequest = ShareUn
         "status": "ok",
         "unlocked": False,
         "research_id": research_id,
-        "emails": data.get("emails") or [],
         "rewards": {},
     }
 
@@ -5138,11 +5162,13 @@ async def post_regguard_stamp(body: StampRequest) -> Dict[str, Any]:
     stamped = apply_regguard_stamp(analysis, flagged_by=body.flagged_by or "RegGuard")
     fresh = evaluate_stamp_freshness(stamped.get("regguard_stamp"), analysis=stamped)
     stamped["regguard_stamp"] = fresh
-    return {
-        "status": "ok",
-        "stamp": fresh,
-        "analysis": stamped,
-    }
+    # A research_id lookup must not echo the stored report. The caller who
+    # sent an analysis already has it; return the stamp either way.
+    caller_sent_analysis = bool(body.analysis and isinstance(body.analysis, dict))
+    payload: Dict[str, Any] = {"status": "ok", "stamp": fresh}
+    if caller_sent_analysis:
+        payload["analysis"] = stamped
+    return payload
 
 
 @app.get("/research/{research_id}/stamp", tags=["Stamp"])
@@ -5476,14 +5502,21 @@ async def post_attach_receipt(body: ReceiptAttachRequest) -> Dict[str, Any]:
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return {"status": "ok", "attachment": row}
+    return {"status": "ok", "attachment": _public_attachment(row)}
+
+
+def _public_attachment(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Drop the requester address. The research id is already a share link."""
+    out = dict(row)
+    out.pop("requester_email", None)
+    return out
 
 
 @app.get("/integrations/attach-receipt/{research_id}", tags=["Integrations"])
 async def get_attach_receipts(research_id: str) -> Dict[str, Any]:
     from receipt_attach import list_attachments
 
-    rows = list_attachments(research_id)
+    rows = [_public_attachment(r) for r in list_attachments(research_id)]
     return {"research_id": research_id, "attachments": rows, "count": len(rows)}
 
 

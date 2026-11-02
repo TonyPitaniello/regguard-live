@@ -31,7 +31,17 @@ _MEMORY: Dict[str, Dict[str, Any]] = {}
 _DEFAULT_TTL_DAYS = int(os.getenv("REG_GUARD_REPORT_TTL_DAYS", "90"))
 
 # Strip from public payloads
-_PII_KEYS = {"email", "phone", "phone_number", "user_email", "user_phone", "contact_email"}
+_PII_KEYS = {
+    "email",
+    "phone",
+    "phone_number",
+    "user_email",
+    "user_phone",
+    "contact_email",
+    "owner_email",
+    "owner_phone",
+    "requester_email",
+}
 
 
 def _store_dir() -> Path:
