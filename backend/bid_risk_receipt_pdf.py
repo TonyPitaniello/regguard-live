@@ -687,7 +687,14 @@ def generate_bid_risk_receipt_pdf(
                 cite_url = None
 
             box_h = 14 + (3.2 if detail else 0) + (3.0 if cite_url else 0)
-            if isinstance(pe, dict) and pe.get("usd_mid") is not None and not free_preview:
+            pe_url = str((pe or {}).get("source_url") or (pe or {}).get("citation_url") or "") if isinstance(pe, dict) else ""
+            show_exposure = (
+                not free_preview
+                and isinstance(pe, dict)
+                and pe.get("usd_mid") is not None
+                and pe_url.startswith("http")
+            )
+            if show_exposure:
                 box_h += 3.2
             if not _ensure_space(pdf, box_h + 14):
                 break
@@ -753,11 +760,7 @@ def generate_bid_risk_receipt_pdf(
                     width=CONTENT_W - 12,
                     line_h=2.8,
                 )
-            if (
-                not free_preview
-                and isinstance(pe, dict)
-                and pe.get("usd_mid") is not None
-            ):
+            if show_exposure:
                 pdf.set_x(bx)
                 pdf.set_font("Helvetica", "B", 7)
                 pdf.set_text_color(*EMERALD_SOFT)

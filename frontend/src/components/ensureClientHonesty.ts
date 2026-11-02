@@ -8,9 +8,9 @@ import type { HonestyMeta } from './honesty';
 import { isRiskScoreHidden } from './honesty';
 
 const DEFAULT_LABELS: NonNullable<HonestyMeta['labels']> = {
-  risk: 'Environmental risk score unavailable — not verified against parcel GIS data. Do not use for bidding.',
-  cost: 'Unverified estimate — not an AHJ fee quote. Confirm with the local AHJ.',
-  timeline: 'Unverified estimate — confirm with AHJ / utility study track.',
+  risk: 'Flood and wetlands stay Unverified until a FEMA or NWI page is attached. This is not a 0–100 score.',
+  cost: 'No permit total. When the city uses a valuation or floor-area table, confirm that table with the AHJ.',
+  timeline: 'Timeline is Unverified. Confirm with the AHJ. This is not a filing date.',
 };
 
 export function ensureClientHonesty(analysis: AnalysisData): AnalysisData {

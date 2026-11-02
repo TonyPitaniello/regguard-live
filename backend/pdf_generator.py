@@ -364,15 +364,12 @@ class PunchListPDF(RegGuardPDF):
                 i for i in (punch_data.get("punch_list") or []) if isinstance(i, dict)
             ]
 
-            self.add_section_title("Project timeline & cost")
-            timeline = punch_data.get("timeline_summary", "8-12 weeks")
-            cost = punch_data.get("estimated_total_cost", 0)
-            try:
-                cost_f = float(cost or 0)
-            except (TypeError, ValueError):
-                cost_f = 0.0
+            self.add_section_title("Timeline and permit total")
+            timeline = punch_data.get("timeline_summary", "Confirm with the AHJ")
+            from honesty import NO_PERMIT_TOTAL
+
             self.add_info_box("Timeline", str(timeline))
-            self.add_info_box("Est. cost (planning)", f"${cost_f:,.0f}")
+            self.add_info_box("Permit total", NO_PERMIT_TOTAL)
             self.add_info_box("Action items", str(len(punch_list)))
 
             self.add_section_title("Detailed action items")
@@ -435,7 +432,8 @@ class PunchListPDF(RegGuardPDF):
 
             self.ln(2)
             self.add_muted_note(
-                "Citations are planning aids. Confirm every fee and filing on the official AHJ portal."
+                "Planning aid for DFW-Austin commercial-industrial work. Source or Unverified. "
+                "Not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing."
             )
 
             if output_path is None:

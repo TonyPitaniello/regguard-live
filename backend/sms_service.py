@@ -219,24 +219,16 @@ class TwilioSMSService(SMSService):
         state = project_info.get("state", "")
 
         high_risk = summary.get("high_risk_count", 0)
-        try:
-            total_cost = float(summary.get("estimated_total_cost") or 0)
-        except (TypeError, ValueError):
-            total_cost = 0.0
-        timeline = summary.get("estimated_timeline", "TBD")
+        from honesty import permit_total_line
+
         honesty = research_data.get("honesty") or {}
-        unverified = (
-            research_data.get("preview")
-            or summary.get("estimates_unverified")
-            or not honesty.get("cost_verified")
-        )
         risk_verified = honesty.get("risk_verified") is True
-        cost_tag = "~" if unverified else ""
         risk_line = (
-            f"{high_risk} High Risks\n"
+            f"{high_risk} flood/wetlands flags\n"
             if risk_verified
-            else "Risk score: unavailable (preview)\n"
+            else "Flood/wetlands: not scored\n"
         )
+        cost_line = permit_total_line(summary, honesty)
         share = research_data.get("share_url") or ""
         if not share and research_data.get("research_id"):
             try:
@@ -261,15 +253,14 @@ class TwilioSMSService(SMSService):
             f"RegGuard Bid Risk: {city}, {state} {zip_code}\n"
             f"{risk_line}"
             f"{killer_line}"
-            f"{cost_tag}${total_cost:,.0f}"
-            f"{' (est.)' if unverified else ''}\n"
+            f"{cost_line}\n"
             f"{report_line}"
         )
 
         if len(message) > 420:
             message = (
                 f"RegGuard {city}, {state}\n"
-                f"{'Est ' if unverified else ''}{cost_tag}${total_cost:,.0f}\n"
+                f"No permit total\n"
                 f"{share or 'app.regguardagent.com'}"
             )
 

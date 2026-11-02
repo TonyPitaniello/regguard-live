@@ -135,7 +135,7 @@ def test_sms_format_omits_stub_high_risk_count():
     analysis = build_instant_fallback_analysis("1 Main, Dallas, TX 75201", city="Dallas", state="TX")
     svc = object.__new__(TwilioSMSService)
     msg = TwilioSMSService._format_sms_message(svc, analysis)
-    assert "unavailable" in msg.lower() or "Preview" in msg
+    assert "not scored" in msg.lower() or "unavailable" in msg.lower() or "Preview" in msg
     assert "⚠️  0 High Risks" not in msg and "⚠️  1 High Risks" not in msg and "⚠️  2 High Risks" not in msg
     assert "3 High Risks" not in msg
 

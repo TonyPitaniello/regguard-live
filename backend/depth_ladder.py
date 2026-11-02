@@ -160,7 +160,7 @@ def _offer_free_next(ptype: str) -> Dict[str, Any]:
         "secondary_cta_label": None,
         "secondary_cta_tier": None,
         "current_label": "Free Lookups",
-        "next_label": "Estimator — forwardable Receipt · full punch · Saved Jobs",
+        "next_label": "Estimator / Permit Runner — forwardable Receipt · full punch · Saved Jobs",
         "primary_once": True,
         "honesty_note": (
             "Planning aid — confirm fees on the official AHJ schedule before you bid."
@@ -184,7 +184,7 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
         "secondary_cta_label": None,
         "secondary_cta_tier": None,
         "current_label": "Estimator / Permit Runner",
-        "next_label": "Pro bid desk — City Pack PDF · punch/fee CSV · bid packet",
+        "next_label": "Contractor Pro — City Pack PDF · punch/fee CSV · bid packet",
         "primary_once": True,
         "honesty_note": (
             "Pro arms the estimate — still confirm dollars on the live AHJ schedule."
@@ -194,7 +194,7 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
 
 def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Dict[str, Any]:
     """Contractor Pro → IC Diligence Bundle."""
-    desk = "Pro light scout" if light else "Contractor Pro"
+    desk = "Contractor Pro"
     site = f" for a {ptype} site" if ptype else ""
     return {
         "message": "Counsel won’t mark up a City Pack PDF",
@@ -226,7 +226,7 @@ def _offer_ic_next() -> Dict[str, Any]:
         "detail": (
             "You proved the package on one site. If you will package Diligence Bundles on more "
             "capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase "
-            "email — ahead of Project rate once you pass about ~10 sites. Built for deal-ready "
+            "email — ahead of $1,500 per site once you pass about 10 sites. Built for deal-ready "
             "IC / lender packages, not day-to-day Contractor Pro lookups."
         ),
         "cta_label": "IC Annual — $15,000/yr",

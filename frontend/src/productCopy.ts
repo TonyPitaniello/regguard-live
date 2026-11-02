@@ -28,9 +28,10 @@ export const PRODUCT_COPY = {
   /** Full AHJ fee / gotcha pack */
   fullCityPack: 'Full City Pack',
 
-  honestyShort: 'Planning aid only — not a quote or sealed bid.',
+  honestyShort:
+    'Planning aid for DFW–Austin commercial–industrial work. Not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.',
   honestyLong:
-    'This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ approval. Confirm every item with the Authority Having Jurisdiction before you bid or file. Findings are labeled Source or Unverified.',
+    'Citeable pre-bid / pre-LOI diligence for DFW–Austin commercial–industrial and DC-adjacent work. Every line is Source (with a real page) or Unverified. Reg Guard does not print a 0–100 score, a feeder MW, a queue position, or a permit total when the city uses a valuation or floor-area table. This is a planning aid — not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.',
 
   /** Home hero — citeable DFW–Austin diligence, not “AI knows all regs nationwide.” */
   heroHeadline: 'Send the GC a HOLD they can open on a phone',
@@ -68,7 +69,7 @@ export const PRODUCT_COPY = {
     immediatePunch: 'Immediate Punch Highlights',
     preBidPunchList: 'Pre-Bid Punch List',
     timeline: 'Timeline',
-    estimatedCost: 'Estimated Cost',
+    estimatedCost: 'Permit total',
     bidTimeDownloads: 'Bid-Time Downloads',
     feeTimelineExtract: 'Fee & Timeline Extract',
     localGotchaWatchlist: 'Local Gotcha Watchlist',
@@ -105,7 +106,7 @@ export function habitTierDisplayName(tierKey: string): string {
   }
   if (k === 'contractor_pro' || k === 'pro') return HABIT_TIERS.contractor_pro.name;
   if (k === 'free' || k === 'free_preview') return HABIT_TIERS.free.name;
-  if (k === 'ic' || k === 'ic_project' || k === 'ic_full') return IC_BUNDLE.tierName;
+  if (k === 'ic' || k === 'ic_project' || k === 'ic_full' || k === 'ic_consultant') return IC_BUNDLE.tierName;
   if (k === 'ic_annual') return 'IC Annual';
-  return tierKey || 'Plan';
+  return 'Plan';
 }

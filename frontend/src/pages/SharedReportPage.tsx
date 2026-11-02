@@ -372,8 +372,9 @@ export default function SharedReportPage() {
 
         {(analysis.preview || hideRisk || unverified) && (
           <div className="hidden sm:block rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            <strong className="text-amber-50">Preview / unverified estimates.</strong> Risk scores are not
-            parcel-verified GIS data. Dollar and day figures are not AHJ quotes — confirm before bidding.
+            <strong className="text-amber-50">Preview.</strong> Flood and wetlands stay Unverified until
+            a mapper source is attached. This is not a 0–100 score. No permit total when the city uses
+            a valuation or floor-area table.
           </div>
         )}
 
@@ -656,9 +657,12 @@ export default function SharedReportPage() {
                       {kind}
                     </span>
                     <span className="text-white font-medium">{f.label}</span>
-                    {showFeeDollars && typeof f.amount_usd === 'number'
+                    {showFeeDollars &&
+                    f.verified &&
+                    String(f.source_url || '').startsWith('http') &&
+                    typeof f.amount_usd === 'number'
                       ? ` — $${f.amount_usd.toLocaleString()}`
-                      : ''}
+                      : ' — confirm on schedule'}
                   </li>
                 );
               })}
@@ -709,9 +713,9 @@ export default function SharedReportPage() {
 
         <section className="grid sm:grid-cols-3 gap-3">
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-xs text-gray-400 mb-1">Risk score</p>
+            <p className="text-xs text-gray-400 mb-1">Flood / wetlands</p>
             <p className="text-xl font-black text-amber-200">
-              {hideRisk ? 'Unavailable' : analysis.environmental_screening?.risk_level}
+              {hideRisk ? 'Unverified' : 'Source'}
             </p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
@@ -719,9 +723,9 @@ export default function SharedReportPage() {
             <p className="text-lg font-bold text-blue-300">{analysis.summary?.estimated_timeline}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-xs text-gray-400 mb-1">Est. cost {unverified ? '(unverified)' : ''}</p>
-            <p className="text-lg font-bold text-emerald-300">
-              {statedDollar(analysis.summary?.estimated_total_cost) || 'No dollar stated'}
+            <p className="text-xs text-gray-400 mb-1">Permit total</p>
+            <p className="text-sm font-semibold text-emerald-200">
+              No permit total. Confirm the city&apos;s valuation or floor-area table.
             </p>
           </div>
         </section>
@@ -768,8 +772,10 @@ export default function SharedReportPage() {
                 </div>
                 <p className="text-xs text-gray-400 mt-2">
                   {item.timeline} · {item.responsible_party}
-                  {statedDollar(item.estimated_cost)
-                    ? ` · ${statedDollar(item.estimated_cost)}${unverified ? ' (unverified)' : ''}`
+                  {item.verified &&
+                  String(item.source_url || '').startsWith('http') &&
+                  statedDollar(item.estimated_cost)
+                    ? ` · ${statedDollar(item.estimated_cost)}`
                     : ''}
                 </p>
                 {item.notes ? <p className="text-xs text-gray-500 mt-1">{item.notes}</p> : null}

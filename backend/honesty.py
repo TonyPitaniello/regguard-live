@@ -17,11 +17,31 @@ UNAVAILABLE = "UNAVAILABLE"
 PRELIMINARY = "PRELIMINARY"
 
 RISK_LABEL = (
-    "Environmental risk score unavailable — not verified against parcel GIS data "
-    "(FEMA/NWI/IPaC). Do not use for bidding."
+    "Flood and wetlands stay Unverified until a FEMA or NWI page is attached. "
+    "This is not a 0–100 score. Do not bid from it."
 )
-COST_LABEL = "Unverified estimate — not an AHJ fee quote. Confirm with the local AHJ."
-TIMELINE_LABEL = "Unverified estimate — confirm with AHJ / utility study track."
+COST_LABEL = (
+    "No permit total. When the city uses a valuation or floor-area table, "
+    "confirm that table with the AHJ."
+)
+TIMELINE_LABEL = "Timeline is Unverified — confirm with the AHJ. This is not a filing date."
+NO_PERMIT_TOTAL = COST_LABEL
+
+
+def permit_total_line(summary: Optional[Dict[str, Any]], honesty: Optional[Dict[str, Any]] = None) -> str:
+    """A single permit total prints only when a schedule page states that number."""
+    honesty = honesty or {}
+    summary = summary or {}
+    if honesty.get("permit_total_stated") is not True:
+        return NO_PERMIT_TOTAL
+    try:
+        cost = float(summary.get("estimated_total_cost") or 0)
+    except (TypeError, ValueError):
+        cost = 0.0
+    url = str(honesty.get("permit_total_source_url") or "")
+    if cost <= 0 or not url.startswith("http"):
+        return NO_PERMIT_TOTAL
+    return f"Permit total on the schedule: ${cost:,.0f}"
 
 
 def is_ic_demo_enabled() -> bool:
@@ -122,8 +142,8 @@ def apply_honesty_layer(
         )
         if verified_n:
             env["risk_honesty_note"] = env.get("risk_honesty_note") or (
-                f"{verified_n} finding(s) GIS-verified (FEMA/NWI). "
-                "Overall risk score still unavailable until flood and wetlands both resolve."
+                f"{verified_n} finding(s) cite FEMA or NWI. "
+                "Flood and wetlands both have to resolve before this screen is Source. Not a 0–100 score."
             )
             honesty["labels"]["risk"] = env["risk_honesty_note"]
 

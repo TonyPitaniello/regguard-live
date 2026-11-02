@@ -279,7 +279,13 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         amt = row.get("amount_usd")
-        amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
+        row_url = str(row.get("source_url") or row.get("citation_url") or "")
+        sourced = bool(row.get("verified")) and row_url.startswith("http")
+        amt_s = (
+            f"${amt:,.0f}"
+            if sourced and isinstance(amt, (int, float)) and float(amt) > 0
+            else "confirm on schedule"
+        )
         ver, cite_url = citation_badge_and_url(row)
         label = str(row.get("label") or row.get("name") or "Fee")[:80]
         trade = str(row.get("trade") or "").strip()

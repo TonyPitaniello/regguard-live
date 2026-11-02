@@ -3714,15 +3714,11 @@ export default function ResultsViewerModal({
                 </>
               ) : (
                 <>
-                  <p className="text-2xl font-black text-green-400">
-                    ${(view.summary?.estimated_total_cost || 0).toLocaleString()}
+                  <p className="text-sm font-semibold text-amber-100 leading-relaxed">
+                    No permit total. When the city uses a valuation or floor-area table, confirm that
+                    table with the AHJ.
                   </p>
-                  <CitationBadge
-                    verified={Boolean(view.punch_list?.estimates_verified)}
-                    cost_verified={Boolean(view.punch_list?.estimates_verified)}
-                    estimated_cost={view.summary?.estimated_total_cost}
-                    source_label="Rollup of line items"
-                  />
+                  <CitationBadge verified={false} source_label="Unverified — confirm the city schedule" />
                 </>
               )}
             </div>
@@ -3884,7 +3880,10 @@ export default function ResultsViewerModal({
                               </span>
                             )}
                             <span className="text-white font-medium">{f.label}</span>
-                            {typeof f.amount_usd === 'number' ? (
+                            {f.verified &&
+                            (f.source_url || '').startsWith('http') &&
+                            typeof f.amount_usd === 'number' &&
+                            f.amount_usd > 0 ? (
                               <span
                                 className={
                                   softLocked || blurProDesk ? 'blur-md select-none inline-block' : undefined
@@ -3892,10 +3891,8 @@ export default function ResultsViewerModal({
                               >
                                 {` — $${f.amount_usd.toLocaleString()}`}
                               </span>
-                            ) : f.amount_requires_schedule ? (
-                              ' — confirm on schedule'
                             ) : (
-                              ''
+                              ' — confirm on schedule'
                             )}
                             {(f.planning_aid ||
                               view.fee_card?.planning_aid ||
@@ -4629,8 +4626,8 @@ export default function ResultsViewerModal({
                   <p className="text-sm text-gray-300">{view.power_path_card.headline}</p>
                   <p className="text-xs text-gray-400">
                     {typeof view.power_path_card.mw_hint === 'number'
-                      ? `MW hint: ${view.power_path_card.mw_hint}`
-                      : 'MW hint: not parsed'}
+                      ? `Load named in the notes: ${view.power_path_card.mw_hint} MW. Not feeder capacity.`
+                      : 'No MW named in the notes. Reg Guard does not estimate capacity.'}
                     {view.power_path_card.fast41_candidate ? ' · FAST-41 candidate' : ''}
                   </p>
                   <ul className="list-disc pl-5 text-xs text-gray-300 space-y-1">
@@ -4825,7 +4822,7 @@ export default function ResultsViewerModal({
                   <p className="text-xs text-gray-400 leading-relaxed">
                     {view.environmental_screening?.risk_honesty_note ||
                       view.honesty?.labels?.risk ||
-                      'Score uses verified FEMA flood + NWI wetlands only. Noise / NEPA / state do not set the overall score.'}
+                      'Flood and wetlands only, and only when a FEMA or NWI page is attached. This is not a 0–100 score.'}
                   </p>
                 </div>
                 <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-50">

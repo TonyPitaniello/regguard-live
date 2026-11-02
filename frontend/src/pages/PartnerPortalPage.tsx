@@ -93,9 +93,9 @@ export default function PartnerPortalPage() {
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
-        <h1 className="text-3xl font-black tracking-tight">Partner portal</h1>
+        <h1 className="text-3xl font-black tracking-tight">Referral desk</h1>
         <p className="text-gray-400 text-sm">
-          Mandate kit and share link. No cash affiliate commissions at launch.
+          Share kit for Estimator / Permit Runner. No cash commissions at launch.
         </p>
 
         <form onSubmit={load} className="flex flex-col sm:flex-row gap-2">
@@ -104,7 +104,7 @@ export default function PartnerPortalPage() {
             required
             value={email}
             onChange={(ev) => setEmail(ev.target.value)}
-            placeholder="partner@email.com"
+            placeholder="you@company.com"
             className="flex-1 rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm"
           />
           <button
@@ -135,7 +135,7 @@ export default function PartnerPortalPage() {
                 <p className="text-sm font-bold text-gray-300">Paused at launch</p>
               </div>
               <div className="rounded-lg border border-slate-700 p-3">
-                <p className="text-xs text-gray-400">Partner forward credits</p>
+                <p className="text-xs text-gray-400">Forward credits</p>
                 <p className="text-xl font-bold">
                   ${(data.forward_rewards?.partner_total_usd ?? 0).toFixed(2)}
                 </p>

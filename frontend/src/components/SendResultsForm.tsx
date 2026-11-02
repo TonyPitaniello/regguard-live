@@ -92,17 +92,11 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
         ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
         : '';
     })(),
-    summary.risk_unavailable
-      ? 'Risk score: unavailable (not parcel-verified)'
-      : summary.risk_level
-        ? `Risk: ${summary.risk_level}`
-        : '',
+    'Flood/wetlands: not a 0–100 score',
     summary.timeline
       ? `Timeline: ${summary.timeline}${unverified && !String(summary.timeline).toLowerCase().includes('unverified') ? ' (unverified)' : ''}`
       : '',
-    summary.cost != null && Number(summary.cost) > 0
-      ? `Est. cost: $${Number(summary.cost).toLocaleString()}${unverified ? ' (unverified)' : ''}`
-      : 'Est. cost: no dollar stated',
+    'Permit total: not stated. Confirm the city valuation or floor-area table.',
     '',
     'TOP RISK FLAGS:',
     ...killers.slice(0, 3).map((k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}`),

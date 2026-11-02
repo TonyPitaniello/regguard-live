@@ -82,8 +82,9 @@ class TestSMSMessageFormatting:
         message = service._format_sms_message(research_data)
         assert "Arlington" in message
         assert "TX" in message
-        assert ("3 High Risks" in message or "Risks: 3" in message or "unavailable" in message.lower())
-        assert "$125,000" in message or "125000" in message or "125,000" in message
+        assert "not scored" in message.lower() or "unavailable" in message.lower()
+        assert "No permit total" in message
+        assert "$125,000" not in message and "125,000" not in message
         assert "Report:" in message or "app.regguardagent.com" in message
         # Timeline may be omitted in short receipt format
         assert "RegGuard" in message

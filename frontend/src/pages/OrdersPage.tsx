@@ -95,7 +95,7 @@ function tierLabel(tier: string): string {
     case 'sponsor':
       return 'Sponsor';
     default:
-      return tier || 'Order';
+      return 'Plan';
   }
 }
 

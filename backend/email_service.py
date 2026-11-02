@@ -47,11 +47,12 @@ def build_research_result_html(research_data: dict) -> str:
 
     high_risk = int(summary.get("high_risk_count") or 0)
     total_risks = int(summary.get("total_environmental_risks") or 0)
-    try:
-        total_cost = float(summary.get("estimated_total_cost") or 0)
-    except (TypeError, ValueError):
-        total_cost = 0.0
-    timeline = html_lib.escape(str(summary.get("estimated_timeline") or "TBD"))
+    from honesty import permit_total_line
+
+    cost_line = html_lib.escape(
+        permit_total_line(summary, research_data.get("honesty") or {})
+    )
+    timeline = html_lib.escape(str(summary.get("estimated_timeline") or "Confirm with the AHJ"))
     total_items = int(summary.get("total_punch_list_items") or len(punch) or 0)
 
     share = str(research_data.get("share_url") or "").strip()
@@ -147,7 +148,7 @@ def build_research_result_html(research_data: dict) -> str:
                     <tr style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
                         <td style="padding: 40px 30px; text-align: center; border-radius: 8px 8px 0 0;">
                             <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 700;">Reg Guard Bid Risk Receipt</h1>
-                            <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Planning aid — confirm with AHJ before bid</p>
+                            <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">DFW–Austin pre-bid diligence. Planning aid — not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.</p>
                         </td>
                     </tr>
                     <tr>
@@ -166,7 +167,7 @@ def build_research_result_html(research_data: dict) -> str:
                             <table width="100%" cellpadding="0" cellspacing="0">
                                 <tr>
                                     <td style="padding: 12px 0; border-bottom: 1px solid #f0f0f0;">
-                                        <span style="font-size: 13px; color: #6b7280;">Environmental risks</span>
+                                        <span style="font-size: 13px; color: #6b7280;">Flood / wetlands flags</span>
                                         <p style="margin: 5px 0 0 0; font-size: 18px; color: #1f2937; font-weight: 600;">{total_risks}</p>
                                     </td>
                                     <td style="padding: 12px 0 12px 20px; border-bottom: 1px solid #f0f0f0; text-align: right;">
@@ -180,8 +181,8 @@ def build_research_result_html(research_data: dict) -> str:
                                         <p style="margin: 5px 0 0 0; font-size: 16px; color: #1f2937; font-weight: 500;">{timeline}</p>
                                     </td>
                                     <td style="padding: 12px 0 0 20px; text-align: right;">
-                                        <span style="font-size: 13px; color: #6b7280;">Est. total cost</span>
-                                        <p style="margin: 5px 0 0 0; font-size: 18px; color: #059669; font-weight: 600;">${total_cost:,.0f}</p>
+                                        <span style="font-size: 13px; color: #6b7280;">Permit total</span>
+                                        <p style="margin: 5px 0 0 0; font-size: 14px; color: #059669; font-weight: 600;">{cost_line}</p>
                                     </td>
                                 </tr>
                             </table>
@@ -202,7 +203,7 @@ def build_research_result_html(research_data: dict) -> str:
                     <tr style="background: #f9fafb; border-top: 1px solid #e5e7eb;">
                         <td style="padding: 25px 30px; text-align: center;">
                             <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
-                                Planning aid only — confirm with AHJ. Not a filing.
+                                Planning aid for DFW–Austin commercial–industrial work. Source or Unverified. Not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.
                             </p>
                             <p style="margin: 0 0 10px 0; font-size: 12px; color: #888;">
                                 Questions? <strong>support@regguardagent.com</strong>
@@ -350,16 +351,17 @@ class EmailService:
     </p>
 """
         else:
-            subject_line = f"Welcome to {name} — unlock deeper research"
+            subject_line = f"Welcome to {name}"
             body = f"""
-    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">You're in — one step left</h1>
+    <h1 style="margin:0 0 8px;color:#111;font-size:22px;">You're in — run the site with this email</h1>
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      <strong>{name}</strong> is active on this email. Run a site lookup with the <em>same email</em>
-      to unlock deeper scout research. Save every site you bid this week.
+      <strong>{name}</strong> is active on this email. Run the address again with the <em>same email</em>
+      so the receipt opens the lines you paid for. Save every site you bid this week.
+      Citeable coverage is strongest in Dallas, Plano, Austin, and Fort Worth.
     </p>
     <p style="margin:20px 0;">
       <a href="{app_url}/?unlock=1" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        Unlock deeper results
+        Run this site
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
@@ -367,7 +369,7 @@ class EmailService:
       <a href="{app_url}/checkout/partner" style="color:#1d4ed8;">Estimator / Permit Runner is $79/mo</a>
       · Need the counsel ZIP?
       <a href="{app_url}/checkout/ic_project" style="color:#1d4ed8;">IC Diligence Bundle ($1,500)</a>
-      (planning worksheets — not official AHJ filings).
+      Planning aid — not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.
     </p>
 """
         # subject_line unused in HTML; kept for callers via naming

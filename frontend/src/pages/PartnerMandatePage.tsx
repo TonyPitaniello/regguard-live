@@ -100,7 +100,7 @@ export default function PartnerMandatePage() {
         >
           <ArrowLeft className="w-4 h-4" /> Back
         </button>
-        <h1 className="text-3xl font-black tracking-tight">Partner mandate</h1>
+        <h1 className="text-3xl font-black tracking-tight">Referral kit</h1>
         <p className="text-gray-400 text-sm">
           Make the RegGuard stamp required in bid week: “no stamp, no bid attach.”
         </p>
@@ -168,7 +168,7 @@ export default function PartnerMandatePage() {
           </p>
           <input
             className="w-full rounded-lg bg-black/40 border border-white/10 px-3 py-2 text-sm"
-            placeholder="Partner name"
+            placeholder="Your name"
             value={partnerName}
             onChange={(e) => setPartnerName(e.target.value)}
             required

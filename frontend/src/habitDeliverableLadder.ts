@@ -13,7 +13,7 @@ export const HABIT_TIERS = {
     oneLiner:
       'First look before you burn a bid day — bid-or-walk preview, Source or Unverified. No card.',
     features: [
-      'Bid-or-walk preview for one US address — no card',
+      'Bid-or-walk preview for one DFW–Austin commercial or industrial address — no card',
       'Top punch-list risks (soft-locked — top 5 lines)',
       'Source or Unverified on every visible line',
       'Text the preview — GC sees HOLD and top risks; clear contingency stays on Estimator',

@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 export default function TermsOfServicePage() {
-  const updated = 'September 12, 2026';
+  const updated = 'November 2, 2026';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -38,13 +38,15 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-2xl font-bold text-white">The Service</h2>
             <p>
-              RegGuard provides AI-assisted research and summaries related to construction permitting,
-              codes, fees, and site diligence. Outputs are <strong className="text-white">planning aids</strong>{' '}
-              for citeable pre-bid diligence — not quotes, sealed bids, interconnection studies, geotech
-              reports, power studies, or AHJ approvals. RegGuard is not a law firm, engineering firm,
-              surveying firm, or licensed design professional, and does not provide legal advice. Fee
-              dollars and Unverified lines must be confirmed with the Authority Having Jurisdiction (AHJ)
-              before you bid or file. RegGuard does not invent fees that are not grounded in sources.
+              Reg Guard sells citeable pre-bid / pre-LOI site diligence for DFW–Austin
+              commercial–industrial and DC-adjacent work. Outputs are{' '}
+              <strong className="text-white">planning aids</strong>. Each finding is labeled Source
+              (with a real page) or Unverified. Reg Guard does not print a 0–100 risk score, a feeder
+              megawatt, a queue position, or a permit-dollar total when a city uses a valuation or
+              floor-area table. This is not a quote, sealed bid, Phase I ESA, interconnection study,
+              geotech report, or AHJ filing. Reg Guard is not a law firm, engineering firm, surveying
+              firm, or licensed design professional, and does not provide legal advice. Confirm every
+              line with the Authority Having Jurisdiction (AHJ) before you bid or file.
             </p>
           </section>
 
@@ -110,8 +112,8 @@ export default function TermsOfServicePage() {
               Municipal rules, fees, and requirements change and may be incomplete in public sources.
               Always verify critical decisions with the Authority Having Jurisdiction (AHJ), licensed
               professionals, and primary source documents before bidding, filing, or building. Lines
-              marked Unverified require confirm-with-AHJ. Do not treat RegGuard artifacts as a sealed
-              bid package, interconnection study, geotech report, or guarantee of approval.
+              marked Unverified require confirm-with-AHJ. Do not treat a Reg Guard artifact as a quote,
+              sealed bid, Phase I ESA, interconnection study, geotech report, or AHJ filing.
             </p>
           </section>
 

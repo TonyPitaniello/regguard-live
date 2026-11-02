@@ -102,7 +102,6 @@ from research_cache_interceptor import (
     is_cache_enabled,
     get_cache_stats as get_research_cache_stats,
 )
-from data_center_analysis import DataCenterPermittingAnalysis
 from interconnect.endpoints import router as queue_router
 from free_trial_handler import FreeTrialRequest, FreeTrialResponse, handle_free_trial
 
@@ -4339,16 +4338,7 @@ async def request_data_center_analysis(req: DataCenterAnalysisRequest) -> Dict[s
     seeking permitting risk assessment for a specific site.
     """
     try:
-        # Run the analysis
-        analyzer = DataCenterPermittingAnalysis()
-        analysis = analyzer.analyze_site(
-            address=req.address,
-            city=req.city,
-            state=req.state,
-            projected_mw=req.projected_mw,
-        )
-
-        # Store lead in Supabase
+        # Conversation request only. Do not invent a 0–100 score, MW capacity, or a permit total.
         try:
             from supabase import create_client
             sb = create_client(
@@ -4367,12 +4357,6 @@ async def request_data_center_analysis(req: DataCenterAnalysisRequest) -> Dict[s
                 "project_state": req.state,
                 "projected_mw": req.projected_mw,
                 "expected_timeline_months": req.expected_timeline_months,
-                "risk_score": analysis["permitting_risk_score"],
-                "risk_level": analysis["risk_level"],
-                "estimated_timeline_months": analysis["estimated_timeline_months"],
-                "critical_blockers": analysis["critical_blockers"],
-                "recommendations": analysis["recommendations"],
-                "analysis_result": analysis,
                 "status": "new",
             }
             
@@ -4380,12 +4364,14 @@ async def request_data_center_analysis(req: DataCenterAnalysisRequest) -> Dict[s
             logger.info(f"Data center lead created: {req.requester_email}")
         except Exception as e:
             logger.error(f"Failed to store lead: {e}")
-            # Non-blocking; analysis still returns
 
         return {
-            "status": "success",
-            "analysis": analysis,
-            "message": "Request saved. This is not a site lookup and does not schedule a call.",
+            "status": "saved",
+            "message": (
+                "Request saved. This is a conversation request for DFW–Austin "
+                "commercial–industrial and DC-adjacent work. It is not a site lookup, "
+                "a 0–100 score, an MW capacity figure, or an interconnection study."
+            ),
         }
 
     except Exception as e:

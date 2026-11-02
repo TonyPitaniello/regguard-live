@@ -8,6 +8,7 @@ from __future__ import annotations
 from html import escape
 from typing import Any, Dict, List
 
+from honesty import permit_total_line
 from research_store import extract_sources, share_url_for
 
 
@@ -25,8 +26,8 @@ def _honesty_banner(research_data: dict) -> str:
         '<tr><td style="padding:16px 30px;background:#fff7ed;border-bottom:1px solid #fed7aa;">'
         '<p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5;">'
         "<strong>Preview / unverified estimates.</strong> "
-        "Environmental risk scores are not parcel-verified GIS data. "
-        "Dollar and day figures are not AHJ quotes — confirm before bidding. "
+        "Flood and wetlands stay Unverified until a mapper source is attached. This is not a 0–100 score. "
+        "No permit total is printed when the city uses a valuation or floor-area table. "
         "Forward this report to your GC with that context."
         "</p></td></tr>"
     )
@@ -113,8 +114,8 @@ def build_forwardable_result_html(research_data: dict) -> str:
     state = escape(str(project.get("state") or ""))
     zip_code = escape(str(project.get("zip") or ""))
 
-    timeline = escape(str(summary.get("estimated_timeline") or "TBD"))
-    total_cost = float(summary.get("estimated_total_cost") or 0)
+    timeline = escape(str(summary.get("estimated_timeline") or "Confirm with the AHJ"))
+    cost_line = escape(permit_total_line(summary, honesty))
     total_items = int(summary.get("total_punch_list_items") or len(
         (research_data.get("punch_list") or {}).get("punch_list") or []
     ))
@@ -128,7 +129,7 @@ def build_forwardable_result_html(research_data: dict) -> str:
         or summary.get("estimates_unverified")
         or not honesty.get("cost_verified")
     )
-    cost_label = "Est. Total Cost (unverified)" if unverified else "Est. Total Cost"
+    cost_label = "Permit total"
     timeline_label = "Timeline (unverified)" if unverified else "Timeline"
     risk_verified = honesty.get("risk_verified") is True
     risk_level = (research_data.get("environmental_screening") or {}).get("risk_level") or "UNAVAILABLE"
@@ -155,7 +156,7 @@ def build_forwardable_result_html(research_data: dict) -> str:
     <h2 style="margin:0 0 16px 0;font-size:15px;color:#1f2937;">Summary</h2>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
-        <td style="padding:8px 0;"><span style="font-size:12px;color:#6b7280;">Risk score</span>
+        <td style="padding:8px 0;"><span style="font-size:12px;color:#6b7280;">Flood / wetlands</span>
           <p style="margin:4px 0 0 0;font-size:16px;color:#1f2937;font-weight:600;">{risk_display}</p></td>
         <td style="padding:8px 0;text-align:right;"><span style="font-size:12px;color:#6b7280;">Punch items</span>
           <p style="margin:4px 0 0 0;font-size:16px;color:#1f2937;font-weight:600;">{total_items}</p></td>
@@ -164,7 +165,7 @@ def build_forwardable_result_html(research_data: dict) -> str:
         <td style="padding:8px 0;"><span style="font-size:12px;color:#6b7280;">{timeline_label}</span>
           <p style="margin:4px 0 0 0;font-size:15px;color:#1f2937;">{timeline}</p></td>
         <td style="padding:8px 0;text-align:right;"><span style="font-size:12px;color:#6b7280;">{cost_label}</span>
-          <p style="margin:4px 0 0 0;font-size:16px;color:#059669;font-weight:600;">${total_cost:,.0f}</p></td>
+          <p style="margin:4px 0 0 0;font-size:14px;color:#059669;font-weight:600;">{cost_line}</p></td>
       </tr>
     </table>
   </td></tr>
@@ -201,17 +202,22 @@ def build_forwardable_plaintext(research_data: dict) -> str:
         f"Site: {project.get('address', '')}",
         f"{project.get('city', '')}, {project.get('state', '')} {project.get('zip', '')}",
         "",
-        "NOTE: Preview estimates may be unverified — confirm with AHJ before bidding.",
-        f"Timeline: {summary.get('estimated_timeline', 'TBD')}",
-        f"Est. cost: ${float(summary.get('estimated_total_cost') or 0):,.0f}",
+        "Planning aid for DFW–Austin commercial–industrial work. Not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.",
+        f"Timeline: {summary.get('estimated_timeline', 'Confirm with the AHJ')}",
+        permit_total_line(summary, research_data.get("honesty") or {}),
         "",
         "PUNCH LIST:",
     ]
     punch = (research_data.get("punch_list") or {}).get("punch_list") or []
     for i, item in enumerate(punch[:25], 1):
         if isinstance(item, dict):
+            url = str(item.get("source_url") or item.get("citation_url") or "")
             cost = item.get("estimated_cost")
-            cost_bit = f" | ${float(cost):,.0f}" if isinstance(cost, (int, float)) else ""
+            cost_bit = (
+                f" | ${float(cost):,.0f}"
+                if item.get("verified") and url.startswith("http") and isinstance(cost, (int, float)) and float(cost) > 0
+                else ""
+            )
             lines.append(f"{i}. [{item.get('priority', '')}] {item.get('task', '')}{cost_bit}")
     sources = extract_sources(research_data)
     if sources:

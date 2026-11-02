@@ -43,7 +43,7 @@ const TIERS = [
     billing: HABIT_TIERS.contractor_pro.billing,
     description: HABIT_TIERS.contractor_pro.oneLiner,
     features: [...HABIT_TIERS.contractor_pro.features],
-    cta: 'Start Pro — $149/mo',
+    cta: 'Start Contractor Pro — $149/mo',
     highlight: true,
   },
   {
@@ -116,7 +116,7 @@ export default function PricingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-3xl sm:text-5xl font-black text-white mb-3 sm:mb-6">Plans that match how you bid</h1>
           <p className="sm:hidden text-base text-gray-300">
-            Free preview, then Estimator ($79/mo) or Pro ($149/mo). The IC bundle is $1,500 when counsel needs the ZIP.
+            Free Lookups, then Estimator / Permit Runner ($79/mo) or Contractor Pro ($149/mo). The IC Diligence Bundle is $1,500 when the ZIP is for one site.
           </p>
           <p className="hidden sm:block text-xl text-gray-300">
             Free Bid Risk Receipt preview → Estimator / Permit Runner or Contractor Pro for bid-week
@@ -263,9 +263,10 @@ export default function PricingPage() {
               Due diligence aid — independent verification required
             </h3>
             <p className="text-gray-300">
-              This is pre-bid research assistance, not a guarantee of fees, timelines, or AHJ
-              approval. Confirm every item with the Authority Having Jurisdiction before you bid or
-              file. Findings are labeled Source or Unverified. Questions:{' '}
+              Citeable pre-bid diligence for DFW–Austin commercial–industrial and DC-adjacent work.
+              Every line is Source or Unverified. This is a planning aid — not a quote, sealed bid,
+              Phase I ESA, interconnection study, or AHJ filing. No 0–100 score, feeder MW, queue
+              position, or permit total when the city uses a valuation or floor-area table. Questions:{' '}
               <a href="mailto:support@regguardagent.com" className="text-purple-300 underline">
                 support@regguardagent.com
               </a>
@@ -382,7 +383,7 @@ export default function PricingPage() {
             onClick={() => handleCta('free')}
             className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/30 cursor-pointer"
           >
-            Try Free Lookup
+            Try Free Lookups
           </button>
           <p className="text-gray-400 text-sm mt-6">
             Questions?{' '}

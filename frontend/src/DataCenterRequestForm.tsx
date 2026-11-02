@@ -98,7 +98,7 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
 
       const data = await response.json();
       setSuccess(true);
-      setAnalysisResult(data.analysis);
+      setAnalysisResult(data.analysis || { saved: true });
       toast.success('Request saved. This is not a site lookup.');
       
       if (onSuccess) {
