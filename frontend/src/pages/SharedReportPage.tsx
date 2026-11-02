@@ -391,7 +391,7 @@ export default function SharedReportPage() {
             <p className="text-gray-300 text-sm mt-1">
               {[street, place].filter(Boolean).join(' · ') || 'This site'}
               {depthBadge ? ` · ${depthBadge}` : ''}
-              {coverageBadge ? ` · ${coverageBadge}` : ''}
+              {coverageBadge && !freeShare ? ` · ${coverageBadge}` : ''}
               {analysis.environmental_screening?.risk_level
                 ? ` · Env risk: ${analysis.environmental_screening.risk_level}`
                 : ''}
