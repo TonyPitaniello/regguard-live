@@ -401,11 +401,11 @@ export default function SharedReportPage() {
           {band?.share_frosted || (freeShare && (band?.pct_low == null || band?.pct_high == null)) ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
               <p className="text-xs font-semibold uppercase text-amber-200">Contingency band</p>
-              <p className="text-2xl font-black text-amber-200/50 tracking-tight blur-md select-none" aria-hidden>
-                +••.•% – +••.•%
+              <p className="text-base font-black text-amber-100 leading-snug">
+                Hidden on Free — Estimator ($79/mo) shows the percent
               </p>
-              <p className="text-xs text-amber-100/90">
-                Blurred on this Free preview. Estimator unlocks the clear % for the bid file.
+              <p className="text-xs text-amber-100/90 mt-1">
+                Estimator unlocks the clear % for the bid file. Forwarding this preview does not unlock it.
               </p>
             </div>
           ) : band?.pct_low != null && band?.pct_high != null ? (

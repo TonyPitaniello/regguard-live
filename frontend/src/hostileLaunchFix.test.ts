@@ -50,7 +50,28 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261102-hostile-v46'), 'BUILD bumped for hostile launch');
+  assert(main.includes('launch-20261102-mask-v47'), 'BUILD bumped for mask labels');
+}
+
+{
+  const results = read('components/ResultsViewerModal.tsx');
+  const share = read('pages/SharedReportPage.tsx');
+  const bid = read('pages/BidDayPage.tsx');
+  for (const [name, src] of [
+    ['results', results],
+    ['share', share],
+    ['bid', bid],
+  ] as const) {
+    assert(!src.includes('••'), `${name} has no bullet-mask glyphs`);
+  }
+  assert(
+    results.includes('Hidden on Free — Estimator ($79/mo) shows the percent'),
+    'free contingency is a plain label',
+  );
+  assert(results.includes('No permit total on Free'), 'free cost box states no permit total');
+  assert(results.includes('No permit total'), 'paid desk still refuses an invented permit total');
+  assert(share.includes('Hidden on Free — Estimator ($79/mo) shows the percent'), 'share page label');
+  assert(bid.includes('Hidden on Free'), 'bid day free row label');
 }
 
 console.log('hostileLaunchFix.test.ts: ok');

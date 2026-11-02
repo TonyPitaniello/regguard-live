@@ -1577,7 +1577,7 @@ export default function ResultsViewerModal({
       `AHJ: ${ahjName}`,
       `Stamp: ${stampDisplay}`,
       softLocked
-        ? 'Suggested contingency: blurred on Free. Estimator unlocks the clear percent.'
+        ? 'Suggested contingency: hidden on Free. Estimator ($79/mo) shows the percent.'
         : band
           ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
           : '',
@@ -1773,8 +1773,8 @@ export default function ResultsViewerModal({
                 {PRODUCT_COPY.sections.suggestedBidContingency}
               </p>
               {softLocked ? (
-                <p style={{ fontSize: 28, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0' }}>
-                  +••.•% – +••.•%
+                <p style={{ fontSize: 18, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0', lineHeight: 1.35 }}>
+                  Hidden on Free — Estimator ($79/mo) shows the percent
                 </p>
               ) : (
                 <div>
@@ -3316,14 +3316,20 @@ export default function ResultsViewerModal({
               </p>
               {view.contingency_band && (
                 <div className="relative mb-1">
-                  <p className="text-4xl font-black text-emerald-400 tracking-tight">
+                  <p
+                    className={
+                      softLocked
+                        ? 'text-lg font-black text-emerald-100 tracking-tight leading-snug'
+                        : 'text-4xl font-black text-emerald-400 tracking-tight'
+                    }
+                  >
                     {softLocked
-                      ? '+••.•% – +••.•%'
+                      ? 'Hidden on Free — Estimator ($79/mo) shows the percent'
                       : `+${view.contingency_band.pct_low}% – +${view.contingency_band.pct_high}%`}
                   </p>
                   {softLocked ? (
                     <p className="text-xs text-purple-100 mt-2 font-semibold">
-                      Free — Estimator ($79/mo) unlocks this band. Forwarding the preview leaves it blurred.
+                      Free — Estimator ($79/mo) unlocks this band. Forwarding this preview does not unlock it.
                     </p>
                   ) : null}
                 </div>
@@ -3738,11 +3744,13 @@ export default function ResultsViewerModal({
               <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.estimatedCost}</h3>
               {softLocked || blurProDesk ? (
                 <>
-                  <p className="text-2xl font-black text-green-400 blur-sm select-none">$••,•••</p>
+                  <p className="text-lg font-black text-amber-100 leading-snug">
+                    {softLocked ? 'No permit total on Free' : 'No permit total'}
+                  </p>
                   <p className="text-xs text-amber-200/90 mt-2">
                     {softLocked
                       ? 'Cost rollup stays locked on Free.'
-                      : 'Fee dollars stay locked until Contractor Pro.'}
+                      : 'Fee dollars stay locked until Contractor Pro. Confirm the city schedule.'}
                   </p>
                 </>
               ) : (
@@ -3830,9 +3838,15 @@ export default function ResultsViewerModal({
                     <h4 className="text-sm font-bold text-emerald-300 mb-2">
                       {view.contingency_band.label || 'Suggested contingency'}
                     </h4>
-                    <p className="text-2xl font-black text-emerald-400">
+                    <p
+                      className={
+                        softLocked
+                          ? 'text-base font-black text-emerald-100 leading-snug'
+                          : 'text-2xl font-black text-emerald-400'
+                      }
+                    >
                       {softLocked
-                        ? '+••.•% – +••.•%'
+                        ? 'Hidden on Free — Estimator ($79/mo) shows the percent'
                         : `${view.contingency_band.pct_low}% – ${view.contingency_band.pct_high}%`}
                       {!softLocked && (
                         <span className="text-base font-semibold text-gray-300 ml-2">
@@ -4000,7 +4014,7 @@ export default function ResultsViewerModal({
                       >
                         {packFees.slice(2, 6).map((f, i) => (
                           <p key={`fee-lock-${i}`} className="text-sm text-white">
-                            {f.label || 'Fee line'} — $••,•••
+                            {f.label || 'Fee line'} — locked on Contractor Pro
                           </p>
                         ))}
                         {packGotchas.slice(1, 4).map((g, i) => (

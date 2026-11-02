@@ -417,7 +417,9 @@ export default function BidDayPage() {
                     <p className="text-sm text-slate-300">{row.risk || '—'}</p>
                     <p className="text-sm tabular-nums text-slate-200">
                       {row.status === 'ready' && !row.pct ? (
-                        <span className="text-slate-400">+••.•%</span>
+                        <span className="text-slate-300">
+                          {desk === 'free' ? 'Hidden on Free' : 'No band on this run'}
+                        </span>
                       ) : (
                         row.pct || '—'
                       )}
