@@ -30,7 +30,7 @@ import {
 } from '../icSiteBind';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { rememberReferralCode } from '../shareLinks';
-import { getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
+import { getOwnerKey, persistSavedJob, readOrdersKey, setJobsEmail } from '../jobsOwner';
 import { PRODUCT_COPY } from '../productCopy';
 import {
   accessTierFromEntitlements,
@@ -112,6 +112,8 @@ async function fetchEntitlementWithRetry(
   site?: { address?: string; city?: string; state?: string; zip?: string }
 ): Promise<Record<string, unknown> | null> {
   const qs = new URLSearchParams({ email: emailNorm });
+  const ordersKey = readOrdersKey(emailNorm);
+  if (ordersKey) qs.set('key', ordersKey);
   if (site?.address) qs.set('address', site.address);
   if (site?.city) qs.set('city', site.city);
   if (site?.state) qs.set('state', site.state);

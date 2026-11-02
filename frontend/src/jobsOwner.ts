@@ -21,6 +21,19 @@ export function getOwnerKey(): string {
   return key;
 }
 
+export function readOrdersKey(email: string): string {
+  if (typeof window === 'undefined' || !email) return '';
+  try {
+    const raw = localStorage.getItem('rgOrdersKey');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { email?: string; key?: string };
+    if ((parsed.email || '').toLowerCase() !== email.toLowerCase()) return '';
+    return parsed.key || '';
+  } catch {
+    return '';
+  }
+}
+
 export function getJobsEmail(): string {
   if (typeof window === 'undefined') return '';
   return (sessionStorage.getItem(EMAIL_KEY) || localStorage.getItem('regguard_jobs_email') || '').trim();

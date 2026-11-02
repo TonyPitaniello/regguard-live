@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Copy, Check } from 'lucide-react';
 import { backendUrl } from '../env';
+import { readOrdersKey } from '../jobsOwner';
 
 type PortalPayload = {
   email?: string;
@@ -57,9 +58,10 @@ export default function PartnerPortalPage() {
     try {
       const emailNorm = email.trim().toLowerCase();
       sessionStorage.setItem('userEmail', emailNorm);
-      const res = await fetch(
-        `${backendUrl('/partner/portal')}?email=${encodeURIComponent(emailNorm)}`
-      );
+      const qs = new URLSearchParams({ email: emailNorm });
+      const ordersKey = readOrdersKey(emailNorm);
+      if (ordersKey) qs.set('key', ordersKey);
+      const res = await fetch(`${backendUrl('/partner/portal')}?${qs.toString()}`);
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.detail || 'Could not load portal');
       setData(json);

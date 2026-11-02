@@ -21,8 +21,10 @@ def _ic_order(email="payer@example.com"):
             "tier": "ic_project",
             "status": "completed",
             "email": email,
-            "stripe_session_id": "cs_test_ic",
             "download_token": "secret-token",
+            "stripe_session_id": "cs_test_secret_session",
+            "address": "999 Secret Road",
+            "site_label": "999 Secret Road, Plano, TX",
             "amount": 150000,
             "pdfs": [
                 {
@@ -62,7 +64,12 @@ def test_orders_by_email_alone_hides_token_and_links(monkeypatch):
     order = body["orders"][0]
     assert order["tier"] == "ic_project"
     assert order["download_token"] == ""
+    assert order["address"] == ""
+    assert order["site_label"] == ""
+    assert order["stripe_session_id"] == ""
     assert "secret-token" not in res.text
+    assert "999 Secret Road" not in res.text
+    assert "cs_test_secret_session" not in res.text
     assert order["pdfs"][0]["locked"] is True
 
 

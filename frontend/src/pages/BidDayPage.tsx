@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { backendUrl } from '../env';
 import { parseBidDayLines, type BidDayLine } from '../bidDayParse';
-import { getJobsEmail, getOwnerKey, persistSavedJob, setJobsEmail } from '../jobsOwner';
+import { getJobsEmail, getOwnerKey, persistSavedJob, readOrdersKey, setJobsEmail } from '../jobsOwner';
 
 const PAID_CAP = 8;
 
@@ -127,7 +127,10 @@ export default function BidDayPage() {
 
     let nextDesk: Desk = 'free';
     try {
-      const res = await fetch(`${backendUrl('/entitlement')}?email=${encodeURIComponent(emailNorm)}`);
+      const entQs = new URLSearchParams({ email: emailNorm });
+      const ordersKey = readOrdersKey(emailNorm);
+      if (ordersKey) entQs.set('key', ordersKey);
+      const res = await fetch(`${backendUrl('/entitlement')}?${entQs.toString()}`);
       const data = await res.json().catch(() => ({}));
       if (data.deep_research || data.pro_research) nextDesk = 'pro';
       else if (data.habit_access || data.paid) nextDesk = 'partner';

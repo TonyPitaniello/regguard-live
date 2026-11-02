@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { backendUrl } from '../env';
-import { getJobsEmail, getOwnerKey, setJobsEmail } from '../jobsOwner';
+import { getJobsEmail, getOwnerKey, readOrdersKey, setJobsEmail } from '../jobsOwner';
 
 type Job = {
   id: string;
@@ -54,6 +54,8 @@ export default function JobsPage() {
       const qs = new URLSearchParams();
       if (emailNorm) qs.set('email', emailNorm);
       if (ownerKey) qs.set('owner_key', ownerKey);
+      const ordersKey = readOrdersKey(emailNorm);
+      if (ordersKey) qs.set('key', ordersKey);
       if (!emailNorm && !ownerKey) {
         setError('Enter the email used on the lookup.');
         setJobs([]);

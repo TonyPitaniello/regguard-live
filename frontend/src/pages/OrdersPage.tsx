@@ -459,7 +459,7 @@ export default function OrdersPage() {
       const res = await fetch(backendUrl('/billing/portal'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: userEmail }),
+        body: JSON.stringify({ email: userEmail, key: readOrdersKey(userEmail) }),
       });
       const data = (await res.json().catch(() => ({}))) as { url?: string; detail?: string };
       if (!res.ok || !data.url) {
@@ -496,7 +496,7 @@ export default function OrdersPage() {
               <button
                 type="button"
                 onClick={() => void openBilling()}
-                disabled={billingBusy}
+                disabled={billingBusy || locked}
                 className="px-4 py-2.5 min-h-[44px] bg-white/10 hover:bg-white/20 disabled:opacity-50 border border-white/20 text-white text-sm font-semibold rounded-lg"
               >
                 {billingBusy ? 'Opening billing…' : 'Manage billing'}

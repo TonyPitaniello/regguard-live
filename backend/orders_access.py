@@ -92,6 +92,21 @@ def lock_orders(orders: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for order in orders:
         row = dict(order)
         row["download_token"] = ""
+        for field in (
+            "stripe_session_id",
+            "trial_id",
+            "address",
+            "site_address",
+            "site_city",
+            "site_state",
+            "site_zip",
+            "site_label",
+            "site_project_type",
+            "research_id",
+            "share_url",
+        ):
+            if field in row:
+                row[field] = ""
         pdfs = []
         for pdf in row.get("pdfs") or []:
             if not isinstance(pdf, dict):

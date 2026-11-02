@@ -6,6 +6,12 @@ __pycache__/
 .venv/
 venv/
 api_usage_log.jsonl
+backend/data/account_credits.json
+backend/data/forward_events.jsonl
+backend/data/product_events.jsonl
+backend/data/partner_mandate_outreach.jsonl
+backend/data/share_unlocks/
+backend/gotcha_credits.jsonl
 .cursor/vite-dev.log
 frontend/.npm-cache/
 .vercel

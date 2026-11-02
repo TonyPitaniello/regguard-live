@@ -281,8 +281,9 @@ except ImportError:
     SLOWAPI_AVAILABLE = False
 # ========== Auth Models ==========
 class BillingPortalRequest(BaseModel):
-    """Email on the order. That email opens the Stripe billing portal."""
+    """Email on the order, plus the signed orders link key."""
     email: str = Field(..., description="Email on the paid order")
+    key: str = Field("", description="Signed orders link key")
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -328,6 +329,7 @@ class AttachResearchRequest(BaseModel):
     summary_snapshot: Optional[Dict[str, Any]] = None
     owner_email: Optional[str] = None
     owner_key: Optional[str] = None
+    key: Optional[str] = None
 
 
 class AffiliateRegisterRequest(BaseModel):
@@ -1299,7 +1301,8 @@ def health() -> Dict[str, Any]:
 
 
 @app.get("/debug/routes")
-def debug_routes() -> Dict[str, Any]:
+def debug_routes(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _require_debug_secret(x_admin_secret)
     """Debug endpoint: List all registered routes (REMOVE IN PRODUCTION)."""
     routes = []
     for route in app.routes:
@@ -1320,7 +1323,8 @@ def debug_routes() -> Dict[str, Any]:
 
 
 @app.get("/debug/config")
-def debug_config() -> Dict[str, Any]:
+def debug_config(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[str, Any]:
+    _require_debug_secret(x_admin_secret)
     """Debug endpoint: Check environment & startup state."""
     route_paths = [getattr(r, "path", "") or "" for r in app.routes]
     paid_finops: Dict[str, Any] = {}
@@ -1581,6 +1585,11 @@ async def create_checkout_session_endpoint() -> Dict[str, str]:
 async def billing_portal(body: BillingPortalRequest) -> Dict[str, str]:
     """Open Stripe's billing portal so the payer can cancel, update the card, or view invoices."""
     from billing_lifecycle import create_billing_portal_url
+    from orders_access import verify_orders_key
+
+    email_l = (body.email or "").strip().lower()
+    if not verify_orders_key(email_l, body.key):
+        raise HTTPException(status_code=401, detail="Orders link required")
 
     try:
         url = create_billing_portal_url(body.email)
@@ -1799,6 +1808,7 @@ async def get_entitlement(
     city: str = "",
     state: str = "",
     zip: str = "",
+    key: str = "",
 ) -> Dict[str, Any]:
     """
     Paid access summary. Pass address/city/state/zip to evaluate IC Project
@@ -1806,13 +1816,26 @@ async def get_entitlement(
     """
     from entitlement import access_summary
 
-    return access_summary(
+    summary = access_summary(
         email,
         address=address,
         city=city,
         state=state,
         zip_code=zip,
     )
+    from orders_access import verify_orders_key
+
+    if not verify_orders_key((email or "").strip().lower(), key):
+        site = summary.get("ic_site") if isinstance(summary.get("ic_site"), dict) else {}
+        summary["ic_site"] = {
+            "allowed": bool(site.get("allowed")),
+            "mode": site.get("mode") or "need_purchase",
+            "order_id": None,
+            "bound_site": "",
+            "site_fingerprint": "",
+            "message": "Paid access is checked on this email. The bound address stays on the orders link.",
+        }
+    return summary
 
 
 @app.post("/free-trial")
@@ -3136,20 +3159,25 @@ async def bim_extract_metadata(
 
 
 @app.get("/maintenance/subscriptions")
-def maintenance_list() -> Dict[str, Any]:
-    """Dashboard: list Maintenance Mode sensor-alert subscriptions for completed projects."""
+def maintenance_list(
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """Operator list of Maintenance Mode subscriptions."""
+    _require_admin_secret(x_admin_secret)
     return {"subscriptions": list_subscriptions()}
 
 
 @app.post("/maintenance/subscriptions")
 def maintenance_create(
     project_name: str = Form(...),
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
     zip_code: str = Form(...),
     site_address: str = Form(""),
     sensor_profile: str = Form("thermal_vibration"),
     alert_threshold_note: str = Form(""),
     maintenance_mode_enabled: bool = Form(True),
 ) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
     try:
         return create_subscription(
             project_name=project_name,
@@ -3167,7 +3195,9 @@ def maintenance_create(
 def maintenance_patch(
     subscription_id: str,
     body: Dict[str, Any] = Body(...),
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
 ) -> Dict[str, Any]:
+    _require_admin_secret(x_admin_secret)
     if "maintenance_mode_enabled" not in body:
         raise HTTPException(status_code=400, detail="maintenance_mode_enabled is required")
     try:
@@ -4364,12 +4394,12 @@ async def request_data_center_analysis(req: DataCenterAnalysisRequest) -> Dict[s
 
 
 @app.get("/data-center-analysis/leads", tags=["Data Center"])
-async def list_data_center_leads(request: Request) -> Dict[str, Any]:
-    """
-    List all data center analysis leads (admin only).
-    
-    Requires authentication + admin role.
-    """
+async def list_data_center_leads(
+    request: Request,
+    x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+) -> Dict[str, Any]:
+    """List data center analysis leads. Operator secret required."""
+    _require_admin_secret(x_admin_secret)
     try:
         from supabase import create_client
         sb = create_client(
@@ -5619,22 +5649,45 @@ async def create_or_update_job(body: SaveJobRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=403, detail=str(e))
 
 
+def _job_visible(job: Optional[Dict[str, Any]], owner_key: str, unlocked: bool) -> bool:
+    """A device key or the signed orders link. An email address is not enough."""
+    if not job:
+        return False
+    if unlocked:
+        return True
+    job_key = str(job.get("owner_key") or "").strip()
+    req = (owner_key or "").strip()
+    return bool(job_key and req and job_key == req)
+
+
+def _jobs_email_unlocked(email: str, key: str) -> bool:
+    from orders_access import verify_orders_key
+
+    return bool((email or "").strip() and verify_orders_key(email, key))
+
+
 @app.get("/jobs", tags=["Jobs"])
 async def list_saved_jobs(
     email: str = "",
     owner_key: str = "",
+    key: str = "",
     include_archived: bool = False,
 ) -> Dict[str, Any]:
-    """List jobs for an email and/or owner_key (device id)."""
+    """List jobs for the device that saved them, or for a signed orders link."""
     from jobs_store import list_jobs
 
     if not email and not owner_key:
         raise HTTPException(status_code=400, detail="email or owner_key is required")
-    jobs = list_jobs(
-        email=email or None,
-        owner_key=owner_key or None,
-        include_archived=include_archived,
-    )
+    unlocked = _jobs_email_unlocked(email, key)
+    jobs = [
+        job
+        for job in list_jobs(
+            email=email or None,
+            owner_key=owner_key or None,
+            include_archived=include_archived,
+        )
+        if _job_visible(job, owner_key, unlocked)
+    ]
     return {"jobs": jobs, "count": len(jobs)}
 
 
@@ -5643,11 +5696,12 @@ async def get_saved_job(
     job_id: str,
     email: str = "",
     owner_key: str = "",
+    key: str = "",
 ) -> Dict[str, Any]:
     from jobs_store import get_job
 
     job = get_job(job_id, email=email or None, owner_key=owner_key or None)
-    if not job:
+    if not _job_visible(job, owner_key, _jobs_email_unlocked(email, key)):
         raise HTTPException(status_code=404, detail="Job not found")
     return {"job": job}
 
@@ -5657,9 +5711,13 @@ async def delete_saved_job(
     job_id: str,
     email: str = "",
     owner_key: str = "",
+    key: str = "",
 ) -> Dict[str, Any]:
-    from jobs_store import delete_job
+    from jobs_store import delete_job, get_job
 
+    job = get_job(job_id, email=email or None, owner_key=owner_key or None)
+    if not _job_visible(job, owner_key, _jobs_email_unlocked(email, key)):
+        raise HTTPException(status_code=404, detail="Job not found")
     ok = delete_job(job_id, email=email or None, owner_key=owner_key or None)
     if not ok:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -5668,8 +5726,15 @@ async def delete_saved_job(
 
 @app.post("/jobs/{job_id}/attach-research", tags=["Jobs"])
 async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Dict[str, Any]:
-    from jobs_store import attach_research
+    from jobs_store import attach_research, get_job
 
+    existing = get_job(job_id, email=body.owner_email, owner_key=body.owner_key)
+    if not _job_visible(
+        existing,
+        body.owner_key or "",
+        _jobs_email_unlocked(body.owner_email or "", body.key or ""),
+    ):
+        raise HTTPException(status_code=404, detail="Job not found")
     job = attach_research(
         job_id,
         research_id=body.research_id,
@@ -5686,6 +5751,7 @@ async def attach_research_to_job(job_id: str, body: AttachResearchRequest) -> Di
 class RecheckJobRequest(BaseModel):
     owner_email: str
     owner_key: Optional[str] = None
+    key: Optional[str] = None
 
 
 @app.post("/jobs/{job_id}/recheck", tags=["Jobs"])
@@ -5701,7 +5767,11 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
     from jurisdiction import geocode_profile_from_address
 
     job = get_job(job_id, email=body.owner_email, owner_key=body.owner_key)
-    if not job:
+    if not _job_visible(
+        job,
+        body.owner_key or "",
+        _jobs_email_unlocked(body.owner_email, body.key or ""),
+    ):
         raise HTTPException(status_code=404, detail="Job not found")
 
     prev_snap = ((job.get("summary_snapshot") or {}).get("arbitrage_snapshot")) or {}
@@ -6614,6 +6684,21 @@ async def cron_sync_local_packs(
     return pull_missing_packs()
 
 
+def _twilio_signature_ok(url: str, params: Dict[str, Any], signature: str, token: str) -> bool:
+    """Twilio signs URL + sorted form fields with HMAC-SHA1. Missing token fails closed."""
+    import base64
+    import hmac
+    from hashlib import sha1
+
+    token = (token or "").strip()
+    signature = (signature or "").strip()
+    if not token or not signature:
+        return False
+    signed = url + "".join(f"{key}{params.get(key) or ''}" for key in sorted(params))
+    digest = base64.b64encode(hmac.new(token.encode(), signed.encode(), sha1).digest()).decode()
+    return hmac.compare_digest(digest, signature)
+
+
 @app.post("/webhooks/twilio/sms-status", tags=["Webhooks"])
 async def twilio_sms_status_webhook(request: Request) -> Dict[str, Any]:
     """Twilio Message Status Callback — stores delivered/failed + error codes."""
@@ -6629,6 +6714,23 @@ async def twilio_sms_status_webhook(request: Request) -> Dict[str, Any]:
             payload = {}
     if not isinstance(payload, dict):
         payload = {}
+    proto = (request.headers.get("x-forwarded-proto") or request.url.scheme or "https").split(",")[0].strip()
+    host = (
+        request.headers.get("x-forwarded-host")
+        or request.headers.get("host")
+        or request.url.netloc
+    )
+    host = host.split(",")[0].strip()
+    signed_url = f"{proto}://{host}{request.url.path}"
+    if request.url.query:
+        signed_url = f"{signed_url}?{request.url.query}"
+    if not _twilio_signature_ok(
+        signed_url,
+        payload,
+        request.headers.get("x-twilio-signature") or "",
+        os.getenv("TWILIO_AUTH_TOKEN") or "",
+    ):
+        raise HTTPException(status_code=401, detail="Twilio signature required")
     return record_status_callback(payload)
 
 
@@ -6753,7 +6855,7 @@ async def affiliate_click(code: str = "") -> Dict[str, Any]:
 
 
 @app.get("/affiliates/me", tags=["Affiliates"])
-async def affiliate_me(email: str = "") -> Dict[str, Any]:
+async def affiliate_me(email: str = "", key: str = "") -> Dict[str, Any]:
     from account_credits import get_balance_usd
     from affiliate_store import frontend_referral_url, list_affiliates, list_commissions
     from forward_rewards import rewards_for_email
@@ -6761,6 +6863,10 @@ async def affiliate_me(email: str = "") -> Dict[str, Any]:
     email_n = (email or "").strip().lower()
     if not email_n:
         raise HTTPException(status_code=400, detail="email is required")
+    from orders_access import verify_orders_key
+
+    if not verify_orders_key(email_n, key):
+        raise HTTPException(status_code=401, detail="Orders link required")
     aff = next((a for a in list_affiliates() if a.get("email") == email_n), None)
     if not aff:
         raise HTTPException(status_code=404, detail="No affiliate for this email")
@@ -6778,10 +6884,10 @@ async def affiliate_me(email: str = "") -> Dict[str, Any]:
 
 
 @app.get("/partner/portal", tags=["Partner"])
-async def partner_portal(email: str = "") -> Dict[str, Any]:
+async def partner_portal(email: str = "", key: str = "") -> Dict[str, Any]:
     """
     Partner portal payload: mandate kit + affiliate stats + credits + forward rewards.
-    Email lookup (no auth) — same pattern as /affiliates/me and Saved Jobs.
+    The signed orders link is required. An email address is not enough.
     """
     from account_credits import get_balance_usd
     from affiliate_store import frontend_referral_url, list_affiliates, list_commissions
@@ -6791,6 +6897,10 @@ async def partner_portal(email: str = "") -> Dict[str, Any]:
     email_n = (email or "").strip().lower()
     if not email_n:
         raise HTTPException(status_code=400, detail="email is required")
+    from orders_access import verify_orders_key
+
+    if not verify_orders_key(email_n, key):
+        raise HTTPException(status_code=401, detail="Orders link required")
     aff = next((a for a in list_affiliates() if a.get("email") == email_n), None)
     commissions = []
     unpaid = 0

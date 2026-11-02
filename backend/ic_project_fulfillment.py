@@ -972,11 +972,10 @@ def ensure_pdf_bytes(
     email_l = (email or "").strip().lower()
     order_email = (order.get("email") or "").strip().lower()
 
-    # Prefer token auth; fall back to email match only when order has no token
-    if order_token:
-        if not provided_token or provided_token != order_token:
-            return None, "Invalid or missing download token"
-    elif email_l and order_email and email_l != order_email:
+    # The download token is the secret. An email address is not.
+    if not order_token or provided_token != order_token:
+        return None, "Invalid or missing download token"
+    if email_l and order_email and email_l != order_email:
         return None, "Email does not match order"
 
     analysis = order.get("analysis_json")
