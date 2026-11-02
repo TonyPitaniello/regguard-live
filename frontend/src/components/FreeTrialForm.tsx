@@ -1417,25 +1417,27 @@ export default function FreeTrialForm({
 
       {/* Keep form mounted while results are open so address + pin state survive Confirm / re-run */}
       <div
-        className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-6 md:p-10 ${
+        className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-4 sm:p-6 md:p-10 ${
           resultsOpen && analysis ? 'hidden' : ''
         }`}
         aria-hidden={Boolean(resultsOpen && analysis)}
       >
         <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
-          <h2 className="text-xl sm:text-2xl font-black text-white leading-tight">
+          <h2 className="hidden sm:block text-xl sm:text-2xl font-black text-white leading-tight">
             {PRODUCT_COPY.formHeading}
           </h2>
+          {(formData.address || formData.city || formData.email) && (
           <div className="flex justify-end">
             <button
               type="button"
               onClick={startNewSite}
               disabled={loading}
-              className="text-sm text-emerald-300 hover:text-emerald-200 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
+              className="text-sm text-emerald-300 hover:text-emerald-200 font-semibold underline-offset-2 hover:underline disabled:opacity-50 min-h-[48px]"
             >
               {PRODUCT_COPY.formClear}
             </button>
           </div>
+          )}
           <LocationPicker
             onLocationSelect={handleLocationSelect}
             disabled={loading}
@@ -1477,7 +1479,7 @@ export default function FreeTrialForm({
           */}
         </form>
 
-        <div className="mt-5 space-y-5" data-rg-contact-fields autoComplete="off">
+        <div className="mt-3 sm:mt-5 space-y-3 sm:space-y-5" data-rg-contact-fields autoComplete="off">
           {!contactFieldsReady ? (
             <div className="h-[7.5rem] rounded-lg border border-slate-700/60 bg-slate-800/40" aria-hidden />
           ) : (
@@ -1517,7 +1519,7 @@ export default function FreeTrialForm({
               className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 text-base"
               disabled={loading}
             />
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="hidden sm:block text-xs text-gray-400 mt-2">
               Email is required to run a lookup. A free run gets two short notes, on day 2 and day 5. Each note has a way to stop them. SMS is optional after results (separate consent).
             </p>
           </div>
@@ -1527,7 +1529,7 @@ export default function FreeTrialForm({
 
         <form
           onSubmit={handleSubmit}
-          className="mt-5 space-y-5"
+          className="mt-3 sm:mt-5 space-y-3 sm:space-y-5"
           noValidate
           autoComplete="off"
         >
@@ -1594,7 +1596,8 @@ export default function FreeTrialForm({
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-6 py-4 min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-busy={loading}
+            className="w-full px-4 sm:px-6 py-3 sm:py-4 min-h-[48px] sm:min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-base sm:text-lg leading-tight rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
               ? proResearchEntitled

@@ -244,6 +244,14 @@ export default function SharedReportPage() {
   const sources = report.sources || [];
   const { street, place } = siteLines(analysis);
   const stampGrade = (analysis.regguard_stamp?.grade || analysis.stamp_grade || '').toUpperCase();
+  const stampWord =
+    stampGrade === 'FAIL' || stampGrade === 'HOLD'
+      ? 'HOLD'
+      : stampGrade === 'CAUTION'
+        ? 'CAUTION'
+        : stampGrade === 'PASS' || stampGrade === 'CLEAR'
+          ? 'CLEAR'
+          : '';
   const riskTitle =
     stampGrade === 'FAIL' || stampGrade === 'HOLD'
       ? 'Hold'
@@ -286,29 +294,48 @@ export default function SharedReportPage() {
   const radar = analysis.moratorium_radar;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
+    <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
       <SeoHead
         title={`${riskTitle ? `${riskTitle} — ` : ''}Bid Risk Receipt — ${[street, place].filter(Boolean).join(', ') || 'Reg Guard'}`}
         description="Forwardable contractor pre-bid diligence. Planning aid — not a quote or sealed bid. Confirm with the AHJ."
         canonical={`https://app.regguardagent.com/r/${id}`}
       />
-      <div className="max-w-3xl mx-auto px-4 py-10 sm:px-6 space-y-8">
-        <header className="space-y-3 border-b border-slate-800 pb-6">
+      <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6 sm:py-10 space-y-4 sm:space-y-8 break-words">
+        <header className="space-y-3 border-b border-slate-800 pb-4 sm:pb-6">
           <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">
             RegGuard Bid Risk Receipt
           </p>
-          <h1 className="text-3xl font-black">{street || 'Bid Risk Receipt'}</h1>
+          {stampWord ? (
+            <p
+              className={`inline-flex items-center min-h-[48px] px-4 rounded-lg text-lg font-black tracking-wide ${
+                stampWord === 'HOLD'
+                  ? 'bg-amber-400 text-slate-950'
+                  : stampWord === 'CAUTION'
+                    ? 'bg-amber-200 text-slate-950'
+                    : 'bg-emerald-400 text-slate-950'
+              }`}
+            >
+              {stampWord}
+            </p>
+          ) : null}
+          <h1 className="text-3xl font-black break-words">{street || 'Bid Risk Receipt'}</h1>
           {place ? <p className="text-gray-300">{place}</p> : null}
           <p className="text-sm text-gray-400">
             Planning aid for this address — not a quote. Confirm with the AHJ before you bid.
           </p>
+          <Link
+            to={`/?utm_source=sharepage&utm_medium=cta&utm_campaign=bid_risk_receipt${storedReferralCode() ? `&ref=${encodeURIComponent(storedReferralCode())}` : ''}#free-trial-form`}
+            className="flex w-full min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 text-base font-bold text-white"
+          >
+            Run my address
+          </Link>
           <div className="flex flex-wrap gap-2 pt-1">
             {depthBadge && (
               <span className="inline-flex px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-amber-500/15 text-amber-200 border border-amber-500/35">
                 {depthBadge}
               </span>
             )}
-            {coverageBadge && (
+            {coverageBadge && !freeShare && (
               <span className="inline-flex px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide bg-slate-800 text-gray-200 border border-slate-600">
                 {coverageBadge}
               </span>
@@ -344,7 +371,7 @@ export default function SharedReportPage() {
         )}
 
         {(analysis.preview || hideRisk || unverified) && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="hidden sm:block rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-amber-50">Preview / unverified estimates.</strong> Risk scores are not
             parcel-verified GIS data. Dollar and day figures are not AHJ quotes — confirm before bidding.
           </div>

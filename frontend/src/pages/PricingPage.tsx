@@ -112,10 +112,13 @@ export default function PricingPage() {
         </div>
       </header>
 
-      <section className="px-4 py-16 sm:px-6 lg:px-8">
+      <section className="px-4 pt-6 pb-4 sm:px-6 sm:py-16 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-5xl font-black text-white mb-6">Plans that match how you bid</h1>
-          <p className="text-xl text-gray-300">
+          <h1 className="text-3xl sm:text-5xl font-black text-white mb-3 sm:mb-6">Plans that match how you bid</h1>
+          <p className="sm:hidden text-base text-gray-300">
+            Free preview, then Estimator ($79/mo) or Pro ($149/mo). The IC bundle is $1,500 when counsel needs the ZIP.
+          </p>
+          <p className="hidden sm:block text-xl text-gray-300">
             Free Bid Risk Receipt preview → Estimator / Permit Runner or Contractor Pro for bid-week
             habit →{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
@@ -135,7 +138,7 @@ export default function PricingPage() {
             {TIERS.filter((tier) => !tier.key.startsWith('ic_')).map((tier) => (
               <div
                 key={tier.key}
-                className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-7 flex flex-col h-full border ${
+                className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 rounded-2xl p-5 sm:p-7 flex flex-col h-full border ${
                   tier.highlight
                     ? 'border-2 border-emerald-500/60 shadow-lg shadow-emerald-500/10'
                     : 'border-purple-500/20'
@@ -145,14 +148,14 @@ export default function PricingPage() {
                   {tier.segment}
                 </p>
                 <h2 className="text-2xl font-black text-white mb-1">{tier.name}</h2>
-                <p className="text-gray-400 text-sm mb-6">{tier.description}</p>
+                <p className="text-gray-400 text-sm mb-3 sm:mb-6">{tier.description}</p>
 
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6 order-1">
                   <div className="text-4xl font-black text-white">{tier.price}</div>
                   <p className="text-gray-400 text-sm">{tier.billing}</p>
                 </div>
 
-                <ul className="space-y-3 mb-8 flex-grow">
+                <ul className="space-y-3 mb-4 sm:mb-8 flex-grow order-3 sm:order-2">
                   {tier.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3 text-gray-300 text-sm">
                       <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
@@ -165,8 +168,8 @@ export default function PricingPage() {
                   onClick={() => handleCta(tier.key)}
                   className={
                     tier.key === 'free'
-                      ? 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer border border-emerald-400/50 text-emerald-50 hover:bg-emerald-500/10'
-                      : 'w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white'
+                      ? 'order-2 sm:order-3 mb-4 sm:mb-0 w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer border border-emerald-400/50 text-emerald-50 hover:bg-emerald-500/10'
+                      : 'order-2 sm:order-3 mb-4 sm:mb-0 w-full px-6 py-3 min-h-[48px] font-bold rounded-lg transition cursor-pointer bg-emerald-600 hover:bg-emerald-500 text-white'
                   }
                 >
                   {tier.cta}

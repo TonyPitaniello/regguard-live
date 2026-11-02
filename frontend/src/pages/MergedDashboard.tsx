@@ -36,7 +36,7 @@ export function PlatformDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <SeoHead
         title={PRODUCT_COPY.seoTitle}
         description={PRODUCT_COPY.seoDescription}
@@ -52,7 +52,7 @@ export function PlatformDashboard() {
               onClick={handleGetApp}
               className="text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
             >
-              Download
+              Get app
             </button>
             <button
               type="button"
@@ -86,21 +86,25 @@ export function PlatformDashboard() {
         </div>
       </header>
 
-      <section className="px-4 pt-10 pb-4 sm:px-6 lg:px-8 sm:pt-14">
+      <div className="flex flex-col">
+      <section className="order-1 px-4 pt-5 pb-2 sm:px-6 lg:px-8 sm:pt-14 sm:pb-4">
         <div className="max-w-2xl mx-auto text-center">
-          <p className="text-5xl sm:text-6xl md:text-7xl font-black text-white mb-4 tracking-tight">
+          <p className="hidden sm:block text-5xl sm:text-6xl md:text-7xl font-black text-white mb-4 tracking-tight">
             {BRAND_LOCKUP}
           </p>
-          <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-400 mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-green-400 mb-2 sm:mb-3">
             {PRODUCT_COPY.heroHeadline}
           </h2>
-          <p className="text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
+          <p className="sm:hidden text-sm text-gray-300">
+            HOLD, CAUTION, or CLEAR. No card.
+          </p>
+          <p className="hidden sm:block text-gray-300 text-base sm:text-lg leading-relaxed max-w-xl mx-auto">
             {PRODUCT_COPY.heroSubhead}
           </p>
         </div>
       </section>
 
-      <section className="px-3 pb-5 sm:px-6 lg:px-8">
+      <section className="order-3 sm:order-2 px-3 pb-5 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto rounded-2xl border border-emerald-500/30 bg-[rgba(15,29,56,0.95)] p-3.5 sm:p-6 shadow-lg shadow-black/20">
           <SampleReportBlock compact />
           <p className="text-center text-[#b8c1d1] text-xs mt-4 px-1">
@@ -109,7 +113,7 @@ export function PlatformDashboard() {
         </div>
       </section>
 
-      <section className="px-4 pb-6 sm:px-6 lg:px-8">
+      <section className="order-2 sm:order-3 px-4 pb-6 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
           <FreeTrialForm />
           <p className="text-center text-gray-400 text-sm mt-4">
@@ -124,6 +128,7 @@ export function PlatformDashboard() {
           </p>
         </div>
       </section>
+      </div>
 
       <section className="px-4 py-12 sm:px-6 lg:px-8 border-t border-purple-500/10">
         <div className="max-w-4xl mx-auto grid sm:grid-cols-3 gap-6 text-center">

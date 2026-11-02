@@ -81,7 +81,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 40px;
+  min-height: 48px;
   padding: 0 14px;
   border-radius: 10px;
   background: linear-gradient(90deg, #059669, #10b981);
@@ -97,6 +97,11 @@ body {
   color: #fff;
 }
 
+.mobile-get-app:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
 .hamburger-btn {
   background: none;
   border: none;
@@ -106,8 +111,8 @@ body {
   align-items: center;
   justify-content: center;
   padding: 8px;
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 8px;
   transition: var(--transition);
 }

@@ -115,6 +115,7 @@ export function PlatformLayout({
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [launchMode, setLaunchMode] = useState(() => getLaunchAppMode());
   // Keep Get app visible in Safari tabs; only hide for real home-screen standalone.
   const showGetApp = !isStandaloneApp() && launchMode !== 'standalone';
@@ -160,8 +161,10 @@ export function PlatformLayout({
 
   const handleGetApp = (e: MouseEvent) => {
     e.preventDefault();
+    if (installing) return;
     setMobileMenuOpen(false);
-    void oneClickInstallApp();
+    setInstalling(true);
+    void oneClickInstallApp().finally(() => setInstalling(false));
   };
 
   const routesByCategory = PLATFORM_ROUTES.reduce(
@@ -194,8 +197,10 @@ export function PlatformLayout({
             type="button"
             className="mobile-get-app"
             onClick={handleGetApp}
+            disabled={installing}
+            aria-busy={installing}
           >
-            Download
+            {installing ? 'Opening…' : 'Get app'}
           </button>
         )}
       </div>
@@ -272,7 +277,7 @@ export function PlatformLayout({
               >
                 <Download size={18} />
                 {(sidebarOpen || mobileMenuOpen) && (
-                  <span className="nav-label">Download</span>
+                  <span className="nav-label">{installing ? 'Opening…' : 'Get app'}</span>
                 )}
               </button>
             </div>

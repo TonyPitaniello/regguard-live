@@ -83,7 +83,7 @@ const MAP_SHELL_STYLE: CSSProperties = {
   // Do NOT use contain:layout/paint — Leaflet tiles go blank after Auto-Detect / remount.
   transform: 'none',
   WebkitTransform: 'none',
-  minHeight: '20rem',
+  minHeight: '7rem',
   background: '#334155',
 };
 
@@ -124,7 +124,10 @@ export function LocationPicker({
   const [lng, setLng] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mapVisible, setMapVisible] = useState(true);
+  const [mapVisible, setMapVisible] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 640px)').matches;
+  });
   /** Bump to force Leaflet re-init when the shell remounts (fixes gray blank map). */
   const [mapEpoch, setMapEpoch] = useState(0);
   const mapHealAttemptsRef = useRef(0);
@@ -228,7 +231,9 @@ export function LocationPicker({
     latLngRef.current = null;
     setLocationConfirmed(false);
     setError('');
-    setMapVisible(true);
+    setMapVisible(
+      typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
+    );
     setSiteFieldsUnlocked(false);
     destroyMap();
     setMapEpoch((e) => e + 1);
@@ -1064,7 +1069,7 @@ export function LocationPicker({
             resetKey={resetKey}
             onSelection={handlePlacesSelection}
           />
-          <p className="text-xs text-gray-400">
+          <p className="hidden sm:block text-xs text-gray-400">
             Or type street, city, state, and ZIP below — the map pin updates automatically.
           </p>
         </div>
@@ -1076,6 +1081,14 @@ export function LocationPicker({
             <MapPin className="w-4 h-4 text-emerald-400" />
             Site address
           </p>
+          <button
+            type="button"
+            onClick={handleAutoDetect}
+            disabled={disabled || loading || collapseMap}
+            className="sm:hidden shrink-0 min-h-[48px] px-3 rounded-lg bg-cyan-700 text-white text-sm font-bold disabled:opacity-50"
+          >
+            {loading ? 'Locating…' : 'Use GPS'}
+          </button>
           {locationConfirmed && pinReady ? (
             <p className="flex items-center gap-1.5 text-xs text-emerald-300 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -1085,13 +1098,14 @@ export function LocationPicker({
             <p className="text-xs text-gray-400 font-medium">Pin placed — editable</p>
           ) : null}
         </div>
+        {(address || city || zip || pinReady || locationConfirmed) && (
         <div className="flex flex-col sm:flex-row gap-2">
           {locationConfirmed ? (
             <button
               type="button"
               onClick={unlockPin}
               disabled={disabled}
-              className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold disabled:opacity-50"
+              className="flex-1 px-3 py-2.5 min-h-[48px] rounded-lg border border-amber-500/50 bg-amber-500/10 hover:bg-amber-500/20 text-amber-100 text-sm font-bold disabled:opacity-50"
             >
               Unlock pin
             </button>
@@ -1100,7 +1114,7 @@ export function LocationPicker({
               type="button"
               onClick={lockPin}
               disabled={disabled}
-              className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
+              className="flex-1 px-3 py-2.5 min-h-[48px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
             >
               Lock pin (optional)
             </button>
@@ -1109,11 +1123,12 @@ export function LocationPicker({
             type="button"
             onClick={clearSite}
             disabled={disabled}
-            className="flex-1 px-3 py-2.5 min-h-[44px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
+            className="flex-1 px-3 py-2.5 min-h-[48px] rounded-lg border border-slate-500 bg-slate-900/60 hover:bg-slate-800 text-white text-sm font-semibold disabled:opacity-50"
           >
             Clear site
           </button>
         </div>
+        )}
         {pinReady && (
           <p className="text-xs text-gray-400">
             Coordinates: {lat!.toFixed(5)}, {lng!.toFixed(5)}
@@ -1135,7 +1150,7 @@ export function LocationPicker({
               onBlur={onSiteFieldBlur}
               disabled={disabled || locationConfirmed}
               readOnly={!siteFieldsUnlocked}
-              className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+              className="w-full px-3 py-2 min-h-[48px] bg-slate-800 border border-slate-600 rounded-lg text-white text-base disabled:opacity-70"
               placeholder=""
               autoComplete="new-password"
               autoCorrect="off"
@@ -1161,7 +1176,7 @@ export function LocationPicker({
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
                 readOnly={!siteFieldsUnlocked}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 min-h-[48px] bg-slate-800 border border-slate-600 rounded-lg text-white text-base disabled:opacity-70"
                 placeholder=""
                 autoComplete="new-password"
                 data-lpignore="true"
@@ -1184,7 +1199,7 @@ export function LocationPicker({
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
                 readOnly={!siteFieldsUnlocked}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 min-h-[48px] bg-slate-800 border border-slate-600 rounded-lg text-white text-base disabled:opacity-70"
                 placeholder=""
                 autoComplete="new-password"
                 data-lpignore="true"
@@ -1208,7 +1223,7 @@ export function LocationPicker({
                 disabled={disabled || locationConfirmed}
                 readOnly={!siteFieldsUnlocked}
                 inputMode="numeric"
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm disabled:opacity-70"
+                className="w-full px-3 py-2 min-h-[48px] bg-slate-800 border border-slate-600 rounded-lg text-white text-base disabled:opacity-70"
                 placeholder=""
                 autoComplete="new-password"
                 data-lpignore="true"
@@ -1223,7 +1238,7 @@ export function LocationPicker({
           type="button"
           onClick={handleConfirmLocation}
           disabled={disabled || loading || locationConfirmed}
-          className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg transition shadow-lg shadow-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 min-h-[48px] border border-emerald-400/50 bg-slate-900/40 text-emerald-50 font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading
             ? 'Placing pin…'
@@ -1247,7 +1262,7 @@ export function LocationPicker({
         type="button"
         onClick={handleAutoDetect}
         disabled={disabled || loading || collapseMap}
-        className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg transition shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        className="hidden sm:flex w-full px-4 py-3 min-h-[48px] bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg transition shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center gap-2"
       >
         <Navigation className="w-4 h-4" />
         {loading ? 'Detecting / reading address…' : 'Auto-Detect My Location'}
@@ -1270,7 +1285,7 @@ export function LocationPicker({
         <div className="space-y-2 relative" style={{ position: 'relative', zIndex: 0 }}>
           <div
             ref={mapContainer}
-            className="rg-location-map-shell w-full h-80 rounded-lg border border-purple-500/30 bg-slate-700"
+            className="rg-location-map-shell w-full h-28 sm:h-80 rounded-lg border border-purple-500/30 bg-slate-700"
             style={MAP_SHELL_STYLE}
           />
           <div className="flex flex-wrap items-center justify-center gap-2">
