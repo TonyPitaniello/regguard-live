@@ -187,7 +187,26 @@ export function analysisForSampleDemo(
   }
 
   clone.research_id = `rg-sample-chapin-${tier}`;
+  clone.share_url = `https://app.regguardagent.com/r/rg-sample-chapin-${tier}`;
   clone.sample_demo_tier = tier;
+  // The static Chapin JSON carries a fixed stamp date. Roll it forward so the
+  // labeled sample never reads as already expired.
+  const stampUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+  if (clone.regguard_stamp) {
+    clone.regguard_stamp = {
+      ...clone.regguard_stamp,
+      valid_until: stampUntil,
+      is_stale: false,
+    };
+  }
+  clone.stamp_valid_until = stampUntil;
+  if (tier === 'free' && clone.coverage) {
+    clone.coverage = {
+      ...clone.coverage,
+      badge: 'Free preview',
+      tier: 'preview',
+    };
+  }
   const access =
     tier === 'ic' ? 'ic' : tier === 'pro' ? 'contractor_pro' : tier === 'partner' ? 'partner' : 'free';
   (clone as AnalysisData & { access_tier?: string }).access_tier = access;

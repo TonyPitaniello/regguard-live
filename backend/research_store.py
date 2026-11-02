@@ -765,6 +765,14 @@ def _expired(record: Dict[str, Any]) -> bool:
 def get_research(research_id: str) -> Optional[Dict[str, Any]]:
     """Return stored record or None. Skips expired records."""
     rid = normalize_research_id(research_id)
+    try:
+        from sample_dc_fixture import sample_share_record
+
+        sample = sample_share_record(rid)
+        if sample:
+            return sample
+    except Exception as e:
+        logger.warning("Sample share lookup failed for %s: %s", rid, e)
     with _LOCK:
         mem = _MEMORY.get(rid)
         if mem and not _expired(mem):

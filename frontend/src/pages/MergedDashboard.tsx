@@ -115,7 +115,7 @@ export function PlatformDashboard() {
           <p className="text-center text-gray-400 text-sm mt-4">
             Built for DFW–Austin commercial, industrial, and DC-adjacent bids — citeable in-pack,
             Unverified outside. Not an ESA, interconnect study, or filing.
-            {forwards != null && forwards > 0 ? (
+            {forwards != null && forwards >= 25 ? (
               <>
                 {' '}
                 · {forwards.toLocaleString()}+ Bid Risk Receipts forwarded

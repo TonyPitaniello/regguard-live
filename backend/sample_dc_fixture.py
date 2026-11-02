@@ -425,3 +425,35 @@ def analysis_for_tier(tier: str) -> Dict[str, Any]:
         punch_block = out.get("punch_list") if isinstance(out.get("punch_list"), dict) else {}
         out["punch_list"] = {**punch_block, "habit_unlocked": True}
     return out
+
+
+_SAMPLE_SHARE_TIERS = {
+    "rg-sample-chapin-free": "free",
+    "rg-sample-chapin-partner": "partner",
+    "rg-sample-chapin-pro": "pro",
+    "rg-sample-chapin-ic": "ic",
+    "rg-sample-chapin-fw": "free",
+}
+
+
+def sample_share_record(research_id: str) -> Dict[str, Any] | None:
+    """Public /r/ target for the labeled Chapin sample. Fresh stamp window, never 404."""
+    rid = (research_id or "").strip()
+    tier = _SAMPLE_SHARE_TIERS.get(rid)
+    if not tier:
+        return None
+    analysis = analysis_for_tier(tier)
+    analysis["research_id"] = rid
+    analysis["labeled_sample"] = True
+    now = datetime.now(timezone.utc)
+    share = f"https://app.regguardagent.com/r/{rid}"
+    analysis["share_url"] = share
+    return {
+        "id": rid,
+        "analysis": analysis,
+        "share_url": share,
+        "created_at": now.isoformat().replace("+00:00", "Z"),
+        "expires_at": (now + timedelta(days=30)).isoformat().replace("+00:00", "Z"),
+        "preview": tier == "free",
+        "labeled_sample": True,
+    }

@@ -581,6 +581,9 @@ function reportShareUrl(analysis: AnalysisData, researchId?: string | null): str
     }
   }
   if (!raw) return '';
+  const rid = (researchId || analysis.research_id || '').trim();
+  // Labeled samples are public. Do not attach a stored affiliate code.
+  if (rid.startsWith('rg-sample-')) return raw;
   return withShareParams(raw, storedReferralCode() || (analysis as { referral_code?: string }).referral_code);
 }
 
@@ -3734,12 +3737,14 @@ export default function ResultsViewerModal({
               <div>
               <p className="text-sm font-bold text-emerald-200">
                 {PRODUCT_COPY.fullCityPack}
-                {view.ahj_card?.name || view.project_info?.city || view.local_pack?.city
-                  ? ` — ${view.ahj_card?.name || view.project_info?.city || view.local_pack?.city}`
-                  : ''}
-                {view.project_info?.state || view.local_pack?.state
-                  ? `, ${view.project_info?.state || view.local_pack?.state}`
-                  : ''}
+                {(() => {
+                  const place =
+                    view.ahj_card?.name || view.project_info?.city || view.local_pack?.city || '';
+                  const st = view.project_info?.state || view.local_pack?.state || '';
+                  if (!place) return '';
+                  if (st && place.toUpperCase().includes(st.toUpperCase())) return ` — ${place}`;
+                  return ` — ${place}${st ? `, ${st}` : ''}`;
+                })()}
               </p>
               <p className="text-xs text-gray-300 mt-1 leading-relaxed">
                 {packBody === 'locked'
@@ -3780,7 +3785,7 @@ export default function ResultsViewerModal({
                     <div className="absolute inset-0 backdrop-blur-[6px] bg-slate-950/55" />
                     <div className="relative z-10 m-4 rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-2.5 text-center">
                       <p className="text-xs font-bold text-purple-50">
-                        Free — fee schedule and City Pack stay locked. Estimator unlocks the full punch and a Receipt you can file.
+                        Free — the City Pack PDF stays locked. A few schedule lines may show in the punch above; confirm them on the official fee PDF. Estimator unlocks the Receipt you can file.
                       </p>
                     </div>
                   </div>
