@@ -3555,7 +3555,7 @@ export default function ResultsViewerModal({
                   Ranked Critical → Low. Coverage:{' '}
                   <span className="text-gray-200 font-semibold">{coverage.badge}</span>
                   {!coverage.feesAllowed
-                    ? ' — fee dollars not shown; open the AHJ portal to confirm.'
+                    ? ' — confirm any schedule line on the official fee PDF before bid.'
                     : ' — confirm fee dollars on the official schedule.'}
                 </p>
                 {(() => {
