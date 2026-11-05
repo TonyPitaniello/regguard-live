@@ -331,6 +331,17 @@ def _scrub_buyer_fail(text: Any) -> str:
     return raw.replace("FAIL", "HOLD").replace("Fail", "Hold")
 
 
+_FREE_BAND_PCT = re.compile(
+    r"\s*\(\s*mid\s*\d+(?:\.\d+)?\s*%\s*\)|\bmid\s*\d+(?:\.\d+)?\s*%",
+    re.IGNORECASE,
+)
+
+
+def _hide_free_band_percent(text: Any) -> str:
+    """A frosted free share must not repeat the contingency percent in a stamp line."""
+    return _FREE_BAND_PCT.sub("", str(text or "")).strip()
+
+
 def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Payload for /r/{id}, OG unfurls, and forwarded email.
@@ -409,6 +420,11 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
                     d["severity"] = "HOLD"
                 elif sev == "PASS":
                     d["severity"] = "CLEAR"
+                if tier == "free":
+                    if d.get("label"):
+                        d["label"] = _hide_free_band_percent(d.get("label"))
+                    if d.get("detail"):
+                        d["detail"] = _hide_free_band_percent(d.get("detail"))
 
     public_grade = str(out.get("stamp_grade") or "").upper()
     if public_grade == "FAIL":

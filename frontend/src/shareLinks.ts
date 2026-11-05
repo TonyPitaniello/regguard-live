@@ -3,7 +3,7 @@
 export const SHARE_UTM = {
   utm_source: 'receipt',
   utm_medium: 'share',
-  utm_campaign: 'bid_risk_receipt',
+  utm_campaign: 'rg_passive_beachhead_2026',
 } as const;
 
 export function storedReferralCode(): string {

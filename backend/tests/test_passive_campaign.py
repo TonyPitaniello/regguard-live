@@ -90,11 +90,40 @@ def test_metros_cover_city_packs():
         )
 
 
+def test_free_share_hides_band_percent_and_keeps_campaign():
+    import json
+
+    from sample_dc_fixture import analysis_for_tier
+    from research_store import redact_for_public_share
+
+    url = with_share_params("https://app.regguardagent.com/r/rg-sample-chapin-free", ref="patx")
+    assert "ref=patx" in url
+    assert "utm_campaign=rg_passive_beachhead_2026" in url
+    assert "/r/rg-sample-chapin-free" in url
+
+    red = redact_for_public_share(analysis_for_tier("free"))
+    blob = json.dumps(red)
+    assert "23%" not in blob
+    assert "mid 23" not in blob
+    assert red["contingency_band"]["share_frosted"] is True
+    assert red["contingency_band"]["pct_mid"] is None
+    html = render_share_html(analysis_for_tier("free"), research_id="rg-sample-chapin-free", ref="patx")
+    assert "Hidden on Free" in html
+    assert "FAIL" not in html
+    assert "PASS" not in html
+    assert "Partner" not in html
+    assert ".zip" not in html
+    assert "utm_campaign=rg_passive_beachhead_2026" in html
+    for kind in ("free_run_d2", "free_run_d5", "quota_paywall"):
+        _, drip = drip_email(kind, {"email": "a@b.com", "research_id": "rid1", "city": "Fort Worth"})
+        assert "Start Estimator" not in drip
+
+
 def test_share_params_add_ref_and_utm():
     url = with_share_params("https://app.regguardagent.com/r/abc123", ref="patx")
     assert "ref=patx" in url
     assert "utm_source=receipt" in url
-    assert "utm_campaign=bid_risk_receipt" in url
+    assert "utm_campaign=rg_passive_beachhead_2026" in url
 
 
 def test_drip_copy_has_ctas():

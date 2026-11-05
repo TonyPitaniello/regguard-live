@@ -28,7 +28,7 @@ WHALE_SKU = "ic_project"  # $1,500
 UTM_SHARE = {
     "utm_source": "receipt",
     "utm_medium": "share",
-    "utm_campaign": "bid_risk_receipt",
+    "utm_campaign": "rg_passive_beachhead_2026",
 }
 
 DRIP_KINDS = ("free_run_d2", "free_run_d5", "quota_paywall")
