@@ -348,7 +348,7 @@ def build_regguard_stamp(
             "Planning aid for pre-bid / pre-LOI screening only. "
             "NOT a bond, insurance quote, credit rating, Moody's-style opinion, "
             "legal opinion, AHJ approval, or interconnection study. "
-            "PASS means no Critical killers on the current citeable pack — still confirm "
+            "CLEAR means no Critical killers on the current citeable pack — still confirm "
             "fees and portal asks with the AHJ before bid. "
             "Stamp is invalid after valid_until or when local pack / AHJ / moratorium "
             "fingerprint changes."

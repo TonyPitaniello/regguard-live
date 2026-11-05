@@ -178,6 +178,33 @@ def test_chapin_artifacts_match_the_ladder():
             assert "1,406" in forward or "1406" in forward
 
 
+def test_public_share_rewrites_pass_and_fail():
+    import json
+
+    from research_store import redact_for_public_share
+
+    red = redact_for_public_share(
+        {
+            "research_depth": "free",
+            "stamp_grade": "PASS",
+            "regguard_stamp": {
+                "grade": "PASS",
+                "disclaimer": "PASS means no Critical killers.",
+                "drivers": [{"severity": "PASS", "label": "none"}],
+            },
+            "arbitrage_snapshot": {"stamp_grade": "PASS"},
+            "contingency_band": {"pct_low": 7, "pct_mid": 8, "pct_high": 9},
+        }
+    )
+    blob = json.dumps(red)
+    assert "PASS" not in blob
+    assert "FAIL" not in blob
+    assert red["stamp_grade"] == "CLEAR"
+    assert red["regguard_stamp"]["grade"] == "CLEAR"
+    assert red["contingency_band"]["pct_low"] is None
+    assert red["contingency_band"]["share_frosted"] is True
+
+
 def test_ic_sample_bundle_matches_pricing_contract():
     pytest.importorskip("docx")
     pytest.importorskip("openpyxl")

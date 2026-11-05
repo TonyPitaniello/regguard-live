@@ -393,17 +393,35 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
         for key in ("headline", "label", "plain"):
             if rg.get(key):
                 rg[key] = _scrub_buyer_fail(rg.get(key))
+        if rg.get("disclaimer"):
+            rg["disclaimer"] = (
+                str(rg["disclaimer"])
+                .replace("PASS means", "CLEAR means")
+                .replace("FAIL means", "HOLD means")
+            )
         drivers = rg.get("drivers")
         if isinstance(drivers, list):
             for d in drivers:
-                if isinstance(d, dict) and str(d.get("severity") or "").upper() == "FAIL":
+                if not isinstance(d, dict):
+                    continue
+                sev = str(d.get("severity") or "").upper()
+                if sev == "FAIL":
                     d["severity"] = "HOLD"
+                elif sev == "PASS":
+                    d["severity"] = "CLEAR"
 
     public_grade = str(out.get("stamp_grade") or "").upper()
     if public_grade == "FAIL":
         out["stamp_grade"] = "HOLD"
     elif public_grade == "PASS":
         out["stamp_grade"] = "CLEAR"
+    snap = out.get("arbitrage_snapshot")
+    if isinstance(snap, dict):
+        snap_grade = str(snap.get("stamp_grade") or "").upper()
+        if snap_grade == "FAIL":
+            snap["stamp_grade"] = "HOLD"
+        elif snap_grade == "PASS":
+            snap["stamp_grade"] = "CLEAR"
     if out.get("stamp_label"):
         out["stamp_label"] = _scrub_buyer_fail(out.get("stamp_label"))
 
