@@ -239,11 +239,14 @@ def render_share_html(
 
 
 def share_html_for_id(research_id: str, *, ref: str = "") -> Optional[str]:
-    from research_store import get_analysis
+    from research_store import get_analysis, redact_for_public_share
 
     analysis = get_analysis(research_id)
     if not analysis:
         return None
+    # Forwarded OG/HTML must use the same soft-lock as /r/{id}. A free link
+    # does not become an Estimator receipt because someone opened it.
+    analysis = redact_for_public_share(analysis)
     return render_share_html(
         analysis,
         research_id=research_id,

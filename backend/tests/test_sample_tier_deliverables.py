@@ -125,6 +125,17 @@ def test_chapin_artifacts_match_the_ladder():
     assert "946" not in board
     assert "ic_consultant" not in counsel
 
+    from share_html import share_html_for_id
+
+    free_share = share_html_for_id("rg-sample-chapin-free") or ""
+    est_share = share_html_for_id("rg-sample-chapin-partner") or ""
+    assert "Hidden on Free" in free_share
+    assert "+21" not in free_share
+    assert "1,406" not in free_share
+    assert "FAIL" not in free_share
+    assert "+21" in est_share
+    assert "1,406" not in est_share
+
     sms = TwilioSMSService("test", "test", "+15555550100")
     for tier, rid in (
         ("free", "rg-sample-chapin-free"),
