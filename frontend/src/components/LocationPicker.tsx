@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useLayoutEffect, useRef, type CSSProperties, type ChangeEvent } from 'react';
-import { MapPin, Navigation, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { MapPin, Navigation, AlertCircle, CheckCircle2, RefreshCw, Mic } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -1057,7 +1057,7 @@ export function LocationPicker({
       `}</style>
 
       {placesOn && (
-        <div className="space-y-2">
+        <div className="hidden sm:block space-y-2">
           <label
             id="job-site-address-label"
             className="block text-sm font-bold text-emerald-300"
@@ -1084,14 +1084,25 @@ export function LocationPicker({
             <MapPin className="w-4 h-4 text-emerald-400" />
             Site address
           </p>
-          <button
-            type="button"
-            onClick={handleAutoDetect}
-            disabled={disabled || loading || collapseMap}
-            className="sm:hidden shrink-0 min-h-[48px] px-3 rounded-lg bg-cyan-700 text-white text-sm font-bold disabled:opacity-50"
-          >
-            {loading ? 'Locating…' : 'Use GPS'}
-          </button>
+          <div className="sm:hidden flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('rg-voice-toggle'))}
+              disabled={disabled}
+              className="min-h-[48px] min-w-[48px] px-3 rounded-lg bg-emerald-700 text-white text-sm font-bold disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
+            >
+              <Mic className="w-4 h-4" aria-hidden />
+              Speak
+            </button>
+            <button
+              type="button"
+              onClick={handleAutoDetect}
+              disabled={disabled || loading || collapseMap}
+              className="min-h-[48px] px-3 rounded-lg bg-cyan-700 text-white text-sm font-bold disabled:opacity-50"
+            >
+              {loading ? 'Locating…' : 'Use GPS'}
+            </button>
+          </div>
           {locationConfirmed && pinReady ? (
             <p className="flex items-center gap-1.5 text-xs text-emerald-300 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -1241,7 +1252,7 @@ export function LocationPicker({
           type="button"
           onClick={handleConfirmLocation}
           disabled={disabled || loading || locationConfirmed}
-          className="w-full px-4 py-3 min-h-[48px] border border-emerald-400/50 bg-slate-900/40 text-emerald-50 font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`${(address || '').trim() ? '' : 'max-sm:hidden'} w-full px-4 py-3 min-h-[48px] border border-emerald-400/50 bg-slate-900/40 text-emerald-50 font-bold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           {loading
             ? 'Placing pin…'

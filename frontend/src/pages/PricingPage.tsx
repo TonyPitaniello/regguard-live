@@ -102,7 +102,7 @@ export default function PricingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition"
+            className="flex items-center gap-2 min-h-[48px] min-w-[48px] -ml-2 px-2 text-purple-400 hover:text-purple-300 transition"
           >
             <ArrowLeft className="w-4 h-4" />
             Back

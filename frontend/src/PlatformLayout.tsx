@@ -117,7 +117,7 @@ export function PlatformLayout({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [launchMode, setLaunchMode] = useState(() => getLaunchAppMode());
-  // Keep Get app visible in Safari tabs; only hide for real home-screen standalone.
+  // Keep Download visible in Safari tabs; only hide for a real home-screen app.
   const showGetApp = !isStandaloneApp() && launchMode !== 'standalone';
 
   // Hide desktop sidebar on public marketing home for unauthenticated users —
@@ -200,7 +200,7 @@ export function PlatformLayout({
             disabled={installing}
             aria-busy={installing}
           >
-            {installing ? 'Opening…' : 'Get app'}
+            {installing ? 'Opening…' : 'Download'}
           </button>
         )}
       </div>
@@ -277,7 +277,7 @@ export function PlatformLayout({
               >
                 <Download size={18} />
                 {(sidebarOpen || mobileMenuOpen) && (
-                  <span className="nav-label">{installing ? 'Opening…' : 'Get app'}</span>
+                  <span className="nav-label">{installing ? 'Opening…' : 'Download'}</span>
                 )}
               </button>
             </div>

@@ -283,25 +283,42 @@
 }
 
 @media (max-width: 639px) {
+  /* rg-phone-mic-dock: no floating hit target over Street, email, or the preview button */
   .voice-command-system {
-    bottom: max(108px, calc(96px + env(safe-area-inset-bottom)));
-    right: max(12px, env(safe-area-inset-right));
+    top: 0;
+    right: 0;
+    bottom: auto;
+    width: 0;
+    height: 0;
+    overflow: visible;
+    pointer-events: none;
   }
 
   .voice-fill-button {
-    min-width: 48px;
-    min-height: 48px;
-    padding: 12px;
-    border-radius: 999px;
-  }
-
-  .voice-fill-button .voice-status {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    border: 0;
+    pointer-events: none;
   }
 
   .voice-fill-panel {
-    width: calc(100vw - 24px);
+    pointer-events: auto;
+    top: calc(72px + env(safe-area-inset-top));
+    bottom: auto;
+    left: 12px;
     right: 12px;
-    bottom: calc(96px + env(safe-area-inset-bottom));
+    width: auto;
+  }
+
+  .voice-close {
+    min-height: 48px;
   }
 }

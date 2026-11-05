@@ -354,7 +354,7 @@ export default function SharedReportPage() {
         )}
 
         {(analysis.preview || hideRisk || unverified) && (
-          <div className="hidden sm:block rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
             <strong className="text-amber-50">Preview.</strong> Flood and wetlands stay Unverified until
             a mapper source is attached. This is not a 0–100 score. No permit total when the city uses
             a valuation or floor-area table.
@@ -384,10 +384,10 @@ export default function SharedReportPage() {
           {band?.share_frosted || (freeShare && (band?.pct_low == null || band?.pct_high == null)) ? (
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
               <p className="text-xs font-semibold uppercase text-amber-200">Contingency band</p>
-              <p className="text-base font-black text-amber-100 leading-snug">
+              <p className="text-lg font-black text-white leading-snug">
                 Hidden on Free — Estimator ($79/mo) shows the percent
               </p>
-              <p className="text-xs text-amber-100/90 mt-1">
+              <p className="text-sm text-amber-50 mt-1 leading-snug">
                 Estimator unlocks the clear % for the bid file. Forwarding this preview does not unlock it.
               </p>
             </div>

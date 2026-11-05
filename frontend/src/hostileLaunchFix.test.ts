@@ -39,6 +39,24 @@ function read(rel: string) {
   const loc = read('components/LocationPicker.tsx');
   assert(loc.includes('onPointerDown={markSiteFieldFocused}'), 'site card unlocks on pointer');
   assert(loc.includes('Search an address'), 'mobile-friendly address hint');
+  assert(loc.includes('rg-voice-toggle'), 'phone mic is an inline Speak control');
+  assert(loc.includes('max-sm:hidden'), 'Find on map stays off the empty phone screen');
+}
+
+{
+  const voiceCss = read('voice-command.css');
+  assert(voiceCss.includes('rg-phone-mic-dock'), 'phone mic is not a floating hit target');
+  const layout = read('PlatformLayout.tsx');
+  assert(layout.includes("installing ? 'Opening…' : 'Download'"), 'install control says Download');
+  assert(!layout.includes('Get app'), 'install control does not say Get app');
+  const form = read('components/FreeTrialForm.tsx');
+  assert(form.includes('id="rg-preview-cta"'), 'preview button can scroll above the keyboard');
+  assert(form.includes('order-3 sm:order-4'), 'preview button sits above project type on a phone');
+  const share = read('pages/SharedReportPage.tsx');
+  assert(
+    share.includes('text-lg font-black text-white leading-snug'),
+    'free contingency sentence is readable on a phone',
+  );
 }
 
 {
@@ -50,7 +68,7 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261105-copy-v49'), 'BUILD bumped for buyer copy');
+  assert(main.includes('launch-20261105-phone-v50'), 'BUILD bumped for phone layout');
 }
 
 {

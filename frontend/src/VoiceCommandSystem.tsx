@@ -219,6 +219,14 @@ export function VoiceCommandSystem() {
     }
   }
 
+  const toggleRef = useRef(toggleListening);
+  toggleRef.current = toggleListening;
+  useEffect(() => {
+    const onToggle = () => toggleRef.current();
+    window.addEventListener('rg-voice-toggle', onToggle);
+    return () => window.removeEventListener('rg-voice-toggle', onToggle);
+  }, []);
+
   function handleRunResearch() {
     if (parsed) {
       dispatchVoiceFill(parsed);

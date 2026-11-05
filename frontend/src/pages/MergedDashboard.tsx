@@ -52,7 +52,7 @@ export function PlatformDashboard() {
               onClick={handleGetApp}
               className="text-emerald-300 hover:text-white transition text-sm font-bold min-h-[44px] px-2"
             >
-              Get app
+              Download
             </button>
             <button
               type="button"
@@ -87,7 +87,7 @@ export function PlatformDashboard() {
       </header>
 
       <div className="flex flex-col">
-      <section className="order-1 px-4 pt-5 pb-2 sm:px-6 lg:px-8 sm:pt-14 sm:pb-4">
+      <section className="order-1 px-4 pt-3 pb-1 sm:px-6 lg:px-8 sm:pt-14 sm:pb-4">
         <div className="max-w-2xl mx-auto text-center">
           <p className="hidden sm:block text-5xl sm:text-6xl md:text-7xl font-black text-white mb-4 tracking-tight">
             {BRAND_LOCKUP}

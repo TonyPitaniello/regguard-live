@@ -1427,12 +1427,12 @@ export default function FreeTrialForm({
 
       {/* Keep form mounted while results are open so address + pin state survive Confirm / re-run */}
       <div
-        className={`bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-4 sm:p-6 md:p-10 ${
+        className={`flex flex-col gap-3 sm:gap-5 bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-purple-500/30 rounded-2xl p-4 sm:p-6 md:p-10 ${
           resultsOpen && analysis ? 'hidden' : ''
         }`}
         aria-hidden={Boolean(resultsOpen && analysis)}
       >
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate autoComplete="off">
+        <form onSubmit={handleSubmit} className="order-1 space-y-5" noValidate autoComplete="off">
           <h2 className="hidden sm:block text-xl sm:text-2xl font-black text-white leading-tight">
             {PRODUCT_COPY.formHeading}
           </h2>
@@ -1456,40 +1456,13 @@ export default function FreeTrialForm({
             resetKey={locationResetKey}
           />
 
-          <div>
-            <label htmlFor="projectType" className="block text-white font-bold mb-2">
-              Project type *
-            </label>
-            <select
-              id="projectType"
-              name="projectType"
-              value={formData.projectType}
-              onChange={handleInputChange}
-              className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500 text-base"
-              disabled={loading || lockProjectType}
-              autoComplete="off"
-            >
-              <option value="data-center">Data Center</option>
-              <option value="renewable">Solar / Wind / Battery</option>
-              <option value="commercial">Commercial Building</option>
-              <option value="industrial">Industrial / Manufacturing</option>
-              <option value="utility">Utility / Substation</option>
-              <option value="other">Other</option>
-            </select>
-            {lockProjectType && formData.projectType === 'data-center' && (
-              <p className="text-xs text-indigo-300 mt-1">
-                Locked to Data Center for parallel-track Bid Risk Receipt (AHJ + utility).
-              </p>
-            )}
-          </div>
-
           {/*
             Contact fields live OUTSIDE the site-address form association so Chrome/Safari
             contact autofill (email/phone → home address) cannot rewrite the jobsite or pin.
           */}
         </form>
 
-        <div className="mt-3 sm:mt-5 space-y-3 sm:space-y-5" data-rg-contact-fields autoComplete="off">
+        <div className="order-2 sm:order-3 space-y-3 sm:space-y-5" data-rg-contact-fields autoComplete="off">
           {!contactFieldsReady ? (
             <div className="h-[7.5rem] rounded-lg border border-slate-700/60 bg-slate-800/40" aria-hidden />
           ) : (
@@ -1510,7 +1483,15 @@ export default function FreeTrialForm({
                 contactAutofillPurgeUntilRef.current = 0;
                 setFormData((prev) => ({ ...prev, email: e.target.value }));
               }}
-              onFocus={unlockFields}
+              onFocus={() => {
+                unlockFields();
+                window.setTimeout(() => {
+                  document.getElementById('rg-preview-cta')?.scrollIntoView({
+                    block: 'end',
+                    behavior: 'smooth',
+                  });
+                }, 320);
+              }}
               onPointerDown={unlockFields}
               onTouchStart={unlockFields}
               onKeyDown={(e) => {
@@ -1539,9 +1520,36 @@ export default function FreeTrialForm({
           )}
         </div>
 
+        <div className="order-4 sm:order-2">
+          <label htmlFor="projectType" className="block text-white font-bold mb-2">
+            Project type *
+          </label>
+          <select
+            id="projectType"
+            name="projectType"
+            value={formData.projectType}
+            onChange={handleInputChange}
+            className="w-full px-4 py-3.5 min-h-[48px] bg-slate-700 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500 text-base"
+            disabled={loading || lockProjectType}
+            autoComplete="off"
+          >
+            <option value="data-center">Data Center</option>
+            <option value="renewable">Solar / Wind / Battery</option>
+            <option value="commercial">Commercial Building</option>
+            <option value="industrial">Industrial / Manufacturing</option>
+            <option value="utility">Utility / Substation</option>
+            <option value="other">Other</option>
+          </select>
+          {lockProjectType && formData.projectType === 'data-center' && (
+            <p className="text-xs text-indigo-300 mt-1">
+              Locked to Data Center for parallel-track Bid Risk Receipt (AHJ + utility).
+            </p>
+          )}
+        </div>
+
         <form
           onSubmit={handleSubmit}
-          className="mt-3 sm:mt-5 space-y-3 sm:space-y-5"
+          className="order-3 sm:order-4 space-y-3 sm:space-y-5"
           noValidate
           autoComplete="off"
         >
@@ -1606,10 +1614,11 @@ export default function FreeTrialForm({
           )}
 
           <button
+            id="rg-preview-cta"
             type="submit"
             disabled={loading}
             aria-busy={loading}
-            className="w-full px-4 sm:px-6 py-3 sm:py-4 min-h-[48px] sm:min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-base sm:text-lg leading-tight rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="scroll-mb-6 w-full px-4 sm:px-6 py-3 sm:py-4 min-h-[48px] sm:min-h-[56px] bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-base sm:text-lg leading-tight rounded-xl transition shadow-lg shadow-green-500/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading
               ? proResearchEntitled
