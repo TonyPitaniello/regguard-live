@@ -77,6 +77,8 @@ def _docx_text(raw: bytes) -> str:
 
 def test_chapin_artifacts_match_the_ladder():
     """Free hides the percent and fee dollars. Pro holds the desk. IC holds the counsel ZIP."""
+    import json
+
     from email_service import build_research_result_html
     from report_email import build_forwardable_plaintext
     from research_store import redact_for_public_share
@@ -154,6 +156,7 @@ def test_chapin_artifacts_match_the_ladder():
         mailed = build_research_result_html(red)
         text_msg = sms._format_sms_message(red)
         assert "FAIL" not in share
+        assert "FAIL" not in json.dumps(red)
         assert "ic_consultant" not in share
         assert "Partner" not in share
         assert "125,000" not in text_msg

@@ -383,8 +383,10 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
     if isinstance(rg, dict):
         grade = str(rg.get("grade") or "").upper()
         if grade == "FAIL":
+            rg["grade"] = "HOLD"
             rg["display_grade"] = "HOLD"
         elif grade == "PASS":
+            rg["grade"] = "CLEAR"
             rg["display_grade"] = "CLEAR"
         elif grade:
             rg["display_grade"] = grade
