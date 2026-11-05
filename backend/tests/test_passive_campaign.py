@@ -109,14 +109,21 @@ def test_drip_copy_has_ctas():
     assert "/email/opt-out" in html
     assert "Partner" not in html
     _, html5 = drip_email("free_run_d5", {"email": "a@b.com", "research_id": "rid1"})
-    assert "checkout/partner" in html5
+    assert "checkout/" not in html5
+    assert "Start Estimator" not in html5
+    assert "a card is not charged" in html5
+    assert "/r/rid1" in html5
     assert "Estimator" in html5
-    assert "Partner —" not in html5
-    assert html5.count("checkout/") == 1
+    assert "Partner" not in html5
     _, htmlq = drip_email("quota_paywall", {"email": "a@b.com"})
     assert "79" in htmlq
+    assert "149" in htmlq
+    assert "1,500" in htmlq
     assert "Estimator" in htmlq
-    assert htmlq.count("checkout/") == 1
+    assert "checkout/" not in htmlq
+    assert "Start Estimator" not in htmlq
+    assert "a card is not charged" in htmlq
+    assert "Free Lookups" in htmlq
 
 
 def test_nurture_drip_schedule_and_cancel(tmp_path, monkeypatch):

@@ -402,8 +402,14 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
             "utm_campaign": kind,
         },
     )
-    partner = checkout_url(PRIMARY_SKU, email=email, research_id=rid, ref=ref, campaign=kind)
     place = f"{address}{(' · ' + city) if city else ''}"
+    # Checkout is still a test session, so the paid drip button returns to the receipt.
+    no_charge = share or f"{app_base_url()}/"
+    no_charge_label = (
+        "Open the receipt — a card is not charged"
+        if share
+        else "Free Lookups — a card is not charged"
+    )
     esc = html_lib.escape
 
     def wrap(title: str, body: str) -> str:
@@ -451,10 +457,11 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
     <p style="color:#555;font-size:14px;line-height:1.5;">
       <strong>{esc(place)}</strong> is still in your account. Estimator / Permit Runner ($79/mo)
       is the receipt you can forward with the clear percent, the rest of the punch list, and Saved Jobs.
+      A card is not charged.
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        Start Estimator — $79/mo
+      <a href="{esc(no_charge)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        {esc(no_charge_label)}
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
@@ -467,12 +474,13 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         subject = "Free lookups used — Estimator keeps the receipt habit"
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      This email used this month’s free scans. The next lookup needs Estimator / Permit Runner
-      ($79/mo). We did not charge you for the blocked run.
+      This email used this month’s free scans. Estimator / Permit Runner is $79/mo,
+      Contractor Pro is $149/mo, and the IC Diligence Bundle is $1,500/site.
+      A card is not charged. We did not charge you for the blocked run.
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(partner)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        Start Estimator — $79/mo
+      <a href="{esc(no_charge)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        {esc(no_charge_label)}
       </a>
     </p>
 """
