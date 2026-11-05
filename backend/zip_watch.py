@@ -250,7 +250,7 @@ def run_zip_watch(*, dry_run: bool = False) -> Dict[str, Any]:
             except Exception:
                 stamp_notice = (
                     f"RegGuard stamp for ZIP {z} is outdated — re-run for a fresh "
-                    "PASS/CAUTION/FAIL before bid."
+                    "HOLD, CAUTION, or CLEAR before bid."
                 )
             change = {
                 "zip": z,

@@ -248,6 +248,7 @@ export interface AnalysisData {
     pct_mid?: number;
     pct_high?: number;
     usd_mid?: number | null;
+    usd_source_url?: string;
     disclaimer?: string;
     drivers?: { critical_items?: number; high_items?: number; unverified_items?: number };
   };
@@ -319,6 +320,7 @@ export interface AnalysisData {
       usd_high?: number;
       basis?: string;
       verified?: boolean;
+      source_url?: string;
       disclaimer?: string;
     };
   }>;
@@ -3383,16 +3385,16 @@ export default function ResultsViewerModal({
                         {k.detail}
                       </p>
                     )}
-                    {k.planning_exposure?.usd_mid != null && (softLocked || blurProDesk) ? (
-                      <p className="text-gray-400 text-xs mt-1">
-                        Dollar exposure stays on Contractor Pro.
-                      </p>
-                    ) : k.planning_exposure?.usd_mid != null ? (
+                    {k.planning_exposure?.basis === 'schedule_line' &&
+                    k.planning_exposure?.verified === true &&
+                    k.planning_exposure?.usd_mid != null &&
+                    /^https?:\/\//i.test(k.source_url || k.planning_exposure.source_url || '') &&
+                    !softLocked &&
+                    !blurProDesk ? (
                       <p className="text-emerald-300/90 text-xs mt-1">
-                        Planning exposure ~$
-                        {Number(k.planning_exposure.usd_low || 0).toLocaleString()}–$
-                        {Number(k.planning_exposure.usd_high || 0).toLocaleString()} — not
-                        guaranteed savings
+                        Schedule line $
+                        {Number(k.planning_exposure.usd_mid).toLocaleString()} — confirm it still
+                        matches this job
                       </p>
                     ) : null}
                     {href ? (
@@ -3858,14 +3860,13 @@ export default function ResultsViewerModal({
                         </span>
                       )}
                     </p>
-                    {typeof view.contingency_band.usd_mid === 'number' && !softLocked && !blurProDesk && (
+                    {typeof view.contingency_band.usd_mid === 'number' &&
+                      !softLocked &&
+                      !blurProDesk &&
+                      /^https?:\/\//i.test(view.contingency_band.usd_source_url || '') && (
                       <p className="text-sm text-gray-300 mt-1">
-                        ~${view.contingency_band.usd_mid.toLocaleString()} mid band on current rollup
-                      </p>
-                    )}
-                    {typeof view.contingency_band.usd_mid === 'number' && blurProDesk && !softLocked && (
-                      <p className="text-sm text-amber-100/80 mt-1">
-                        Dollar mid-band unlocks on Contractor Pro.
+                        Schedule band $
+                        {view.contingency_band.usd_mid.toLocaleString()} — confirm the official table
                       </p>
                     )}
                     <p className="text-gray-500 text-xs mt-2">{view.contingency_band.disclaimer}</p>

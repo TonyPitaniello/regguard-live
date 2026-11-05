@@ -238,7 +238,12 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 "",
                 "",
-                band.get("usd_mid") if isinstance(band.get("usd_mid"), (int, float)) else "",
+                (
+                    band.get("usd_mid")
+                    if isinstance(band.get("usd_mid"), (int, float))
+                    and str(band.get("usd_source_url") or "").startswith("http")
+                    else ""
+                ),
                 f"{band.get('pct_low')}%-{band.get('pct_high')}% (mid {band.get('pct_mid')}%)",
                 "",
                 share,

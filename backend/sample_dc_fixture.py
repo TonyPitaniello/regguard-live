@@ -165,7 +165,6 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
                 "source_url": FW_PORTAL,
                 "verified": True,
                 "citation_tier": "verified",
-                "planning_exposure": {"usd_low": 946, "usd_mid": 2800, "usd_high": 4732},
             },
             {
                 "priority": "CRITICAL",
@@ -177,7 +176,6 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
                 "source_url": FW_FEES,
                 "verified": True,
                 "citation_tier": "verified",
-                "planning_exposure": {"usd_low": 473, "usd_mid": 1500, "usd_high": 2524},
             },
             {
                 "priority": "HIGH",
@@ -186,7 +184,6 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
                 "source_url": FW_APPLY,
                 "verified": True,
                 "citation_tier": "link",
-                "planning_exposure": {"usd_low": 473, "usd_mid": 1200, "usd_high": 2524},
             },
         ],
         "fee_card": {

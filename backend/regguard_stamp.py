@@ -469,5 +469,5 @@ def zip_watch_stamp_notice(change: Dict[str, Any]) -> str:
     z = change.get("zip") or ""
     return (
         f"RegGuard stamp for ZIP {z} is outdated — local diligence fingerprint changed. "
-        f"Re-run the site for a fresh PASS/CAUTION/FAIL before bid or LOI."
+        f"Re-run the site for a fresh HOLD, CAUTION, or CLEAR before bid or LOI."
     )

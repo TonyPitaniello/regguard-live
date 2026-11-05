@@ -10,6 +10,7 @@ Contract:
 
 from __future__ import annotations
 
+import re
 from copy import deepcopy
 from typing import Any, Dict, Optional
 
@@ -26,6 +27,61 @@ COST_LABEL = (
 )
 TIMELINE_LABEL = "Timeline is Unverified — confirm with the AHJ. This is not a filing date."
 NO_PERMIT_TOTAL = COST_LABEL
+
+
+_LOCKED_FEE_DOLLAR = re.compile(
+    r"\s*\([^)]{0,80}\$\s?\d[\d,]*(?:\.\d+)?[^)]*\)|\$\s?\d[\d,]*(?:\.\d+)?"
+)
+
+
+def hide_locked_fee_dollars(text: str) -> str:
+    """Drop fee amounts from a line that Free or Estimator is allowed to forward."""
+    cleaned = _LOCKED_FEE_DOLLAR.sub("", text or "")
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r"\s+([,.;:])", r"\1", cleaned)
+    return cleaned.strip()
+
+
+def fee_dollars_unlocked(analysis: Optional[Dict[str, Any]]) -> bool:
+    """Contractor Pro and the IC ZIP may print a schedule line. Free and Estimator may not."""
+    if not isinstance(analysis, dict):
+        return False
+    depth = str(analysis.get("research_depth") or "").strip().lower()
+    tier = str(analysis.get("depth_tier") or analysis.get("access_tier") or "").strip().lower()
+    if analysis.get("ic_package") is True:
+        return True
+    if depth in ("ic", "ic_full") or tier in ("ic", "ic_full", "ic_project"):
+        return True
+    if depth.startswith("pro") or tier.startswith("pro") or tier == "contractor_pro":
+        return True
+    return False
+
+
+def sourced_schedule_amounts(
+    exposure: Any,
+    *,
+    source_url: str = "",
+) -> Optional[tuple]:
+    """A low/high pair only when this exposure is a cited schedule line."""
+    if not isinstance(exposure, dict):
+        return None
+    if exposure.get("verified") is not True or exposure.get("basis") != "schedule_line":
+        return None
+    url = str(exposure.get("source_url") or source_url or "")
+    if not url.startswith("http"):
+        return None
+    try:
+        mid = float(exposure.get("usd_mid"))
+    except (TypeError, ValueError):
+        return None
+    if mid <= 0:
+        return None
+    try:
+        low = int(float(exposure.get("usd_low") if exposure.get("usd_low") is not None else mid))
+        high = int(float(exposure.get("usd_high") if exposure.get("usd_high") is not None else mid))
+    except (TypeError, ValueError):
+        return None
+    return low, high
 
 
 def permit_total_line(summary: Optional[Dict[str, Any]], honesty: Optional[Dict[str, Any]] = None) -> str:

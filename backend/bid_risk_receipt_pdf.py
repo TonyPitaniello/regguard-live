@@ -687,12 +687,15 @@ def generate_bid_risk_receipt_pdf(
                 cite_url = None
 
             box_h = 14 + (3.2 if detail else 0) + (3.0 if cite_url else 0)
-            pe_url = str((pe or {}).get("source_url") or (pe or {}).get("citation_url") or "") if isinstance(pe, dict) else ""
+            from honesty import fee_dollars_unlocked, sourced_schedule_amounts
+
+            schedule_amounts = sourced_schedule_amounts(
+                pe, source_url=str(k.get("source_url") or "")
+            )
             show_exposure = (
                 not free_preview
-                and isinstance(pe, dict)
-                and pe.get("usd_mid") is not None
-                and pe_url.startswith("http")
+                and fee_dollars_unlocked(data)
+                and schedule_amounts is not None
             )
             if show_exposure:
                 box_h += 3.2
@@ -760,17 +763,20 @@ def generate_bid_risk_receipt_pdf(
                     width=CONTENT_W - 12,
                     line_h=2.8,
                 )
-            if show_exposure:
+            if show_exposure and schedule_amounts:
+                low_amt, high_amt = schedule_amounts
+                amount_line = (
+                    f"Schedule line ${low_amt:,}"
+                    if low_amt == high_amt
+                    else f"Schedule line ${low_amt:,}-${high_amt:,}"
+                )
                 pdf.set_x(bx)
                 pdf.set_font("Helvetica", "B", 7)
                 pdf.set_text_color(*EMERALD_SOFT)
                 pdf.multi_cell(
                     CONTENT_W - 12,
                     3.0,
-                    _ascii(
-                        f"Planning exposure - ${int(pe.get('usd_low') or 0):,}"
-                        f"-${int(pe.get('usd_high') or 0):,} - not guaranteed savings"
-                    ),
+                    _ascii(f"{amount_line} - confirm it still matches this job"),
                 )
             pdf.set_y(y + box_h + 1.5)
 
@@ -786,7 +792,12 @@ def generate_bid_risk_receipt_pdf(
                     continue
                 if not _ensure_space(pdf, 8):
                     break
-                task = _soft_cut(str(item.get("task") or "Punch line"), 62)
+                from honesty import fee_dollars_unlocked, hide_locked_fee_dollars
+
+                task_raw = str(item.get("task") or "Punch line")
+                if not fee_dollars_unlocked(data):
+                    task_raw = hide_locked_fee_dollars(task_raw) or "Punch line"
+                task = _soft_cut(task_raw, 62)
                 owner = _soft_cut(str(item.get("owner") or item.get("responsible_party") or "Owner"), 32)
                 due = _soft_cut(str(item.get("due_window") or item.get("timeline") or "Pre-bid"), 12)
                 src, punch_url = citation_badge_and_url(item)

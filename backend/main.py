@@ -6414,7 +6414,7 @@ async def cron_zip_watch(
                 app = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com").rstrip("/")
                 notice = change.get("stamp_notice") or (
                     f"RegGuard: local diligence changed for ZIP {z}. "
-                    f"Your stamp is outdated — re-run for PASS/CAUTION/FAIL: {app}/jobs"
+                    f"Your stamp is outdated — re-run for HOLD, CAUTION, or CLEAR: {app}/jobs"
                 )
                 msg = notice if len(str(notice)) < 280 else (
                     f"RegGuard: stamp outdated for ZIP {z}. Re-run: {app}/jobs"

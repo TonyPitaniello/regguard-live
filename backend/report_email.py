@@ -103,8 +103,32 @@ def _sources_block(research_data: dict) -> str:
     return f'<ul style="margin:0;padding-left:18px;">{"".join(items)}</ul>'
 
 
+def _lock_fee_dollars(research_data: dict) -> dict:
+    from honesty import fee_dollars_unlocked, hide_locked_fee_dollars
+
+    if fee_dollars_unlocked(research_data):
+        return research_data
+    out = dict(research_data)
+    punch = out.get("punch_list")
+    if isinstance(punch, dict) and isinstance(punch.get("punch_list"), list):
+        items = []
+        for item in punch["punch_list"]:
+            if not isinstance(item, dict):
+                items.append(item)
+                continue
+            row = dict(item)
+            row["task"] = hide_locked_fee_dollars(str(row.get("task") or ""))
+            if row.get("detail"):
+                row["detail"] = hide_locked_fee_dollars(str(row.get("detail") or ""))
+            row.pop("estimated_cost", None)
+            items.append(row)
+        out["punch_list"] = {**punch, "punch_list": items}
+    return out
+
+
 def build_forwardable_result_html(research_data: dict) -> str:
     """Full forwardable HTML: location, honesty, punch list, sources, share CTA."""
+    research_data = _lock_fee_dollars(research_data)
     project = research_data.get("project_info") or {}
     summary = research_data.get("summary") or {}
     honesty = research_data.get("honesty") or {}
@@ -193,6 +217,7 @@ def build_forwardable_result_html(research_data: dict) -> str:
 
 
 def build_forwardable_plaintext(research_data: dict) -> str:
+    research_data = _lock_fee_dollars(research_data)
     project = research_data.get("project_info") or {}
     summary = research_data.get("summary") or {}
     research_id = str(research_data.get("research_id") or "")
@@ -212,10 +237,16 @@ def build_forwardable_plaintext(research_data: dict) -> str:
     for i, item in enumerate(punch[:25], 1):
         if isinstance(item, dict):
             url = str(item.get("source_url") or item.get("citation_url") or "")
+            from honesty import fee_dollars_unlocked
+
             cost = item.get("estimated_cost")
             cost_bit = (
                 f" | ${float(cost):,.0f}"
-                if item.get("verified") and url.startswith("http") and isinstance(cost, (int, float)) and float(cost) > 0
+                if fee_dollars_unlocked(research_data)
+                and item.get("verified")
+                and url.startswith("http")
+                and isinstance(cost, (int, float))
+                and float(cost) > 0
                 else ""
             )
             lines.append(f"{i}. [{item.get('priority', '')}] {item.get('task', '')}{cost_bit}")

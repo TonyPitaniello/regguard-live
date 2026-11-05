@@ -342,11 +342,14 @@ def generate_bid_packet_pdf(
         mid_line = f"mid {mid_s}%  -  planning aid - not a quote"
         pdf.cell(CONTENT_W - 8, 5, _ascii(mid_line), ln=1)
         usd_bits = []
-        if isinstance(band.get("usd_low"), (int, float)) and isinstance(
-            band.get("usd_high"), (int, float)
+        usd_url = str(band.get("usd_source_url") or "")
+        if (
+            usd_url.startswith("http")
+            and isinstance(band.get("usd_low"), (int, float))
+            and isinstance(band.get("usd_high"), (int, float))
         ):
             usd_bits.append(
-                f"~${int(band['usd_low']):,} - ${int(band['usd_high']):,} on current rollup"
+                f"Schedule band ${int(band['usd_low']):,} - ${int(band['usd_high']):,} ({usd_url[:80]})"
             )
         if band.get("disclaimer"):
             usd_bits.append(str(band.get("disclaimer"))[:120])
@@ -379,8 +382,13 @@ def generate_bid_packet_pdf(
         detail = _ascii(strip_md_bold(str(k.get("detail") or "")))[:140]
 
         box_h = 18 + (4 if detail else 0) + (3.5 if cite_url else 0)
+        from honesty import sourced_schedule_amounts
+
         pe = k.get("planning_exposure") or {}
-        if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+        schedule_amounts = sourced_schedule_amounts(
+            pe, source_url=str(k.get("source_url") or "")
+        )
+        if schedule_amounts:
             box_h += 4
         bx, by = _card_box(pdf, box_h)
 
@@ -425,17 +433,20 @@ def generate_bid_packet_pdf(
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD)
             pdf.multi_cell(CONTENT_W - 12, 3.2, _ascii(cite_url[:110]))
-        if isinstance(pe, dict) and pe.get("usd_mid") is not None:
+        if schedule_amounts:
+            low_amt, high_amt = schedule_amounts
+            amount_line = (
+                f"Schedule line ${low_amt:,}"
+                if low_amt == high_amt
+                else f"Schedule line ${low_amt:,}-${high_amt:,}"
+            )
             pdf.set_x(bx)
             pdf.set_font("Helvetica", "B", 8)
             pdf.set_text_color(*EMERALD_SOFT)
             pdf.multi_cell(
                 CONTENT_W - 12,
                 3.5,
-                _ascii(
-                    f"Planning exposure - ${int(pe.get('usd_low') or 0):,}"
-                    f"-${int(pe.get('usd_high') or 0):,} - not guaranteed savings"
-                ),
+                _ascii(f"{amount_line} - confirm it still matches this job"),
             )
         pdf.set_y(by + box_h + 2)
 

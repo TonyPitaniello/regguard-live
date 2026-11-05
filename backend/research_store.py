@@ -422,6 +422,10 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
                     continue
                 row.pop("amount_usd", None)
                 row["amount_redacted"] = True
+                if tier in ("free", "partner") and row.get("detail"):
+                    from honesty import hide_locked_fee_dollars
+
+                    row["detail"] = hide_locked_fee_dollars(str(row.get("detail") or ""))
                 stripped.append(row)
             # Free share stays thin — labels only, not a fee desk
             fee["fees"] = stripped[:3] if tier == "free" else stripped
@@ -437,6 +441,14 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
             task = str(item.get("task") or "")
             if _share_line_is_debris(task):
                 continue
+            if tier in ("free", "partner"):
+                from honesty import hide_locked_fee_dollars
+
+                item = dict(item)
+                item["task"] = hide_locked_fee_dollars(task)
+                if item.get("detail"):
+                    item["detail"] = hide_locked_fee_dollars(str(item.get("detail") or ""))
+                item.pop("estimated_cost", None)
             kept_items.append(item)
         punch["punch_list"] = kept_items
         if tier == "free":

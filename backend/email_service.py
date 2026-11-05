@@ -36,6 +36,23 @@ def build_research_result_html(research_data: dict) -> str:
 
     project_info = research_data.get("project_info") or {}
     summary = research_data.get("summary") or {}
+    from honesty import fee_dollars_unlocked, hide_locked_fee_dollars
+
+    if not fee_dollars_unlocked(research_data):
+        raw_punch = (research_data.get("punch_list") or {}).get("punch_list") or []
+        locked_punch = []
+        for item in raw_punch:
+            if not isinstance(item, dict):
+                locked_punch.append(item)
+                continue
+            row = dict(item)
+            row["task"] = hide_locked_fee_dollars(str(row.get("task") or ""))
+            row.pop("estimated_cost", None)
+            locked_punch.append(row)
+        punch_block = dict(research_data.get("punch_list") or {})
+        punch_block["punch_list"] = locked_punch
+        research_data = dict(research_data)
+        research_data["punch_list"] = punch_block
     punch = (research_data.get("punch_list") or {}).get("punch_list") or []
     killers = research_data.get("margin_killers") or []
     band = research_data.get("contingency_band") or {}
@@ -839,7 +856,7 @@ RegGuard © 2026
         after = (change or {}).get("after") or {}
         notice = (change or {}).get("stamp_notice") or (
             f"Any RegGuard stamp for ZIP {z} is outdated — re-run for a fresh "
-            "PASS/CAUTION/FAIL before bid or LOI."
+            "HOLD, CAUTION, or CLEAR before bid or LOI."
         )
         html = f"""
         <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
@@ -1148,7 +1165,7 @@ class ResendEmailService(EmailService):
           </p>
           <p style="background:#fef3c7;border:1px solid #f59e0b;padding:10px 12px;border-radius:8px;font-size:13px;color:#92400e">
             {(change or {}).get("stamp_notice")
-              or f"Any RegGuard stamp for ZIP {z} is outdated — re-run for a fresh PASS/CAUTION/FAIL before bid or LOI."}
+              or f"Any RegGuard stamp for ZIP {z} is outdated — re-run for a fresh HOLD, CAUTION, or CLEAR before bid or LOI."}
           </p>
           <p style="color:#333;font-size:13px">
             Source: {after.get('source') or 'pack'} ·

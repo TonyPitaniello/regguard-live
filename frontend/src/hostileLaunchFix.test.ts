@@ -68,7 +68,7 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261105-phone-v50'), 'BUILD bumped for phone layout');
+  assert(main.includes('launch-20261105-deliver-v51'), 'BUILD bumped for deliverable parity');
 }
 
 {
