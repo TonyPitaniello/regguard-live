@@ -50,12 +50,13 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261102-mask-v47'), 'BUILD bumped for mask labels');
+  assert(main.includes('launch-20261102-wr-v48'), 'BUILD bumped for war-room token gate');
 }
 
 {
   const results = read('components/ResultsViewerModal.tsx');
   const share = read('pages/SharedReportPage.tsx');
+  assert(!share.includes('/war-room/token'), 'share page does not mint a write token');
   const bid = read('pages/BidDayPage.tsx');
   for (const [name, src] of [
     ['results', results],

@@ -41,6 +41,8 @@ _PII_KEYS = {
     "owner_email",
     "owner_phone",
     "requester_email",
+    "write_token",
+    "war_room_write_token",
 }
 
 

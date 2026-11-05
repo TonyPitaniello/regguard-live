@@ -2607,6 +2607,16 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     analysis["access_tier"] = "free"
                     analysis["entitlement_tiers"] = []
 
+    war_room_write_token = ""
+    rid_for_token = str(research_id or "").strip()
+    if rid_for_token and rid_for_token not in ("preview", "unknown") and not rid_for_token.startswith("ephemeral-"):
+        try:
+            from war_room_store import ensure_write_token
+
+            war_room_write_token = ensure_write_token(rid_for_token)
+        except Exception as token_err:
+            logger.warning("War room token for this run failed (non-blocking): %s", token_err)
+
     return {
         "trial_id": trial_id,
         "status": status,
@@ -2614,6 +2624,7 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
         "analysis_data": analysis,
         "research_id": research_id,
         "share_url": analysis.get("share_url"),
+        "war_room_write_token": war_room_write_token,
         "job_id": job_id,
         "research_depth": research_depth,
         "paid": habit_paid,
@@ -4822,6 +4833,13 @@ async def persist_research_report(body: PersistResearchRequest) -> Dict[str, Any
                 "existed": True,
             }
     meta = save_research(body.analysis, research_id=body.research_id)
+    # First save only. A later persist of the same id must not hand out the write token.
+    try:
+        from war_room_store import ensure_write_token
+
+        meta = {**meta, "write_token": ensure_write_token(str(meta.get("research_id") or ""))}
+    except Exception as token_err:
+        logger.warning("War room token on persist failed (non-blocking): %s", token_err)
     return {"status": "ok", **meta}
 
 
@@ -5281,23 +5299,26 @@ async def post_war_room_stamp(research_id: str) -> Dict[str, Any]:
     return {"status": "ok", **out}
 
 
+def _war_room_admin(x_admin_secret: Optional[str]) -> bool:
+    expected = (os.getenv("ADMIN_SECRET") or "").strip()
+    return bool(expected and (x_admin_secret or "").strip() == expected)
+
+
 @app.post("/research/{research_id}/war-room/freeze", tags=["Results"])
 async def post_war_room_freeze(
     research_id: str,
     x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
+    x_war_room_token: Optional[str] = Header(default=None, alias="X-War-Room-Token"),
 ) -> Dict[str, Any]:
-    """Freeze stamp for dispute proof; block war-room comments.
-    Available with admin secret OR when the research report exists (owner share path).
-    """
+    """Freeze stamp for dispute proof. The share link can read. It cannot lock."""
     from research_store import get_research
     from stamp_snapshot import stamp_snapshot
-    from war_room_store import attach_stamp_snapshot, freeze_stamp
+    from war_room_store import attach_stamp_snapshot, freeze_stamp, verify_write_token
 
-    expected = (os.getenv("ADMIN_SECRET") or "").strip()
-    admin_ok = bool(expected and (x_admin_secret or "").strip() == expected)
+    admin_ok = _war_room_admin(x_admin_secret)
+    if not admin_ok and not verify_write_token(research_id, x_war_room_token):
+        raise HTTPException(status_code=401, detail="War room write token required")
     record = get_research(research_id)
-    if not admin_ok and not record:
-        raise HTTPException(status_code=404, detail="Report not found")
     if not record:
         raise HTTPException(status_code=404, detail="Report not found")
     snap = stamp_snapshot(record.get("analysis") or {})
@@ -5327,18 +5348,16 @@ async def mint_war_room_token(
     x_admin_secret: Optional[str] = Header(default=None, alias="X-Admin-Secret"),
 ) -> Dict[str, Any]:
     """
-    Mint/return write token for share links (?wr=TOKEN).
-    Allowed with admin secret, or when research report exists (owner share path).
+    Operator recovery of the write token. A public research id is not enough.
+    The browser that ran the lookup gets the token on that response only.
     """
     from research_store import get_research
     from war_room_store import ensure_write_token, writes_enabled
 
-    admin_ok = False
-    expected = (os.getenv("ADMIN_SECRET") or "").strip()
-    if expected and (x_admin_secret or "").strip() == expected:
-        admin_ok = True
+    if not _war_room_admin(x_admin_secret):
+        raise HTTPException(status_code=404, detail="Not found")
     record = get_research(research_id)
-    if not admin_ok and not record:
+    if not record:
         raise HTTPException(status_code=404, detail="Report not found")
     if not writes_enabled():
         raise HTTPException(

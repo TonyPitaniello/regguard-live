@@ -116,6 +116,55 @@ def test_garbage_checkout_session_does_not_call_stripe(monkeypatch):
     assert called["n"] == 0
 
 
+def test_research_id_does_not_mint_or_freeze_the_war_room(monkeypatch):
+    monkeypatch.setenv("ADMIN_SECRET", "op-secret")
+    from uuid import uuid4
+
+    from research_store import save_research
+    from main import app
+
+    rid = f"audit-war-room-{uuid4().hex[:10]}"
+    fresh = f"audit-war-room-{uuid4().hex[:10]}"
+    save_research(_analysis("1201 14th St", "owner@example.com"), research_id=rid)
+    client = TestClient(app)
+
+    minted = client.post(f"/research/{rid}/war-room/token")
+    assert minted.status_code == 404
+
+    frozen = client.post(f"/research/{rid}/war-room/freeze")
+    assert frozen.status_code == 401
+
+    created = client.post(
+        "/research/persist",
+        json={"research_id": fresh, "analysis": _analysis("800 Audit Ln", "owner@example.com")},
+    )
+    assert created.status_code == 200
+    token = str(created.json().get("write_token") or "")
+    assert len(token) > 8
+    report = client.get(f"/research/{fresh}/report")
+    assert report.status_code == 200
+    assert token not in report.text
+    again = client.post(
+        "/research/persist",
+        json={"research_id": fresh, "analysis": _analysis("800 Audit Ln", "owner@example.com")},
+    )
+    assert again.status_code == 200
+    assert "write_token" not in again.json()
+
+    locked = client.post(
+        f"/research/{fresh}/war-room/freeze",
+        headers={"X-War-Room-Token": token},
+    )
+    assert locked.status_code == 200
+    stranger = client.post(f"/research/{fresh}/war-room/token")
+    assert stranger.status_code == 404
+    admin = client.post(
+        f"/research/{rid}/war-room/freeze",
+        headers={"X-Admin-Secret": "op-secret"},
+    )
+    assert admin.status_code == 200
+
+
 def test_attach_receipt_list_omits_requester_email(tmp_path, monkeypatch):
     import receipt_attach
 

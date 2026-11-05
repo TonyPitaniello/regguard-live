@@ -145,9 +145,17 @@ async function ensureShareableReport(
       }),
     });
     if (res.ok) {
-      const data = (await res.json()) as { research_id?: string; share_url?: string };
+      const data = (await res.json()) as { research_id?: string; share_url?: string; write_token?: string };
       const nextId = String(data.research_id || rid || '').trim();
       const nextShare = String(data.share_url || '').trim();
+      const wr = String(data.write_token || '').trim();
+      if (wr && nextId) {
+        try {
+          sessionStorage.setItem(`rg_wr_${nextId}`, wr);
+        } catch {
+          /* ignore */
+        }
+      }
       const nextAnalysis = {
         ...analysis,
         research_id: nextId || analysis.research_id,

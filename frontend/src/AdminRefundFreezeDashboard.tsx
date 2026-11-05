@@ -91,7 +91,10 @@ export function AdminRefundFreezeDashboard() {
     try {
       const res = await fetch(
         `${backendUrl(`/research/${encodeURIComponent(freezeId.trim())}/war-room/freeze`)}`,
-        { method: 'POST' }
+        {
+          method: 'POST',
+          headers: secret.trim() ? { 'X-Admin-Secret': secret.trim() } : {},
+        }
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);

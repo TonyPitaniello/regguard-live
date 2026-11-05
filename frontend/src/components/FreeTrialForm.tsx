@@ -939,6 +939,14 @@ export default function FreeTrialForm({
           (payload.research_id as string) ||
           (analysis.research_id as string) ||
           generateClientResearchId();
+        const wr = String(payload.war_room_write_token || '').trim();
+        if (wr && clientId) {
+          try {
+            sessionStorage.setItem(`rg_wr_${clientId}`, wr);
+          } catch {
+            /* ignore */
+          }
+        }
         showResults(analysis, clientId, emailNorm);
       } else {
         setError(

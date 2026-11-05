@@ -2461,9 +2461,13 @@ export default function ResultsViewerModal({
       return;
     }
     try {
+      const token = (sessionStorage.getItem(`rg_wr_${rid}`) || '').trim();
       const res = await fetch(
         backendUrl(`/research/${encodeURIComponent(rid)}/war-room/freeze`),
-        { method: 'POST' }
+        {
+          method: 'POST',
+          headers: token ? { 'X-War-Room-Token': token } : {},
+        }
       );
       if (!res.ok) {
         const detail = await res.json().catch(() => ({}));

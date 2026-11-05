@@ -70,7 +70,7 @@ function siteLines(analysis: AnalysisData): { street: string; place: string } {
 
 export default function SharedReportPage() {
   const { id } = useParams<{ id: string }>();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const [report, setReport] = useState<ReportPayload | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -140,25 +140,8 @@ export default function SharedReportPage() {
             });
           }
         }
-        let token = searchParams.get('wr') || '';
-        if (!token) {
-          const tokRes = await fetch(
-            backendUrl(`/research/${encodeURIComponent(id)}/war-room/token`),
-            { method: 'POST' }
-          );
-          if (tokRes.ok) {
-            const tokData = await tokRes.json();
-            token = tokData.write_token || '';
-            if (token && !cancelled) {
-              setWrToken(token);
-              const next = new URLSearchParams(searchParams);
-              next.set('wr', token);
-              setSearchParams(next, { replace: true });
-            }
-          }
-        } else if (!cancelled) {
-          setWrToken(token);
-        }
+        const token = searchParams.get('wr') || '';
+        if (token && !cancelled) setWrToken(token);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load report');
       } finally {
