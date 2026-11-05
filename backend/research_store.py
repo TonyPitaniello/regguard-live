@@ -399,8 +399,11 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
                 if isinstance(d, dict) and str(d.get("severity") or "").upper() == "FAIL":
                     d["severity"] = "HOLD"
 
-    if str(out.get("stamp_grade") or "").upper() == "FAIL":
+    public_grade = str(out.get("stamp_grade") or "").upper()
+    if public_grade == "FAIL":
         out["stamp_grade"] = "HOLD"
+    elif public_grade == "PASS":
+        out["stamp_grade"] = "CLEAR"
     if out.get("stamp_label"):
         out["stamp_label"] = _scrub_buyer_fail(out.get("stamp_label"))
 

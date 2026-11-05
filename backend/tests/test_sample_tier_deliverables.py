@@ -157,6 +157,7 @@ def test_chapin_artifacts_match_the_ladder():
         text_msg = sms._format_sms_message(red)
         assert "FAIL" not in share
         assert "FAIL" not in json.dumps(red)
+        assert '"PASS"' not in json.dumps(red)
         assert "ic_consultant" not in share
         assert "Partner" not in share
         assert "125,000" not in text_msg
