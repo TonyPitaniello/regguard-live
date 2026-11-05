@@ -102,8 +102,8 @@ def test_receipt_pdf_free_and_estimator_differ():
     assert "FREE LOOKUPS PREVIEW" in free_t
     # Free shows real contingency silhouette (blurred), not +##% placeholders
     assert "+##%" not in free_t
-    assert "+21%" in free_t or "Blurred on Free" in free_t
-    assert "LOCKED" in free_t or "Blurred on Free" in free_t
+    assert "+21%" in free_t or "Hidden on Free" in free_t
+    assert "LOCKED" in free_t or "Hidden on Free" in free_t
     assert "ESTIMATOR" in partner_t
     assert "+21%" in partner_t
     assert "UNLOCKED PUNCH" in partner_t

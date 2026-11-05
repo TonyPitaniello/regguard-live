@@ -261,7 +261,7 @@ def draw_frosted_contingency(
         pdf.set_xy(x, y)
         pdf.set_font("Helvetica", "B", 16)
         pdf.set_text_color(*amber_soft)
-        pdf.cell(w, 10, "Contingency blurred", ln=1)
+        pdf.cell(w, 10, "Hidden on Free", ln=1)
     pdf.set_xy(x, y + 15)
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_text_color(*amber_soft)
@@ -269,6 +269,6 @@ def draw_frosted_contingency(
         w,
         3.8,
         _ascii_face(
-            "Blurred on Free - Estimator unlocks the clear contingency band you can forward."
+            "Hidden on Free. Estimator ($79/mo) shows the percent."
         ),
     )

@@ -158,7 +158,7 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
     pdf.ln(2)
     _body(
         pdf,
-        "SAMPLE Free on this site: you see HOLD, a blurred contingency, and the first 5 punch lines "
+        "SAMPLE Free on this site: you see HOLD, the percent hidden on Free, and the first 5 punch lines "
         "(fee schedule pull, ERCOT parallel clock, Accela type, stormwater, plan-review deposit). "
         "The clear percent and the rest of the punch stay on Estimator. Forwarding does not unlock them.",
     )

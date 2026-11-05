@@ -50,6 +50,38 @@ def test_stated_total_requires_a_real_schedule_url():
     assert stated == "Permit total on the schedule: $75"
 
 
+def test_email_and_sms_templates_keep_banned_phrases_out():
+    """Fails if old score, AI, or invented-total lines return to a buyer email or text."""
+    from pathlib import Path
+
+    from email_service import EmailService
+    from option_a_integration import format_analysis_for_email
+    from sms_service import TwilioSMSService
+
+    banned = ("Risk score", "AI-assisted", "Start Pro —", "$125,000", "125,000")
+    root = Path(__file__).resolve().parents[1]
+    sources = []
+    for name in ("email_service.py", "sms_service.py", "report_email.py", "option_a_integration.py"):
+        sources.append((root / name).read_text(encoding="utf-8"))
+    priced = _priced()
+    sources.append(build_research_result_html(priced))
+    sources.append(build_forwardable_result_html(priced))
+    sources.append(build_forwardable_plaintext(priced))
+    sources.append(EmailService()._build_plan_win_html("partner"))
+    sources.append(EmailService()._build_plan_win_html("contractor_pro", day7=True))
+    memo = dict(priced)
+    memo["timestamp"] = "2026-11-05T00:00:00Z"
+    memo["project_info"] = {**priced["project_info"], "type": "commercial"}
+    memo["environmental_screening"] = {"risk_level": "UNAVAILABLE", "findings": []}
+    memo["punch_list"] = {"punch_list": [], "critical_path": []}
+    memo["next_steps"] = ["Confirm the fee schedule with the city."]
+    sources.append(format_analysis_for_email(memo))
+    sources.append(TwilioSMSService("test", "test", "+15555550100")._format_sms_message(priced))
+    for body in sources:
+        for phrase in banned:
+            assert phrase not in body
+
+
 def test_referral_kit_does_not_say_partner_or_fail_stamp():
     blob = "\n".join((MANDATE_ONE_LINER, MANDATE_SCRIPT, MANDATE_EMAIL))
     assert "Partner" not in blob

@@ -125,7 +125,7 @@ def build_research_result_html(research_data: dict) -> str:
     if share_tier == "free":
         band_html = (
             '<p style="margin:12px 0 0 0;font-size:14px;color:#b45309;font-weight:600;">'
-            "Contingency blurred on Free — Estimator unlocks the clear band you can forward.</p>"
+            "Hidden on Free — Estimator ($79/mo) shows the percent.</p>"
         )
     elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         band_html = (

@@ -50,7 +50,7 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261102-wr-v48'), 'BUILD bumped for war-room token gate');
+  assert(main.includes('launch-20261105-copy-v49'), 'BUILD bumped for buyer copy');
 }
 
 {

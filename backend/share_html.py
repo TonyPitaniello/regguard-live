@@ -104,7 +104,7 @@ def render_share_html(
         stamp_line = f"<p class='stamp'>REGGUARD STAMP: { _esc(display) }</p><p class='fine'>{_esc(headline)}</p>"
     desc_bits = [f"AHJ: {ahj}"]
     if band.get("share_frosted"):
-        desc_bits.append("Contingency blurred on this Free preview — Estimator unlocks the clear band")
+        desc_bits.append("Hidden on Free — Estimator ($79/mo) shows the percent")
     elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         desc_bits.append(f"Contingency +{band.get('pct_low')}% to +{band.get('pct_high')}% (planning aid, not a quote)")
     if killers:
@@ -143,8 +143,8 @@ def render_share_html(
     band_html = ""
     if band.get("share_frosted"):
         band_html = (
-            "<p class='band'>Contingency band is blurred on this Free preview. "
-            "Estimator / Permit Runner unlocks the clear % you can put in the bid file.</p>"
+            "<p class='band'>Hidden on Free — Estimator ($79/mo) shows the percent. "
+            "That percent is for the bid file. This page does not unlock it.</p>"
         )
     elif band.get("pct_low") is not None:
         band_html = (

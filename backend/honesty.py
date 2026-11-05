@@ -64,7 +64,12 @@ def honesty_block(
         "timeline_verified": timeline_verified,
         "source": source,
         "labels": {
-            "risk": RISK_LABEL if not risk_verified else "Risk score grounded in verified site data.",
+            "risk": RISK_LABEL
+            if not risk_verified
+            else (
+                "Flood and wetlands lines on this run have a mapper page. "
+                "This is not a 0–100 score."
+            ),
             "cost": COST_LABEL if not cost_verified else "Cost tied to cited fee schedule / source.",
             "timeline": TIMELINE_LABEL if not timeline_verified else "Timeline grounded in cited sources.",
         },

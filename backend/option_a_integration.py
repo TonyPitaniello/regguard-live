@@ -172,7 +172,7 @@ async def run_option_a_analysis(
                 "estimates_unverified": True,
             },
             "next_steps": [
-                "1. Treat this as a preliminary checklist — risk scores are not parcel-verified"
+                "1. Treat this as a punch list. Flood and wetlands stay Unverified until a FEMA or NWI page is attached."
                 if not risk_verified
                 else "1. Review GIS-verified flood/wetlands findings against your site plan",
                 "2. Contact your local Authority Having Jurisdiction (AHJ) with your punch list",
@@ -210,6 +210,7 @@ async def run_option_a_analysis(
 
 
 def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
+    from honesty import permit_total_line
     """
     Format Option A analysis for email delivery
     Creates readable plaintext that can be sent immediately
@@ -234,7 +235,7 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
                 "⚠ HONESTY NOTICE",
                 honesty.get("labels", {}).get(
                     "risk",
-                    "Environmental risk scores are unverified preview data — not for bidding.",
+                    "Flood and wetlands stay Unverified until a mapper page is attached. Do not bid from this screen.",
                 ),
                 honesty.get("labels", {}).get(
                     "cost",
@@ -285,11 +286,7 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
         f"Total Action Items: {analysis['summary']['total_punch_list_items']}",
         f"Estimated Timeline: {analysis['summary']['estimated_timeline']} "
         f"{'(unverified)' if not (analysis.get('honesty') or {}).get('timeline_verified') else ''}",
-        (
-            f"Schedule total on file: ${analysis['summary']['estimated_total_cost']:,.0f}"
-            if (analysis.get("honesty") or {}).get("cost_verified")
-            else "Fee total: not stated. Confirm each line on the city schedule."
-        ),
+        permit_total_line(analysis.get("summary") or {}, analysis.get("honesty") or {}),
         "",
         "TOP PRIORITY ITEMS:",
         "",
@@ -338,6 +335,9 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
     Format Option A analysis for HTML display on results page
     """
     
+    from honesty import permit_total_line
+
+    cost_line = permit_total_line(analysis.get("summary") or {}, analysis.get("honesty") or {})
     html = f"""
     <div class="analysis-results">
         <header class="results-header">
@@ -392,11 +392,7 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
     """.format(
         count=analysis['summary']['total_punch_list_items'],
         timeline=analysis['summary']['estimated_timeline'],
-        cost_line=(
-            f"Schedule total on file: ${analysis['summary']['estimated_total_cost']:,.0f}"
-            if (analysis.get("honesty") or {}).get("cost_verified")
-            else "Fee total: not stated. Confirm each line on the city schedule."
-        ),
+        cost_line=cost_line,
     )
     
     for task in analysis['punch_list']['critical_path'][:5]:

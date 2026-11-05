@@ -818,7 +818,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   const bandBlock = freeShare
     ? [
         'SUGGESTED CONTINGENCY',
-        'Blurred on Free — Estimator unlocks the clear % for the bid file.',
+        'Hidden on Free — Estimator ($79/mo) shows the percent.',
         'Planning aid — not a bid quote.',
       ].join('\n')
     : band?.pct_low != null && band?.pct_high != null
