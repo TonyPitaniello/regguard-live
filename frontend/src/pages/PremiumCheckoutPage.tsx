@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { backendUrl } from '../env';
 import {
@@ -451,6 +451,19 @@ function PaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-50">
+        <p className="font-bold">Cards are not live</p>
+        <p className="mt-1 text-amber-100/90">
+          Checkout is in Stripe test mode. A real card will not be charged, and this page will not
+          open a live payment. Free Lookups is the path that runs today.
+        </p>
+        <Link
+          to="/"
+          className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500"
+        >
+          Use Free Lookups
+        </Link>
+      </div>
       <div>
         <label htmlFor="email" className="block text-white font-bold mb-2">
           Email Address *
@@ -517,10 +530,9 @@ function PaymentForm({
       )}
 
       <div className="bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 text-sm text-gray-400">
-        You will complete payment on Stripe Checkout. Reg Guard does not collect or store card
-        numbers. If you have paid before with this email, Stripe will show your saved card so you
-        can pay with one tap — no re-typing card details. By continuing you agree to our Terms of
-        Service.
+        Reg Guard does not collect or store card numbers. The pay button stays blocked while
+        Checkout is a test link, so a test session cannot bill a card. By continuing you agree to
+        our Terms of Service.
       </div>
 
       <button
@@ -529,7 +541,7 @@ function PaymentForm({
         className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold text-lg rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading && <Loader className="w-5 h-5 animate-spin" />}
-        {loading ? 'Redirecting to Stripe…' : `Continue to Stripe — ${tierPrice}`}
+        {loading ? 'Checking checkout…' : `Test mode — no charge (${tierPrice})`}
       </button>
     </form>
   );

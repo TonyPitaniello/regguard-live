@@ -1271,7 +1271,23 @@ def health() -> Dict[str, Any]:
         )[:12]
         or None,
         "bundle_contract": "memo+boardroom+docx+xlsx+evidence_xlsx+csv",
+        "webhook_signature_required": bool((os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()),
     }
+    try:
+        from free_scan_quota import data_dir_is_ephemeral, quota_store_status
+
+        quota = quota_store_status()
+        out["quota"] = quota
+        degraded: list[str] = []
+        if data_dir_is_ephemeral():
+            degraded.append("disk_ephemeral")
+        if not out["webhook_signature_required"]:
+            degraded.append("webhook_signature_off")
+        if quota.get("backend") == "disk":
+            degraded.append("quota_disk_only")
+        out["degraded"] = degraded
+    except Exception:
+        out["degraded"] = ["quota_status_unread"]
     try:
         from zip_watch import watch_health
 
@@ -1754,8 +1770,7 @@ async def test_supabase(x_admin_secret: Optional[str] = Header(default=None)) ->
         supabase_error = None
         if url and key:
             try:
-                logger.info(f"🔍 Supabase URL: {url}")
-                logger.info(f"🔍 Supabase Key: {key[:20]}...")
+                logger.info("Supabase debug probe starting")
                 # Try a simple query first
                 supabase_api_url = f"{url}/rest/v1/free_trials?limit=1"
                 headers = {"apikey": key}

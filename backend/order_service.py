@@ -289,6 +289,12 @@ def remember_order(order: Dict[str, Any]) -> Dict[str, Any]:
     return order
 
 
+def _internal_session(session_id: str) -> bool:
+    """Share archive and quota counters are not customer orders."""
+    sid = (session_id or "").strip()
+    return sid.startswith(("share_", "quota_", "disk_", "local_"))
+
+
 def _orders_archive_path() -> Path:
     root = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data")
     return root / "orders_archive.json"
@@ -297,7 +303,7 @@ def _orders_archive_path() -> Path:
 def _mirror_order_disk(order: Dict[str, Any]) -> None:
     """Local mirror so a warm instance can reload after a soft restart."""
     sid = str(order.get("stripe_session_id") or "").strip()
-    if not sid or sid.startswith(("share_", "local_")):
+    if _internal_session(sid):
         return
     try:
         path = _orders_archive_path()
@@ -404,7 +410,7 @@ def _persist_core_row(order: Dict[str, Any], *, tier_for_db: str) -> Dict[str, A
 def persist_order_supabase(order: Dict[str, Any]) -> bool:
     """Insert or update public.orders. Returns True if Supabase accepted the row."""
     sid = str(order.get("stripe_session_id") or "").strip()
-    if not sid or sid.startswith(("share_", "disk_", "local_")):
+    if _internal_session(sid):
         return False
     _mirror_order_disk(order)
 
@@ -630,7 +636,7 @@ def set_order_billing(
         order["stripe_subscription_id"] = stripe_subscription_id
     remember_order(order)
     sid = str(order.get("stripe_session_id") or "").strip()
-    if not sid or sid.startswith(("share_", "disk_", "local_")):
+    if _internal_session(sid):
         return order
     from urllib.parse import quote
 
@@ -690,7 +696,7 @@ def find_orders_by_stripe_field(field: str, value: str) -> List[Dict[str, Any]]:
     if isinstance(rows, list):
         for row in rows:
             sid = str(row.get("stripe_session_id") or "")
-            if sid.startswith("share_"):
+            if _internal_session(sid):
                 continue
             if sid and sid in found:
                 _merge_db_billing(found[sid], row)
@@ -732,7 +738,7 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
             sid = row.get("stripe_session_id") or row.get("id")
             if not sid:
                 continue
-            if str(row.get("stripe_session_id") or "").startswith("share_"):
+            if _internal_session(str(row.get("stripe_session_id") or "")):
                 continue
             if sid in seen:
                 _sync_listed_billing(str(row.get("stripe_session_id") or sid), row, out)
@@ -797,7 +803,7 @@ def list_orders_for_email(email: str) -> List[Dict[str, Any]]:
 
 def get_order_by_session(session_id: str) -> Optional[Dict[str, Any]]:
     sid = (session_id or "").strip()
-    if not sid or sid.startswith("share_"):
+    if _internal_session(sid):
         return None
     order = _ORDERS_BY_SESSION.get(sid)
     if order:

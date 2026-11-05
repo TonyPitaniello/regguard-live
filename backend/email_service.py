@@ -954,7 +954,7 @@ class ResendEmailService(EmailService):
             # Configure Resend with API key
             resend_lib.api_key = api_key
             self.resend = resend_lib
-            logger.info(f"✅ Resend initialized with API key: {api_key[:20]}...")
+            logger.info("Resend initialized")
         except ImportError as e:
             logger.error(f"❌ resend package not installed. Install with: pip install resend")
             logger.error(f"   ImportError: {e}")

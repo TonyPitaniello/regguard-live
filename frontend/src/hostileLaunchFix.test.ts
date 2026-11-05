@@ -68,7 +68,12 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261105-deliver-v51'), 'BUILD bumped for deliverable parity');
+  assert(main.includes('launch-20261105-pm-v52'), 'BUILD bumped for checkout honesty');
+  const checkout = read('pages/PremiumCheckoutPage.tsx');
+  assert(checkout.includes("includes('cs_test_')"), 'test checkout cannot bill a card');
+  assert(checkout.includes('Cards are not live'), 'checkout says cards are not live before pay');
+  const pricing = read('pages/PricingPage.tsx');
+  assert(pricing.includes('Stripe test mode'), 'pricing says checkout is test mode');
 }
 
 {

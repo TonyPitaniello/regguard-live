@@ -177,6 +177,10 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
+          <p className="max-w-3xl mx-auto mt-8 text-center text-sm text-amber-100">
+            Card checkout is in Stripe test mode. A real card is not charged. Free Lookups is the
+            path that runs today.
+          </p>
         </div>
       </section>
 
@@ -378,7 +382,10 @@ export default function PricingPage() {
       <section className="px-4 py-16 sm:px-6 lg:px-8 border-t border-purple-500/10 bg-slate-900/50">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-black text-white mb-6">Not sure which plan?</h2>
-          <p className="text-gray-300 mb-8">Start free, then upgrade when you need a full package.</p>
+          <p className="text-gray-300 mb-8">
+            Free Lookups runs today. Paid checkout does not charge a card while Stripe is in test
+            mode.
+          </p>
           <button
             onClick={() => handleCta('free')}
             className="px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg rounded-xl transition shadow-lg shadow-green-500/30 cursor-pointer"
