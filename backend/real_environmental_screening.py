@@ -272,7 +272,7 @@ class EnvironmentalScreeningEngine:
     
     def __init__(self):
         self.firecrawl_api_key = (os.getenv("FIRECRAWL_API_KEY") or "").strip()
-        self.firecrawl_base_url = "https://api.firecrawl.dev/v1"
+        self.firecrawl_base_url = "https://api.firecrawl.dev/v2"
         
     async def screen_site(self, address: str, latitude: float, longitude: float, city: str, state: str, zip_code: str) -> Dict[str, Any]:
         """
@@ -953,7 +953,12 @@ class EnvironmentalScreeningEngine:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.firecrawl_base_url}/search",
-                    json={"query": query, "location": location},
+                    json={
+                        "query": query,
+                        "location": location,
+                        "sources": ["web"],
+                        "limit": 5,
+                    },
                     headers={"Authorization": f"Bearer {self.firecrawl_api_key}"},
                     timeout=30.0,
                 )
