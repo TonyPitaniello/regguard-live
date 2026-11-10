@@ -3,8 +3,12 @@ services:
   - type: web
     name: regguard-api
     runtime: python
-    plan: free
+    plan: standard
     region: oregon
+    disk:
+      name: regguard-data
+      mountPath: /var/data
+      sizeGB: 1
     # Prefer repo root so scripts/render_build.sh resolves backend/requirements.txt
     buildCommand: bash scripts/render_build.sh
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
@@ -29,8 +33,9 @@ services:
         value: "86400"
       - key: ZIP_WATCH_SELF_HEAL
         value: "1"
-      # Quota file defaults to /tmp/regguard_data unless REGGUARD_DATA_DIR is set
-      # (attach a persistent disk + shared path before multi-instance)
+      # Nurture queue, opt-outs, and receipt files live on the persistent disk.
+      - key: REGGUARD_DATA_DIR
+        value: /var/data/regguard
 
   # Daily ZIP watch — requires paid cron plan OR use cron-job.org against the web service.
   # Prefer: POST https://regguard-api.onrender.com/cron/zip-watch + X-Cron-Secret
