@@ -401,6 +401,11 @@ def redact_for_public_share(analysis: Optional[Dict[str, Any]]) -> Dict[str, Any
             rg["display_grade"] = "CLEAR"
         elif grade:
             rg["display_grade"] = grade
+        prior = str(rg.get("prior_grade") or "").upper()
+        if prior == "FAIL":
+            rg["prior_grade"] = "HOLD"
+        elif prior == "PASS":
+            rg["prior_grade"] = "CLEAR"
         for key in ("headline", "label", "plain"):
             if rg.get(key):
                 rg[key] = _scrub_buyer_fail(rg.get(key))

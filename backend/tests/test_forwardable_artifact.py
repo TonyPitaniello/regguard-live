@@ -1,5 +1,6 @@
 """Forwardable artifact: persist research, full punch email, shareable /r/{id}."""
 
+import json
 import sys
 from pathlib import Path
 
@@ -66,7 +67,11 @@ def test_public_share_free_hides_paid_numbers():
         "email": "buyer@example.com",
         "contingency_band": {"pct_low": 12.5, "pct_mid": 14, "pct_high": 18},
         "fee_card": {"fees": [{"label": "Building permit", "amount_usd": 2400}]},
-        "regguard_stamp": {"grade": "FAIL", "headline": "FAIL — high pre-bid risk"},
+        "regguard_stamp": {
+            "grade": "FAIL",
+            "prior_grade": "PASS",
+            "headline": "FAIL — high pre-bid risk",
+        },
         "punch_list": {"punch_list": [{"task": f"line {i}"} for i in range(8)]},
     }
     out = redact_for_public_share(raw)
@@ -76,6 +81,8 @@ def test_public_share_free_hides_paid_numbers():
     assert "amount_usd" not in out["fee_card"]["fees"][0]
     assert "FAIL" not in out["regguard_stamp"]["headline"]
     assert out["regguard_stamp"]["display_grade"] == "HOLD"
+    assert out["regguard_stamp"]["prior_grade"] == "CLEAR"
+    assert "PASS" not in json.dumps(out["regguard_stamp"])
     assert len(out["punch_list"]["punch_list"]) == 5
     assert raw["contingency_band"]["pct_low"] == 12.5
 
