@@ -613,7 +613,7 @@ function hasUsableCoords(analysis: AnalysisData): boolean {
   return false;
 }
 
-function readPin(analysis: AnalysisData): { lat: number; lng: number } | null {
+export function readPin(analysis: AnalysisData): { lat: number; lng: number } | null {
   const pi = analysis.project_info || ({} as AnalysisData['project_info']);
   const nested =
     (pi as { coordinates?: { latitude?: unknown; longitude?: unknown; lat?: unknown; lng?: unknown } })
@@ -636,13 +636,13 @@ function readPin(analysis: AnalysisData): { lat: number; lng: number } | null {
   return null;
 }
 
-function customerEnvLabel(level?: string): string {
+export function customerEnvLabel(level?: string): string {
   const u = String(level || '').toUpperCase();
   if (u === 'LOW' || u === 'MEDIUM' || u === 'HIGH' || u === 'CRITICAL') return u;
   return 'Unverified';
 }
 
-function envMapperLinks(analysis: AnalysisData): Array<{ label: string; href: string }> {
+export function envMapperLinks(analysis: AnalysisData): Array<{ label: string; href: string }> {
   const urls = analysis.environmental_screening?.mapper_urls || {};
   const pin = readPin(analysis);
   const fema =

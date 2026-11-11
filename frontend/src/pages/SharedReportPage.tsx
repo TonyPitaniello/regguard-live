@@ -9,7 +9,11 @@ import { AlertCircle, Copy, Check, ExternalLink, Loader2 } from 'lucide-react';
 import { backendUrl } from '../env';
 import { areEstimatesUnverified, isRiskScoreHidden } from '../components/honesty';
 import CitationBadge from '../components/CitationBadge';
-import type { AnalysisData } from '../components/ResultsViewerModal';
+import {
+  customerEnvLabel,
+  envMapperLinks,
+  type AnalysisData,
+} from '../components/ResultsViewerModal';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { SeoHead } from '../SeoHead';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
@@ -355,9 +359,22 @@ export default function SharedReportPage() {
 
         {(analysis.preview || hideRisk || unverified) && (
           <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-            <strong className="text-amber-50">Preview.</strong> Flood and wetlands stay Unverified until
-            a mapper source is attached. This is not a 0–100 score. No permit total when the city uses
-            a valuation or floor-area table.
+            <strong className="text-amber-50">Preview.</strong> Flood and wetlands are Unverified. Open{' '}
+            {envMapperLinks(analysis).map((link, i, all) => (
+              <span key={link.href}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-sky-200"
+                >
+                  {link.label}
+                </a>
+                {i < all.length - 1 ? (i === all.length - 2 ? ', and ' : ', ') : ''}
+              </span>
+            ))}{' '}
+            for this pin. Not a score. No permit total when the city uses a valuation or floor-area
+            table.
           </div>
         )}
 
@@ -377,7 +394,7 @@ export default function SharedReportPage() {
               {depthBadge ? ` · ${depthBadge}` : ''}
               {coverageBadge && !freeShare ? ` · ${coverageBadge}` : ''}
               {analysis.environmental_screening?.risk_level
-                ? ` · Env risk: ${analysis.environmental_screening.risk_level}`
+                ? ` · Env: ${customerEnvLabel(analysis.environmental_screening.risk_level)}`
                 : ''}
             </p>
           </div>
@@ -580,7 +597,7 @@ export default function SharedReportPage() {
               {gisFindings.map((f) => (
                 <li key={f.category} className="text-sm text-gray-200">
                   <span className="text-sky-200 font-semibold text-xs uppercase mr-2">
-                    {f.risk_level || 'NOTE'}
+                    {customerEnvLabel(f.risk_level)}
                   </span>
                   <span className="text-white">{f.description}</span>
                 </li>
