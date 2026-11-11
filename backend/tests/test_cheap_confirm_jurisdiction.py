@@ -271,6 +271,38 @@ def test_free_pack_confirm_unknown_zip_no_firecrawl_md(monkeypatch):
     assert any(str(i.get("task", "")).startswith("[Federal]") for i in punch)
 
 
+def test_free_pack_attaches_pin_mappers(monkeypatch):
+    import free_pack_confirm as fpc
+
+    monkeypatch.setenv("FREE_TRIAL_ALLOWLIST_SEARCH", "0")
+    monkeypatch.setenv("FREE_TRIAL_CHEAP_CONFIRM", "0")
+    monkeypatch.setenv("FREE_TRIAL_MARKDOWN_CONFIRM", "0")
+    monkeypatch.setenv("FREE_TRIAL_GENERIC_SERP", "0")
+
+    analysis = fpc.build_free_pack_confirm_analysis(
+        address="1500 Marilla St, Dallas, TX 75201",
+        city="Dallas",
+        state="TX",
+        zip_code="75201",
+        latitude=32.7764,
+        longitude=-96.7968,
+        project_type="commercial",
+    )
+    env = analysis["environmental_screening"]
+    urls = env.get("mapper_urls") or {}
+    assert "msc.fema.gov" in urls.get("fema", "")
+    assert "32.7764" in urls.get("fema", "")
+    assert urls.get("nwi", "").startswith("https://")
+    assert urls.get("ipac", "").startswith("https://")
+    cats = {str(f.get("category")) for f in env.get("findings") or []}
+    assert {"wetlands", "flood_zones", "endangered_species"} <= cats
+    for row in env.get("findings") or []:
+        if row.get("category") in ("wetlands", "flood_zones", "endangered_species"):
+            assert row.get("verified") is False
+            assert str(row.get("source_url") or "").startswith("https://")
+            assert str(row.get("risk_level") or "").upper() not in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+
+
 def test_merge_cheap_confirm_into_analysis():
     from cheap_page_confirm import merge_cheap_confirm_into_analysis
 

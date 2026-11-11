@@ -234,6 +234,72 @@ def pin_mapper_urls(latitude: float, longitude: float) -> Dict[str, str]:
     }
 
 
+def attach_pin_mapper_sources(
+    env: Dict[str, Any],
+    latitude: float,
+    longitude: float,
+) -> Dict[str, Any]:
+    """Attach official mapper URLs when parcel GIS did not return a verified hit.
+
+    Does not invent LOW/MEDIUM/HIGH. Each added row is Unverified and cites the
+    mapper the contractor can open for this pin.
+    """
+    from geocode import is_null_island
+
+    if not isinstance(env, dict) or is_null_island(latitude, longitude):
+        return env
+    mappers = pin_mapper_urls(latitude, longitude)
+    env["mapper_urls"] = mappers
+    env["pin"] = {"lat": latitude, "lng": longitude}
+    findings = [f for f in (env.get("findings") or []) if isinstance(f, dict)]
+    present = {str(f.get("category") or "").strip().lower().replace(" ", "_") for f in findings}
+    pin = _pin_hint(latitude, longitude)
+    stubs = (
+        (
+            "wetlands",
+            "NWI Wetlands Mapper",
+            mappers["nwi"],
+            "Wetlands are Unverified until the NWI mapper is opened at this pin.",
+        ),
+        (
+            "flood_zones",
+            "FEMA MSC",
+            mappers["fema"],
+            "Flood zone is Unverified until FEMA MSC is opened at this pin.",
+        ),
+        (
+            "endangered_species",
+            "USFWS IPaC",
+            mappers["ipac"],
+            "Species and critical habitat are Unverified until IPaC is opened at this pin.",
+        ),
+    )
+    for category, label, url, description in stubs:
+        if category in present:
+            continue
+        findings.append(
+            {
+                "category": category,
+                "risk_level": "UNKNOWN",
+                "description": f"{description} {pin}",
+                "action_items": [f"Open {label} and paste the pin"],
+                "data_sources": [label],
+                "research_cost_usd": 0.0,
+                "verified": False,
+                "source_url": url,
+                "source_label": label,
+            }
+        )
+    env["findings"] = findings
+    note = str(env.get("risk_honesty_note") or "")
+    if not note or "no parcel gis" in note.lower() or "overall risk unavailable" in note.lower():
+        env["risk_honesty_note"] = (
+            "Flood, wetlands, and habitat are Unverified until FEMA MSC, NWI, and IPaC "
+            "are opened for this pin. Not a score."
+        )
+    return env
+
+
 def municode_library_url(city: str, state: str) -> str:
     """Best-effort Municode library root for the AHJ (confirm link, not a parcel stamp)."""
     st = (state or "").strip().lower()[:2]

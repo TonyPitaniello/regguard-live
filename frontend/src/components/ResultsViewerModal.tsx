@@ -150,6 +150,7 @@ export interface AnalysisData {
   };
   environmental_screening?: {
     risk_level: string;
+    mapper_urls?: { nwi?: string; fema?: string; ipac?: string; nepa?: string };
     findings: Array<{
       category: string;
       risk_level: string;
@@ -610,6 +611,53 @@ function hasUsableCoords(analysis: AnalysisData): boolean {
     if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return true;
   }
   return false;
+}
+
+function readPin(analysis: AnalysisData): { lat: number; lng: number } | null {
+  const pi = analysis.project_info || ({} as AnalysisData['project_info']);
+  const nested =
+    (pi as { coordinates?: { latitude?: unknown; longitude?: unknown; lat?: unknown; lng?: unknown } })
+      .coordinates || {};
+  const pairs: Array<[unknown, unknown]> = [
+    [(analysis as { latitude?: unknown }).latitude, (analysis as { longitude?: unknown }).longitude],
+    [(analysis as { lat?: unknown }).lat, (analysis as { lng?: unknown }).lng],
+    [(pi as { lat?: unknown }).lat, (pi as { lng?: unknown }).lng],
+    [(pi as { latitude?: unknown }).latitude, (pi as { longitude?: unknown }).longitude],
+    [nested.latitude, nested.longitude],
+    [nested.lat, nested.lng],
+  ];
+  for (const [la, ln] of pairs) {
+    const lat = Number(la);
+    const lng = Number(ln);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    if (Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6) continue;
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng };
+  }
+  return null;
+}
+
+function customerEnvLabel(level?: string): string {
+  const u = String(level || '').toUpperCase();
+  if (u === 'LOW' || u === 'MEDIUM' || u === 'HIGH' || u === 'CRITICAL') return u;
+  return 'Unverified';
+}
+
+function envMapperLinks(analysis: AnalysisData): Array<{ label: string; href: string }> {
+  const urls = analysis.environmental_screening?.mapper_urls || {};
+  const pin = readPin(analysis);
+  const fema =
+    urls.fema ||
+    (pin
+      ? `https://msc.fema.gov/portal/search?addressAscii=${pin.lat}%2C${pin.lng}`
+      : 'https://msc.fema.gov/portal/home');
+  return [
+    { label: 'FEMA MSC', href: fema },
+    {
+      label: 'NWI Wetlands Mapper',
+      href: urls.nwi || 'https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper',
+    },
+    { label: 'USFWS IPaC', href: urls.ipac || 'https://ipac.ecosphere.fws.gov/' },
+  ];
 }
 
 function isInstantPreviewDepth(analysis: AnalysisData): boolean {
@@ -1911,8 +1959,24 @@ export default function ResultsViewerModal({
           ) : null}
 
           {envRisk ? (
-            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 12 }}>
-              Environmental screening risk: <span style={{ color: '#e2e8f0' }}>{envRisk}</span>
+            <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 12, lineHeight: 1.5 }}>
+              Environmental screening:{' '}
+              <span style={{ color: '#e2e8f0' }}>{customerEnvLabel(envRisk)}</span>
+              {customerEnvLabel(envRisk) === 'Unverified' ? (
+                <>
+                  {' '}
+                  — open{' '}
+                  {envMapperLinks(view).map((link, i, all) => (
+                    <span key={link.href}>
+                      <a href={link.href} target="_blank" rel="noopener noreferrer" style={{ color: '#7dd3fc' }}>
+                        {link.label}
+                      </a>
+                      {i < all.length - 1 ? (i === all.length - 2 ? ', and ' : ', ') : ''}
+                    </span>
+                  ))}{' '}
+                  for this pin. Not a score.
+                </>
+              ) : null}
             </p>
           ) : null}
 
@@ -4867,7 +4931,7 @@ export default function ResultsViewerModal({
                       ['UNKNOWN', 'UNAVAILABLE', 'PRELIMINARY', ''].includes(
                         String(view.environmental_screening?.risk_level || '').toUpperCase()
                       )
-                        ? 'UNAVAILABLE — incomplete GIS'
+                        ? 'Unverified — open the mappers for this pin'
                         : String(view.environmental_screening?.risk_level || 'UNKNOWN')}
                     </span>
                   </div>
@@ -4885,39 +4949,18 @@ export default function ResultsViewerModal({
                     lat/lng. Overall LOW requires both flood and wetlands to resolve.
                   </p>
                   <ul className="text-xs text-cyan-100/85 space-y-1 list-disc pl-4">
-                    <li>
-                      <a
-                        className="underline hover:text-white"
-                        href="https://www.fws.gov/program/national-wetlands-inventory/wetlands-mapper"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        USFWS NWI Wetlands Mapper
-                      </a>{' '}
-                      (+ USGS Wetlands MapServer query at the pin)
-                    </li>
-                    <li>
-                      <a
-                        className="underline hover:text-white"
-                        href="https://ipac.ecosphere.fws.gov/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        USFWS IPaC
-                      </a>{' '}
-                      — endangered species / critical habitat at the pin
-                    </li>
-                    <li>
-                      <a
-                        className="underline hover:text-white"
-                        href="https://msc.fema.gov/portal/home"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        FEMA MSC / NFHL
-                      </a>{' '}
-                      — flood zone at the pin
-                    </li>
+                    {envMapperLinks(view).map((link) => (
+                      <li key={link.href}>
+                        <a
+                          className="underline hover:text-white"
+                          href={link.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {link.label}
+                        </a>
+                      </li>
+                    ))}
                     <li>Municipal code / noise ordinance pages for the city (often Unverified until citeable)</li>
                   </ul>
                 </div>
@@ -4930,7 +4973,12 @@ export default function ResultsViewerModal({
                   const notRun =
                     pinMissing && (risk === 'PRELIMINARY' || risk === 'UNKNOWN' || incompleteRun);
                   const unverified =
-                    !notRun && !verified && (risk === 'PRELIMINARY' || risk === 'UNKNOWN');
+                    !notRun &&
+                    !verified &&
+                    (risk === 'PRELIMINARY' ||
+                      risk === 'UNKNOWN' ||
+                      risk === 'UNAVAILABLE' ||
+                      risk === '');
                   return (
                   <div key={idx} className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2 gap-2">
@@ -4947,7 +4995,7 @@ export default function ResultsViewerModal({
                         {notRun
                           ? 'NOT RUN — confirm pin'
                           : unverified
-                            ? `${finding.risk_level || 'UNKNOWN'} — not GIS-verified`
+                            ? 'Unverified'
                             : finding.risk_level}
                       </span>
                     </div>

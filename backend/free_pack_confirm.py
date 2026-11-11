@@ -685,6 +685,15 @@ def build_free_pack_confirm_analysis(
         analysis["summary"]["total_punch_list_items"] = punch_n
 
     from depth_ladder import DEPTH_FREE, stamp_upgrade_offer
+    from geocode import is_null_island
+    from real_environmental_screening import attach_pin_mapper_sources
+
+    if not is_null_island(latitude, longitude):
+        analysis["environmental_screening"] = attach_pin_mapper_sources(
+            analysis.get("environmental_screening") or {},
+            latitude,
+            longitude,
+        )
 
     stamp_upgrade_offer(analysis, depth_tier=DEPTH_FREE)
     return analysis

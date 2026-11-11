@@ -216,7 +216,19 @@ def apply_honesty_layer(
             and f.get("verified")
             and str(f.get("risk_level") or "").upper() in ("HIGH", "CRITICAL")
         )
-        summary["risk_level_display"] = UNAVAILABLE
+        summary["risk_level_display"] = "Unverified"
+        try:
+            from geocode import is_null_island
+            from real_environmental_screening import attach_pin_mapper_sources
+
+            pi = out.get("project_info") or {}
+            coords = pi.get("coordinates") if isinstance(pi, dict) else {}
+            lat = (coords or {}).get("latitude", pi.get("lat") if isinstance(pi, dict) else None)
+            lng = (coords or {}).get("longitude", pi.get("lng") if isinstance(pi, dict) else None)
+            if lat is not None and lng is not None and not is_null_island(float(lat), float(lng)):
+                attach_pin_mapper_sources(env, float(lat), float(lng))
+        except Exception:
+            pass
         summary["estimates_unverified"] = True
     else:
         summary = out.setdefault("summary", {})
