@@ -476,6 +476,8 @@ async def _log_firecrawl_key_prefix() -> None:
             print(f"ZIP watch self-heal: {heal.get('reason')}")
     except Exception as ex:
         print(f"ZIP watch self-heal skipped: {ex}")
+    # The Render project has no drip cron. Send only after the key is live.
+    asyncio.create_task(_campaign_drip_loop())
 
 
 app.add_middleware(
@@ -6661,15 +6663,8 @@ def email_opt_out(e: str = "", t: str = "") -> HTMLResponse:
     )
 
 
-@app.post("/cron/nurture-drip", tags=["Cron"])
-async def cron_nurture_drip(
-    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
-) -> Dict[str, Any]:
-    """
-    Send due free-run drip + quota-paywall emails.
-    Schedule daily (or hourly): POST /cron/nurture-drip with X-Cron-Secret.
-    """
-    _require_cron_secret(x_cron_secret)
+async def _send_due_campaign_drips() -> Dict[str, Any]:
+    """Send due day-2, day-5, and quota notes. Caller decides whether cards are live."""
     from email_service import get_email_service
     from nurture_store import due_nurture, mark_sent
     from passive_campaign import DRIP_KINDS
@@ -6695,6 +6690,43 @@ async def cron_nurture_drip(
             logger.warning("Nurture drip failed for %s: %s", item.get("email"), e)
             failed += 1
     return {"status": "ok", "due": len(due), "sent": sent, "failed": failed}
+
+
+async def _campaign_drip_loop() -> None:
+    """Hourly sender. Holds the queue while the Stripe key is a test key."""
+    await asyncio.sleep(45)
+    while True:
+        try:
+            from passive_campaign import cards_are_live
+
+            if cards_are_live():
+                result = await _send_due_campaign_drips()
+                print(
+                    "Campaign drip sent "
+                    f"due={result.get('due')} sent={result.get('sent')} failed={result.get('failed')}"
+                )
+            else:
+                print("Campaign drip held: cards are not live")
+        except Exception as ex:
+            print(f"Campaign drip skipped: {ex}")
+        await asyncio.sleep(3600)
+
+
+@app.post("/cron/nurture-drip", tags=["Cron"])
+async def cron_nurture_drip(
+    x_cron_secret: Optional[str] = Header(default=None, alias="X-Cron-Secret"),
+) -> Dict[str, Any]:
+    """
+    Send due free-run drip + quota-paywall emails.
+    Schedule daily (or hourly): POST /cron/nurture-drip with X-Cron-Secret.
+    While the Stripe key is a test key, the queue stays held.
+    """
+    _require_cron_secret(x_cron_secret)
+    from passive_campaign import cards_are_live
+
+    if not cards_are_live():
+        return {"status": "held", "reason": "cards_not_live", "due": 0, "sent": 0, "failed": 0}
+    return await _send_due_campaign_drips()
 
 
 @app.post("/cron/day7-win-emails", tags=["Cron"])

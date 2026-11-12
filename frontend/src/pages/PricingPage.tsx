@@ -106,7 +106,7 @@ export default function PricingPage() {
       return;
     }
     if (tierKey === 'sponsor') {
-      window.location.href = 'mailto:support@regguardagent.com?subject=Reg%20Guard%20Partner%20sponsorship';
+      window.location.href = 'mailto:support@regguardagent.com?subject=Reg%20Guard%20sponsorship';
       return;
     }
     trackStampEvent('checkout_view', { channel: tierKey, meta: { tier: tierKey } });

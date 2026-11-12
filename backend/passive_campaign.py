@@ -33,6 +33,11 @@ UTM_SHARE = {
 
 DRIP_KINDS = ("free_run_d2", "free_run_d5", "quota_paywall")
 
+
+def cards_are_live() -> bool:
+    """True only for a live Stripe secret. A test key must not sell a charge."""
+    return (os.getenv("STRIPE_SECRET_KEY") or "").strip().startswith("sk_live_")
+
 # Personas we write every surface for (never homeowners, never “AI code chat”).
 PERSONAS = [
     {
@@ -330,6 +335,7 @@ def robots_txt(*, base: Optional[str] = None) -> str:
         "Disallow: /admin\n"
         "Disallow: /orders\n"
         "Disallow: /checkout\n"
+        "Disallow: /partner\n"
         "Disallow: /jobs\n"
         "Disallow: /my-jobs\n"
         "Disallow: /queue\n"
@@ -403,12 +409,19 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         },
     )
     place = f"{address}{(' · ' + city) if city else ''}"
-    # Checkout is still a test session, so the paid drip button returns to the receipt.
+    # Test key: the paid note returns to the receipt. Live key: it opens Estimator checkout.
     no_charge = share or f"{app_base_url()}/"
     no_charge_label = (
         "Open the receipt — a card is not charged"
         if share
         else "Free Lookups — a card is not charged"
+    )
+    live = cards_are_live()
+    pay_url = checkout_url(
+        PRIMARY_SKU,
+        email=email,
+        research_id=rid,
+        campaign=kind,
     )
     esc = html_lib.escape
 
@@ -453,15 +466,30 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
 
     if kind == "free_run_d5":
         subject = f"Estimator unlocks the clear contingency — {place}"[:120]
+        if live:
+            pitch = (
+                f"<strong>{esc(place)}</strong> is still in your account. "
+                "Estimator / Permit Runner is $79/month. Checkout charges that price for the "
+                "clear percent, the rest of the punch list, and Saved Jobs."
+            )
+            button_href = pay_url
+            button_label = "Estimator / Permit Runner — $79/month"
+        else:
+            pitch = (
+                f"<strong>{esc(place)}</strong> is still in your account. "
+                "Estimator / Permit Runner ($79/mo) is the receipt you can forward with the "
+                "clear percent, the rest of the punch list, and Saved Jobs. "
+                "A card is not charged."
+            )
+            button_href = no_charge
+            button_label = no_charge_label
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      <strong>{esc(place)}</strong> is still in your account. Estimator / Permit Runner ($79/mo)
-      is the receipt you can forward with the clear percent, the rest of the punch list, and Saved Jobs.
-      A card is not charged.
+      {pitch}
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(no_charge)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        {esc(no_charge_label)}
+      <a href="{esc(button_href)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        {esc(button_label)}
       </a>
     </p>
     <p style="color:#555;font-size:14px;">
@@ -472,15 +500,29 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
 
     if kind == "quota_paywall":
         subject = "Free lookups used — Estimator keeps the receipt habit"
+        if live:
+            pitch = (
+                "This email used this month’s free scans. We did not charge you for the blocked run. "
+                "Estimator / Permit Runner is $79/month at checkout. Contractor Pro is $149/mo, "
+                "and the IC Diligence Bundle is $1,500/site."
+            )
+            button_href = pay_url
+            button_label = "Estimator / Permit Runner — $79/month"
+        else:
+            pitch = (
+                "This email used this month’s free scans. Estimator / Permit Runner is $79/mo, "
+                "Contractor Pro is $149/mo, and the IC Diligence Bundle is $1,500/site. "
+                "A card is not charged. We did not charge you for the blocked run."
+            )
+            button_href = no_charge
+            button_label = no_charge_label
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      This email used this month’s free scans. Estimator / Permit Runner is $79/mo,
-      Contractor Pro is $149/mo, and the IC Diligence Bundle is $1,500/site.
-      A card is not charged. We did not charge you for the blocked run.
+      {pitch}
     </p>
     <p style="margin:20px 0;">
-      <a href="{esc(no_charge)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
-        {esc(no_charge_label)}
+      <a href="{esc(button_href)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
+        {esc(button_label)}
       </a>
     </p>
 """

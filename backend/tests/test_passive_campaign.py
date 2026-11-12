@@ -155,6 +155,22 @@ def test_drip_copy_has_ctas():
     assert "Free Lookups" in htmlq
 
 
+def test_live_drip_opens_estimator_checkout(monkeypatch):
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_live_example")
+    _, html5 = drip_email("free_run_d5", {"email": "a@b.com", "research_id": "rid1"})
+    assert "checkout/partner" in html5
+    assert "$79/month" in html5
+    assert "a card is not charged" not in html5.lower()
+    assert "Partner" not in html5
+    _, htmlq = drip_email("quota_paywall", {"email": "a@b.com"})
+    assert "checkout/partner" in htmlq
+    assert "did not charge you for the blocked run" in htmlq
+    assert "a card is not charged" not in htmlq.lower()
+    _, html2 = drip_email("free_run_d2", {"email": "a@b.com", "research_id": "rid1"})
+    assert "checkout/" not in html2
+    assert "No card" in html2
+
+
 def test_nurture_drip_schedule_and_cancel(tmp_path, monkeypatch):
     import nurture_store
 
