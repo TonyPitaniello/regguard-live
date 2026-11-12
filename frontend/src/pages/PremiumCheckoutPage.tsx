@@ -347,6 +347,7 @@ function PaymentForm({
   );
   const [loading, setLoading] = useState(false);
   const [cardError, setCardError] = useState('');
+  const [cardCheckout, setCardCheckout] = useState<'unknown' | 'test' | 'live'>('unknown');
   const boundSite = readCheckoutSite();
   const hasBoundSite = Boolean(
     boundSite.address && boundSite.city && boundSite.state && boundSite.zip
@@ -355,6 +356,22 @@ function PaymentForm({
   useEffect(() => {
     trackStampEvent('checkout_view', { channel: tier, meta: { tier } });
   }, [tier]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(backendUrl('/health'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setCardCheckout(data?.card_checkout === 'live' ? 'live' : 'test');
+      })
+      .catch(() => {
+        if (!cancelled) setCardCheckout('test');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -382,8 +399,9 @@ function PaymentForm({
       }
       if (name.trim()) sessionStorage.setItem('userName', name.trim());
 
+      const appOrigin = 'https://app.regguardagent.com';
       const successUrl =
-        `${window.location.origin}/checkout/success` +
+        `${appOrigin}/checkout/success` +
         `?unlock=1&email=${encodeURIComponent(emailNorm)}`;
 
       const referralCode =
@@ -402,7 +420,7 @@ function PaymentForm({
           email: emailNorm,
           name: name.trim(),
           success_url: successUrl,
-          cancel_url: `${window.location.origin}/checkout/${tier}?email=${encodeURIComponent(emailNorm)}`,
+          cancel_url: `${appOrigin}/checkout/${tier}?email=${encodeURIComponent(emailNorm)}`,
           referral_code: referralCode || undefined,
           // Premortem F1/F10: bind researched site into Stripe metadata
           ...(hasBoundSite
@@ -430,12 +448,13 @@ function PaymentForm({
       }
 
       const { checkout_url } = await response.json();
+      const testSession = String(checkout_url || '').includes('cs_test_');
+      if (cardCheckout !== 'live' || testSession) {
+        throw new Error(
+          'Card checkout is in Stripe test mode, so a real card will not be charged. Email support@regguardagent.com.'
+        );
+      }
       if (checkout_url) {
-        if (String(checkout_url).includes('cs_test_')) {
-          throw new Error(
-            'Card checkout is in Stripe test mode, so a real card will not be charged. Email support@regguardagent.com.'
-          );
-        }
         window.location.href = checkout_url;
       } else {
         onSuccess();
@@ -452,17 +471,28 @@ function PaymentForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-50">
-        <p className="font-bold">Cards are not live</p>
-        <p className="mt-1 text-amber-100/90">
-          Checkout is in Stripe test mode. A real card will not be charged, and this page will not
-          open a live payment. Free Lookups is the path that runs today.
-        </p>
-        <Link
-          to="/"
-          className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500"
-        >
-          Use Free Lookups
-        </Link>
+        {cardCheckout === 'live' ? (
+          <>
+            <p className="font-bold">Checkout charges {tierPrice}</p>
+            <p className="mt-1 text-amber-100/90">
+              Stripe charges {tierPrice} when you continue. Reg Guard does not store the card.
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="font-bold">Cards are not live</p>
+            <p className="mt-1 text-amber-100/90">
+              Checkout is in Stripe test mode. A real card will not be charged, and this page will not
+              open a live payment. Free Lookups is the path that runs today.
+            </p>
+            <Link
+              to="/"
+              className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500"
+            >
+              Use Free Lookups
+            </Link>
+          </>
+        )}
       </div>
       <div>
         <label htmlFor="email" className="block text-white font-bold mb-2">
@@ -530,18 +560,22 @@ function PaymentForm({
       )}
 
       <div className="bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 text-sm text-gray-400">
-        Reg Guard does not collect or store card numbers. The pay button stays blocked while
-        Checkout is a test link, so a test session cannot bill a card. By continuing you agree to
-        our Terms of Service.
+        {cardCheckout === 'live'
+          ? `Reg Guard does not collect or store card numbers. Continuing opens Stripe for ${tierPrice}. By continuing you agree to our Terms of Service.`
+          : 'Reg Guard does not collect or store card numbers. The pay button stays blocked while Checkout is a test link, so a test session cannot bill a card. By continuing you agree to our Terms of Service.'}
       </div>
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || cardCheckout === 'unknown'}
         className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-bold text-lg rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
       >
         {loading && <Loader className="w-5 h-5 animate-spin" />}
-        {loading ? 'Checking checkout…' : `Test mode — no charge (${tierPrice})`}
+        {loading || cardCheckout === 'unknown'
+          ? 'Checking checkout…'
+          : cardCheckout === 'live'
+            ? `Continue to checkout — ${tierPrice}`
+            : `Test mode — no charge (${tierPrice})`}
       </button>
     </form>
   );

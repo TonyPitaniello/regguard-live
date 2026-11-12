@@ -4,7 +4,8 @@
  */
 
 import { Link, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { backendUrl } from '../env';
 import { Check, ArrowLeft } from 'lucide-react';
 import { trackStampEvent } from '../lib/trackStampEvent';
 import { IC_BUNDLE } from '../icDiligenceBundleCopy';
@@ -72,9 +73,25 @@ const TIERS = [
 
 export default function PricingPage() {
   const navigate = useNavigate();
+  const [cardCheckout, setCardCheckout] = useState<'unknown' | 'test' | 'live'>('unknown');
 
   useEffect(() => {
     trackStampEvent('pricing_view', { channel: 'pricing' });
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(backendUrl('/health'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setCardCheckout(data?.card_checkout === 'live' ? 'live' : 'test');
+      })
+      .catch(() => {
+        if (!cancelled) setCardCheckout('test');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleCta = (tierKey: string) => {
@@ -178,8 +195,9 @@ export default function PricingPage() {
             ))}
           </div>
           <p className="max-w-3xl mx-auto mt-8 text-center text-sm text-amber-100">
-            Card checkout is in Stripe test mode. A real card is not charged. Free Lookups is the
-            path that runs today.
+            {cardCheckout === 'live'
+              ? 'Checkout charges the price on the card. Free Lookups still runs with no card.'
+              : 'Card checkout is in Stripe test mode. A real card is not charged. Free Lookups is the path that runs today.'}
           </p>
         </div>
       </section>

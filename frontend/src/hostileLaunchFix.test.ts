@@ -68,7 +68,7 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261105-share-v54'), 'BUILD bumped for share campaign and free band');
+  assert(main.includes('launch-20261112-checkout-guard'), 'BUILD bumped for checkout guard');
   const checkout = read('pages/PremiumCheckoutPage.tsx');
   assert(checkout.includes("includes('cs_test_')"), 'test checkout cannot bill a card');
   assert(checkout.includes('Cards are not live'), 'checkout says cards are not live before pay');

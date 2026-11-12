@@ -1272,6 +1272,10 @@ def health() -> Dict[str, Any]:
         or None,
         "bundle_contract": "memo+boardroom+docx+xlsx+evidence_xlsx+csv",
         "webhook_signature_required": bool((os.getenv("STRIPE_WEBHOOK_SECRET") or "").strip()),
+        # test or live only. Never the key.
+        "card_checkout": "live"
+        if (os.getenv("STRIPE_SECRET_KEY") or "").strip().startswith("sk_live_")
+        else "test",
     }
     try:
         from free_scan_quota import data_dir_is_ephemeral, quota_store_status
@@ -1411,22 +1415,49 @@ def debug_config(x_admin_secret: Optional[str] = Header(default=None)) -> Dict[s
 
 # ========== Authentication & Payment Gates ==========
 
+_PUBLIC_APP = "https://app.regguardagent.com"
+
+
+def _checkout_return_url(url: Optional[str], fallback: str) -> str:
+    """Success and cancel may only come back to the production app."""
+    from urllib.parse import urlparse
+
+    candidate = (url or "").strip() or fallback
+    parsed = urlparse(candidate)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or host != "app.regguardagent.com" or parsed.username or parsed.password:
+        raise HTTPException(
+            status_code=400,
+            detail="Checkout can only return to https://app.regguardagent.com",
+        )
+    return candidate
+
+
 @app.post("/checkout", tags=["Payments"])
 async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
     """
-    Create Stripe Checkout for multi-segment tiers
-    (contractor_pro, ic_project, ic_annual, sponsor).
+    Create Stripe Checkout for Estimator, Contractor Pro, and the IC products.
+    Sponsor is not a public purchase.
     """
     try:
         from stripe_service import create_checkout_session as stripe_create_checkout
 
+        tier_l = (body.tier or "").strip().lower()
+        if tier_l == "sponsor":
+            raise HTTPException(
+                status_code=400,
+                detail="Sponsor is not sold on checkout. Email support@regguardagent.com.",
+            )
+
         user_id = body.user_id or body.email or body.trial_id or "anonymous"
-        frontend = os.getenv("FRONTEND_APP_URL", "https://app.regguardagent.com")
-        success_url = body.success_url or f"{frontend}/checkout/success"
-        cancel_url = body.cancel_url or f"{frontend}/checkout/{body.tier}"
+        success_url = _checkout_return_url(
+            body.success_url, f"{_PUBLIC_APP}/checkout/success"
+        )
+        cancel_url = _checkout_return_url(
+            body.cancel_url, f"{_PUBLIC_APP}/checkout/{tier_l or 'partner'}"
+        )
 
         # IC Annual: only after a prior IC Project purchase for this email
-        tier_l = (body.tier or "").strip().lower()
         if tier_l == "ic_annual":
             email_l = (body.email or "").strip().lower()
             if not email_l:
