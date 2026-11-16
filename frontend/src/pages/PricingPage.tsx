@@ -197,7 +197,7 @@ export default function PricingPage() {
           <p className="max-w-3xl mx-auto mt-8 text-center text-sm text-amber-100">
             {cardCheckout === 'live'
               ? 'Checkout charges the price on the card. Free Lookups still runs with no card.'
-              : 'Card checkout is in Stripe test mode. A real card is not charged. Free Lookups is the path that runs today.'}
+              : 'Card checkout is in Stripe test mode. Each paid plan opens Stripe’s test card (4242 4242 4242 4242). A real card is not charged.'}
           </p>
         </div>
       </section>

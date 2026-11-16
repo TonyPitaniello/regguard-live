@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle, Loader } from 'lucide-react';
 import { backendUrl } from '../env';
 import {
@@ -88,6 +88,7 @@ export default function PremiumCheckoutPage() {
   );
   const [selectedTier, setSelectedTier] = useState<TierKey>(initialTier);
   const [error, setError] = useState('');
+  const [cardCheckout, setCardCheckout] = useState<'unknown' | 'test' | 'live'>('unknown');
 
   useEffect(() => {
     const key = resolveTierKey(tierParam || searchParams.get('tier'));
@@ -97,9 +98,29 @@ export default function PremiumCheckoutPage() {
     }
   }, [tierParam, searchParams]);
 
-  // IC Annual: soft-gate in UI (server also enforces prior IC Project)
+  useEffect(() => {
+    let cancelled = false;
+    fetch(backendUrl('/health'))
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setCardCheckout(data?.card_checkout === 'live' ? 'live' : 'test');
+      })
+      .catch(() => {
+        if (!cancelled) setCardCheckout('test');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // IC Annual: soft-gate in UI once cards are live (server also enforces).
+  // Test mode leaves the form open so a Stripe test card can be entered.
   useEffect(() => {
     if (selectedTier !== 'ic_annual') return;
+    if (cardCheckout !== 'live') {
+      setError('');
+      return;
+    }
     const email = (
       searchParams.get('email') ||
       sessionStorage.getItem('userEmail') ||
@@ -138,7 +159,7 @@ export default function PremiumCheckoutPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedTier, searchParams]);
+  }, [selectedTier, searchParams, cardCheckout]);
 
   const handleTierSelect = (tierKey: string) => {
     setSelectedTier(resolveTierKey(tierKey));
@@ -170,7 +191,13 @@ export default function PremiumCheckoutPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {step === 'selection' && <TierSelectionStep onSelect={handleTierSelect} />}
-        {step === 'checkout' && error && selectedTier === 'ic_annual' && (
+        {step === 'checkout' && selectedTier === 'ic_annual' && cardCheckout !== 'live' && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-100 text-sm">
+            Test mode opens Stripe’s test card for IC Annual before a $1,500 bundle. A real card is
+            not charged. The bundle-first rule returns when cards are live.
+          </div>
+        )}
+        {step === 'checkout' && error && selectedTier === 'ic_annual' && cardCheckout === 'live' && (
           <div className="mb-6 p-4 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-100 text-sm">
             <p className="mb-3">{error}</p>
             <button
@@ -185,7 +212,7 @@ export default function PremiumCheckoutPage() {
             </button>
           </div>
         )}
-        {step === 'checkout' && !(error && selectedTier === 'ic_annual') && (
+        {step === 'checkout' && !(error && selectedTier === 'ic_annual' && cardCheckout === 'live') && (
           <CheckoutFormStep
             tier={selectedTier}
             onBack={handleBack}
@@ -448,17 +475,32 @@ function PaymentForm({
       }
 
       const { checkout_url } = await response.json();
-      const testSession = String(checkout_url || '').includes('cs_test_');
-      if (cardCheckout !== 'live' || testSession) {
+      const url = String(checkout_url || '');
+      if (!url) {
+        onSuccess();
+        return;
+      }
+      const testSession = url.includes('cs_test_');
+      let stripeHost = false;
+      try {
+        stripeHost = new URL(url).hostname === 'checkout.stripe.com';
+      } catch {
+        stripeHost = false;
+      }
+      // Test key: open only Stripe's own test checkout so a fake card can be entered.
+      // A non-test URL while the key is test would be a real charge, so it stays closed.
+      if (cardCheckout !== 'live') {
+        if (!stripeHost || !testSession) {
+          throw new Error(
+            'This page only opens a Stripe test card while checkout is in test mode. A real card is not charged.'
+          );
+        }
+      } else if (!stripeHost || testSession) {
         throw new Error(
-          'Card checkout is in Stripe test mode, so a real card will not be charged. Email support@regguardagent.com.'
+          'Checkout did not return a live Stripe session. Email support@regguardagent.com.'
         );
       }
-      if (checkout_url) {
-        window.location.href = checkout_url;
-      } else {
-        onSuccess();
-      }
+      window.location.href = url;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Payment failed';
       setCardError(message);
@@ -480,17 +522,11 @@ function PaymentForm({
           </>
         ) : (
           <>
-            <p className="font-bold">Cards are not live</p>
+            <p className="font-bold">Stripe test card</p>
             <p className="mt-1 text-amber-100/90">
-              Checkout is in Stripe test mode. A real card will not be charged, and this page will not
-              open a live payment. Free Lookups is the path that runs today.
+              This opens Stripe’s test checkout for {tierPrice}. Use card 4242 4242 4242 4242, any
+              future expiry, any CVC, and any ZIP. A real card is not charged.
             </p>
-            <Link
-              to="/"
-              className="mt-3 inline-flex min-h-[48px] items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-500"
-            >
-              Use Free Lookups
-            </Link>
           </>
         )}
       </div>
@@ -562,7 +598,7 @@ function PaymentForm({
       <div className="bg-slate-800/50 border border-purple-500/10 rounded-lg p-4 text-sm text-gray-400">
         {cardCheckout === 'live'
           ? `Reg Guard does not collect or store card numbers. Continuing opens Stripe for ${tierPrice}. By continuing you agree to our Terms of Service.`
-          : 'Reg Guard does not collect or store card numbers. The pay button stays blocked while Checkout is a test link, so a test session cannot bill a card. By continuing you agree to our Terms of Service.'}
+          : `Reg Guard does not collect or store card numbers. Continuing opens Stripe’s test checkout for ${tierPrice}. Use 4242 4242 4242 4242. A real card is not charged.`}
       </div>
 
       <button
@@ -575,7 +611,7 @@ function PaymentForm({
           ? 'Checking checkout…'
           : cardCheckout === 'live'
             ? `Continue to checkout — ${tierPrice}`
-            : `Test mode — no charge (${tierPrice})`}
+            : `Continue with a test card — ${tierPrice}`}
       </button>
     </form>
   );
@@ -634,29 +670,17 @@ function SuccessStep({ tier }: { tier: TierKey }) {
 }
 
 function ErrorStep({ error, onRetry }: { error: string; onRetry: () => void }) {
-  const testMode = /test mode/i.test(error);
   return (
     <div className="text-center">
       <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-6" />
-      <h2 className="text-3xl font-black text-white mb-4">
-        {testMode ? 'Cards are not live yet' : 'Checkout stopped'}
-      </h2>
+      <h2 className="text-3xl font-black text-white mb-4">Checkout stopped</h2>
       <p className="text-gray-300 mb-8 max-w-2xl mx-auto">{error}</p>
-      {testMode ? (
-        <a
-          href="mailto:support@regguardagent.com?subject=Reg%20Guard%20checkout"
-          className="inline-block px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
-        >
-          Email support
-        </a>
-      ) : (
-        <button
-          onClick={onRetry}
-          className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
-        >
-          Try again
-        </button>
-      )}
+      <button
+        onClick={onRetry}
+        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-lg hover:shadow-lg transition"
+      >
+        Try again
+      </button>
     </div>
   );
 }

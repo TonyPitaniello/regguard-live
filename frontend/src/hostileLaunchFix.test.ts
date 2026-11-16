@@ -68,10 +68,12 @@ function read(rel: string) {
 
 {
   const main = read('main.tsx');
-  assert(main.includes('launch-20261112-checkout-guard'), 'BUILD bumped for checkout guard');
+  assert(main.includes('launch-20261116-test-card'), 'BUILD bumped for the test card');
   const checkout = read('pages/PremiumCheckoutPage.tsx');
-  assert(checkout.includes("includes('cs_test_')"), 'test checkout cannot bill a card');
-  assert(checkout.includes('Cards are not live'), 'checkout says cards are not live before pay');
+  assert(checkout.includes("includes('cs_test_')"), 'test checkout is recognized before redirect');
+  assert(checkout.includes('Continue with a test card'), 'test mode opens the Stripe test card');
+  assert(checkout.includes('4242 4242 4242 4242'), 'the Stripe test card number is shown');
+  assert(checkout.includes('A real card is not charged'), 'test mode says a real card is not charged');
   const pricing = read('pages/PricingPage.tsx');
   assert(pricing.includes('Stripe test mode'), 'pricing says checkout is test mode');
 }

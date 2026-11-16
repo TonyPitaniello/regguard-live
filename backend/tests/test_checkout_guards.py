@@ -38,6 +38,36 @@ def test_return_url_must_be_the_app_host():
     assert other_product.status_code == 400
 
 
+def test_test_mode_annual_opens_a_checkout(monkeypatch):
+    from main import app
+
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_example")
+
+    async def fake_create(**kwargs):
+        assert kwargs["tier"] == "ic_annual"
+        return {
+            "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_annual",
+            "session_id": "cs_test_annual",
+        }
+
+    monkeypatch.setattr("stripe_service.create_checkout_session", fake_create)
+    res = _post(TestClient(app), tier="ic_annual", email="audit-annual@example.com")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["checkout_url"].startswith("https://checkout.stripe.com/")
+    assert "cs_test_" in body["checkout_url"]
+
+
+def test_live_annual_still_requires_a_bundle(monkeypatch):
+    from main import app
+
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_live_example")
+    monkeypatch.setattr("order_service.list_orders_for_email", lambda email: [])
+    res = _post(TestClient(app), tier="ic_annual", email="audit-annual@example.com")
+    assert res.status_code == 400
+    assert "IC Diligence Bundle" in res.text
+
+
 def test_health_card_checkout_is_test_or_live():
     from main import app
 

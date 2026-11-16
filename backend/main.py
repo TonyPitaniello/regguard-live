@@ -1459,8 +1459,11 @@ async def create_tier_checkout(body: TierCheckoutRequest) -> Dict[str, Any]:
             body.cancel_url, f"{_PUBLIC_APP}/checkout/{tier_l or 'partner'}"
         )
 
-        # IC Annual: only after a prior IC Project purchase for this email
-        if tier_l == "ic_annual":
+        # IC Annual: only after a prior IC Project purchase once cards are live.
+        # A test key still opens Stripe's test card so every paid level can be walked.
+        from passive_campaign import cards_are_live
+
+        if tier_l == "ic_annual" and cards_are_live():
             email_l = (body.email or "").strip().lower()
             if not email_l:
                 raise HTTPException(
