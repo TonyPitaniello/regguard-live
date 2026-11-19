@@ -671,7 +671,7 @@ export default function SharedReportPage() {
                     String(f.source_url || '').startsWith('http') &&
                     typeof f.amount_usd === 'number'
                       ? ` — $${f.amount_usd.toLocaleString()}`
-                      : ' — confirm on schedule'}
+                      : ''}
                   </li>
                 );
               })}
