@@ -518,7 +518,7 @@ function resolveCoverage(view: AnalysisData): {
     return {
       tier: 'full_pack',
       badge: 'Full City Pack',
-      warning: 'Curated local fees/gotchas — still confirm dollars on the official schedule.',
+      warning: 'A dollar on this page is a figure the cited schedule states. A blank line has no dollar.',
       note: j.coverage_note || '',
       feesAllowed: true,
     };

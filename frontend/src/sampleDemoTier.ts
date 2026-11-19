@@ -254,7 +254,7 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
       current_label: 'Estimator / Permit Runner',
       next_label: 'Pro bid desk — City Pack PDF · punch/fee CSV · bid packet',
       primary_once: true,
-      honesty_note: 'Pro arms the estimate — still confirm dollars on the live AHJ schedule.',
+      honesty_note: 'The City Pack prints the schedule figure. A blank line has no dollar.',
     };
   }
   if (tier === 'pro') {

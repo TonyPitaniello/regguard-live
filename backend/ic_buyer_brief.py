@@ -1315,6 +1315,27 @@ def cited_schedule_fees(analysis: Dict[str, Any]) -> Optional[List[Dict[str, Any
     return rows
 
 
+def apply_cited_desk_links(analysis: Dict[str, Any]) -> Dict[str, Any]:
+    """Point the receipt at the cited schedule. Dollar rows stay locked until Pro."""
+    if not isinstance(analysis, dict):
+        return analysis
+    build = {
+        "dallas": _dallas,
+        "plano": _plano,
+        "austin": _austin,
+        "fort worth": _fort_worth,
+    }.get(_desk_city(analysis))
+    if build is None:
+        return analysis
+    brief = build()
+    ahj = dict(analysis.get("ahj_card") or {})
+    ahj["portal_url"] = brief.get("portal") or ahj.get("portal_url") or ""
+    ahj["fees_url"] = brief.get("fees_url") or ahj.get("fees_url") or ""
+    ahj["apply_url"] = brief.get("apply_url") or ahj.get("apply_url") or ""
+    analysis["ahj_card"] = ahj
+    return analysis
+
+
 def apply_cited_schedule_fees(analysis: Dict[str, Any]) -> Dict[str, Any]:
     """Replace the Pro fee card with the cited schedule. Estimator stays off this list."""
     if not isinstance(analysis, dict):

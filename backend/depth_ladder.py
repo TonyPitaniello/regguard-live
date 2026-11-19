@@ -187,7 +187,7 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
         "next_label": "Contractor Pro — City Pack PDF · punch/fee CSV · bid packet",
         "primary_once": True,
         "honesty_note": (
-            "Pro arms the estimate — still confirm dollars on the live AHJ schedule."
+            "The City Pack prints the schedule figure. A blank line has no dollar."
         ),
     }
 

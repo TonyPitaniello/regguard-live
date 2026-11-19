@@ -325,7 +325,7 @@ def build_regguard_stamp(
             "FAIL": "Hold — resolve drivers before money moves",
         }.get(grade, grade),
         "headline": {
-            "PASS": "No Critical local killers on current citeable pack — still confirm before bid",
+            "PASS": "No Critical local killers on the current pack. No schedule states a contingency percent for this address.",
             "CAUTION": "Material pre-bid risk — review the drivers below before locking a number",
             "FAIL": "High pre-bid risk on this site. This is not a rejection of the job — it means resolve the drivers below before treating the bid as clear.",
         }.get(grade, grade),
@@ -348,8 +348,8 @@ def build_regguard_stamp(
             "Planning aid for pre-bid / pre-LOI screening only. "
             "NOT a bond, insurance quote, credit rating, Moody's-style opinion, "
             "legal opinion, AHJ approval, or interconnection study. "
-            "CLEAR means no Critical killers on the current citeable pack — still confirm "
-            "fees and portal asks with the AHJ before bid. "
+            "CLEAR means no Critical killers on the current pack. "
+            "No schedule states a contingency percent for this address. "
             "Stamp is invalid after valid_until or when local pack / AHJ / moratorium "
             "fingerprint changes."
         ),

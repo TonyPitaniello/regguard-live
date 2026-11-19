@@ -37,7 +37,7 @@ def stamp_plain_text(rg: Dict[str, Any] | None, *, grade: Any = None) -> str:
                 "it means resolve the drivers below before treating the bid as clear."
             )
         if display == "CLEAR":
-            return "No Critical/High drivers elevated on this run — still confirm fees with the AHJ."
+            return "No Critical local killers on the current pack. No schedule states a contingency percent for this address."
         if display == "CAUTION":
             return "Review drivers below before treating the bid as clear."
     return raw

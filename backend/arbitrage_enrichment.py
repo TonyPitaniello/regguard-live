@@ -795,6 +795,12 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             snap["stamp_fingerprint"] = (out.get("regguard_stamp") or {}).get("fingerprint")
     except Exception as e:
         logger.warning("RegGuard stamp v2 failed: %s", e)
+    try:
+        from ic_buyer_brief import apply_cited_desk_links
+
+        out = apply_cited_desk_links(out)
+    except Exception as e:
+        logger.warning("cited desk links failed: %s", e)
     return out
 
 
