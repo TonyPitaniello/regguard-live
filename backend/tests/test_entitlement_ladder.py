@@ -12,6 +12,24 @@ def test_partner_not_in_pro_research_tiers():
     assert "partner" in PAID_TIERS
     assert "partner" not in PRO_RESEARCH_TIERS
     assert "contractor_pro" in PRO_RESEARCH_TIERS
+    assert "ic_project" not in PRO_RESEARCH_TIERS
+    assert "ic_annual" not in PRO_RESEARCH_TIERS
+    assert "ic_consultant" not in PRO_RESEARCH_TIERS
+
+
+def test_annual_does_not_open_the_pro_lookup_desk(monkeypatch):
+    monkeypatch.setattr("entitlement.has_paid_access", lambda _email: True)
+    monkeypatch.setattr("entitlement.has_pro_research_access", lambda _email: False)
+    monkeypatch.setattr("entitlement.has_ic_access", lambda _email: True)
+    from entitlement import resolve_run_access
+
+    email = "annual-only@example.invalid"
+    lookup = resolve_run_access(email, research_mode="pro")
+    assert lookup["pro_research"] is False
+    assert lookup["force_scout"] is False
+    bundle = resolve_run_access(email, research_mode="ic", generate_ic_report=True)
+    assert bundle["pro_research"] is True
+    assert bundle["force_scout"] is True
 
 
 def test_unknown_email_has_no_access():

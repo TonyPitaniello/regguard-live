@@ -526,7 +526,7 @@ function resolveCoverage(view: AnalysisData): {
   if (j?.portal_only_local || view.free_confirm?.portal_only) {
     return {
       tier: 'portal_seed',
-      badge: 'Portal seed — confirm fees',
+      badge: 'Portal seed',
       warning:
         'AHJ portal link only — not full-pack depth. No curated local fees or ordinance gotchas.',
       note: j?.coverage_note || view.free_confirm?.coverage_note || '',
@@ -717,7 +717,7 @@ function stampShareHeadline(grade: string, headline?: string): string {
   if (raw) return raw;
   if (display === 'HOLD') return 'High pre-bid risk. Resolve the drivers below before treating the bid as clear.';
   if (display === 'CAUTION') return 'Material pre-bid risk — review drivers before locking a number.';
-  if (display === 'CLEAR') return 'No Critical local killers on the current pack — still confirm with the AHJ before bid.';
+  if (display === 'CLEAR') return 'No Critical local killers on the current pack. No schedule states a contingency percent for this address.';
   return '';
 }
 
@@ -865,19 +865,26 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
   }
 
   const cityLine = [p?.city, p?.state, p?.zip].filter(Boolean).join(', ');
+  const estimatorHabit = ['partner', 'estimator', 'estimator_habit'].includes(depthNow);
   const bandBlock = freeShare
     ? [
         'SUGGESTED CONTINGENCY',
-        'Hidden on Free — Estimator ($79/mo) shows the percent.',
+        'Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep.',
         'Planning aid — not a bid quote.',
       ].join('\n')
-    : band?.pct_low != null && band?.pct_high != null
+    : estimatorHabit
       ? [
           'SUGGESTED CONTINGENCY',
-          `+${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%)`,
-          'Planning aid — not a bid quote.',
+          'No schedule states a contingency percent for this address.',
+          'Forward the punch below.',
         ].join('\n')
-      : 'Confirm contingency with the AHJ before bid.';
+      : band?.pct_low != null && band?.pct_high != null
+        ? [
+            'SUGGESTED CONTINGENCY',
+            `+${band.pct_low}% to +${band.pct_high}% (mid ${band.pct_mid}%)`,
+            'Planning aid — not a bid quote.',
+          ].join('\n')
+        : 'No schedule states a contingency percent for this address.';
 
   return [
     'REG GUARD — BID RISK RECEIPT',
@@ -1620,6 +1627,9 @@ export default function ResultsViewerModal({
       stampGrade === 'FAIL' ? 'HOLD' : stampGrade === 'PASS' ? 'CLEAR' : stampGrade || '—';
     const band = view.contingency_band;
     const killers = (view.margin_killers || []).slice(0, 4);
+    const forwardPunch = (view.punch_list?.punch_list || []).filter(
+      (item) => Boolean(item && item.task)
+    );
     const share = reportShareUrl(view, effectiveResearchId);
     const lines = [
       'Reg Guard — Executive Summary',
@@ -1627,18 +1637,29 @@ export default function ResultsViewerModal({
       `AHJ: ${ahjName}`,
       `Stamp: ${stampDisplay}`,
       softLocked
-        ? 'Suggested contingency: hidden on Free. Estimator ($79/mo) shows the percent.'
-        : band
-          ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
-          : '',
+        ? 'Suggested contingency: hidden on Free. Estimator ($79/mo) puts the punch on a Receipt the GC can keep.'
+        : blurProDesk
+          ? 'Suggested contingency: No schedule states a contingency percent for this address.'
+          : band
+            ? `Suggested contingency: +${band.pct_low}% – +${band.pct_high}% (mid ${band.pct_mid}%)`
+            : '',
       '',
       'Top items before bid:',
-      ...killers.map(
-        (k, i) =>
-          `${i + 1}. [${k.priority || 'NOTE'}] ${hideFreeBandDigits(k.title || '', softLocked)}${
-            k.detail && !softLocked ? ` — ${hideFreeBandDigits(k.detail, softLocked)}` : ''
-          }`
-      ),
+      ...(blurProDesk && forwardPunch.length
+        ? forwardPunch.slice(0, 3).map((item, i) => {
+            const owner = item.responsible_party || 'Permit runner';
+            const due = item.timeline || 'Before bid';
+            const src = item.source_url ? 'Source' : 'Unverified';
+            return `${i + 1}. ${item.task || 'Punch line'} [${owner} · ${due} · ${src}]${
+              item.source_url ? ` ${item.source_url}` : ''
+            }`;
+          })
+        : killers.map(
+            (k, i) =>
+              `${i + 1}. [${k.priority || 'NOTE'}] ${hideFreeBandDigits(k.title || '', softLocked)}${
+                k.detail && !softLocked ? ` — ${hideFreeBandDigits(k.detail, softLocked)}` : ''
+              }`
+          )),
       '',
       share ? `Full report / PDFs: ${share}` : '',
       'Planning aid only — confirm with AHJ before bid.',
@@ -1824,7 +1845,11 @@ export default function ResultsViewerModal({
               </p>
               {softLocked ? (
                 <p style={{ fontSize: 18, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0', lineHeight: 1.35 }}>
-                  Hidden on Free — Estimator ($79/mo) shows the percent
+                  Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep
+                </p>
+              ) : blurProDesk ? (
+                <p style={{ fontSize: 16, fontWeight: 800, color: '#fef3c7', margin: '4px 0 0', lineHeight: 1.35 }}>
+                  No schedule states a contingency percent for this address.
                 </p>
               ) : (
                 <div>
@@ -1841,11 +1866,11 @@ export default function ResultsViewerModal({
               )}
               {softLocked ? (
                 <p style={{ fontSize: 12, color: '#fde68a', margin: '10px 0 0', fontWeight: 700 }}>
-                  Free — the clear % stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
+                  Free — the punch stays on the Estimator Receipt. Forwarding this preview does not unlock it.
                 </p>
               ) : blurProDesk ? (
                 <p style={{ fontSize: 12, color: '#fcd34d', margin: '10px 0 0' }}>
-                  Estimator — band shown. Full City Pack / fee schedule stay on Contractor Pro.
+                  Forward the punch below. City Pack and fee dollars stay on Contractor Pro.
                 </p>
               ) : null}
             </div>
@@ -3388,18 +3413,20 @@ export default function ResultsViewerModal({
                 <div className="relative mb-1">
                   <p
                     className={
-                      softLocked
+                      softLocked || blurProDesk
                         ? 'text-lg font-black text-emerald-100 tracking-tight leading-snug'
                         : 'text-4xl font-black text-emerald-400 tracking-tight'
                     }
                   >
                     {softLocked
-                      ? 'Hidden on Free — Estimator ($79/mo) shows the percent'
-                      : `+${view.contingency_band.pct_low}% – +${view.contingency_band.pct_high}%`}
+                      ? 'Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep'
+                      : blurProDesk
+                        ? 'No schedule states a contingency percent for this address.'
+                        : `+${view.contingency_band.pct_low}% – +${view.contingency_band.pct_high}%`}
                   </p>
                   {softLocked ? (
                     <p className="text-xs text-purple-100 mt-2 font-semibold">
-                      Free — Estimator ($79/mo) unlocks this band. Forwarding this preview does not unlock it.
+                      Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep.
                     </p>
                   ) : null}
                 </div>
@@ -3407,8 +3434,10 @@ export default function ResultsViewerModal({
               {view.contingency_band && (
                 <p className="text-sm text-gray-300 mb-3">
                   {softLocked
-                    ? 'The clear percent stays on Estimator. Planning aid, not a quote.'
-                    : `Suggested cushion on your base bid for this site (mid ${view.contingency_band.pct_mid}%). Add roughly ${view.contingency_band.pct_low}%–${view.contingency_band.pct_high}% for AHJ fees, timeline slip, and local risk — planning aid, not a quote.`}
+                    ? 'The punch stays on the Estimator Receipt.'
+                    : blurProDesk
+                      ? 'Forward the punch below.'
+                      : `Suggested cushion on your base bid for this site (mid ${view.contingency_band.pct_mid}%). Add roughly ${view.contingency_band.pct_low}%–${view.contingency_band.pct_high}% for AHJ fees, timeline slip, and local risk — planning aid, not a quote.`}
                 </p>
               )}
               <p className="text-xs text-amber-100/95 mb-3 border border-amber-500/35 rounded-md px-2.5 py-2 bg-amber-500/10">
@@ -3857,7 +3886,7 @@ export default function ResultsViewerModal({
                 {packBody === 'locked'
                   ? 'Fee schedule, gotchas, and the contingency band stay locked on Free.'
                   : packBody === 'tease'
-                    ? 'Contingency band and AHJ links are open. Fee dollars and the rest of the City Pack unlock on Contractor Pro.'
+                    ? 'The punch and AHJ links are open. Fee dollars and the City Pack unlock on Contractor Pro.'
                     : packFees.length || packGotchas.length || view.contingency_band
                       ? `${packFees.length} fee line${packFees.length === 1 ? '' : 's'} · ${packGotchas.length} gotcha${packGotchas.length === 1 ? '' : 's'}${view.contingency_band ? ` · contingency +${view.contingency_band.pct_low}–${view.contingency_band.pct_high}%` : ''}. Download this pack as a PDF, or use the bid downloads below.`
                       : 'Download the Full City Pack PDF: curated fees, gotchas, contingency, AHJ links, and inspections (planning aids — confirm dollars on the official schedule before bid).'}
@@ -3916,9 +3945,11 @@ export default function ResultsViewerModal({
                       }
                     >
                       {softLocked
-                        ? 'Hidden on Free — Estimator ($79/mo) shows the percent'
-                        : `${view.contingency_band.pct_low}% – ${view.contingency_band.pct_high}%`}
-                      {!softLocked && (
+                        ? 'Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep'
+                        : blurProDesk
+                          ? 'No schedule states a contingency percent for this address.'
+                          : `${view.contingency_band.pct_low}% – ${view.contingency_band.pct_high}%`}
+                      {!softLocked && !blurProDesk && (
                         <span className="text-base font-semibold text-gray-300 ml-2">
                           (mid {view.contingency_band.pct_mid}%)
                         </span>
@@ -3952,10 +3983,10 @@ export default function ResultsViewerModal({
                     <p className="text-white text-sm mb-2">
                       Timeline: {(() => {
                         const raw = String(
-                          view.fee_card?.timeline || view.summary?.estimated_timeline || 'Confirm with AHJ'
+                          view.fee_card?.timeline || view.summary?.estimated_timeline || 'Unverified. This is not a filing date.'
                         );
-                        if (/unverified|confirm with/i.test(raw)) return raw;
-                        return `${raw} (unverified — confirm with the AHJ)`;
+                        if (/unverified|not a filing date/i.test(raw)) return raw;
+                        return `${raw}. Unverified. This is not a filing date.`;
                       })()}
                     </p>
                     {!coverage.feesAllowed ? (
@@ -4223,9 +4254,9 @@ export default function ResultsViewerModal({
                             ? 'Included: full Receipt PDF + unlocked punch. Locked: City Pack / CSV / bid packet (Pro), counsel ZIP (IC).'
                             : ladderTier === 'pro'
                               ? view.ic_bundle_for_this_site === false
-                                ? `Included: Receipt + City Pack PDF / CSV / bid packet. The counsel ZIP stays on ${view.ic_bound_site || 'the purchased site'}.`
-                                : 'Included: Receipt + City Pack PDF / CSV / bid packet. Locked: IC Diligence Bundle counsel ZIP ($1,500).'
-                              : 'Included: Receipt + Pro desk + IC Diligence Bundle ZIP.'}
+                                ? `Included: Receipt + City Pack PDF / CSV / bid packet. The counsel ZIP stays on ${view.ic_bound_site || 'the purchased site'}. ${IC_BUNDLE.deskAndZip}`
+                                : `Included: Receipt + City Pack PDF / CSV / bid packet. ${IC_BUNDLE.deskAndZip}`
+                              : `Included: the counsel ZIP for this address. ${IC_BUNDLE.deskAndZip}`}
                       </p>
                     </div>
                     <button

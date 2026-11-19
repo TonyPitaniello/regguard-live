@@ -95,7 +95,7 @@ def test_url_allowlist_pack_host():
     assert url_allowed_for_cheap_confirm(
         "https://dallascityhall.com/building",
         pack_urls=[
-            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx"
+            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/DCH%20documents/feesummary_725.pdf"
         ],
     )
     assert not url_allowed_for_cheap_confirm(

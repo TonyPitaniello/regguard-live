@@ -78,6 +78,9 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         analysis_data = prepare_analysis_for_delivery(analysis_data)
     except Exception:
         analysis_data = _ensure_arbitrage(analysis_data)
+    from ic_buyer_brief import apply_cited_schedule_fees
+
+    analysis_data = apply_cited_schedule_fees(analysis_data)
 
     pi = analysis_data.get("project_info") or {}
     address = _ascii(str(pi.get("address") or "Site"))
@@ -162,27 +165,17 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
     )
     pdf.set_y(y0 + 20)
 
-    _section_title(pdf, "Contingency band (planning aid)")
-    hero_h = 24 if low_s and high_s else 14
+    _section_title(pdf, "Contingency")
+    hero_h = 16
     cx, cy = _card_box(pdf, hero_h)
     pdf.set_xy(cx, cy)
-    if low_s and high_s:
-        pdf.set_font("Helvetica", "B", 22)
-        pdf.set_text_color(*EMERALD_SOFT)
-        pdf.cell(CONTENT_W - 8, 10, f"+{low_s}%  -  +{high_s}%", ln=1)
-        pdf.set_x(cx)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(*EMERALD)
-        pdf.cell(CONTENT_W - 8, 5, _ascii(f"mid {mid_s}%  -  planning aid - not a quote"), ln=1)
-        if band.get("disclaimer"):
-            pdf.set_x(cx)
-            pdf.set_font("Helvetica", "", 7)
-            pdf.set_text_color(*MUTED)
-            pdf.multi_cell(CONTENT_W - 8, 3.5, _ascii(str(band.get("disclaimer"))[:220]))
-    else:
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(*AMBER_SOFT)
-        pdf.multi_cell(CONTENT_W - 8, 5, _ascii("Confirm contingency with the AHJ before bid."))
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(
+        CONTENT_W - 8,
+        5,
+        _ascii("No schedule states a contingency percent for this address."),
+    )
     pdf.set_y(cy + hero_h + 2)
 
     _section_title(pdf, "AHJ portal & contact")
@@ -278,14 +271,10 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         if pdf.get_y() > 255:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
-        amt = row.get("amount_usd")
-        row_url = str(row.get("source_url") or row.get("citation_url") or "")
-        sourced = bool(row.get("verified")) and row_url.startswith("http")
-        amt_s = (
-            f"${amt:,.0f}"
-            if sourced and isinstance(amt, (int, float)) and float(amt) > 0
-            else "confirm on schedule"
-        )
+        from ic_buyer_brief import schedule_usd, stated_schedule_amount
+
+        stated = stated_schedule_amount(row)
+        amt_s = schedule_usd(stated) if stated is not None else ""
         ver, cite_url = citation_badge_and_url(row)
         label = str(row.get("label") or row.get("name") or "Fee")[:80]
         trade = str(row.get("trade") or "").strip()
@@ -304,7 +293,8 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pass
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - bw, 4.2, _ascii(f"{prefix}{label}: {amt_s}"))
+        amount_bit = f": {amt_s}" if amt_s else ""
+        pdf.multi_cell(CONTENT_W - bw, 4.2, _ascii(f"{prefix}{label}{amount_bit}"))
         # Always name the source — never a bare [Source] with nothing after
         src_name = str(row.get("source_label") or row.get("citation_note") or "").strip()
         if cite_url or src_name:

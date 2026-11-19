@@ -253,11 +253,145 @@ class BidRiskReceiptPDF(FPDF):
         self.rect(0, 0, PAGE_W, PAGE_H, "F")
 
     def footer(self) -> None:
-        self.set_y(-14)
+        if getattr(self, "_buyer_memo", False):
+            self.set_y(-10)
+            self.set_font("Helvetica", "", 7)
+            self.set_text_color(*DIM)
+            self.cell(0, 4, _ascii(getattr(self, "_buyer_footer", "")), align="C")
+            return
+        self.set_y(-12 if getattr(self, "_free_preview", False) else -14)
         self.set_font("Helvetica", "I", 6.5)
         self.set_text_color(*DIM)
         page = f" — {self.page_no()}" if self.page_no() > 1 else ""
-        self.multi_cell(0, 3.2, _ascii(CYA + page), align="C")
+        if getattr(self, "_free_preview", False):
+            foot = "FREE PREVIEW - contingency stays locked. Not a quote, a permit total, or a filing."
+        elif getattr(self, "_estimator_habit", False):
+            foot = "Not a quote, a permit total, or a filing."
+        else:
+            foot = CYA
+        self.multi_cell(0, 3.2, _ascii(foot + page), align="C")
+
+
+def _write_buyer_memo(data: Dict[str, Any], output_path: Optional[str]) -> str:
+    """One page: stamp, drivers, transcribed fees, three calls. No percent."""
+    from pdf_stamp_helpers import paint_linked_block
+
+    pi = data.get("project_info") or {}
+    address = _ascii(str(pi.get("address") or "Site"))
+    city = _ascii(str(pi.get("city") or ""))
+    state = _ascii(str(pi.get("state") or ""))
+    zip_code = _ascii(str(pi.get("zip") or ""))
+    site = f"{address}, {city}, {state} {zip_code}".strip()
+    pdf = BidRiskReceiptPDF()
+    pdf._buyer_memo = True
+    pdf._buyer_footer = site[:110]
+    pdf.add_page()
+    pdf.set_margins(MARGIN, 10, MARGIN)
+    pdf.set_y(8)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*EMERALD_SOFT)
+    pdf.cell(CONTENT_W, 5, "REG GUARD", ln=1)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 5, _ascii(address))
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*MUTED)
+    pdf.cell(CONTENT_W, 4, _ascii(f"{city}, {state} {zip_code}"), ln=1)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*AMBER)
+    pdf.cell(CONTENT_W, 6, "REGGUARD STAMP: HOLD", ln=1)
+    headline = str((data.get("regguard_stamp") or {}).get("headline") or data.get("buyer_headline") or "")
+    if headline:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.4, _ascii(headline))
+
+    def _url_line(label: str, url: str) -> None:
+        u = str(url or "").strip()
+        if not u.startswith("http"):
+            return
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(*EMERALD)
+        paint_linked_block(pdf, _ascii(f"{label}: {u}"), u, width=CONTENT_W, line_h=3.0)
+
+    pdf.ln(1)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*EMERALD)
+    pdf.cell(CONTENT_W, 4, "DRIVERS", ln=1)
+    for k in (data.get("margin_killers") or [])[:3]:
+        if not isinstance(k, dict):
+            continue
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*AMBER)
+        pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"{k.get('priority') or 'NOTE'}: {k.get('title') or ''}"))
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.2, _ascii(str(k.get("detail") or "")))
+        _url_line("Page", str(k.get("source_url") or ""))
+
+    pdf.ln(0.6)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*EMERALD)
+    pdf.cell(CONTENT_W, 4, "FEE LINES", ln=1)
+    for f in ((data.get("fee_card") or {}).get("fees") or []):
+        if not isinstance(f, dict):
+            continue
+        amt = f.get("amount_usd")
+        if isinstance(amt, (int, float)):
+            shown = f"${amt:,.0f}" if float(amt).is_integer() else f"${amt:,.2f}"
+        else:
+            shown = "confirm-on-schedule"
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"{f.get('label') or 'Fee'} — {shown}"))
+        note = str(f.get("detail") or f.get("note") or "")
+        if shown == "confirm-on-schedule":
+            from ic_buyer_brief import note_without_unstated_dollars
+
+            note = note_without_unstated_dollars(note)
+        if note:
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "", 7)
+            pdf.set_text_color(*MUTED)
+            pdf.multi_cell(CONTENT_W, 3.0, _ascii(note))
+        _url_line("Page", str(f.get("source_url") or ""))
+
+    pdf.ln(0.6)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*EMERALD)
+    pdf.cell(CONTENT_W, 4, "CALLS", ln=1)
+    for c in ((data.get("parallel_clocks") or {}).get("clocks") or [])[:3]:
+        if not isinstance(c, dict):
+            continue
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.3, _ascii(str(c.get("owner") or c.get("name") or "")))
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(CONTENT_W, 3.1, _ascii(str(c.get("detail") or "")))
+        _url_line("Page", str(c.get("url") or ""))
+
+    if not output_path:
+        out_dir = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data") / "bid_receipts"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe = "".join(ch if ch.isalnum() else "_" for ch in address)[:40]
+        output_path = str(out_dir / f"bid_receipt_{safe}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf")
+    pdf.output(output_path)
+    return output_path
 
 
 def generate_bid_risk_receipt_pdf(
@@ -269,6 +403,8 @@ def generate_bid_risk_receipt_pdf(
 ) -> str:
     """Write a branded 1-page forwardable Bid Risk Receipt; return path."""
     data = dict(analysis_data or {})
+    if data.get("ic_buyer_brief"):
+        return _write_buyer_memo(data, output_path)
     band = data.get("contingency_band") or {}
     if (
         not band
@@ -318,11 +454,21 @@ def generate_bid_risk_receipt_pdf(
     from habit_ladder_shape import is_free_preview_receipt
 
     free_preview = is_free_preview_receipt(data)
+    from honesty import fee_dollars_unlocked
+
+    estimator = not free_preview and not fee_dollars_unlocked(data)
     site_line = site_line_from_analysis(data)
     kicker, receipt_label, lede, footer_product = _receipt_product_face(data, free_preview)
     doc_title = document_display_title(site_line, receipt_label)
+    if free_preview:
+        if resolved:
+            cta_line = f"Text this preview: {cta}"
+        else:
+            cta_line = "Text this preview. Contingency and the other punch lines stay on Estimator."
 
     pdf = BidRiskReceiptPDF()
+    pdf._free_preview = free_preview
+    pdf._estimator_habit = estimator
     try:
         pdf.set_title(_ascii(doc_title)[:120])
         pdf.set_author("Reg Guard")
@@ -430,11 +576,13 @@ def generate_bid_risk_receipt_pdf(
         if "fee" in title and url.startswith("http"):
             fees_u = url
             break
+    if free_preview:
+        portal_u = fees_u = apply_u = ""
     if portal_u or fees_u or apply_u:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*EMERALD)
-        pdf.cell(CONTENT_W, 4, "AHJ LINKS (confirm before bid)", ln=1)
+        pdf.cell(CONTENT_W, 4, "AHJ LINKS", ln=1)
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*MUTED)
         for kind, url in (("Portal", portal_u), ("Fee schedule", fees_u), ("Apply", apply_u)):
@@ -443,9 +591,10 @@ def generate_bid_risk_receipt_pdf(
             pdf.set_x(MARGIN)
             from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
+            shown = url if estimator else buyer_url_label(url)
             paint_linked_block(
                 pdf,
-                _ascii(f"{kind}: {buyer_url_label(url)}"),
+                _ascii(f"{kind}: {shown}"),
                 url,
                 width=CONTENT_W,
                 line_h=3.0,
@@ -526,7 +675,13 @@ def generate_bid_risk_receipt_pdf(
     pdf.cell(
         CONTENT_W,
         5,
-        "CONTINGENCY (locked on Free)" if free_preview else "CONTINGENCY (screenshot this)",
+        (
+            "CONTINGENCY (locked on Free)"
+            if free_preview
+            else "CONTINGENCY"
+            if estimator
+            else "CONTINGENCY (screenshot this)"
+        ),
         ln=1,
     )
 
@@ -557,9 +712,19 @@ def generate_bid_risk_receipt_pdf(
             CONTENT_W - 8,
             4.5,
             _ascii(
-                "Contingency band locked on Free — Estimator unlocks the clear % you can forward."
+                "Hidden on Free. Estimator ($79/mo) puts the punch on a Receipt the GC can keep."
             ),
         )
+    elif low_s or estimator or not free_preview:
+        from habit_ladder_shape import ESTIMATOR_CONTINGENCY_LINE
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W - 8, 4.6, _ascii(ESTIMATOR_CONTINGENCY_LINE))
+        pdf.set_x(MARGIN + 4)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(CONTENT_W - 8, 4, _ascii("Unverified. Forward the punch below."))
     elif low_s and high_s:
         pdf.set_font("Helvetica", "B", 26)
         pdf.set_text_color(*EMERALD_SOFT)
@@ -584,6 +749,10 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_y(y1 + (28 if free_preview else 26))
 
     # Prefer citeable AHJ fee table over polluted fee_card budget rows
+    if not free_preview and not estimator:
+        from ic_buyer_brief import apply_cited_schedule_fees
+
+        data = apply_cited_schedule_fees(data)
     fee_rows = []
     ahj_block = data.get("ahj") if isinstance(data.get("ahj"), dict) else {}
     if isinstance(ahj_block.get("ahj_fee_table"), list) and ahj_block.get("ahj_fee_table"):
@@ -601,7 +770,7 @@ def generate_bid_risk_receipt_pdf(
             lp_fees = (data.get("local_pack") or {}).get("fees")
             if isinstance(lp_fees, list):
                 fee_rows = lp_fees
-    if fee_rows and not free_preview:
+    if fee_rows and not free_preview and not estimator:
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_text_color(*AMBER)
@@ -614,9 +783,10 @@ def generate_bid_risk_receipt_pdf(
             3.2,
             _ascii("Do not mix these. Impact and tap fees are often larger than the building permit."),
         )
-        for row in fee_rows[:4]:
-            if not isinstance(row, dict):
-                continue
+        from ic_buyer_brief import schedule_usd, stated_schedule_amount
+
+        stated_rows = [row for row in fee_rows if isinstance(row, dict) and stated_schedule_amount(row) is not None]
+        for row in stated_rows[:6]:
             if not _ensure_space(pdf, 10):
                 break
             label = _soft_cut(str(row.get("label") or row.get("name") or "Fee"), 52)
@@ -625,9 +795,7 @@ def generate_bid_risk_receipt_pdf(
                 str(row.get("detail") or ""),
                 str(row.get("trade") or ""),
             )
-            amt = row.get("amount_usd")
-            # Estimator shows kinds + labels; dollar amounts stay a Pro desk unlock.
-            amt_s = "confirm on AHJ schedule"
+            amt_s = schedule_usd(stated_schedule_amount(row))
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 8)
             pdf.set_text_color(*WHITE)
@@ -650,6 +818,23 @@ def generate_bid_risk_receipt_pdf(
 
     # Top risk flags — Free shows 1 clear + locked teasers; Estimator shows full top 3
     risk_flags = _top_risk_flags(data, list(killers) if isinstance(killers, list) else [])
+    if estimator:
+        from habit_ladder_shape import estimator_forward_punch
+
+        risk_flags = [
+            {
+                "priority": "HIGH",
+                "title": str(row.get("task") or ""),
+                "detail": str(row.get("notes") or ""),
+                "source_url": str(row.get("source_url") or ""),
+                "source_label": row.get("source_label"),
+                "verified": row.get("verified"),
+                "citation_tier": row.get("citation_tier")
+                or ("verified" if row.get("verified") else "unverified"),
+            }
+            for row in estimator_forward_punch(data)
+            if isinstance(row, dict)
+        ]
     clear_n = 1 if free_preview else 3
     try:
         clear_n = max(1, min(3, int(data.get("receipt_risk_clear") or clear_n)))
@@ -665,6 +850,8 @@ def generate_bid_risk_receipt_pdf(
             (
                 "TOP RISK (1 of 3 clear - Estimator unlocks the rest)"
                 if free_preview
+                else "THE LINE TO FORWARD  (Source or Unverified)"
+                if estimator
                 else "TOP 3 RISK FLAGS  (Source or Unverified)"
             ),
             ln=1,
@@ -756,9 +943,14 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_text_color(*EMERALD)
                 from pdf_stamp_helpers import buyer_url_label, paint_linked_block
 
+                shown_url = (
+                    cite_url
+                    if (free_preview or estimator) and not locked
+                    else buyer_url_label(cite_url)
+                )
                 paint_linked_block(
                     pdf,
-                    _ascii(buyer_url_label(cite_url)),
+                    _ascii(shown_url),
                     cite_url,
                     width=CONTENT_W - 12,
                     line_h=2.8,
@@ -781,7 +973,12 @@ def generate_bid_risk_receipt_pdf(
             pdf.set_y(y + box_h + 1.5)
 
     if not free_preview:
-        punch = ((data.get("punch_list") or {}).get("punch_list") or [])[:5]
+        if estimator:
+            from habit_ladder_shape import estimator_forward_punch
+
+            punch = estimator_forward_punch(data)
+        else:
+            punch = ((data.get("punch_list") or {}).get("punch_list") or [])[:5]
         if punch and _ensure_space(pdf, 28):
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "B", 9)
@@ -809,7 +1006,8 @@ def generate_bid_risk_receipt_pdf(
                     pdf.set_x(MARGIN + 3)
                     pdf.set_font("Helvetica", "", 6)
                     pdf.set_text_color(*EMERALD)
-                    pdf.multi_cell(CONTENT_W - 3, 2.6, _ascii(punch_url[:100]))
+                    shown_punch = punch_url if estimator else punch_url[:100]
+                    pdf.multi_cell(CONTENT_W - 3, 2.6, _ascii(shown_punch))
             pdf.ln(0.5)
 
     # Compact footer — stamp already shown above the fold (no duplicate HOLD / drivers)

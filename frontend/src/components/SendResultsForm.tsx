@@ -87,7 +87,7 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
         depth === 'preview' ||
         depth === 'free_preview' ||
         analysis?.soft_lock_contingency === true;
-      if (free) return 'Contingency: blurred on Free — Estimator unlocks the clear band.';
+      if (free) return 'Contingency stays on Free. Estimator puts the punch on a Receipt the GC can keep.';
       return band?.pct_low != null && band?.pct_high != null
         ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
         : '';

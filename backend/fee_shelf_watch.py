@@ -77,9 +77,9 @@ CHECKS: List[Dict[str, Any]] = [
     },
     {
         "city": "Dallas",
-        "url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-        "schedule": False,
-        "needles": ["building inspection"],
+        "url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/DCH%20documents/feesummary_725.pdf",
+        "schedule": True,
+        "needles": ["175", "125"],
     },
     {
         "city": "Austin",

@@ -3,6 +3,7 @@
  * Applied on /sample-site-diligence?tier=…
  */
 
+import { IC_BUNDLE } from './icDiligenceBundleCopy';
 import type { AnalysisData } from './ResultsViewerModal';
 import {
   FREE_SOFT_PUNCH,
@@ -259,8 +260,7 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
   if (tier === 'pro') {
     return {
       message: 'Counsel won’t mark up a City Pack PDF',
-      detail:
-        'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: memo, boardroom, Word with exhibits, Excel evidence. Not a bigger City Pack.',
+      detail: IC_BUNDLE.deskAndZip,
       cta_label: 'Get IC Diligence Bundle — $1,500',
       cta_tier: 'ic_project',
       secondary_cta_label: undefined,
@@ -273,8 +273,7 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
   }
   return {
     message: 'Buying another Diligence Bundle for the next capital site?',
-    detail:
-      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of $1,500 per site once you pass about ~10 sites.',
+    detail: IC_BUNDLE.annualMath,
     cta_label: 'IC Annual — $15,000/yr',
     cta_tier: 'ic_annual',
     secondary_cta_label: undefined,
@@ -282,7 +281,7 @@ export function sampleUpgradeOffer(tier: SampleDemoTier): NonNullable<AnalysisDa
     current_label: 'IC Diligence Bundle',
     next_label: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     primary_once: true,
-    honesty_note: 'Annual covers capital-site counsel ZIPs on this purchase email — not day-to-day Contractor Pro.',
+    honesty_note: 'Daily lookups stay on Contractor Pro at $149 a month. Each site still needs its own three calls.',
   };
 }
 
@@ -292,6 +291,6 @@ export function sampleDemoLabel(tier: SampleDemoTier): string {
   if (tier === 'partner')
     return 'Estimator — Receipt habit · next: Pro $149 (City Pack · CSV · dollars when stated)';
   if (tier === 'pro')
-    return 'Pro — bid desk · next: IC $1,500 (counsel ZIP — not a bigger City Pack)';
-  return 'IC Diligence Bundle — counsel ZIP open · next: Annual $15,000 after about ~10 sites';
+    return 'Pro — bid desk · next: IC $1,500 (the ZIP the lawyer marks up)';
+  return 'IC Diligence Bundle — counsel ZIP open · next: Annual $15,000, cheaper on the 11th site';
 }

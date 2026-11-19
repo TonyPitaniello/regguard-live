@@ -9,7 +9,7 @@
  *   - Free/Estimator: plain truck language (bid-or-walk), not jargon-first
  *   - Upsell body = who + pain of staying + one outcome — never a SKU dump
  *   - Never sell City Pack as counsel ZIP; never “more accurate”
- *   - IC Annual must show break-even (~10 sites) or it fails willingness
+ *   - IC Annual ties at 10 sites ($15,000). The 11th site is where the year costs less.
  *   - Upsell only to the *next* tier (Annual→Project = outside-seat exception)
  */
 
@@ -44,7 +44,7 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     who: 'Estimator or PM who wants a first look before burning a bid day.',
     pain: 'You’re about to price a site blind — and the landmines only show up after you’ve already spent the week.',
     promise:
-      'In minutes: bid or walk — HOLD stamp, top risks, every line Source or Unverified. The clear contingency % stays blurred until Estimator. No card.',
+      'In minutes: bid or walk — HOLD stamp, one permit sequence, every line Source or Unverified. The Receipt the GC can keep stays on Estimator. No card.',
     proof: 'Text the preview. Your GC sees HOLD and the top risks. The number they can file is on Estimator.',
     vsBelow: 'Entry proof — not a habit desk.',
     notThis: 'Not a full Receipt habit, not fee dollars, not City Pack PDF, not a counsel ZIP.',
@@ -91,12 +91,10 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     vsBelow: 'Estimator forwards the stamp. Pro arms the estimate.',
     notThis:
       'Not a counsel ZIP. City Pack is the AHJ fee/gotcha desk — not the boardroom / Word / exhibit package counsel opens.',
-    oneLiner:
-      'Bid-week desk if you own the number — City Pack, punch/fee CSV, bid packet. Dollars only when the schedule states them.',
+    oneLiner: HABIT_TIERS.contractor_pro.oneLiner,
     cta: 'Start Contractor Pro — $149/mo',
     upsellHeadline: 'Counsel won’t mark up a City Pack PDF',
-    upsellBody:
-      'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom brief, editable Word with exhibits, Excel evidence map. Same AHJ facts in counsel format — not a bigger City Pack.',
+    upsellBody: IC_BUNDLE.deskAndZip,
     upsellOffers: 'Counsel ZIP: memo · boardroom · Word · Excel exhibits',
     upsellCta: 'Get IC Diligence Bundle — $1,500',
   },
@@ -106,19 +104,17 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     name: IC_BUNDLE.tierName,
     price: IC_BUNDLE.priceLabel,
     who: 'IC consultants, owner’s reps, sponsors, and lenders screening one hard site.',
-    pain: 'Screenshots get rejected. The LOI / IC call needs a package with exhibits — and you don’t have half a day to build Word and Excel by hand.',
+    pain: 'Counsel will not mark up a City Pack, and the day before the letter of intent is the one you cannot spend rebuilding the Word file.',
     promise:
       'One bound address → counsel-ready ZIP: HOLD/CLEAR memo, boardroom PDF, editable DOCX with live links, Fees/Punch/Evidence Excel, evidence index. Large-load sites add AHJ, utility interconnection, and water as separate clocks. Screening only — not an interconnection study.',
     proof: 'Attach the ZIP. Counsel redlines the DOCX. Exhibits map claim → EX-00N → URL.',
     vsBelow: 'Pro is the bid desk. IC is the counsel package for one site.',
     notThis:
       'Not a quote, sealed bid, interconnection study, geotech, or AHJ filing. Not “Pro with extra pages.”',
-    oneLiner:
-      'The package counsel and lenders open — memo, boardroom, editable Word with exhibits, Excel evidence — for one capital site. Not a bigger City Pack.',
+    oneLiner: IC_BUNDLE.oneLiner,
     cta: IC_BUNDLE.ctaBuy,
     upsellHeadline: 'Buying another Diligence Bundle for the next capital site?',
-    upsellBody:
-      'You proved the package on one site. If you will package Diligence Bundles on more capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase email — ahead of $1,500 per site once you pass about ~10 sites. Built for deal-ready IC / lender packages, not day-to-day Contractor Pro lookups.',
+    upsellBody: IC_BUNDLE.annualMath,
     upsellOffers: 'Same counsel ZIP · new capital site · no new $1,500 PO',
     upsellCta: 'IC Annual — $15,000/yr',
   },
@@ -129,14 +125,12 @@ export const TIER_VOICE: Record<TierVoiceKey, TierVoice> = {
     price: '$15,000/yr',
     who: 'IC consultants, owner’s reps, sponsors, and lenders packaging multiple capital sites a year.',
     pain: 'Every new capital address means another $1,500 Diligence Bundle — while the package shape never changes.',
-    promise:
-      'One Annual on this purchase email: Diligence Bundle ZIP for each new bound capital site — no new $1,500 purchase. Ahead of $1,500 per site once you pass about ~10 sites.',
+    promise: IC_BUNDLE.annualMath,
     proof: 'Same memo · boardroom · DOCX · Excel — new bound address when the deal needs the package.',
     vsBelow: 'The Diligence Bundle proved the package. Annual covers more capital sites on the same purchase email.',
     notThis:
-      'Not day-to-day Contractor Pro. Not an interconnection study. A different purchase email still needs its own Diligence Bundle ($1,500).',
-    oneLiner:
-      'Annual for counsel ZIPs on capital sites — ahead of $1,500 per site past ~10 sites.',
+      'Daily lookups stay on Contractor Pro at $149 a month. Each site still needs its own three calls. A different purchase email still needs its own Diligence Bundle ($1,500).',
+    oneLiner: IC_BUNDLE.annualMath,
     cta: 'Get IC Annual — $15,000/yr',
     upsellHeadline: 'Need the ZIP under a different purchase email?',
     upsellBody:

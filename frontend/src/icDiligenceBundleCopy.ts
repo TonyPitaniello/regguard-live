@@ -23,17 +23,31 @@ export const IC_BUNDLE = {
   /** Short badge / nav / price strip */
   badge: 'Counsel-ready ZIP for one site',
 
+  /**
+   * Said wherever the City Pack and the ZIP both appear.
+   * The pack keeps the estimate. The ZIP is the letter-of-intent packet.
+   */
+  deskAndZip:
+    'The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.',
+
+  /**
+   * $15,000 stays. Ten sites tie. The 11th is the first one the year saves.
+   * Count addresses not yet paid for. This is not the $149 lookup plan.
+   */
+  annualMath:
+    'Ten checkouts at $1,500 equal the $15,000 year. The next address is where the year costs less. Buy the year when you can see about ten capital addresses you have not paid for yet. Daily lookups stay on Contractor Pro at $149 a month.',
+
   /** Hero / card one-liner — keep in lockstep with Pricing pitch */
   oneLiner:
-    'The package counsel and lenders open — memo, boardroom, editable Word with exhibits, Excel evidence — for one capital site. Not a bigger City Pack.',
+    'Counsel-ready ZIP for one capital site. The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.',
 
   /** Slightly shorter for dense cards / IC Project tier card */
   cardDescription:
-    'Counsel-ready ZIP for one site — decision memo, boardroom PDF, editable DOCX with evidence binder, estimator Excel (Fees · Punch · Evidence), optional CSVs, and parallel clocks when it matters. Not a bigger City Pack. Not a quote, sealed bid, interconnection study, geotech, or AHJ filing.',
+    'Counsel-ready ZIP for one site — decision memo, boardroom PDF, editable Word, and Excel. The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.',
 
   /** Emotional draw — why buy */
   whyBuy:
-    'Counsel won’t mark up a City Pack PDF. Walk into the LOI / IC call with a citeable ZIP: HOLD or CLEAR, why contingency exists, which exhibit backs each claim, and which clocks can slip independently — without spending half a day building Word and Excel by hand.',
+    'Page one names the fee line or the inspection sequence and attaches the page. Where the schedule states no dollar, the line says confirm-on-schedule and prints no number. The Word file is the one counsel marks up. The three desks are the city intake, the utility that serves this address, and the water or drainage reviewer. You still place the calls.',
 
   /** Who it’s for */
   forWhom:
@@ -56,9 +70,9 @@ export const IC_BUNDLE = {
   contents: [
     {
       file: '01 · Decision memo PDF',
-      label: '1-page HOLD / CLEAR stamp',
+      label: '1-page memo you forward as it comes out',
       detail:
-        'Bid Risk Receipt: contingency band, top 3 drivers, Source or Unverified — the artifact you forward in one tap.',
+        'The fee line or inspection sequence, the page that states it, and confirm-on-schedule with no number where the schedule is silent. Plus the three desks for this address.',
     },
     {
       file: '02 · Boardroom PDF',
@@ -101,7 +115,7 @@ export const IC_BUNDLE = {
   /** Bullet list for pricing / checkout feature arrays */
   featureBullets: [
     'ZIP download: decision memo + boardroom PDF + counsel DOCX + Excel workbooks + optional CSVs',
-    '1-page HOLD/CLEAR decision memo (Bid Risk Receipt) — forwardable stamp',
+    '1-page decision memo you forward as generated — fee line or sequence, with the page attached',
     'Full boardroom PDF — punch list, exhibits, parallel clocks',
     'Editable counsel DOCX with live source hyperlinks + evidence binder (EX-00N)',
     'Estimator Excel: Fees · Punch · Evidence sheets (trade · owner · due window · exhibit_id)',
@@ -115,22 +129,23 @@ export const IC_BUNDLE = {
    * Annual — sell firm volume on capital sites; soft-gate overuse without jargon.
    * Premortem-hardened:
    *   - No “Pro spray” / “shop rate” / “outside-seat” jargon
-   *   - ~10 is break-even math (when Annual wins), not a purchase minimum
+   *   - Ten sites tie at $15,000. The 11th is where the year costs less. Not a purchase minimum.
    *   - Speak to IC / owner’s rep / lender who *are* the diligence seat — not only “brief counsel”
    */
   annualDescription:
-    'If you package Diligence Bundles for capital sites all year, stop rebuying at $1,500 each. After your first bundle, IC Annual ($15,000/yr) covers the same counsel ZIP for more bound addresses on this purchase email — ahead of the $1,500 price once you pass about 10 sites.',
+    'Ten checkouts at $1,500 equal the $15,000 year. The next address is where the year costs less. Buy the year when you can see about ten capital addresses you have not paid for yet. Daily lookups stay on Contractor Pro at $149 a month.',
   annualFeatures: [
     'Same Diligence Bundle ZIP for each new bound capital site on this purchase email',
     'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',
-    'Ahead of $1,500 per site once you pass about 10 sites in a year',
-    'For deal-ready IC / lender packages — not day-to-day Contractor Pro lookups',
+    'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less',
+    'Count capital addresses you have not paid for yet. Earlier checkouts are not refunded',
+    'Each site still needs its own three calls. This does not include Contractor Pro lookups',
     'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth',
     'Email support via support@regguardagent.com',
   ] as const,
   /** Results / capped-scrape — quality pace; no scrape counter, no firehose invite */
   annualFairUseNote:
-    'Annual covers Diligence Bundles for capital sites on this purchase email. Fresh scrapes pace for quality; Generate IC when this address needs the ZIP.',
+    'Annual covers the counsel ZIP for capital sites on this purchase email. Daily lookups stay on Contractor Pro at $149 a month. Generate IC when this address needs the ZIP.',
   /** Wrong-depth body when buyer already has Annual */
   generateBodyAnnual:
     'This run is still free / Pro depth. Re-run with Generate IC to unlock the counsel ZIP for this address under your Annual. Same Diligence Bundle — memo · boardroom · Word · Excel.',
@@ -155,7 +170,7 @@ export const IC_BUNDLE = {
   /** Results — Pro upsell */
   upsellHeadline: 'Counsel won’t mark up a City Pack PDF',
   upsellBody:
-    'Pro is the bid desk. For one capital-sensitive address — LOI, IC call, owner’s rep, lender — IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom brief, editable Word with exhibits, Excel evidence map. Same AHJ facts in counsel format — not a bigger City Pack.',
+    'The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.',
 
   /** Results — free locked */
   lockedHeadline: 'Stop re-sending screenshots that fall apart in the GC thread',
@@ -181,7 +196,7 @@ export const IC_BUNDLE = {
 
   /** Honest boundary */
   notThis:
-    'Not a quote, sealed bid, interconnection study, geotech report, Phase I ESA, or AHJ filing. Planning aid — confirm every fee and timeline with the AHJ before bid.',
+    'Not a quote, sealed bid, interconnection study, geotech report, Phase I ESA, or AHJ filing. A dollar is printed only when the schedule states it. Where it does not, the cell says confirm-on-schedule.',
 
   /** Orders / nav short */
   ordersHint:

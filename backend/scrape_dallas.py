@@ -145,7 +145,7 @@ async def scrape_dallas():
         # 2. Search for Code Amendments (Simulating user search)
         print("Searching for 2021 Code Amendments...")
         await page.goto(
-            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx"
+            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/DCH%20documents/feesummary_725.pdf"
         )
         # Note: Dallas site uses specific search containers; we look for PDF buttons
         amendment_links = await page.locator(

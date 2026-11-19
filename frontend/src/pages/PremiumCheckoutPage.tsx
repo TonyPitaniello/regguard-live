@@ -633,7 +633,7 @@ function SuccessStep({ tier }: { tier: TierKey }) {
           : tier === 'contractor_pro'
             ? 'Contractor Pro is active on this email. Re-run the site for the city pack, fee CSV, and bid packet. If Estimator is also on this email, that $79/month stays until you cancel it in Stripe. Buying Pro does not replace it.'
             : tier === 'partner'
-              ? 'Estimator is active. Re-run this site with the same email for the full punch and the clear contingency band. Fee dollars stay on Contractor Pro.'
+              ? 'Estimator is active. Re-run this site with the same email for the punch with an owner, a due window, and Source. Fee dollars stay on Contractor Pro.'
               : `Thank you. Your ${tierInfo.name} purchase is processed. Re-run this site with the same email to open the results you paid for.`}
       </p>
       {(tier === 'ic_project' || tier === 'ic_annual') && (

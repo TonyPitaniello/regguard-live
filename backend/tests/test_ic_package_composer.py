@@ -86,7 +86,7 @@ def test_compose_ic_package_hold_stamp():
     pkg = compose_ic_package(RICH, generated_for="buyer@example.com")
     assert pkg["schema"] == PACKAGE_SCHEMA
     assert pkg["executive_summary"]["stamp"]["display"] == "HOLD"
-    assert pkg["executive_summary"]["contingency"]["pct_low"] == 21.5
+    assert pkg["executive_summary"]["contingency"] is None
     assert pkg["cover"]["city"] == "Plano"
     assert len(pkg["sources"]) >= 1
 
@@ -106,8 +106,8 @@ def test_boardroom_pdf_bytes():
     assert "BLOCKED" not in text
     assert "Boardroom QA" not in text
     assert "CONFIDENTIAL - Planning aid only - confirm with AHJ Page" not in text
-    # Continuous flow: short packages should not waste a page per section
-    assert doc.page_count <= 6
+    # Ordinance checklists flow with the sections. A short package still stays in this bound.
+    assert doc.page_count <= 8
     pix = doc[0].get_pixmap()
     r, g, b = pix.pixel(pix.width // 2, pix.height // 2)
     assert r + g + b < 200  # dark slate canvas, not white letterhead

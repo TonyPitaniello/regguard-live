@@ -45,10 +45,10 @@ function paidRerunHint(): string {
       return 'Payment detected. Re-run this site with the same email. The IC Diligence Bundle writes the counsel ZIP for this address.';
     }
     if (tiers.includes('contractor_pro')) {
-      return 'Payment detected. Re-run this site with the same email to unlock Contractor Pro: city pack, fee CSV, and bid packet. The counsel ZIP stays on the Diligence Bundle.';
+      return 'Payment detected. Re-run this site with the same email to unlock Contractor Pro: city pack, fee CSV, and bid packet. The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.';
     }
     if (tiers.includes('partner')) {
-      return 'Payment detected. Re-run this site with the same email to unlock the Estimator receipt: full punch and the clear contingency band. Fee dollars stay on Contractor Pro.';
+      return 'Payment detected. Re-run this site with the same email to unlock the Estimator receipt: the punch with an owner, a due window, and Source. Fee dollars stay on Contractor Pro.';
     }
   } catch {
     /* ignore */
@@ -834,7 +834,7 @@ export default function FreeTrialForm({
         setQuotaExceeded(true);
         setError(
           (payload.detail as string) ||
-            'Free monthly lookups used up for this email. Estimator / Permit Runner ($79/mo) unlocks the clear contingency and more lookups. No charge for this blocked run.'
+            'Free monthly lookups used up for this email. Estimator / Permit Runner ($79/mo) puts the punch on a Receipt the GC can keep, and adds more lookups. No charge for this blocked run.'
         );
         return;
       }

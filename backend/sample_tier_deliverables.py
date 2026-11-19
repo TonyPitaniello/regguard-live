@@ -123,7 +123,7 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
     _body(
         pdf,
         "HOLD means elevate pre-bid risk on parallel clocks (AHJ vs interconnect vs water) — "
-        "not that the site is invalid. Contingency band: +21% to +26% (mid 23%).",
+        "not that the site is invalid. No schedule states a contingency percent for this address.",
     )
     pdf.ln(3)
     _section(pdf, "Download the real SAMPLE files")
@@ -151,16 +151,15 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
         "Site lookup for DFW-Austin commercial-industrial work (deepest packs: Dallas, Plano, Austin, Fort Worth)",
         "Top punch-list actions (soft-locked preview — top ~5 lines)",
         "Source or Unverified on every visible line",
-        "Text or email the HOLD. Forwarding does not unlock the punch or the clear percent",
+        "Text or email the HOLD. Forwarding does not unlock the punch",
         "NOT included: full Receipt PDF habit desk, fee/punch CSV, city pack, counsel ZIP",
     ):
         _bullet(pdf, line)
     pdf.ln(2)
     _body(
         pdf,
-        "SAMPLE Free on this site: you see HOLD, the percent hidden on Free, and the first 5 punch lines "
-        "(fee schedule pull, ERCOT parallel clock, Accela type, stormwater, plan-review deposit). "
-        "The clear percent and the rest of the punch stay on Estimator. Forwarding does not unlock them.",
+        "SAMPLE Free on this site: you see HOLD and one permit sequence. "
+        "The Receipt the GC can keep stays on Estimator. Forwarding does not unlock it.",
     )
 
     # Partner
@@ -180,8 +179,8 @@ def generate_tier_ladder_pdf_bytes() -> bytes:
     pdf.ln(2)
     _body(
         pdf,
-        "SAMPLE Estimator file: full 1-page HOLD stamp for Chapin / Fort Worth with AHJ links, "
-        "parallel clocks, contingency screenshot band, top risk flags, and unlocked punch.",
+        "SAMPLE Estimator file: full 1-page HOLD stamp for Chapin / Fort Worth with the unlocked punch, "
+        "an owner, a due window, and Source. No schedule percent.",
     )
 
     # Pro

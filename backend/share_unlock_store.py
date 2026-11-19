@@ -52,7 +52,7 @@ def grant_unlock(
                 data = json.loads(p.read_text(encoding="utf-8"))
             except Exception:
                 pass
-        # A forward is a count, not a product unlock. The clear percent stays on Estimator.
+        # A forward is a count, not a product unlock. The Receipt stays on Estimator.
         data["unlocked"] = False
         data["updated_at"] = now
         emails = list(data.get("emails") or [])

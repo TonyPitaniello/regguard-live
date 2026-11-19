@@ -91,12 +91,12 @@ function read(rel: string) {
     assert(!src.includes('••'), `${name} has no bullet-mask glyphs`);
   }
   assert(
-    results.includes('Hidden on Free — Estimator ($79/mo) shows the percent'),
+    results.includes('Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep'),
     'free contingency is a plain label',
   );
   assert(results.includes('No permit total on Free'), 'free cost box states no permit total');
   assert(results.includes('No permit total'), 'paid desk still refuses an invented permit total');
-  assert(share.includes('Hidden on Free — Estimator ($79/mo) shows the percent'), 'share page label');
+  assert(share.includes('Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep'), 'share page label');
   assert(bid.includes('Hidden on Free'), 'bid day free row label');
 }
 

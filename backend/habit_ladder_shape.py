@@ -12,11 +12,62 @@ from typing import Any, Dict, List
 
 FREE_RECEIPT_MODE = "free_preview"
 ESTIMATOR_RECEIPT_MODE = "estimator_habit"
+ESTIMATOR_CONTINGENCY_LINE = "No schedule states a contingency percent for this address."
+FREE_CONTINGENCY_LOCK = (
+    "Hidden on Free. Estimator ($79/mo) puts the punch on a Receipt the GC can keep."
+)
 
 # Free preview Receipt shows this many clear risk flags; the rest stay locked copy.
 FREE_RECEIPT_RISK_CLEAR = 1
 # Estimator habit Receipt shows the full top-3 risk block.
 ESTIMATOR_RECEIPT_RISK_CLEAR = 3
+
+
+def estimator_forward_punch(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """The one punch an Estimator receipt can forward. No homepage, no formula percent."""
+    pi = analysis.get("project_info") if isinstance(analysis.get("project_info"), dict) else {}
+    city = str(pi.get("city") or "").strip()
+    state = str(pi.get("state") or "").strip()
+    place = ", ".join(p for p in (city, state) if p) or "this address"
+    walk = None
+    try:
+        from ic_buyer_brief import free_bid_or_walk
+
+        walk = free_bid_or_walk(city)
+    except Exception:
+        walk = None
+    if walk:
+        return [
+            {
+                "task": walk["title"],
+                "notes": walk["detail"],
+                "detail": walk["detail"],
+                "owner": "Permit runner",
+                "responsible_party": "Permit runner",
+                "due_window": "Before bid",
+                "timeline": "Before bid",
+                "source_url": walk["source_url"],
+                "source_label": walk["source_label"],
+                "verified": True,
+                "citation_tier": "verified",
+                "priority": "HIGH",
+            }
+        ]
+    return [
+        {
+            "task": f"No permit sequence is on file for {place}",
+            "notes": "No permit sequence is on file for this address.",
+            "detail": "No permit sequence is on file for this address.",
+            "owner": "Permit runner",
+            "responsible_party": "Permit runner",
+            "due_window": "Before bid",
+            "timeline": "Before bid",
+            "verified": False,
+            "citation_tier": "unverified",
+            "source_label": "Unverified",
+            "priority": "HIGH",
+        }
+    ]
 
 
 def _ensure_punch_habit_fields(punch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -67,7 +118,8 @@ def shape_free_vs_estimator(analysis: Dict[str, Any], *, habit_paid: bool) -> Di
         out["research_incomplete"] = False
         out["depth_badge"] = "Estimator / Permit Runner — Receipt habit · unlocked punch"
         out["depth_claim_note"] = (
-            "Estimator habit Receipt — full contingency + unlocked punch you can forward. "
+            "Estimator habit Receipt — one punch with an owner, a due window, and Source, "
+            "on a page the GC can keep. "
             "Contractor Pro adds the City Pack PDF, punch/fee CSV, and bid packet. "
             "Dollars only when the schedule states them."
         )
@@ -75,7 +127,7 @@ def shape_free_vs_estimator(analysis: Dict[str, Any], *, habit_paid: bool) -> Di
         out["receipt_risk_clear"] = ESTIMATOR_RECEIPT_RISK_CLEAR
         out["punch_list"] = {
             **punch_block,
-            "punch_list": punch,
+            "punch_list": estimator_forward_punch(out),
             "habit_unlocked": True,
         }
         # Estimator upsell is Pro — never leave a Free→Estimator CTA on a partner run
@@ -93,8 +145,8 @@ def shape_free_vs_estimator(analysis: Dict[str, Any], *, habit_paid: bool) -> Di
         out["research_incomplete"] = False
         out["depth_badge"] = "Free Lookups — bid-or-walk preview"
         out["depth_claim_note"] = (
-            "Free preview — shape of risk only. Estimator / Permit Runner ($79/mo) unlocks the "
-            "full Bid Risk Receipt, contingency band, and punch list you can forward."
+            "Free preview — one sequence for the drive-or-walk call. "
+            "Estimator / Permit Runner ($79/mo) is the Receipt the GC can keep."
         )
         out["soft_lock_contingency"] = True
         out["receipt_risk_clear"] = FREE_RECEIPT_RISK_CLEAR

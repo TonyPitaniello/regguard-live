@@ -17,12 +17,11 @@ PAID_TIERS: Set[str] = {
 }
 
 # Research depth / paid_local_confirm — Estimator ($79) deliberately excluded.
-# $79 buys habit unlocks (Receipt + punch + Saved Jobs); $149 buys deep scout + desk PDFs.
+# $149 buys deep scout + the City Pack desk on ordinary lookups.
+# IC Project and IC Annual buy the counsel ZIP for a bound site. Generate IC
+# still runs full scout for that site. They do not grant the $149 lookup plan.
 PRO_RESEARCH_TIERS: Set[str] = {
     "contractor_pro",
-    "ic_project",
-    "ic_annual",
-    "ic_consultant",
     "sponsor",
 }
 
@@ -130,10 +129,10 @@ def has_paid_access(email: Optional[str]) -> bool:
 
 def has_pro_research_access(email: Optional[str]) -> bool:
     """
-    True only for Contractor Pro / IC / Sponsor — NOT Estimator ($79).
+    True for Contractor Pro and Sponsor — not Estimator, and not an IC order alone.
 
-    Premortem: Estimator must not get paid_local_confirm / light Universal Scout
-    or $149 collapses to “file formats only.”
+    An IC Diligence Bundle or IC Annual email gets full scout only when this run
+    is Generate IC for a bound site. Daily City Pack lookups stay on Contractor Pro.
     """
     email_l = _normalize_email(email)
     if not email_l or "@" not in email_l:

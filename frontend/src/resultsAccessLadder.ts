@@ -15,7 +15,7 @@
  *   Pro:        full City Pack, fee dollars, CSV, bid packet, playbook.
  *               Parallel clocks / FAST-41 / water stay blurred.
  *               Teaser = counsel ZIP file names (IC Diligence Bundle).
- *   IC:         Pro desk + DC capital cards + counsel ZIP. Teaser = IC Annual only.
+ *   IC:         counsel ZIP for this bound site. Daily City Pack lookups stay on Contractor Pro.
  *
  * Upsell in the results panel is the next tier only. ladderUpsells() can still list
  * the full climb for pricing pages.
@@ -25,6 +25,7 @@
  * Downloads unlock only for what this tier has paid for (see downloadsAllowedForTier).
  */
 
+import { IC_BUNDLE } from './icDiligenceBundleCopy';
 import { TIER_VOICE, nextVoiceForLadderTier } from './tierVoice';
 
 export type ResultsLadderTier = 'free' | 'partner' | 'pro' | 'ic';
@@ -117,8 +118,7 @@ const UPSELL_PACK: Record<
   ic_project: {
     name: 'IC Diligence Bundle',
     price: '$1,500',
-    summary:
-      'The ZIP counsel and lenders open for one capital site — memo, boardroom, editable Word with exhibits, Excel evidence. Not a bigger City Pack.',
+    summary: IC_BUNDLE.deskAndZip,
     features: [
       'Decision memo — HOLD or CLEAR you can forward',
       'Boardroom PDF plus editable counsel Word with exhibits',
@@ -132,16 +132,15 @@ const UPSELL_PACK: Record<
   ic_annual: {
     name: 'IC Annual',
     price: '$15,000/yr',
-    summary:
-      'Same counsel ZIP for more capital sites on this purchase email — ahead of $1,500 per site once you pass about ~10.',
+    summary: IC_BUNDLE.annualMath,
     features: [
       'Diligence Bundle ZIP for each new bound capital site on this email',
       'Memo, boardroom, Word, and Excel — same shape, new address',
-      'Ahead of $1,500 per site past about ~10 sites in a year',
+      'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less',
       'Built for IC, owner’s rep, sponsor, and lender packages',
     ],
     notThis:
-      'Not day-to-day Contractor Pro. A different purchase email still needs its own $1,500 Diligence Bundle.',
+      'Daily lookups stay on Contractor Pro at $149 a month. A different purchase email still needs its own $1,500 Diligence Bundle.',
     label: TIER_VOICE.ic.upsellCta,
     offers: TIER_VOICE.ic.upsellOffers,
   },

@@ -77,17 +77,17 @@ COVERAGE_BADGES = {
         "short": "Full pack",
         "tone": "success",
         "warning": (
-            "Curated local fees/gotchas + federal/state. Still confirm dollar amounts on the "
-            "official AHJ schedule before bid."
+            "Curated local fees and gotchas, plus federal and state lines. "
+            "A dollar here is a figure the cited schedule states."
         ),
     },
     "portal_seed": {
-        "label": "Portal seed — confirm fees",
+        "label": "Portal seed",
         "short": "Portal seed",
         "tone": "warning",
         "warning": (
-            "AHJ portal link only — not Plano-depth. No curated local fees or ordinance gotchas. "
-            "Confirm all fees and amendments on the official schedule before bid."
+            "AHJ portal link only. No curated local fees or ordinance gotchas. "
+            "This page does not state a permit total."
         ),
     },
     "federal_state": {
@@ -96,7 +96,7 @@ COVERAGE_BADGES = {
         "tone": "neutral",
         "warning": (
             "No curated local AHJ pack for this city. Federal (+ state when curated) lines only. "
-            "Treat local requirements as Unverified until you confirm with the AHJ."
+            "Local requirements are Unverified."
         ),
     },
 }

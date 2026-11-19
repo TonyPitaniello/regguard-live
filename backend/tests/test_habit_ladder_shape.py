@@ -82,6 +82,96 @@ def test_stamp_depth_badge_keeps_free_habit_not_instant():
     assert "Estimator" in str(stamped.get("depth_claim_note") or "")
 
 
+def test_free_preview_shows_one_sequence_and_hides_the_rest():
+    from pypdf import PdfReader
+    import io
+
+    sites = [
+        ("1950 N Stemmons Fwy", "Dallas", "75207", "DallasNow record type", "Commercial%20New%20Construction"),
+        ("6565 Headquarters Dr", "Plano", "75024", "Electronic submittal", "civicplus.com"),
+        ("9020 Metric Blvd", "Austin", "78758", "commercial plan review", "commercial-plan-review"),
+        ("13600 Heritage Pkwy", "Fort Worth", "76177", "building permit is issued before a trade", "permits/commercial"),
+    ]
+    for addr, city, zip_code, needle, url_bit in sites:
+        raw = generate_bid_risk_receipt_pdf_bytes(
+            {
+                "project_info": {
+                    "address": addr,
+                    "city": city,
+                    "state": "TX",
+                    "zip": zip_code,
+                    "type": "commercial",
+                },
+                "research_depth": "free",
+                "receipt_mode": "free_preview",
+            },
+            generated_for="runner@example.com",
+        )
+        text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
+        flat = text.replace("\n", "")
+        assert "FREE LOOKUPS PREVIEW" in text
+        assert needle in text
+        assert url_bit in flat
+        assert "default.aspx" not in text
+        assert "Confirm the permit path" not in text
+        assert "unavailable" not in text.lower()
+        assert "Hidden on Free" in text
+        assert "LOCKED" in text
+        assert "Text this preview" in text
+        assert "$175" not in text
+        assert "$291" not in text
+        assert "$75" not in text
+
+
+def test_estimator_receipt_forwards_one_sourced_punch():
+    from pypdf import PdfReader
+    import io
+
+    sites = [
+        ("1950 N Stemmons Fwy", "Dallas", "75207", "DallasNow record type", "Commercial%20New%20Construction"),
+        ("6565 Headquarters Dr", "Plano", "75024", "Electronic submittal", "civicplus.com"),
+        ("9020 Metric Blvd", "Austin", "78758", "commercial plan review", "commercial-plan-review"),
+        ("13600 Heritage Pkwy", "Fort Worth", "76177", "building permit is issued before a trade", "permits/commercial"),
+    ]
+    for addr, city, zip_code, needle, url_bit in sites:
+        raw = generate_bid_risk_receipt_pdf_bytes(
+            shape_free_vs_estimator(
+                {
+                    "project_info": {
+                        "address": addr,
+                        "city": city,
+                        "state": "TX",
+                        "zip": zip_code,
+                        "type": "commercial",
+                    },
+                    "project_type": "commercial",
+                    "research_depth": "partner",
+                    "receipt_mode": "estimator_habit",
+                },
+                habit_paid=True,
+            ),
+            generated_for="runner@example.com",
+        )
+        text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
+        flat = text.replace("\n", "")
+        assert "ESTIMATOR" in text
+        assert "UNLOCKED PUNCH" in text
+        assert needle in text
+        assert url_bit in flat
+        assert "Permit runner" in text
+        assert "Before bid" in text
+        assert "SOURCE" in text
+        assert "No schedule states a contingency percent" in text
+        assert "default.aspx" not in text
+        assert "confirm on AHJ schedule" not in text.lower()
+        assert "FEMA" not in text
+        assert "TDLR" not in text
+        assert "+2%" not in text
+        assert "mid 3%" not in text
+        assert "$175" not in text
+        assert "City Pack" not in text or "Contractor Pro adds City Pack" in text
+
+
 def test_receipt_pdf_free_and_estimator_differ():
     fitz = pytest.importorskip("fitz")
 
@@ -105,8 +195,12 @@ def test_receipt_pdf_free_and_estimator_differ():
     assert "+21%" in free_t or "Hidden on Free" in free_t
     assert "LOCKED" in free_t or "Hidden on Free" in free_t
     assert "ESTIMATOR" in partner_t
-    assert "+21%" in partner_t
+    assert "+21%" not in partner_t
+    assert "No schedule states a contingency percent" in partner_t
+    assert "confirm on AHJ schedule" not in partner_t
     assert "UNLOCKED PUNCH" in partner_t
+    assert "Permit runner" in partner_t
+    assert "Before bid" in partner_t
     assert "FREE LOOKUPS PREVIEW" not in partner_t
     assert "FAIL" not in partner_t
     assert "REGGUARD STAMP: FAIL" not in partner_t

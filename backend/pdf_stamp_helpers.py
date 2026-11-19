@@ -269,6 +269,6 @@ def draw_frosted_contingency(
         w,
         3.8,
         _ascii_face(
-            "Hidden on Free. Estimator ($79/mo) shows the percent."
+            "Hidden on Free. Estimator ($79/mo) puts the punch on a Receipt the GC can keep."
         ),
     )

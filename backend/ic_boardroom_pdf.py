@@ -81,8 +81,12 @@ class BoardroomPDF(BidPacketPDF):
             0,
             4,
             _ascii(
-                f"{self._footer_label}  |  Planning aid only - confirm with AHJ  |  "
-                f"Page {self.page_no()}"
+                f"{self._footer_label}  |  Page {self.page_no()}"
+                if getattr(self, "_buyer_footer", False)
+                else (
+                    f"{self._footer_label}  |  Planning aid only - confirm with AHJ  |  "
+                    f"Page {self.page_no()}"
+                )
             ),
             align="C",
         )
@@ -140,7 +144,7 @@ def _link_line(pdf: BoardroomPDF, label: str, url: str) -> None:
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(*EMERALD)
-    paint_linked_block(pdf, _ascii(f"{label}: {buyer_url_label(u)}"), u, width=CONTENT_W, line_h=4.0)
+    paint_linked_block(pdf, _ascii(f"{label}: {u}"), u, width=CONTENT_W, line_h=3.4)
 
 
 def _accent_card(
@@ -215,11 +219,11 @@ def _flag_card(pdf: BoardroomPDF, priority: str, title: str, detail: str = "") -
     # Measure real wrap height so we don't reserve unused blank in the card
     inner_w = CONTENT_W - 12
     pdf.set_font("Helvetica", "B", 9)
-    title_h = pdf.multi_cell(inner_w, 3.8, _ascii(str(title or "")[:160]), dry_run=True, output="HEIGHT") or 3.8
+    title_h = pdf.multi_cell(inner_w, 3.8, _ascii(str(title or "")), dry_run=True, output="HEIGHT") or 3.8
     detail_h = 0.0
     if detail:
         pdf.set_font("Helvetica", "", 7.5)
-        detail_h = pdf.multi_cell(inner_w, 3.3, _ascii(str(detail)[:240]), dry_run=True, output="HEIGHT") or 3.3
+        detail_h = pdf.multi_cell(inner_w, 3.3, _ascii(str(detail)), dry_run=True, output="HEIGHT") or 3.3
     box_h = 7.0 + float(title_h) + float(detail_h) + 1.5
     _need_space(pdf, box_h + 1.5)
     bx, by = _card_box(pdf, box_h)
@@ -229,12 +233,12 @@ def _flag_card(pdf: BoardroomPDF, priority: str, title: str, detail: str = "") -
     pdf.set_xy(bx, by + 5.8)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*WHITE)
-    pdf.multi_cell(inner_w, 3.8, _ascii(str(title)[:160]))
+    pdf.multi_cell(inner_w, 3.8, _ascii(str(title)))
     if detail:
         pdf.set_x(bx)
         pdf.set_font("Helvetica", "", 7.5)
         pdf.set_text_color(*MUTED)
-        pdf.multi_cell(inner_w, 3.3, _ascii(str(detail)[:240]))
+        pdf.multi_cell(inner_w, 3.3, _ascii(str(detail)))
     pdf.set_y(by + box_h + 1.0)
 
 
@@ -269,10 +273,15 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     title_line = _ascii(document_display_title(site, "IC DILIGENCE PACKAGE"))
     pdf._doc_subtitle = title_line[:90]
     pdf._footer_label = title_line[:90]
-    pdf._control_line = _ascii(
-        f"{site}  |  Generated {package.get('generated_at') or '-'}  |  "
-        f"Planning aid - confirm with AHJ"
-    )
+    if package.get("ic_buyer_brief"):
+        pdf._buyer_footer = True
+        pdf._control_line = _ascii(site)
+        pdf._footer_label = title_line[:70]
+    else:
+        pdf._control_line = _ascii(
+            f"{site}  |  Generated {package.get('generated_at') or '-'}  |  "
+            f"Planning aid - confirm with AHJ"
+        )
     try:
         pdf.set_title(title_line[:120])
         pdf.set_author("Reg Guard")
@@ -323,7 +332,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     stamp_label = stamp_label.replace("FAIL", "HOLD")
     pdf.multi_cell(CONTENT_W, 7, _ascii(stamp_label))
     if stamp.get("plain") or stamp.get("headline"):
-        _muted(pdf, str(stamp.get("plain") or stamp.get("headline")).replace("FAIL", "HOLD")[:220], 8)
+        _muted(pdf, str(stamp.get("plain") or stamp.get("headline")).replace("FAIL", "HOLD"), 8)
     if stamp.get("valid_until"):
         _muted(pdf, f"Valid until {str(stamp.get('valid_until'))[:10]}  |  Re-run before bid submittal.", 7)
 
@@ -373,7 +382,8 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     )
 
     deliv = package.get("deliverable") if isinstance(package.get("deliverable"), dict) else {}
-    _accent_card(
+    if not package.get("ic_buyer_brief"):
+        _accent_card(
         pdf,
         "What this package includes",
         [
@@ -483,13 +493,14 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     if receipt.get("share_url"):
         _link_line(pdf, "Interactive share", str(receipt.get("share_url")))
     pdf.ln(0.5)
-    _accent_card(
-        pdf,
-        "PLANNING AID ONLY",
-        [str(receipt.get("disclaimer") or "Citeable pre-bid diligence - not a quote or sealed bid.")],
-        accent=EMERALD,
-        title_size=9,
-    )
+    if not package.get("ic_buyer_brief"):
+        _accent_card(
+            pdf,
+            "PLANNING AID ONLY",
+            [str(receipt.get("disclaimer") or "Citeable pre-bid diligence - not a quote or sealed bid.")],
+            accent=EMERALD,
+            title_size=9,
+        )
 
     # ---- Jurisdiction + parallel clocks (IC / interconnection consultant core) ----
     findings = package.get("site_findings") or {}
@@ -615,7 +626,11 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
 
     fees = findings.get("fees") or []
     if fees:
-        _section_title(pdf, "Fee & timeline extracts (confirm on schedule)", y_pad=1.0)
+        _section_title(
+            pdf,
+            "Fee lines" if package.get("ic_buyer_brief") else "Fee & timeline extracts (confirm on schedule)",
+            y_pad=1.0,
+        )
         for f in fees:
             amt = f.get("amount")
             title = str(f.get("name") or "Fee")
@@ -635,7 +650,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _section_title(pdf, "Inspection sequence", y_pad=1.0)
         _accent_card(
             pdf,
-            "From live city pack",
+            "Sequence",
             [f"{i}. {step}" for i, step in enumerate(insp, start=1)],
             accent=EMERALD,
             title_size=9,
@@ -659,19 +674,23 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     for g in cards:
         if not isinstance(g, dict):
             continue
-        if _norm_title(g.get("title")) in seen_titles:
+        if _norm_title(g.get("title")) in seen_titles and not (g.get("checklist") or g.get("anti_patterns")):
             continue
         fresh_cards.append(g)
     if fresh_cards:
         _section_title(pdf, "Local gotcha confirm cards", y_pad=1.0)
         for g in fresh_cards:
             bits = [str(g.get("detail") or "")]
+            for step in (g.get("checklist") or [])[:4]:
+                bits.append(f"Check: {step}")
             if g.get("confirm_step"):
                 bits.append(f"Confirm: {g.get('confirm_step')}")
             bits.append(
                 f"Owner: {g.get('owner') or 'Estimator / PM'}  |  "
                 f"Citation: {g.get('source_label') or 'Unverified'}"
             )
+            if g.get("source_url"):
+                bits.append(str(g.get("source_url")))
             for a in g.get("anti_patterns") or []:
                 bits.append(f"Don't: {a}")
             pri = str(g.get("priority") or "WATCH")
@@ -804,12 +823,12 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         pdf.set_text_color(*WHITE)
         pdf.multi_cell(CONTENT_W, 3.6, label)
         if raw_url:
-            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+            from pdf_stamp_helpers import paint_linked_block
 
             pdf.set_x(MARGIN)
             pdf.set_font("Helvetica", "", 7.5)
             pdf.set_text_color(*EMERALD)
-            paint_linked_block(pdf, _ascii(buyer_url_label(raw_url)), raw_url, width=CONTENT_W, line_h=3.4)
+            paint_linked_block(pdf, _ascii(raw_url), raw_url, width=CONTENT_W, line_h=3.4)
         pdf.ln(0.4)
 
     pdf.ln(1.0)

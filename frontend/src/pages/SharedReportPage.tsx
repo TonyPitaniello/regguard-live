@@ -18,6 +18,7 @@ import { trackStampEvent } from '../lib/trackStampEvent';
 import { SeoHead } from '../SeoHead';
 import { rememberReferralCode, storedReferralCode, withShareParams } from '../shareLinks';
 import { classifyFeeKind, feeKindHint } from '../feeKind';
+import { IC_BUNDLE } from '../icDiligenceBundleCopy';
 
 function statedDollar(value: unknown): string | null {
   const n = typeof value === 'number' ? value : Number(value);
@@ -402,11 +403,19 @@ export default function SharedReportPage() {
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
               <p className="text-xs font-semibold uppercase text-amber-200">Contingency band</p>
               <p className="text-lg font-black text-white leading-snug">
-                Hidden on Free — Estimator ($79/mo) shows the percent
+                Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep
               </p>
               <p className="text-sm text-amber-50 mt-1 leading-snug">
-                Estimator unlocks the clear % for the bid file. Forwarding this preview does not unlock it.
+                Estimator puts the punch on a Receipt the GC can keep. Forwarding this preview does not.
               </p>
+            </div>
+          ) : !freeShare && !showFeeDollars ? (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <p className="text-xs font-semibold uppercase text-emerald-300">Contingency</p>
+              <p className="text-lg font-black text-white leading-snug">
+                No schedule states a contingency percent for this address.
+              </p>
+              <p className="text-sm text-emerald-50 mt-1 leading-snug">Forward the punch below.</p>
             </div>
           ) : band?.pct_low != null && band?.pct_high != null ? (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
@@ -561,7 +570,7 @@ export default function SharedReportPage() {
               >
                 Estimator ($79/mo)
               </Link>{' '}
-              unlocks the clear contingency on runs you pay for. Forwarding this page does not.
+              puts the punch on a Receipt the GC can keep. Forwarding this page does not.
             </p>
           ) : shareTier === 'partner' ? (
             <p className="text-xs text-emerald-100/90">
@@ -571,7 +580,7 @@ export default function SharedReportPage() {
               >
                 Contractor Pro ($149/mo)
               </Link>{' '}
-              adds the City Pack, fee CSV, and bid packet.
+              adds the City Pack, fee CSV, and bid packet. {IC_BUNDLE.deskAndZip}
             </p>
           ) : shareTier.startsWith('pro') && analysis.ic_bundle_for_this_site !== false ? (
             <p className="text-xs text-emerald-100/90">

@@ -73,7 +73,7 @@ function MetroHub() {
         <h1 className="text-4xl font-black text-white mb-4">Permit fees &amp; bid-day gotchas by city</h1>
         <p className="text-lg text-gray-300 mb-8">
           Built for estimators and permit runners. Run an address, forward the Bid Risk Receipt.
-          Planning aid — confirm with the AHJ before you bid.
+          Planning aid. Not a quote, a permit total, or a filing.
         </p>
         <ul className="grid sm:grid-cols-2 gap-3">
           {METRO_LANDINGS.map((m) => (

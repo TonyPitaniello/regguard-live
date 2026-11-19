@@ -158,7 +158,7 @@ export function buildClientInstantAnalysis(input: {
     next_steps: [
       'Treat this as a punch list. Flood and wetlands stay Unverified until a mapper page is attached.',
       'Confirm every dollar and day estimate with the AHJ before bidding',
-      'Run the address again. Estimator ($79/mo) is the next paid step for the clear percent.',
+      'Run the address again. Estimator ($79/mo) is the Receipt the GC can keep.',
     ],
   };
 }

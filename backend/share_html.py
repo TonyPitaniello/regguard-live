@@ -99,14 +99,22 @@ def render_share_html(
         headline = {
             "HOLD": "High pre-bid risk. Resolve the drivers below before treating the bid as clear.",
             "CAUTION": "Material pre-bid risk — review drivers before locking a number.",
-            "CLEAR": "No Critical local killers on the current pack — still confirm with the AHJ before bid.",
+            "CLEAR": "No Critical local killers on the current pack. No schedule states a contingency percent for this address.",
         }.get(display, "")
         stamp_line = f"<p class='stamp'>REGGUARD STAMP: { _esc(display) }</p><p class='fine'>{_esc(headline)}</p>"
+    depth_now = str(
+        analysis.get("share_tier") or analysis.get("research_depth") or analysis.get("receipt_mode") or ""
+    ).lower()
+    estimator_share = depth_now in ("partner", "estimator", "estimator_habit")
     desc_bits = [f"AHJ: {ahj}"]
     if band.get("share_frosted"):
-        desc_bits.append("Hidden on Free — Estimator ($79/mo) shows the percent")
-    elif band.get("pct_low") is not None and band.get("pct_high") is not None:
-        desc_bits.append(f"Contingency +{band.get('pct_low')}% to +{band.get('pct_high')}% (planning aid, not a quote)")
+        desc_bits.append(
+            "Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep"
+        )
+    elif estimator_share:
+        desc_bits.append("No schedule states a contingency percent for this address")
+    elif not band.get("share_frosted"):
+        desc_bits.append("No schedule states a contingency percent for this address")
     if killers:
         desc_bits.append(str(killers[0].get("title") or "")[:80])
     description = " · ".join(x for x in desc_bits if x)[:200]
@@ -128,7 +136,7 @@ def render_share_html(
         next_paid = ""
     else:
         next_paid = (
-            f"<p class='fine'>Estimator ($79/mo) unlocks the clear contingency on runs you pay for. "
+            f"<p class='fine'>Estimator ($79/mo) puts the punch on a Receipt the GC can keep. "
             f"Forwarding this page does not. "
             f"<a href='{_esc(partner)}' style='color:#34d399'>Estimator $79/mo</a></p>"
         )
@@ -143,16 +151,19 @@ def render_share_html(
     band_html = ""
     if band.get("share_frosted"):
         band_html = (
-            "<p class='band'>Hidden on Free — Estimator ($79/mo) shows the percent. "
-            "That percent is for the bid file. This page does not unlock it.</p>"
+            "<p class='band'>Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep.</p>"
         )
-    elif band.get("pct_low") is not None:
+    elif estimator_share:
         band_html = (
-            f"<p class='band'>Contingency band +{_esc(band.get('pct_low'))}% – +{_esc(band.get('pct_high'))}% "
-            f"(mid {_esc(band.get('pct_mid'))}%) — planning aid, not a quote.</p>"
+            "<p class='band'>No schedule states a contingency percent for this address. "
+            "Forward the punch below.</p>"
+        )
+    else:
+        band_html = (
+            "<p class='band'>No schedule states a contingency percent for this address.</p>"
         )
     preview_note = (
-        "<p class='warn'><strong>Preview / Unverified estimates.</strong> Confirm every fee with the AHJ before you bid.</p>"
+        "<p class='warn'><strong>Preview.</strong> Source or Unverified on every line. No schedule states a contingency percent for this address.</p>"
         if preview or analysis.get("preview")
         else ""
     )
@@ -229,7 +240,7 @@ def render_share_html(
     <p class="fine">This receipt is for this address. Your next site takes 60 seconds. No card.</p>
     {next_paid}
     <p class="fine">
-      Confirm fees and timelines with the AHJ before you bid. We do not store cards — Stripe handles payment.
+      Planning aid. Not a quote, a permit total, or a filing. We do not store cards — Stripe handles payment.
       Source: <a href="{_esc(APP_HOST)}" style="color:#34d399">app.regguardagent.com</a>
     </p>
   </div>

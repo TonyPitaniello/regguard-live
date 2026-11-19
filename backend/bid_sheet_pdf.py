@@ -17,6 +17,9 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
     """Build a branded Bid Sheet PDF with hyperlinks (companion to CSV export)."""
     from artifact_naming import document_display_title, site_line_from_analysis
 
+    from ic_buyer_brief import apply_cited_schedule_fees, schedule_usd, stated_schedule_amount
+
+    analysis = apply_cited_schedule_fees(analysis)
     pdf = RegGuardPDF()
     pi = analysis.get("project_info") or {}
     address = pi.get("address") or "Project site"
@@ -50,19 +53,14 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
         if ahj.get("fees_url"):
             pdf.add_link_line("Fees", str(ahj.get("fees_url")))
 
-    band = analysis.get("contingency_band") if isinstance(analysis.get("contingency_band"), dict) else {}
-    if band.get("pct_low") is not None and band.get("pct_high") is not None:
-        pdf.add_section_title("Contingency band (planning aid)")
-        pdf.write_wrapped(
-            f"+{band.get('pct_low')}% to +{band.get('pct_high')}% "
-            f"(mid {band.get('pct_mid', 'n/a')}%) — not a quote",
-            size=11,
-            bold=True,
-            color=_EMERALD,
-            h=6,
-        )
-        if band.get("disclaimer"):
-            pdf.write_wrapped(str(band.get("disclaimer")), size=8, color=_MUTED, h=4)
+    pdf.add_section_title("Contingency")
+    pdf.write_wrapped(
+        "No schedule states a contingency percent for this address.",
+        size=11,
+        bold=True,
+        color=_EMERALD,
+        h=6,
+    )
 
     punch = ((analysis.get("punch_list") or {}).get("punch_list")) or []
     items = [i for i in punch if isinstance(i, dict)]
@@ -71,8 +69,14 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
         for i, item in enumerate(items[:40], 1):
             pri = str(item.get("priority") or "").upper()
             task = item.get("task") or item.get("title") or "Item"
-            cost = item.get("estimated_cost")
-            cost_s = f" — ${cost:,.0f}" if isinstance(cost, (int, float)) else ""
+            cost = stated_schedule_amount(
+                {
+                    "amount_usd": item.get("estimated_cost"),
+                    "verified": item.get("verified"),
+                    "source_url": item.get("source_url"),
+                }
+            )
+            cost_s = f" — {schedule_usd(cost)}" if cost is not None else ""
             pdf.write_wrapped(
                 f"{i}. [{pri}] {task}{cost_s}",
                 size=9,
@@ -98,10 +102,11 @@ def analysis_to_bid_sheet_pdf(analysis: Dict[str, Any], output_path: Optional[st
         pdf.add_section_title("Fee planning rows")
         for fee in fee_rows[:20]:
             label = fee.get("label") or "Fee"
-            amt = fee.get("amount_usd")
-            amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
+            stated = stated_schedule_amount(fee)
+            amt_s = schedule_usd(stated) if stated is not None else ""
             trade = str(fee.get("trade") or "general").strip().upper() or "GENERAL"
-            pdf.write_wrapped(f"[{trade}] {label}: {amt_s}", size=9, bold=True, h=5)
+            head = f"[{trade}] {label}: {amt_s}" if amt_s else f"[{trade}] {label}"
+            pdf.write_wrapped(head, size=9, bold=True, h=5)
             if fee.get("detail"):
                 pdf.write_wrapped(str(fee.get("detail")), size=8, color=_MUTED, h=4)
             url = (fee.get("source_url") or "").strip()

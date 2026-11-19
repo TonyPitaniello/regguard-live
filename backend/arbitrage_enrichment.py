@@ -229,23 +229,27 @@ def build_margin_killers(analysis: Dict[str, Any], limit: int = 3) -> List[Dict[
             draft["source_label"] = host or "Official record"
         killers.append(draft)
 
-    portal = str(ahj_card.get("portal_url") or ahj_card.get("fees_url") or "").strip()
-    if not portal:
-        portal = str((analysis.get("free_confirm") or {}).get("confirm_url") or "").strip()
-    if portal:
+    walk = None
+    try:
+        from ic_buyer_brief import free_bid_or_walk
+
+        walk = free_bid_or_walk(city)
+    except Exception:
+        walk = None
+    if walk:
         _add(
-            f"Confirm the permit path with the {place} building department",
-            "This is the official page for this city. Fee dollars stay off the receipt until that schedule states them.",
+            walk["title"],
+            walk["detail"],
             kind="ahj",
             priority="HIGH",
-            verified=False,
-            source_url=portal,
-            source_label=str(ahj_card.get("name") or f"{place} AHJ"),
+            verified=True,
+            source_url=walk["source_url"],
+            source_label=walk["source_label"],
         )
     else:
         _add(
-            f"Confirm the building department for {place} before the number goes out",
-            "No matching city portal is on file yet. Federal and state lines do not replace the local AHJ.",
+            f"No permit sequence is on file for {place}",
+            "This preview cannot call the drive. Contingency stays locked.",
             kind="ahj",
             priority="HIGH",
             verified=False,
@@ -539,11 +543,11 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         summary.get("estimated_timeline")
         or punch.get("timeline_summary")
         or pack.get("timeline_hint")
-        or "Confirm with AHJ"
+        or "Unverified. This is not a filing date."
     )
     citeable = bool(pack.get("citeable")) or catalog_citeable
     if not citeable and re.search(r"\d+\s*[-–]\s*\d+\s*weeks", str(timeline), re.I):
-        timeline = "No verified review window — confirm with the local building department"
+        timeline = "No verified review window. This is not a filing date."
     out["fee_card"] = {
         "title": "Fee & timeline extract",
         "timeline": timeline,
@@ -551,11 +555,10 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "fees": fee_rows,
         "citeable_coverage": citeable,
         "disclaimer": (
-            "Confirm all fees on the official AHJ schedule before bid or filing."
+            "A dollar on this card is a figure the cited schedule states. A blank line has no dollar."
             if citeable
             else (
-                "Fee amounts hidden — portal seed / federal-state coverage only. "
-                "Confirm the official AHJ schedule before bid."
+                "Dollar fees are not on this coverage. This card does not state a permit total."
             )
         ),
     }
@@ -601,7 +604,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
     pack_insp = list(pack.get("inspection_sequence") or pack.get("documents") or [])[:10]
     out["ahj_card"] = {
         "title": "AHJ portal & contact",
-        "name": cat_name or ahj.get("name") or who.get("building_department") or "Local AHJ",
+        "name": ahj.get("name") or cat_name or who.get("building_department") or "Local AHJ",
         "portal_url": cat_portal or ahj.get("portal_url") or discovered or str(prior_ahj.get("portal_url") or ""),
         "fees_url": cat_fees_url or ahj.get("fees_url") or discovered or str(prior_ahj.get("fees_url") or ""),
         "apply_url": cat_apply or ahj.get("apply_url") or "",

@@ -141,8 +141,8 @@ def _ensure_bottom_line_section(summary_md: str, *, ahj_hint: str = "") -> str:
         return text
     loc = (ahj_hint or "").strip() or "your AHJ"
     sentences = (
-        f"Work through the checklist above in order and confirm fees, amendments, and utility rules with **{loc}** before you rough-in or energize. "
-        "Keep permits, torque marks, and inspection-ready documentation lined up so you clear inspection without fines or a rework cycle."
+        f"The lines above are Source or Unverified. A dollar is a figure the cited schedule states. "
+        f"No schedule states a contingency percent for this address. The calls stay with you. AHJ: **{loc}**."
     )
     return f"{text}\n\n### The Bottom Line\n\n{sentences}\n"
 
@@ -4927,7 +4927,7 @@ async def get_share_unlock(
     research_id: str,
     email: Optional[str] = None,
 ) -> Dict[str, Any]:
-    # A recorded forward never unlocks the free punch or the clear percent.
+    # A recorded forward never unlocks the free punch. The Receipt stays on Estimator.
     return {
         "research_id": research_id,
         "unlocked": False,

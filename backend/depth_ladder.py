@@ -195,15 +195,14 @@ def _offer_partner_next(ptype: str) -> Dict[str, Any]:
 def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Dict[str, Any]:
     """Contractor Pro → IC Diligence Bundle."""
     desk = "Contractor Pro"
-    site = f" for a {ptype} site" if ptype else ""
+    # ptype / partial / light stay on the signature for existing callers.
+    _ = (ptype, partial, light)
     return {
         "message": "Counsel won’t mark up a City Pack PDF",
         "detail": (
-            f"{desk} is the bid desk{partial}{site}. "
-            "For one capital-sensitive address — LOI, IC call, owner’s rep, lender — "
-            "IC Diligence Bundle ($1,500) ships the counsel ZIP: decision memo, boardroom brief, "
-            "editable Word with exhibits, Excel evidence map. Same AHJ facts in counsel format — "
-            "not a bigger City Pack."
+            "The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer "
+            "marks up the day before the letter of intent, so someone pricing a bid still needs the "
+            "pack and someone walking into that meeting needs the ZIP."
         ),
         "cta_label": "Get IC Diligence Bundle — $1,500",
         "cta_tier": "ic_project",
@@ -213,8 +212,8 @@ def _offer_pro_next(ptype: str, *, partial: str = "", light: bool = False) -> Di
         "next_label": "Counsel ZIP — memo · boardroom · Word · Excel exhibits",
         "primary_once": True,
         "honesty_note": (
-            "IC is counsel packaging for one site — still a planning aid; confirm with AHJ / utility. "
-            "Annual is for firms packaging many capital sites — it opens after the first Diligence Bundle."
+            "A dollar is printed only when the schedule states it. "
+            "Annual opens after the first Diligence Bundle and does not include Contractor Pro lookups."
         ),
     }
 
@@ -224,10 +223,9 @@ def _offer_ic_next() -> Dict[str, Any]:
     return {
         "message": "Buying another Diligence Bundle for the next capital site?",
         "detail": (
-            "You proved the package on one site. If you will package Diligence Bundles on more "
-            "capital sites this year, IC Annual ($15,000/yr) covers those ZIPs on this purchase "
-            "email — ahead of $1,500 per site once you pass about 10 sites. Built for deal-ready "
-            "IC / lender packages, not day-to-day Contractor Pro lookups."
+            "Ten checkouts at $1,500 equal the $15,000 year. The next address is where the year "
+            "costs less. Buy the year when you can see about ten capital addresses you have not "
+            "paid for yet. Daily lookups stay on Contractor Pro at $149 a month."
         ),
         "cta_label": "IC Annual — $15,000/yr",
         "cta_tier": "ic_annual",
@@ -237,8 +235,8 @@ def _offer_ic_next() -> Dict[str, Any]:
         "next_label": "Same counsel ZIP · new capital site · no new $1,500 PO",
         "primary_once": True,
         "honesty_note": (
-            "Annual covers capital-site Diligence Bundles on this purchase email — "
-            "not day-to-day Contractor Pro. Planning diligence, not an AHJ filing."
+            "Daily lookups stay on Contractor Pro at $149 a month. "
+            "Each site still needs its own three calls. Not an AHJ filing."
         ),
     }
 

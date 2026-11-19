@@ -308,7 +308,7 @@ export default function PricingPage() {
               Free lookups are the lead magnet. Estimator / Permit Runner ($79/mo) is for permit
               runners and client-site screening. Contractor Pro ($149/mo) is for weekly bidders who
               need CSV + city pack. {IC_BUNDLE.productName} ({IC_BUNDLE.priceLabel}/site) is the
-              counsel-ready ZIP.
+              counsel-ready ZIP. {IC_BUNDLE.deskAndZip}
             </p>
           </div>
           <div>
@@ -328,10 +328,7 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">Can I buy just one IC report?</h3>
             <p className="text-gray-400">
               Yes. Choose {IC_BUNDLE.tierName} at {IC_BUNDLE.priceLabel} one-time for one site&apos;s{' '}
-              {IC_BUNDLE.productName} ZIP. After that first bundle, IC Annual ($15,000/year) covers
-              the same counsel ZIP for more bound capital sites on this purchase email — ahead of
-              $1,500 per site once you pass about ~10 sites. Built for deal-ready IC / lender
-              packages, not day-to-day Contractor Pro lookups.
+              {IC_BUNDLE.productName} ZIP. {IC_BUNDLE.annualMath}
             </p>
           </div>
           <div>

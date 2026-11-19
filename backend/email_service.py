@@ -142,7 +142,12 @@ def build_research_result_html(research_data: dict) -> str:
     if share_tier == "free":
         band_html = (
             '<p style="margin:12px 0 0 0;font-size:14px;color:#b45309;font-weight:600;">'
-            "Hidden on Free — Estimator ($79/mo) shows the percent.</p>"
+            "Hidden on Free — Estimator ($79/mo) puts the punch on a Receipt the GC can keep.</p>"
+        )
+    elif share_tier in ("partner", "estimator", "estimator_habit"):
+        band_html = (
+            '<p style="margin:12px 0 0 0;font-size:14px;color:#047857;font-weight:600;">'
+            "No schedule states a contingency percent for this address.</p>"
         )
     elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         band_html = (
@@ -517,7 +522,7 @@ class EmailService:
     </p>
     {token_block}
     <p style="color:#555;font-size:14px;line-height:1.5;">
-      These are planning diligence PDFs (not an official AHJ filing). Confirm fees and filings with the local AHJ.
+      These are planning diligence PDFs. Not a quote, a permit total, or a filing. The calls stay with you.
     </p>
     <p style="margin:20px 0;">
       <a href="{lookup_url}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">

@@ -16,7 +16,7 @@ export const HABIT_TIERS = {
       'Bid-or-walk preview for one DFW–Austin commercial or industrial address — no card',
       'Top punch-list risks (soft-locked — top 5 lines)',
       'Source or Unverified on every visible line',
-      'Text the preview — GC sees HOLD and top risks; clear contingency stays on Estimator',
+      'Text the preview — one permit sequence for the drive call. The Receipt the GC can keep stays on Estimator',
       'Text or email your results',
     ] as const,
     notIncluded: [
@@ -54,7 +54,7 @@ export const HABIT_TIERS = {
     priceLabel: '$149',
     billing: 'per month',
     oneLiner:
-      'Bid-week desk if you own the number — City Pack, punch/fee CSV, bid packet. Dollars only when the schedule states them.',
+      'Bid-week desk if you own the number — City Pack, punch/fee CSV, bid packet. Dollars only when the schedule states them. The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP.',
     features: [
       'Everything in Estimator / Permit Runner',
       'Paid local confirm on the lookups you run (daily cap applies)',

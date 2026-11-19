@@ -331,8 +331,8 @@ class ResearchMemoPDF(RegGuardPDF):
 
             self.ln(4)
             self.add_muted_note(
-                "IC Diligence Bundle - planning diligence package. Confirm all fees, codes, "
-                "and filings with the local AHJ before bid or permit submittal."
+                "IC Diligence Bundle. Planning aid. Not a quote, a permit total, or a filing. "
+                "The calls stay with the buyer."
             )
 
             if output_path is None:

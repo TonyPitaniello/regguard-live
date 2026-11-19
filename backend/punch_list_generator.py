@@ -45,12 +45,12 @@ _AHJ_CITATIONS: Dict[str, Dict[str, tuple]] = {
     },
     "dallas, tx": {
         "building": (
-            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-            "City of Dallas Building Inspection",
+            "https://dallascityhall.com/departments/sustainabledevelopment/DCH%20documents/2.%20Applying%20for%20a%20Commercial%20New%20Construction%20Permit.pdf",
+            "Dallas commercial new-construction guide, September 11, 2025",
         ),
         "fees": (
-            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-            "City of Dallas Building Inspection fee info",
+            "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/DCH%20documents/feesummary_725.pdf",
+            "Dallas fee summary, effective July 1, 2025",
         ),
     },
     "austin, tx": {

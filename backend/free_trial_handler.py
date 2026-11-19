@@ -183,10 +183,10 @@ async def _run_research_and_email(
             else:
                 combined_memo += (
                     "Tips before you bid:\n"
-                    "- Forward the preview — HOLD and top risks. The clear contingency stays on Estimator.\n"
-                    "- A fee dollar prints only when the city schedule states it. The clear percent stays on Estimator.\n"
+                    "- Forward the preview — HOLD and one permit sequence. The Receipt the GC can keep stays on Estimator.\n"
+                    "- A fee dollar prints only when the city schedule states it.\n"
                     "- Every punch line shows a Source link or Unverified — forward only what you can defend.\n"
-                    "- Estimator ($79/mo) unlocks the clear contingency you can forward.\n"
+                    "- Estimator ($79/mo) puts the punch on a Receipt the GC can keep.\n"
                     "- Save the job, then re-check before you bid (Saved Jobs → weekly reminder).\n"
                     "- Contractor Pro ($149/mo) adds the City Pack, fee CSV, and bid packet. Dollars only when the schedule states them.\n"
                     "- IC Diligence Bundle ($1,500) is the counsel ZIP for one site "

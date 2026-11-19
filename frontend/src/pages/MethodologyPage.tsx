@@ -68,9 +68,9 @@ export default function MethodologyPage() {
                     <strong className="text-amber-200">Unverified</strong>.
                   </p>
                   <p className="text-gray-400 text-sm">
-                    On Free, the clear contingency stays blurred even after you forward the
-                    preview. Estimator ($79/mo) unlocks that number. Contingency is a planning
-                    aid — not a bid quote.
+                    On Free, the preview is the drive call. Estimator ($79/mo) is the Receipt
+                    the GC can keep: one punch, an owner, a due window, and Source. A percent
+                    prints only when a schedule states it.
                   </p>
                 </div>
               </div>

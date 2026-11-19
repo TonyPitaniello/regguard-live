@@ -271,7 +271,7 @@ def _punch_from_pack(
                 "estimated_cost": None,
                 "notes": ahj.get("notes")
                 or (
-                    "Portal seed — confirm fees on the official schedule."
+                    "Portal seed. This page does not state a permit total."
                     if portal_only
                     else "Free pack path — upgrade for deep Universal Scout."
                 ),
@@ -651,7 +651,7 @@ def build_free_pack_confirm_analysis(
         "next_steps": [
             "Export / forward the Bid Risk Receipt",
             "Confirm fees on the AHJ schedule before bid",
-            "Estimator unlocks the clear contingency. Contractor Pro adds parcel flood and wetlands for this pin.",
+            "Estimator puts the punch on a Receipt the GC can keep. Contractor Pro adds parcel flood and wetlands for this pin.",
         ],
         "free_confirm": {
             "pack_key": pack.get("pack_key"),

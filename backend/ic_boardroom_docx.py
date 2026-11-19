@@ -43,7 +43,7 @@ def _ascii(s: Any) -> str:
 
 def _add_hyperlink(paragraph, text: str, url: str) -> None:
     u = (url or "").strip()
-    label = _ascii(text or u)[:140]
+    label = _ascii(text or u)
     if not u.startswith("http"):
         paragraph.add_run(label)
         return
@@ -93,11 +93,9 @@ def _link_line(doc: Document, label: str, url: str) -> None:
     u = (url or "").strip()
     if not u:
         return
-    from pdf_stamp_helpers import buyer_url_label
-
     p = doc.add_paragraph()
     p.add_run(_ascii(f"{label}: ")).bold = True
-    _add_hyperlink(p, buyer_url_label(u), u)
+    _add_hyperlink(p, u, u)
 
 
 def _exhibit_ref(exhibit_id: str) -> str:
@@ -148,14 +146,15 @@ def generate_ic_boardroom_docx_bytes(
     _heading(doc, doc_title, 0)
     _body(doc, "REG GUARD  |  IC DILIGENCE BUNDLE", bold=True, size=12)
     _body(doc, site, bold=True)
-    _muted(
-        doc,
-        "Counsel-ready diligence package for IC / sponsor / lender review. "
-        "Planning aid only — not a quote, sealed bid, interconnection study, geotech report, "
-        "or AHJ filing. Confirm every fee and timeline with the AHJ before bid.",
-    )
+    if not package.get("ic_buyer_brief"):
+        _muted(
+            doc,
+            "Counsel-ready diligence package for IC / sponsor / lender review. "
+            "Planning aid only — not a quote, sealed bid, interconnection study, geotech report, "
+            "or AHJ filing. Confirm every fee and timeline with the AHJ before bid.",
+        )
     deliverable = package.get("deliverable") or {}
-    if deliverable.get("primary"):
+    if deliverable.get("primary") and not package.get("ic_buyer_brief"):
         _muted(doc, f"Primary paid deliverable: {deliverable.get('primary')}")
     _muted(
         doc,
@@ -174,10 +173,11 @@ def generate_ic_boardroom_docx_bytes(
     _body(doc, "D. Fee & punch schedule (companion CSV downloadable separately)")
     _body(doc, "E. Evidence binder — numbered exhibits with live source hyperlinks")
     _body(doc, "F. Recommended next actions + disclaimers")
-    _muted(
-        doc,
-        "Screening Bundle — NOT an interconnection study, Phase I ESA, geotech report, or AHJ filing.",
-    )
+    if not package.get("ic_buyer_brief"):
+        _muted(
+            doc,
+            "Screening Bundle — NOT an interconnection study, Phase I ESA, geotech report, or AHJ filing.",
+        )
 
     # ----- A. Decision memo -----
     _heading(doc, f"A. One-page decision memo — {site}", 1)
@@ -304,9 +304,16 @@ def generate_ic_boardroom_docx_bytes(
         _heading(doc, "Local gotcha confirm cards", 2)
         for g in cards[:12]:
             title = g.get("title") or g.get("label") or "Gotcha"
-            _body(doc, str(title), bold=True, size=10)
-            if g.get("detail") or g.get("confirm_step"):
-                _muted(doc, str(g.get("detail") or g.get("confirm_step")))
+            pri = g.get("priority") or "WATCH"
+            _body(doc, f"[{pri}] {title}", bold=True, size=10)
+            if g.get("detail"):
+                _muted(doc, str(g.get("detail")))
+            for step in (g.get("checklist") or [])[:4]:
+                _body(doc, f"Check: {step}", size=10)
+            for anti in (g.get("anti_patterns") or [])[:3]:
+                _body(doc, f"Don't: {anti}", size=10)
+            if g.get("confirm_step"):
+                _muted(doc, f"Confirm: {g.get('confirm_step')}")
             if g.get("source_url"):
                 _link_line(doc, _origin(g.get("source_url")), str(g.get("source_url")))
 
@@ -320,11 +327,12 @@ def generate_ic_boardroom_docx_bytes(
 
     # ----- D. Fee & punch summary -----
     _heading(doc, f"D. Fee & punch schedule — {site}", 1)
-    _muted(
-        doc,
-        "Full estimator schedule (trade / owner / due window / source_url / exhibit_id) is also "
-        "downloadable as CSV from results. Below is the counsel extract.",
-    )
+    if not package.get("ic_buyer_brief"):
+        _muted(
+            doc,
+            "Full estimator schedule (trade / owner / due window / source_url / exhibit_id) is also "
+            "downloadable as CSV from results. Below is the counsel extract.",
+        )
     ahj = findings.get("ahj") or {}
     if ahj.get("name"):
         _body(doc, str(ahj.get("name")), bold=True)
@@ -337,7 +345,7 @@ def generate_ic_boardroom_docx_bytes(
             if ahj.get(key):
                 _link_line(doc, label, str(ahj.get(key)))
 
-    _heading(doc, "Fee planning rows", 2)
+    _heading(doc, "Fee lines" if package.get("ic_buyer_brief") else "Fee planning rows", 2)
     for f in (findings.get("fees") or [])[:40]:
         title = str(f.get("name") or "Fee")
         if f.get("trade"):

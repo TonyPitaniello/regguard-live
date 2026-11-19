@@ -25,7 +25,7 @@ COST_LABEL = (
     "No permit total. When the city uses a valuation or floor-area table, "
     "confirm that table with the AHJ."
 )
-TIMELINE_LABEL = "Timeline is Unverified — confirm with the AHJ. This is not a filing date."
+TIMELINE_LABEL = "Timeline is Unverified. This is not a filing date."
 NO_PERMIT_TOTAL = COST_LABEL
 
 

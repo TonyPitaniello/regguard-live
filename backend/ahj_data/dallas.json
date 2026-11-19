@@ -156,13 +156,13 @@
       "Dallas Building Inspection plumbing mechanical permits"
     ]
   },
-  "portal_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+  "portal_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/commercial_overview.aspx",
   "open_data": {
     "socrata_url": "https://www.dallascityhall.com/resource/7vsc-id2i.json",
     "label": "Dallas commercial building permits (Open Data)"
   },
-  "fees_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-  "apply_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
-  "inspections_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/default.aspx",
+  "fees_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/DCH%20documents/feesummary_725.pdf",
+  "apply_url": "https://aca-prod.accela.com/dallastx",
+  "inspections_url": "https://dallascityhall.com/departments/sustainabledevelopment/buildinginspection/Pages/commercial_overview.aspx",
   "last_verified": "2026-08-30"
 }

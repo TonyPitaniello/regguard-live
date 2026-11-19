@@ -27,7 +27,7 @@ export function OnboardingSystem() {
       tips: [
         'Run one address from the home page. No card.',
         'Every punch line is Source or Unverified',
-        'Forwarding a free page does not unlock the clear percent',
+        'Forwarding a free page does not unlock the punch',
         'Next step is Estimator / Permit Runner — $79/mo',
       ],
       voiceCommand: 'Say a site address to start a free lookup',
@@ -40,7 +40,7 @@ export function OnboardingSystem() {
       tips: [
         'Strongest coverage is DFW and Austin. Confirm every line with the city.',
         'One HOLD or CLEAR, the top risk, and a link the GC can open',
-        'The clear percent stays on Estimator',
+        'The punch the GC can keep stays on Estimator',
         'Bid day screens a list before the number goes out',
       ],
       voiceCommand: 'Say a site address on the home page to start',

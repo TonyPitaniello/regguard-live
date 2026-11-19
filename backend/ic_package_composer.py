@@ -74,6 +74,22 @@ def _claim_url_allowed(url: str, label: str, ahj_hosts: set) -> bool:
         return False
     if any(host == h or host.endswith("." + h) for h in ahj_hosts):
         return True
+    # Utility intake, Accela, and the Plano fee ordinance are not the building homepage.
+    if any(
+        token in host
+        for token in (
+            "oncor.com",
+            "austinenergy.com",
+            "accela.com",
+            "civicplus.com",
+            "novusagenda.com",
+            "widen.net",
+            "dallascad.org",
+            "dentoncad.com",
+            "tad.org",
+        )
+    ):
+        return True
     blob = _s(label, 400).lower()
     if any(k in blob for k in ("fast-41", "fast41", "permitting council", "nepa dashboard")):
         return host.endswith("permits.performance.gov") or host.endswith("permitting.gov")
@@ -199,6 +215,13 @@ def _pi(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
 def _stamp_plain(grade: str) -> Dict[str, str]:
     g = (grade or "").upper()
+    if g == "HOLD":
+        return {
+            "grade": "HOLD",
+            "display": "HOLD",
+            "label": "REGGUARD STAMP: HOLD",
+            "plain": "HOLD until the drivers below are cleared with the desk named on each one.",
+        }
     if g == "FAIL":
         return {
             "grade": "FAIL",
@@ -252,11 +275,14 @@ def _killers(analysis: Dict[str, Any], n: int = 5) -> List[Dict[str, str]]:
             continue
         title = _s(k.get("title"), 160)
         src = _sanitize_url(_s(k.get("source_url"), 400), title, ahj_hosts)
+        detail_limit = 2000 if analysis.get("ic_buyer_brief") else 400
         out.append(
             {
-                "priority": _s(k.get("priority") or "NOTE", 20).upper(),
+                "priority": _s(k.get("priority") or k.get("severity") or "NOTE", 20).upper(),
                 "title": title,
-                "detail": _s(k.get("detail"), 400),
+                "detail": _s(k.get("detail"), detail_limit),
+                "checklist": [_s(c, 160) for c in (k.get("checklist") or [])[:4] if str(c).strip()],
+                "anti_patterns": [_s(a, 160) for a in (k.get("anti_patterns") or [])[:3] if str(a).strip()],
                 "source_url": src,
                 "source_label": _s(
                     k.get("source_label") or ("Source" if src else "Unverified"),
@@ -270,6 +296,8 @@ def _killers(analysis: Dict[str, Any], n: int = 5) -> List[Dict[str, str]]:
 
 
 def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
+    if analysis.get("ic_buyer_brief"):
+        return []
     ahj_hosts = _ahj_trusted_hosts(analysis)
     items: List[Dict[str, Any]] = []
     wl = analysis.get("gotcha_watchlist") if isinstance(analysis.get("gotcha_watchlist"), dict) else {}
@@ -286,9 +314,11 @@ def _gotchas(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, str]]:
         src = _sanitize_url(_s(g.get("source_url"), 400), title, ahj_hosts)
         out.append(
             {
-                "priority": _s(g.get("priority") or "WATCH", 20).upper(),
+                "priority": _s(g.get("priority") or g.get("severity") or "WATCH", 20).upper(),
                 "title": title,
                 "detail": _s(g.get("detail"), 400),
+                "checklist": [_s(c, 160) for c in (g.get("checklist") or [])[:4] if str(c).strip()],
+                "anti_patterns": [_s(a, 160) for a in (g.get("anti_patterns") or [])[:3] if str(a).strip()],
                 "confirm_step": _s(
                     g.get("confirm_step")
                     or g.get("action")
@@ -350,8 +380,14 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
     """Prefer citeable AHJ fee table / pack fees; strip polluted scout URLs."""
     ahj_hosts = _ahj_trusted_hosts(analysis)
     candidates: List[Dict[str, Any]] = []
-
-    ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
+    if analysis.get("ic_buyer_brief"):
+        fee_card = analysis.get("fee_card") if isinstance(analysis.get("fee_card"), dict) else {}
+        for f in fee_card.get("fees") or []:
+            if isinstance(f, dict):
+                candidates.append(f)
+        ahj_block = {}
+    else:
+        ahj_block = analysis.get("ahj") if isinstance(analysis.get("ahj"), dict) else {}
     for f in ahj_block.get("ahj_fee_table") or ahj_block.get("ahj_fee_lines") or []:
         if isinstance(f, dict):
             candidates.append(f)
@@ -385,11 +421,11 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
             continue
         amt = f.get("amount_usd")
         if isinstance(amt, (int, float)):
-            amount = f"${amt:,.0f}"
-        elif f.get("amount_requires_schedule"):
+            amount = f"${amt:,.0f}" if float(amt).is_integer() else f"${amt:,.2f}"
+        elif f.get("amount_requires_schedule") or amt in (None, ""):
             amount = "confirm on schedule"
         else:
-            amount = _s(f.get("amount") or f.get("value") or f.get("range"), 80)
+            amount = _s(f.get("amount") or f.get("value") or f.get("range"), 80) or "confirm on schedule"
         src = _sanitize_url(
             _s(f.get("source_url") or f.get("citation_url"), 400),
             name,
@@ -403,6 +439,15 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
             continue
         seen.add(key)
         seen.add(key_norm)
+        raw_note = str(f.get("note") or f.get("detail") or "")
+        if amount == "confirm on schedule":
+            from ic_buyer_brief import note_without_unstated_dollars
+
+            raw_note = note_without_unstated_dollars(raw_note)
+        brief = bool(analysis.get("ic_buyer_brief"))
+        if not raw_note:
+            raw_note = "confirm-on-schedule" if brief else "Planning aid — confirm on AHJ schedule"
+        unlabeled = "Unverified" if brief else "Unverified — confirm with AHJ"
         out.append(
             {
                 "name": name,
@@ -410,17 +455,16 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
                 "trade": _s(f.get("trade"), 40),
                 "source_url": src,
                 "source_label": _s(
-                    f.get("source_label")
-                    or f.get("citation_note")
-                    or ("Source" if src else "Unverified — confirm with AHJ"),
+                    f.get("source_label") or f.get("citation_note") or ("Source" if src else unlabeled),
                     80,
                 ),
                 "note": _s(
-                    f.get("note")
-                    or f.get("detail")
-                    or "Planning aid — confirm on AHJ schedule",
-                    200,
+                    raw_note,
+                    2000 if brief else 700,
                 ),
+                "amount_usd": amt if isinstance(amt, (int, float)) else None,
+                "status": _s(f.get("status") or "", 80),
+                "owner": _s(f.get("owner") or "", 80),
             }
         )
         if len(out) >= n:
@@ -663,6 +707,8 @@ def _contingency_driver_table(analysis: Dict[str, Any]) -> Dict[str, Any]:
 
 def _gotcha_cards(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, Any]]:
     """Boardroom gotcha cards: ordinance -> risk -> confirm -> owner."""
+    if analysis.get("ic_buyer_brief"):
+        return []
     cards: List[Dict[str, Any]] = []
     # Prefer AHJ library gotchas with checklists when enrichment attached them
     candidates: List[Dict[str, Any]] = []
@@ -698,7 +744,7 @@ def _gotcha_cards(analysis: Dict[str, Any], n: int = 6) -> List[Dict[str, Any]]:
         )
         cards.append(
             {
-                "priority": _s(g.get("priority") or "WATCH", 20).upper(),
+                "priority": _s(g.get("priority") or g.get("severity") or "WATCH", 20).upper(),
                 "title": title,
                 "detail": _s(g.get("detail"), 400),
                 "checklist": [_s(c, 160) for c in checklist[:4]],
@@ -760,7 +806,10 @@ def _parallel_clock_rows(
         rows.append(
             {
                 "name": _s(c.get("name") or c.get("label"), 80),
-                "detail": _s(c.get("detail") or c.get("note") or c.get("status"), 240),
+                "detail": _s(
+                    c.get("detail") or c.get("note") or c.get("status"),
+                    2000 if analysis.get("ic_buyer_brief") else 500,
+                ),
                 "owner": _s(c.get("owner") or c.get("responsible") or "PM", 40),
                 "track": _s(c.get("track") or "", 40),
                 "url": _s(c.get("url") or c.get("source_url"), 400),
@@ -816,7 +865,7 @@ def _parallel_clock_rows(
             )
             _ensure(
                 util,
-                "Interconnection / large-load study often runs parallel to AHJ permits — slip stacks.",
+                "Screening only — not an interconnection study. ERCOT / TDSP large-load review can run on its own clock beside the city permits. Queue position and MW are not in this pack.",
                 "INTERCONNECT",
                 "Owner / Utility lead",
             )
@@ -888,7 +937,7 @@ def build_evidence_binder(
             {
                 "claim_type": claim_type,
                 "label": _s(label, 200),
-                "detail": _s(detail, 400),
+                "detail": _s(detail, 2000),
                 "priority": _s(priority, 20).upper(),
                 "trade": _s(trade, 40).upper(),
                 "owner": _s(owner, 60),
@@ -918,7 +967,7 @@ def build_evidence_binder(
         _claim(
             claim_type="hold_driver",
             label=_s(k.get("title"), 160),
-            detail=_s(k.get("detail"), 400),
+            detail=_s(k.get("detail"), 2000),
             url=_s(k.get("source_url"), 400),
             priority=_s(k.get("priority"), 20),
             owner="IC / Estimator",
@@ -938,7 +987,7 @@ def build_evidence_binder(
         _claim(
             claim_type="fee",
             label=_s(f.get("name"), 120),
-            detail=_s(f.get("note") or f.get("amount"), 200),
+            detail=_s(f.get("note") or f.get("amount"), 2000),
             url=_s(f.get("source_url"), 400),
             trade=_s(f.get("trade"), 40),
             owner="Estimator / Permit runner",
@@ -959,7 +1008,7 @@ def build_evidence_binder(
         _claim(
             claim_type="parallel_clock",
             label=_s(c.get("name"), 80),
-            detail=_s(c.get("detail"), 240),
+            detail=_s(c.get("detail"), 2000),
             url=_s(c.get("url") or c.get("source_url"), 400),
             owner=_s(c.get("owner") or "PM", 60),
         )
@@ -1161,7 +1210,7 @@ def compose_ic_package(
             {
                 "severity": sev,
                 "label": _s(d.get("label"), 160),
-                "detail": _s(d.get("detail"), 300),
+                "detail": _s(d.get("detail"), 2000 if data.get("ic_buyer_brief") else 300),
             }
         )
     stamp["valid_until"] = _s(stamp_raw.get("valid_until") or data.get("stamp_valid_until"), 64)
@@ -1230,7 +1279,9 @@ def compose_ic_package(
     punch_obj = data.get("punch_list") if isinstance(data.get("punch_list"), dict) else {}
     site_line = _site_line(pi)
     ahj_name = _s(ahj.get("name") or f"City of {pi.get('city') or 'Local'}", 120)
-    if stamp.get("display") == "HOLD":
+    if data.get("buyer_headline"):
+        headline = _s(data.get("buyer_headline"), 400)
+    elif stamp.get("display") == "HOLD":
         headline = (
             f"{site_line} carries elevated pre-bid risk under {ahj_name}. "
             "Treat municipal permits and utility interconnection as separate clocks until both are confirmed."
@@ -1260,11 +1311,11 @@ def compose_ic_package(
         ],
         "headline": headline,
         "recommendation": (
-            f"REGGUARD STAMP: {stamp.get('display') or grade or 'UNKNOWN'} — "
+            f"REGGUARD STAMP: {stamp.get('display') or grade or 'UNKNOWN'}"
             + (
-                f"carry +{contingency.get('pct_low')}% to +{contingency.get('pct_high')}% contingency"
+                f" — carry +{contingency.get('pct_low')}% to +{contingency.get('pct_high')}% contingency"
                 if contingency and contingency.get("pct_low") is not None
-                else "confirm contingency with estimator"
+                else ""
             )
         ),
     }
@@ -1275,6 +1326,7 @@ def compose_ic_package(
     ) or bool(data.get("dc_positioning")) or len(clock_rows) >= 2
 
     pkg = {
+        "ic_buyer_brief": bool(data.get("ic_buyer_brief")),
         "schema": PACKAGE_SCHEMA,
         "version": PACKAGE_VERSION,
         "generated_at": now,
@@ -1338,7 +1390,11 @@ def compose_ic_package(
                 "last_verified": _s(ahj.get("last_verified"), 40),
                 "notes": _s(ahj.get("notes"), 400),
             },
-            "coverage_note": _s(coverage.get("warning") or coverage.get("note"), 400),
+            "coverage_note": (
+                ""
+                if data.get("ic_buyer_brief")
+                else _s(coverage.get("warning") or coverage.get("note"), 400)
+            ),
             "fees": fees,
             "gotchas": gotchas,
             "gotcha_cards": _gotcha_cards(data, 16),
@@ -1404,7 +1460,9 @@ def compose_ic_package(
             8000,
         ),
         "sources": sources,
-        "disclaimers": [
+        "disclaimers": []
+        if data.get("ic_buyer_brief")
+        else [
             "Planning aid only — citeable pre-bid diligence, not a quote or sealed bid.",
             "Unverified lines and fee dollars require confirm-with-AHJ on the official schedule.",
             "NOT an interconnection study, geotech report, power study, or AHJ approval.",

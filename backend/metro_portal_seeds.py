@@ -686,8 +686,7 @@ def resolve_metro_portal_pack(
             "inspections_url": str(seed.get("inspections_url") or "").strip(),
             "phone": seed.get("phone") or "",
             "notes": (
-                "Portal seed — confirm fees, amendments, and submittals on the official "
-                "AHJ schedule before bid. Not a full citeable city pack (no curated fees/gotchas)."
+                "Portal seed. No curated local fees or gotchas. This page does not state a permit total."
             ),
             "last_verified": str(seed.get("last_verified") or "").strip(),
         },

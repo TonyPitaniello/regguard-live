@@ -197,7 +197,7 @@ def generate_sample_plano_punch_pdf(output_path: Optional[str] = None) -> str:
     pdf.cell(0, 5, _ascii(f"AHJ: {AHJ}  |  Generated: {datetime.utcnow().strftime('%Y-%m-%d')} UTC"), ln=1)
     pdf.set_x(MARGIN + 4)
     pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(0, 5, "Real lookups: every line shows SOURCE or UNVERIFIED with confirm path", ln=1)
+    pdf.cell(0, 5, "Real lookups: every line is Source or Unverified", ln=1)
     pdf.set_y(card_top + 30)
 
     # Stamp strip (what $79 / Pro buyers forward)
@@ -213,7 +213,7 @@ def generate_sample_plano_punch_pdf(output_path: Optional[str] = None) -> str:
     pdf.cell(40, 6, "CAUTION", ln=0)
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(0, 6, "Contingency +2% to +5% (illustrative)", ln=1)
+    pdf.cell(0, 6, "No schedule states a contingency percent", ln=1)
     pdf.set_x(MARGIN + 4)
     pdf.set_font("Helvetica", "", 8)
     pdf.set_text_color(*MUTED)

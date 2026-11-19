@@ -59,6 +59,14 @@ def build_ic_diligence_bundle_zip(
     from ic_package_composer import compose_ic_package, evidence_index_to_csv
 
     data = dict(analysis or {})
+    try:
+        from delivery_parity import prepare_analysis_for_delivery
+        from ic_pdf_enrichment import enrich_analysis_for_ic_pdfs
+
+        data = prepare_analysis_for_delivery(data)
+        data = enrich_analysis_for_ic_pdfs(data)
+    except Exception:
+        data = dict(analysis or {})
     package = compose_ic_package(
         data,
         generated_for=generated_for,
@@ -107,16 +115,22 @@ def build_ic_diligence_bundle_zip(
         fee_card = data_for_sheet.get("fee_card") if isinstance(data_for_sheet.get("fee_card"), dict) else {}
         mapped = []
         for f in fees_pkg:
+            amount = f.get("amount_usd")
+            if not isinstance(amount, (int, float)):
+                amount = None
             mapped.append(
                 {
                     "label": f.get("name"),
                     "trade": f.get("trade"),
-                    "amount_usd": None,
-                    "detail": f.get("note") or f.get("amount"),
+                    "amount_usd": amount,
+                    "amount_requires_schedule": amount is None,
+                    "detail": f.get("note") or "",
                     "source_url": f.get("source_url"),
                     "source_label": f.get("source_label"),
                     "exhibit_id": f.get("exhibit_id"),
-                    "owner": "Estimator / Permit runner",
+                    "owner": f.get("owner") or "",
+                    "status": f.get("status") or "",
+                    "verified": f.get("status") or "",
                 }
             )
         data_for_sheet["fee_card"] = {**fee_card, "fees": mapped or fee_card.get("fees") or []}

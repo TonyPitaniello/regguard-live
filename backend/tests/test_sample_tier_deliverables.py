@@ -94,7 +94,9 @@ def test_chapin_artifacts_match_the_ladder():
     assert "FAIL" not in free_t
     assert "Partner" not in free_t
     assert "ic_consultant" not in free_t
-    assert "+21%" in est_t
+    assert "+21%" not in est_t
+    assert "No schedule states a contingency percent" in est_t
+    assert "building permit is issued before a trade" in est_t
     assert "ESTIMATOR" in est_t
     assert "1,406" not in est_t
     assert "946" not in est_t
@@ -110,9 +112,16 @@ def test_chapin_artifacts_match_the_ladder():
     assert "not guaranteed savings" not in packet
     assert "current rollup" not in packet
     assert "FAIL" not in packet
-    assert "1,406" in city or "1406" in city
+    assert "1,406" not in city and "1406" not in city
+    assert "289" not in city
+    assert "$291" in city
+    assert "$33.08" in city
+    assert "+2%" not in city
+    assert "default.aspx" not in city
     assert "fortworthtexas.gov" in city.lower()
-    assert "1,406.25" in csv_text or "1406.25" in csv_text
+    assert "1406" not in csv_text
+    assert "33.08" in csv_text
+    assert "291" in csv_text
     assert "https://" in csv_text
 
     ic_raw, _ = generate_ic_bundle_sample_zip_bytes()
@@ -135,7 +144,8 @@ def test_chapin_artifacts_match_the_ladder():
     assert "+21" not in free_share
     assert "1,406" not in free_share
     assert "FAIL" not in free_share
-    assert "+21" in est_share
+    assert "+21" not in est_share
+    assert "No schedule states a contingency percent" in est_share
     assert "1,406" not in est_share
 
     sms = TwilioSMSService("test", "test", "+15555550100")
@@ -170,7 +180,8 @@ def test_chapin_artifacts_match_the_ladder():
             assert "289" not in forward
             assert "1,406" not in mailed
         elif tier == "partner":
-            assert "+21" in share or "21" in share
+            assert "No schedule states a contingency percent" in share
+            assert "+21" not in share
             assert "1,406" not in share
             assert "1,406" not in forward
             assert "1,406" not in mailed

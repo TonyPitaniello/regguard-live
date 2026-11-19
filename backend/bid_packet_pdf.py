@@ -171,6 +171,9 @@ def generate_bid_packet_pdf(
         citation_label_for_item = None  # type: ignore
 
     analysis_data = _ensure_arbitrage(analysis_data)
+    from ic_buyer_brief import apply_cited_schedule_fees, schedule_usd, stated_schedule_amount
+
+    analysis_data = apply_cited_schedule_fees(analysis_data)
 
     try:
         from regguard_stamp import apply_regguard_stamp
@@ -327,45 +330,17 @@ def generate_bid_packet_pdf(
     )
     pdf.set_y(y0 + 20)
 
-    # --- BIG CONTINGENCY (hero) ---
-    _section_title(pdf, "Contingency band (screenshot this)")
-    hero_h = 28 if low_s and high_s else 18
+    _section_title(pdf, "Contingency")
+    hero_h = 16
     cx, cy = _card_box(pdf, hero_h)
     pdf.set_xy(cx, cy)
-    if low_s and high_s:
-        pdf.set_font("Helvetica", "B", 28)
-        pdf.set_text_color(*EMERALD_SOFT)
-        pdf.cell(CONTENT_W - 8, 12, f"+{low_s}%  -  +{high_s}%", ln=1)
-        pdf.set_x(cx)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(*EMERALD)
-        mid_line = f"mid {mid_s}%  -  planning aid - not a quote"
-        pdf.cell(CONTENT_W - 8, 5, _ascii(mid_line), ln=1)
-        usd_bits = []
-        usd_url = str(band.get("usd_source_url") or "")
-        if (
-            usd_url.startswith("http")
-            and isinstance(band.get("usd_low"), (int, float))
-            and isinstance(band.get("usd_high"), (int, float))
-        ):
-            usd_bits.append(
-                f"Schedule band ${int(band['usd_low']):,} - ${int(band['usd_high']):,} ({usd_url[:80]})"
-            )
-        if band.get("disclaimer"):
-            usd_bits.append(str(band.get("disclaimer"))[:120])
-        if usd_bits:
-            pdf.set_x(cx)
-            pdf.set_font("Helvetica", "", 7)
-            pdf.set_text_color(*MUTED)
-            pdf.multi_cell(CONTENT_W - 8, 3.5, _ascii("  |  ".join(usd_bits)))
-    else:
-        pdf.set_font("Helvetica", "B", 11)
-        pdf.set_text_color(*AMBER_SOFT)
-        pdf.multi_cell(
-            CONTENT_W - 8,
-            5,
-            _ascii("Set contingency after confirming Critical/High items with AHJ."),
-        )
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(
+        CONTENT_W - 8,
+        5,
+        _ascii("No schedule states a contingency percent for this address."),
+    )
     pdf.set_y(cy + hero_h + 2)
 
     # --- Top 3 risk flags ---
@@ -524,8 +499,8 @@ def generate_bid_packet_pdf(
         if pdf.get_y() > 255:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
-        amt = row.get("amount_usd")
-        amt_s = f"${amt:,.0f}" if isinstance(amt, (int, float)) else "confirm on schedule"
+        stated = stated_schedule_amount(row)
+        amt_s = schedule_usd(stated) if stated is not None else ""
         ver, cite_url = citation_badge_and_url(row)
         label = str(row.get("label") or "Fee")[:70]
         detail = str(row.get("detail") or "")[:70]
@@ -542,7 +517,8 @@ def generate_bid_packet_pdf(
                 pass
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 42, 4.2, _ascii(f"{label}: {amt_s}" + (f" - {detail}" if detail else "")))
+        head = f"{label}: {amt_s}" if amt_s else label
+        pdf.multi_cell(CONTENT_W - 42, 4.2, _ascii(head + (f" - {detail}" if detail else "")))
         if cite_url:
             pdf.set_x(MARGIN + 4)
             pdf.set_font("Helvetica", "", 6.5)
@@ -686,9 +662,9 @@ def generate_bid_packet_pdf(
         CONTENT_W - 8,
         3.5,
         _ascii(
-            "Citeable pre-bid diligence - not a quote or sealed bid. "
-            "Not an interconnection study, geotech report, or AHJ filing. "
-            "Confirm fees and Unverified lines with the AHJ before bid. "
+            "Citeable pre-bid diligence. Not a quote, a permit total, or a filing. "
+            "Not an interconnection study or a geotech report. "
+            "No schedule states a contingency percent for this address. "
             "app.regguardagent.com"
         ),
     )

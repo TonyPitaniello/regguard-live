@@ -52,6 +52,9 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
     Columns include exhibit_id (Evidence Binder cross-ref) and source_url hyperlinks
     for Excel / Sheets.
     """
+    from ic_buyer_brief import apply_cited_schedule_fees, stated_schedule_amount
+
+    analysis = apply_cited_schedule_fees(analysis)
     buf = io.StringIO()
     w = csv.writer(buf)
     headers = [
@@ -129,7 +132,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 portal,
                 "AHJ portal / fees",
                 ahj.get("last_verified") or "",
-                "Confirm fees on official schedule",
+                "Planning aid. Not a quote, a permit total, or a filing.",
                 share,
             ]
         )
@@ -138,6 +141,10 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
         if not isinstance(item, dict):
             continue
         cost = item.get("estimated_cost")
+        if not isinstance(cost, (int, float)) or stated_schedule_amount(
+            {"amount_usd": cost, "verified": item.get("verified"), "source_url": item.get("source_url")}
+        ) is None:
+            cost = ""
         trade = _trade_for_punch(item)
         task = item.get("task") or item.get("title") or ""
         src = str(item.get("source_url") or "").strip()
@@ -167,10 +174,18 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
     for fee in fees:
         if not isinstance(fee, dict):
             continue
-        amt = fee.get("amount_usd")
+        stated = stated_schedule_amount(fee)
+        if stated is None:
+            amt = ""
+        elif float(stated).is_integer():
+            amt = int(stated)
+        else:
+            amt = f"{float(stated):.2f}"
         note = fee.get("detail") or ""
-        if fee.get("amount_requires_schedule"):
-            note = (note + " | confirm on schedule").strip(" |")
+        if stated is None:
+            from ic_buyer_brief import note_without_unstated_dollars
+
+            note = note_without_unstated_dollars(note)
         label = fee.get("label") or "Fee"
         trade = str(fee.get("trade") or "GENERAL").upper()
         src = str(fee.get("source_url") or "").strip()
@@ -186,7 +201,7 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 "",
                 "",
-                amt if isinstance(amt, (int, float)) else "",
+                amt,
                 (analysis.get("fee_card") or {}).get("timeline") or "",
                 _eid(src, fee.get("exhibit_id")),
                 src,
@@ -221,36 +236,6 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 g.get("source_label") or ("Source" if src else "Unverified"),
                 "yes" if src else "Unverified",
                 (g.get("detail") or "") + (f" | Don't: {anti}" if anti else ""),
-                share,
-            ]
-        )
-    band = analysis.get("contingency_band") or {}
-    if band.get("pct_mid") is not None:
-        w.writerow(
-            [
-                "contingency",
-                "PLANNING",
-                "Estimator",
-                "Before bid lock",
-                "",
-                "",
-                band.get("label") or "Suggested contingency",
-                "",
-                "",
-                "",
-                (
-                    band.get("usd_mid")
-                    if isinstance(band.get("usd_mid"), (int, float))
-                    and str(band.get("usd_source_url") or "").startswith("http")
-                    else ""
-                ),
-                f"{band.get('pct_low')}%-{band.get('pct_high')}% (mid {band.get('pct_mid')}%)",
-                "",
-                share,
-                "Bid Risk Receipt",
-                "heuristic",
-                band.get("disclaimer")
-                or "Planning aid — not a quote or sealed bid; confirm with AHJ",
                 share,
             ]
         )

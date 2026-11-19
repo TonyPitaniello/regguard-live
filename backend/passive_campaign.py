@@ -105,26 +105,26 @@ def _slug_city(city: str) -> str:
 COMMERCIAL_BULLETS: Dict[str, List[str]] = {
     "plano": [
         "Plano Ord. 250.50 grounding (dual 8-ft rods @ 20 ft, 2/0 bond) when citeable",
-        "Electrical permit amounts are on the Jan 2, 2026 schedule (Ordinance 2025-11-4). Confirm the line for this job. $75 on that schedule is the first reinspection, not the permit total.",
+        "Electrical permit amounts are on the Jan 2, 2026 schedule (Ordinance 2025-11-4). $75 on that schedule is the first reinspection, not the permit total.",
         "Every line is Source or Unverified — forward only what you can defend",
     ],
     "dallas": [
-        "Confirm trade permit type early — wrong path stalls review",
-        "Fee schedule is not a fixed number — recheck before bid",
-        "Forward the receipt. The clear percent stays on Estimator ($79/mo)",
+        "DallasNow record type is Commercial New Construction or an alteration.",
+        "The July 1, 2025 fee summary states $175 and $125. It does not state a new-construction permit total.",
+        "Forward the receipt. The punch the GC can keep stays on Estimator ($79/mo). No schedule states a contingency percent for this address.",
     ],
     "austin": [
         "Austin gas-relief clearance and service-upgrade patterns when citeable",
         "Source or Unverified on every punch line",
-        "Next step is Estimator ($79/mo) for the clear percent. The $1,500 bundle is for one capital site, not this page.",
+        "Next step is Estimator ($79/mo) for the Receipt the GC can keep. The $1,500 bundle is for one capital site, not this page.",
     ],
     "frisco": [
         "Commercial building permit is 80% of the valuation table on the Oct 1, 2026 schedule. $300 is the application fee. $75 is the commercial reinspection, not the permit total.",
         "Do not copy a Plano fee line onto a Frisco bid",
-        "Forward the receipt. Sharing the free page does not unlock the clear percent",
+        "Forward the receipt. Sharing the free page does not unlock the punch",
     ],
     "fort-worth": [
-        "Confirm trade application type and inspection wait before bid",
+        "The building permit is issued before a trade permit can be applied for.",
         "Source or Unverified on every line",
         "Forward the receipt to your GC — planning aid, not a quote",
     ],
@@ -141,7 +141,7 @@ COMMERCIAL_BULLETS: Dict[str, List[str]] = {
     "irving": [
         "Commercial building permit is $0.45 per square foot of the area of work, $1,200 minimum (Ordinances 2025-11146 and 2025-11165). Plan review is additional. That rate is not a permit total.",
         "Do not copy a Dallas or Plano fee line onto an Irving bid",
-        "Forward the receipt. Sharing the free page does not unlock the clear percent",
+        "Forward the receipt. Sharing the free page does not unlock the punch",
     ],
     "garland": [
         "Commercial permit fee is a percent of valuation on the Building Permit page. Plan review is 40% of the permit fee, due at submittal, and Building Inspections permits carry a 4.5% technology surcharge. This page does not state a permit total.",
@@ -151,12 +151,12 @@ COMMERCIAL_BULLETS: Dict[str, List[str]] = {
     "mckinney": [
         "Commercial permit fees are on the Permit Fees PDF linked from the city Fee Schedule page. This page does not state a permit total.",
         "Do not copy a Plano or Frisco fee line onto a McKinney bid",
-        "Planning aid — confirm with the AHJ",
+        "Planning aid. Not a quote, a permit total, or a filing.",
     ],
     "richardson": [
         "The permit fee schedule is the PDF linked from Building Inspection forms. This page does not state a permit total.",
         "Source or Unverified on every line",
-        "Forward the receipt to the GC. The clear percent stays on Estimator",
+        "Forward the receipt to the GC. The punch the GC can keep stays on Estimator",
     ],
     "carrollton": [
         "New commercial work is $6 per $1,000 of value, $125 minimum, on the Building Inspection fees page. $125 is the application fee. $50 is the re-inspection, not the permit total.",
@@ -166,7 +166,7 @@ COMMERCIAL_BULLETS: Dict[str, List[str]] = {
     "houston": [
         "Commercial building permit follows the 2026 valuation table on the Houston Permitting Center schedule. Plan review is 25% of the estimated building permit fee and is non-refundable. This page does not state a permit total.",
         "Pasadena, Sugar Land, and The Woodlands are different schedules",
-        "Next step is Estimator ($79/mo). Forwarding this page does not unlock the clear percent",
+        "Next step is Estimator ($79/mo). Forwarding this page does not unlock the punch",
     ],
     "san-antonio": [
         "Commercial plan review and permit fees follow the valuation tables in the FY 2027 Development Fee Schedule, revised October 2026. A 4% technology surcharge and a 4% Development Services surcharge apply unless a line says otherwise. This page does not state a permit total.",
@@ -212,7 +212,7 @@ def metro_pages() -> List[Dict[str, Any]]:
                 "meta_description": (
                     f"{city} {state} electrical and trade permit diligence for contractors. "
                     f"Forwardable Bid Risk Receipt, city gotchas, Source or Unverified on every line. "
-                    f"Planning aid — confirm with the AHJ before you bid."
+                    f"Planning aid. Not a quote, a permit total, or a filing."
                 ),
                 "bullets": bullets
                 or [
@@ -222,8 +222,7 @@ def metro_pages() -> List[Dict[str, Any]]:
                 ],
                 "fee_note": (ahj.get("notes") or "")
                 or (
-                    f"Fee figures are planning aids. Always confirm with {ahj.get('name') or city + ' Building Inspections'} "
-                    "before bid or filing."
+                    "A dollar on this page is a figure the cited schedule states. A blank line has no dollar."
                 ),
                 "fee_summary": fee_bits,
                 "ahj_name": ahj.get("name") or f"City of {city}",
@@ -440,7 +439,7 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
     {body}
     <p style="margin-top:28px;font-size:12px;color:#888;">
       Planning aid only — not a quote, sealed bid, or interconnection study.
-      Confirm fees and timelines with the AHJ. {SUPPORT_EMAIL}
+      Planning aid. Not a quote, a permit total, or a filing. {SUPPORT_EMAIL}
       {stop_line}
     </p>
   </div>
@@ -451,7 +450,7 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         body = f"""
     <p style="color:#555;font-size:14px;line-height:1.5;">
       You ran <strong>{esc(place)}</strong>. Send the HOLD. The GC can open it on a phone.
-      The clear contingency percent stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
+      The punch the GC can keep stays on Estimator ($79/mo). Forwarding this preview does not unlock it.
     </p>
     <p style="margin:20px 0;">
       <a href="{esc(share)}" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">
@@ -465,20 +464,20 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
         return subject, wrap("Send the HOLD", body)
 
     if kind == "free_run_d5":
-        subject = f"Estimator unlocks the clear contingency — {place}"[:120]
+        subject = f"Estimator puts the punch on a Receipt the GC can keep — {place}"[:120]
         if live:
             pitch = (
                 f"<strong>{esc(place)}</strong> is still in your account. "
-                "Estimator / Permit Runner is $79/month. Checkout charges that price for the "
-                "clear percent, the rest of the punch list, and Saved Jobs."
+                "Estimator / Permit Runner is $79/month. Checkout charges that price for "
+                "the punch the GC can keep, and Saved Jobs."
             )
             button_href = pay_url
             button_label = "Estimator / Permit Runner — $79/month"
         else:
             pitch = (
                 f"<strong>{esc(place)}</strong> is still in your account. "
-                "Estimator / Permit Runner ($79/mo) is the receipt you can forward with the "
-                "clear percent, the rest of the punch list, and Saved Jobs. "
+                "Estimator / Permit Runner ($79/mo) is the receipt you can forward with "
+                "the punch the GC can keep, and Saved Jobs. "
                 "A card is not charged."
             )
             button_href = no_charge
@@ -496,7 +495,7 @@ def drip_email(kind: str, payload: Optional[Dict[str, Any]] = None) -> Tuple[str
       <a href="{esc(share)}" style="color:#1d4ed8;">Re-open the HOLD</a> if you still need to send it.
     </p>
 """
-        return subject, wrap("The clear percent stays on Estimator", body)
+        return subject, wrap("The punch the GC can keep stays on Estimator", body)
 
     if kind == "quota_paywall":
         subject = "Free lookups used — Estimator keeps the receipt habit"

@@ -295,7 +295,7 @@ export default function BidDayPage() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm sm:text-base leading-relaxed text-slate-300">
           One HOLD or CLEAR per address, with the top risk and a link the GC can open. Free screens
-          the first row. Estimator screens the list and unlocks the clear percent. Contractor Pro adds
+          the first row. Estimator screens the list and puts the punch on a Receipt the GC can keep. Contractor Pro adds
           the fee line on rows you are bidding. This desk is not a counsel ZIP and not an interconnection
           study.
         </p>
@@ -462,7 +462,7 @@ export default function BidDayPage() {
             <Link to="/checkout/partner" className="font-semibold text-emerald-300 hover:text-emerald-200">
               Estimator / Permit Runner — $79/mo
             </Link>
-            . Forwarding a row does not unlock the clear percent.
+            . Forwarding a row does not unlock the punch.
           </p>
         ) : null}
       </main>

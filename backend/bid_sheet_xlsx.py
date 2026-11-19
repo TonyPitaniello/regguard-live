@@ -92,10 +92,21 @@ def _as_rows_from_csv_sections(analysis: Dict[str, Any]) -> Tuple[List[Dict], Li
         if not isinstance(fee, dict):
             continue
         src = str(fee.get("source_url") or "").strip() or default_fee_url
-        note = str(fee.get("detail") or fee.get("note") or fee.get("amount") or "").strip()
+        note = str(fee.get("detail") or fee.get("note") or "").strip()
+        status = str(fee.get("status") or "").strip()
+        if not status:
+            if isinstance(fee.get("verified"), str) and fee.get("verified") not in ("yes", "planning"):
+                status = str(fee.get("verified")).strip()
         if fee.get("amount_requires_schedule") or _fee_planning_usd(fee) is None:
+            from ic_buyer_brief import note_without_unstated_dollars
+
+            note = note_without_unstated_dollars(note)
+            if not status:
+                status = "confirm-on-schedule"
             if "confirm" not in note.lower():
-                note = (note + " | Confirm on AHJ schedule").strip(" |")
+                note = (note + " | confirm-on-schedule").strip(" |")
+        elif not status:
+            status = "yes"
         fees.append(
             {
                 "trade": str(fee.get("trade") or "GENERAL").upper(),
@@ -105,10 +116,9 @@ def _as_rows_from_csv_sections(analysis: Dict[str, Any]) -> Tuple[List[Dict], Li
                 "planning_usd": _fee_planning_usd(fee),
                 "exhibit_id": _eid(src, fee.get("exhibit_id")),
                 "source_url": src,
-                "source_label": fee.get("source_label")
-                or ("Source" if src else "Unverified — confirm with AHJ"),
-                "verified": "yes" if fee.get("verified") else "planning",
-                "notes": note or "Planning aid — not a quote; confirm with AHJ",
+                "source_label": fee.get("source_label") or ("Source" if src else ""),
+                "verified": status,
+                "notes": note,
             }
         )
 
@@ -135,7 +145,7 @@ def _as_rows_from_csv_sections(analysis: Dict[str, Any]) -> Tuple[List[Dict], Li
                 "source_url": src,
                 "source_label": item.get("source_label") or ("Source" if src else "Unverified"),
                 "verified": "yes" if item.get("verified") else "Unverified",
-                "notes": "Planning aid — fill qty/crew rates; not a quote.",
+                "notes": str(item.get("notes") or item.get("detail") or "").strip(),
             }
         )
 
@@ -226,6 +236,20 @@ def _style_header(ws, row: int, cols: int) -> None:
     ws.row_dimensions[row].height = 22
 
 
+_SHEET_BANNER = (
+    "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
+    "interconnection study, or AHJ filing. Confirm fees with the AHJ."
+)
+_BUYER_SHEET_BANNER = (
+    "Planning aid. Not a quote, sealed bid, interconnection study, or AHJ filing. "
+    "Fee dollars are the figures on the cited page."
+)
+
+
+def _sheet_banner(analysis: Dict[str, Any]) -> str:
+    return _BUYER_SHEET_BANNER if (analysis or {}).get("ic_buyer_brief") else ""
+
+
 def _write_sheet(
     ws,
     *,
@@ -236,6 +260,7 @@ def _write_sheet(
     url_cols: Sequence[str],
     usd_cols: Sequence[str],
     tab_color: str,
+    banner: str = "",
 ) -> None:
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
@@ -245,10 +270,7 @@ def _write_sheet(
     ws["A1"].font = Font(name="Calibri", bold=True, size=14, color=_HEADER_FILL)
     ws["A2"] = site
     ws["A2"].font = Font(name="Calibri", size=10, color="64748B")
-    ws["A3"] = (
-        "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
-        "interconnection study, or AHJ filing. Confirm fees with the AHJ."
-    )
+    ws["A3"] = banner or _SHEET_BANNER
     ws["A3"].font = Font(name="Calibri", italic=True, size=9, color="94A3B8")
 
     header_row = 5
@@ -271,7 +293,7 @@ def _write_sheet(
                 cell.fill = alt
             if key in usd_cols and isinstance(val, (int, float)):
                 cell.value = float(val)
-                cell.number_format = '"$"#,##0'
+                cell.number_format = '"$"#,##0' if float(val).is_integer() else '"$"#,##0.00'
             elif key in url_cols and val:
                 url = str(val).strip()
                 cell.value = url
@@ -368,9 +390,10 @@ def _write_cover(
     ws["B3"] = stamp
     ws["B3"].font = accent
 
-    ws["A4"] = "Contingency (screenshot / text this)"
+    ws["A4"] = "Contingency percent"
     ws["A4"].font = label_font
-    ws["B4"] = contingency or "Set after confirming Critical/High items with AHJ"
+    brief = bool(analysis.get("ic_buyer_brief") or band.get("suppress_percent"))
+    ws["B4"] = "none" if brief or not contingency else contingency
     ws["B4"].font = accent
 
     ws["A5"] = "AHJ"
@@ -378,22 +401,33 @@ def _write_cover(
     ws["B5"] = str(ahj.get("name") or "Local AHJ")
     ws["B5"].font = body
 
-    ws["A6"] = "Full shareable report"
-    ws["A6"].font = label_font
-    ws["B6"] = share or "Re-open results in Reg Guard"
+    if analysis.get("ic_buyer_brief"):
+        ws["A6"] = "Apply"
+        ws["B6"] = str(ahj.get("apply_url") or "")
+    else:
+        ws["A6"] = "Full shareable report"
+        ws["B6"] = share or "Re-open results in Reg Guard"
     ws["B6"].font = body
-    if share.startswith("http"):
-        ws["B6"].hyperlink = share
+    apply_link = str(ahj.get("apply_url") or "") if analysis.get("ic_buyer_brief") else ""
+    link = apply_link if apply_link.startswith("http") else (share if share.startswith("http") else "")
+    if link:
+        ws["B6"].hyperlink = link
         ws["B6"].font = Font(name="Calibri", size=11, color="0563C1", underline="single")
 
     ws["A8"] = "How to use (30 seconds)"
     ws["A8"].font = label_font
     ws.merge_cells("B8:B10")
     ws["B8"] = (
-        "1) Open Cover — confirm stamp + contingency match the Bid Risk Receipt PDF. "
-        "2) Filter Fees / Punch by Trade or Due window. "
-        "3) Click Source URL before you lock a number. "
-        "4) Forward this file to your estimator or GC — they already live in Excel."
+        "1) Cover stamp matches the decision memo. Contingency percent is none. "
+        "2) Fees column E is blank exactly where the memo prints no dollar. "
+        "3) Punch rows are the calls, with the desk in the owner column."
+        if analysis.get("ic_buyer_brief")
+        else (
+            "1) Open Cover — confirm stamp + contingency match the Bid Risk Receipt PDF. "
+            "2) Filter Fees / Punch by Trade or Due window. "
+            "3) Click Source URL before you lock a number. "
+            "4) Forward this file to your estimator or GC — they already live in Excel."
+        )
     )
     ws["B8"].font = body
     ws["B8"].alignment = Alignment(wrap_text=True, vertical="top")
@@ -411,8 +445,12 @@ def _write_cover(
         row=r + 1,
         column=2,
         value=(
-            "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
-            "interconnection study, geotech, or AHJ filing. Unverified lines need confirm-with-AHJ."
+            "Fee dollars match the cited page. confirm-on-schedule rows have no dollar."
+            if analysis.get("ic_buyer_brief")
+            else (
+                "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
+                "interconnection study, geotech, or AHJ filing. Unverified lines need confirm-with-AHJ."
+            )
         ),
     ).font = warn
     ws.cell(row=r + 1, column=2).alignment = Alignment(wrap_text=True)
@@ -476,6 +514,7 @@ def analysis_to_fee_punch_evidence_xlsx(
         url_cols=("source_url",),
         usd_cols=("planning_usd",),
         tab_color=_TAB_FEES,
+        banner=_sheet_banner(data),
     )
 
     ws_punch = wb.create_sheet("Punch")
@@ -506,6 +545,7 @@ def analysis_to_fee_punch_evidence_xlsx(
         url_cols=("source_url",),
         usd_cols=("planning_usd",),
         tab_color=_TAB_PUNCH,
+        banner=_sheet_banner(data),
     )
 
     ws_ev = wb.create_sheet("Evidence")
@@ -531,6 +571,7 @@ def analysis_to_fee_punch_evidence_xlsx(
         url_cols=("source_url",),
         usd_cols=(),
         tab_color=_TAB_EVIDENCE,
+        banner=_sheet_banner(data),
     )
 
     _write_cover(
@@ -637,6 +678,7 @@ def analysis_to_evidence_index_xlsx(
         url_cols=("source_url",),
         usd_cols=(),
         tab_color=_TAB_EVIDENCE,
+        banner=_sheet_banner(data),
     )
 
     ws_cl = wb.create_sheet("Claims")
@@ -660,6 +702,7 @@ def analysis_to_evidence_index_xlsx(
         url_cols=("source_url",),
         usd_cols=(),
         tab_color="7C3AED",
+        banner=_sheet_banner(data),
     )
 
     ws_all = wb.create_sheet("Index")
@@ -672,6 +715,7 @@ def analysis_to_evidence_index_xlsx(
         url_cols=("source_url",),
         usd_cols=(),
         tab_color="0F172A",
+        banner=_sheet_banner(data),
     )
 
     _write_cover(
