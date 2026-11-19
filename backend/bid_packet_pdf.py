@@ -97,7 +97,7 @@ class BidPacketPDF(FPDF):
             0,
             5,
             _ascii(
-                f"{self._footer_label}  |  Planning aid only - confirm with AHJ  |  "
+                f"{self._footer_label}  |  Planning aid. Not a quote, a permit total, or a filing.  |  "
                 f"Page {self.page_no()}"
             ),
             align="C",
@@ -275,7 +275,7 @@ def generate_bid_packet_pdf(
         _muted(
             pdf,
             f"Local pack: {lp.get('tier')}  |  "
-            f"{'citeable' if lp.get('citeable') else 'planning aid — confirm with AHJ'}",
+            f"{'citeable' if lp.get('citeable') else 'Unverified local pack'}",
             8,
         )
     rg = analysis_data.get("regguard_stamp") or {}
@@ -461,17 +461,15 @@ def generate_bid_packet_pdf(
         pdf.add_page()
         pdf.set_y(MARGIN + 4)
     _section_title(pdf, "AHJ portal & contact")
-    portal = str(ahj.get("portal_url") or "Confirm locally").strip()
-    fees_url = str(ahj.get("fees_url") or "Confirm locally").strip()
+    portal = str(ahj.get("portal_url") or "").strip()
+    fees_url = str(ahj.get("fees_url") or "").strip()
     phone = str(ahj.get("phone") or "").strip()
     notes = str(ahj.get("notes") or "").strip()
-    from pdf_stamp_helpers import buyer_url_label
-
-    ahj_lines = [
-        f"{ahj.get('name') or 'Local AHJ'}",
-        f"Portal: {buyer_url_label(portal) if portal.startswith('http') else portal}",
-        f"Fees schedule: {buyer_url_label(fees_url) if fees_url.startswith('http') else fees_url}",
-    ]
+    ahj_lines = [f"{ahj.get('name') or 'Local AHJ'}"]
+    if portal.startswith("http"):
+        ahj_lines.append(f"Portal: {portal}")
+    if fees_url.startswith("http"):
+        ahj_lines.append(f"Fees schedule: {fees_url}")
     if phone:
         ahj_lines.append(f"Phone: {phone}")
     if notes:
@@ -480,7 +478,7 @@ def generate_bid_packet_pdf(
 
     # --- Fees ---
     _section_title(pdf, "Fee & timeline extract")
-    timeline = str(fee.get("timeline") or summary.get("estimated_timeline") or "Confirm with AHJ")
+    timeline = str(fee.get("timeline") or summary.get("estimated_timeline") or "Unverified. This is not a filing date.")
     _body(pdf, f"Timeline: {timeline}", 9, bold=True)
     fees = list(fee.get("fees") or [])
     if not fees:
@@ -525,7 +523,7 @@ def generate_bid_packet_pdf(
             pdf.set_text_color(*EMERALD)
             paint_linked_block(
                 pdf,
-                _ascii(buyer_url_label(cite_url)),
+                _ascii(cite_url),
                 cite_url,
                 width=CONTENT_W - 8,
                 line_h=3.0,
@@ -537,7 +535,7 @@ def generate_bid_packet_pdf(
         pdf.set_y(MARGIN + 4)
     _section_title(pdf, "Local gotcha watchlist")
     if not gotchas:
-        _muted(pdf, "No curated gotchas - verify with AHJ (Unverified).")
+        _muted(pdf, "No curated gotchas in this packet.")
     for g in gotchas[:10]:
         if pdf.get_y() > 255:
             pdf.add_page()
@@ -579,7 +577,7 @@ def generate_bid_packet_pdf(
     _section_title(pdf, "Punch list (Critical -> Low)")
     _muted(
         pdf,
-        "SOURCE = parcel-backed cite. PORTAL = clickable AHJ/official URL. UNVERIFIED = confirm with AHJ. "
+        "SOURCE = parcel-backed cite. PORTAL = the full https URL. UNVERIFIED = no dollar. "
         "Owner · due · $ when known.",
     )
     if not punch:
@@ -631,11 +629,11 @@ def generate_bid_packet_pdf(
             pdf.set_x(MARGIN + 10)
             pdf.set_font("Helvetica", "", 6.5)
             pdf.set_text_color(*EMERALD)
-            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+            from pdf_stamp_helpers import paint_linked_block
 
             paint_linked_block(
                 pdf,
-                _ascii(buyer_url_label(cite_url)),
+                _ascii(cite_url),
                 cite_url,
                 width=CONTENT_W - 14,
                 line_h=3.0,

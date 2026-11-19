@@ -205,9 +205,9 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 (analysis.get("fee_card") or {}).get("timeline") or "",
                 _eid(src, fee.get("exhibit_id")),
                 src,
-                fee.get("source_label") or ("Source" if src else "Unverified — confirm with AHJ"),
+                fee.get("source_label") or ("Source" if src else "Unverified"),
                 "yes" if fee.get("verified") else "planning",
-                note or "Planning aid — not a quote; confirm with AHJ",
+                note or "Planning aid. Not a quote, a permit total, or a filing.",
                 share,
             ]
         )

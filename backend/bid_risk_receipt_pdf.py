@@ -589,9 +589,9 @@ def generate_bid_risk_receipt_pdf(
             if not url:
                 continue
             pdf.set_x(MARGIN)
-            from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+            from pdf_stamp_helpers import paint_linked_block
 
-            shown = url if estimator else buyer_url_label(url)
+            shown = url
             paint_linked_block(
                 pdf,
                 _ascii(f"{kind}: {shown}"),
@@ -941,13 +941,9 @@ def generate_bid_risk_receipt_pdf(
                 pdf.set_x(bx)
                 pdf.set_font("Helvetica", "", 6.5)
                 pdf.set_text_color(*EMERALD)
-                from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+                from pdf_stamp_helpers import paint_linked_block
 
-                shown_url = (
-                    cite_url
-                    if (free_preview or estimator) and not locked
-                    else buyer_url_label(cite_url)
-                )
+                shown_url = cite_url
                 paint_linked_block(
                     pdf,
                     _ascii(shown_url),

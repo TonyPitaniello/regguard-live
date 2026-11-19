@@ -187,11 +187,11 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 8)
         pdf.set_text_color(*EMERALD)
-        from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+        from pdf_stamp_helpers import paint_linked_block
 
         paint_linked_block(
             pdf,
-            _ascii(f"{kind}: {buyer_url_label(url)}"),
+            _ascii(f"{kind}: {url}"),
             url,
             width=CONTENT_W,
             line_h=4.0,
@@ -261,10 +261,10 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             }
         )
     _section_title(pdf, "Fee & timeline extract")
-    timeline = str(fee.get("timeline") or (analysis_data.get("summary") or {}).get("estimated_timeline") or "Confirm with AHJ")
+    timeline = str(fee.get("timeline") or (analysis_data.get("summary") or {}).get("estimated_timeline") or "Unverified. This is not a filing date.")
     _body(pdf, f"Timeline: {timeline}", 9, bold=True)
     if not fees:
-        _muted(pdf, "No fee rows in this pack - confirm on the official AHJ fee schedule.")
+        _muted(pdf, "No fee rows in this pack. This page does not state a permit total.")
     for row in fees[:18]:
         if not isinstance(row, dict):
             continue
@@ -301,16 +301,14 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
             pdf.set_x(MARGIN + 4)
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD)
-            from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+            from pdf_stamp_helpers import named_origin, paint_linked_block
 
             origin = named_origin(src_name, cite_url)
-            line = origin
-            if cite_url:
-                line = f"{origin} - {buyer_url_label(cite_url)}"
+            line = f"{origin} - {cite_url}" if cite_url else origin
 
             paint_linked_block(
                 pdf,
-                _ascii(line[:160]),
+                _ascii(line),
                 cite_url or None,
                 width=CONTENT_W - 8,
                 line_h=3.3,
@@ -322,7 +320,7 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
     if not gotchas and killers:
         gotchas = killers
     if not gotchas:
-        _muted(pdf, "No curated gotchas in this pack - verify with AHJ.")
+        _muted(pdf, "No curated gotchas in this pack.")
     for g in gotchas[:14]:
         if pdf.get_y() > 250:
             pdf.add_page()
@@ -353,12 +351,10 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                     pass
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD if cite_url else MUTED)
-            from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+            from pdf_stamp_helpers import named_origin, paint_linked_block
 
             origin = named_origin(src_name, cite_url)
-            line = origin
-            if cite_url:
-                line = f"{origin} - {buyer_url_label(cite_url)}"
+            line = f"{origin} - {cite_url}" if cite_url else origin
 
             paint_linked_block(
                 pdf,
@@ -403,10 +399,10 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pdf.set_x(MARGIN + 4)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*EMERALD if cite_url else MUTED)
-                from pdf_stamp_helpers import buyer_url_label, named_origin, paint_linked_block
+                from pdf_stamp_helpers import named_origin, paint_linked_block
 
                 origin = named_origin(src_name, cite_url) if (src_name or cite_url) else ver
-                line = f"{origin} - {buyer_url_label(cite_url)}" if cite_url else origin
+                line = f"{origin} - {cite_url}" if cite_url else origin
                 paint_linked_block(
                     pdf,
                     _ascii(line),
@@ -520,9 +516,9 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
                 pdf.set_x(MARGIN)
                 pdf.set_font("Helvetica", "", 7)
                 pdf.set_text_color(*EMERALD)
-                from pdf_stamp_helpers import buyer_url_label, paint_linked_block
+                from pdf_stamp_helpers import paint_linked_block
 
-                paint_linked_block(pdf, _ascii(buyer_url_label(url)), url, width=CONTENT_W, line_h=3.3)
+                paint_linked_block(pdf, _ascii(url), url, width=CONTENT_W, line_h=3.3)
 
     pdf.ln(3)
     pdf.set_fill_color(*CARD)
@@ -540,8 +536,8 @@ def generate_city_pack_pdf(analysis_data: Dict[str, Any], output_path: str | Non
         CONTENT_W - 8,
         3.5,
         _ascii(
-            "Full city pack is citeable local diligence - not a quote or sealed bid. "
-            "Confirm every fee and Unverified line with the AHJ before bid. "
+            "Full city pack is citeable local diligence. Not a quote, a permit total, or a filing. "
+            "A dollar on this pack is a figure the cited schedule states. "
             "app.regguardagent.com"
         ),
     )

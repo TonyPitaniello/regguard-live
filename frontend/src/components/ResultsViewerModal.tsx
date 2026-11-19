@@ -3462,7 +3462,7 @@ export default function ResultsViewerModal({
                     null;
                   const cta =
                     (k.source_label || '').trim() ||
-                    (href ? 'Confirm with AHJ' : 'No portal link — confirm locally');
+                    (href ? 'Source' : 'Unverified');
                   return (
                   <li key={`${k.title}-${i}`} className="text-sm text-gray-200">
                     <span className="text-amber-200 font-semibold text-xs uppercase mr-1">
@@ -3533,7 +3533,7 @@ export default function ResultsViewerModal({
                 </div>
               ) : null}
               <p className="text-xs text-gray-500 mt-3 border-t border-emerald-500/20 pt-2">
-                Stamp: {emailForCheckout || 'Estimator'} · Confirm with AHJ · Not a filing ·{' '}
+                Stamp: {emailForCheckout || 'Estimator'} · Not a quote, a permit total, or a filing ·{' '}
                 <button
                   type="button"
                   onClick={openWhatsApp}
@@ -3835,9 +3835,9 @@ export default function ResultsViewerModal({
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5">
               <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.timeline}</h3>
               <p className="text-2xl font-black text-blue-400">
-                {view.summary?.estimated_timeline || 'Confirm with AHJ'}
+                {view.summary?.estimated_timeline || 'Unverified. This is not a filing date.'}
               </p>
-              <CitationBadge verified={false} source_label="Estimate — confirm with AHJ" />
+              <CitationBadge verified={false} source_label="Unverified. This is not a filing date." />
             </div>
             <div className="bg-slate-800/40 border border-slate-700/50 rounded-lg p-5 relative overflow-hidden">
               <h3 className="text-sm font-bold text-gray-400 mb-2">{PRODUCT_COPY.sections.estimatedCost}</h3>
@@ -4039,7 +4039,7 @@ export default function ResultsViewerModal({
                                 {` — $${f.amount_usd.toLocaleString()}`}
                               </span>
                             ) : (
-                              ' — confirm on schedule'
+                              ''
                             )}
                             {(f.planning_aid ||
                               view.fee_card?.planning_aid ||
@@ -4050,7 +4050,7 @@ export default function ResultsViewerModal({
                               <CitationBadge
                                 verified={Boolean(f.verified)}
                                 source_url={f.source_url || f.citation_url}
-                                source_label={f.source_label || f.citation_note || 'Confirm with AHJ'}
+                                source_label={f.source_label || f.citation_note || 'Unverified'}
                               />
                             ) : null}
                           </li>
