@@ -480,7 +480,7 @@
         "priority": "MEDIUM",
         "task": "Confirm noise ordinance for generators / construction hours",
         "status": "confirm",
-        "detail": "Not parcel-verified in SAMPLE \u2014 Confirm with AHJ."
+        "detail": "Not parcel-verified in SAMPLE. No acreage is printed."
       },
       {
         "id": "ipac",
