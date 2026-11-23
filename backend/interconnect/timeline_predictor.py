@@ -23,16 +23,8 @@ class TimelinePredictor:
         pass
     
     async def predict_timeline(self, rto: str, project_capacity_mw: float, queue_position: Optional[int] = None, study_track: str = "Standard") -> TimelineProjection:
-        months = 28 if study_track == "Standard" else 15
-        today = datetime.now()
-        return TimelineProjection(
-            rto=rto, project_capacity_mw=project_capacity_mw, queue_position=queue_position,
-            study_track=study_track,
-            predicted_study_completion=today + timedelta(days=months * 15),
-            predicted_energization_date=today + timedelta(days=months * 30),
-            confidence_interval_days=int(months * 30 * 0.2),
-            comparable_projects=[],
-            reasoning="Based on historical RTO data"
+        raise ValueError(
+            "The official queue file does not state an energization date. No date is estimated."
         )
     
     def get_timeline_summary(self, projection: TimelineProjection) -> str:

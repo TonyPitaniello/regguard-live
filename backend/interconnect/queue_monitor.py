@@ -32,18 +32,25 @@ class QueueMonitor:
         }
     
     async def scrape_queue_position(self, rto: str, queue_id: str) -> Optional[QueuePosition]:
-        logger.info(f"Scraping {rto} queue position: {queue_id}")
+        from interconnect.official_queue import cited_queue_lookup
+
+        row = cited_queue_lookup(rto, queue_id)
+        logger.info("Queue lookup %s/%s source=%s", rto, queue_id, row.get("source_url"))
         return QueuePosition(
-            rto=rto, queue_id=queue_id, project_name="[Project]",
-            current_phase="Phase 1 Study", queue_position=123,
-            phase_changed_date=datetime.now() - timedelta(days=30),
-            expected_study_start=datetime.now(),
-            expected_study_end=datetime.now() + timedelta(days=180),
-            next_milestone="Study Results", next_milestone_date=datetime.now() + timedelta(days=180),
-            study_deposit_due=datetime.now() + timedelta(days=30),
-            study_deposit_amount=50000.0,
-            data_submission_window={"opens": datetime.now() + timedelta(days=7), "closes": datetime.now() + timedelta(days=14)},
-            additional_data={},
+            rto=row["rto"],
+            queue_id=queue_id,
+            project_name=row.get("project_name") or "",
+            current_phase=row.get("phase") or "Not on the cited file",
+            queue_position=None,
+            phase_changed_date=None,
+            expected_study_start=None,
+            expected_study_end=None,
+            next_milestone=None,
+            next_milestone_date=None,
+            study_deposit_due=None,
+            study_deposit_amount=None,
+            data_submission_window=None,
+            additional_data={"source_url": row.get("source_url") or "", "note": row.get("note") or ""},
         )
     
     async def track_project(self, rto: str, queue_id: str, project_name: str) -> Dict[str, Any]:

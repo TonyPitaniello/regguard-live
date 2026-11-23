@@ -14,7 +14,12 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
-from geocode import google_geocode_us_address, google_geocode_us_zip, require_google_maps_key
+from geocode import (
+    census_geocode_us_address,
+    google_geocode_us_address,
+    google_geocode_us_zip,
+    require_google_maps_key,
+)
 
 _ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_ROOT / ".env")
@@ -194,13 +199,16 @@ def geocode_profile_from_address(
     locality: str = "",
     administrative_area: str = "",
 ) -> JurisdictionProfile:
-    """Resolve city / county / ZIP / lat/lng via ``geocode.google_geocode_us_address``."""
-    components, formatted, lat, lng = google_geocode_us_address(
-        address,
-        postal_code=postal_code,
-        locality=locality,
-        administrative_area=administrative_area,
-    )
+    """Resolve city / county / ZIP / lat/lng. Census is used when Google has no key."""
+    try:
+        components, formatted, lat, lng = google_geocode_us_address(
+            address,
+            postal_code=postal_code,
+            locality=locality,
+            administrative_area=administrative_area,
+        )
+    except ValueError:
+        components, formatted, lat, lng = census_geocode_us_address(address)
     return build_profile_from_components(components, formatted, lat, lng)
 
 

@@ -17,12 +17,12 @@ export const QueueLanding: React.FC = () => {
             fontSize: '0.85rem',
             letterSpacing: '0.02em',
           }}>
-            Preview / demo tools — not a live RTO queue filing product
+            A position prints only when the official queue file states that id
           </p>
-          <h1>Interconnection form preview (demo)</h1>
+          <h1>Interconnection queue lookup</h1>
           <p>
-            Experiment with draft auto-fill helpers for common interconnection form layouts.
-            This is not a live RTO filing portal — you still submit on the official RTO system.
+            Look up an id on the official queue file. A position is printed only when that file
+            states it. Filing stays on the RTO portal.
           </p>
           <Link to="/queue/upload" className="btn-hero">
             Try demo auto-fill

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { backendUrl } from '../env';
 import './timeline-predictor.css';
 
 interface TimelineProjection {
@@ -27,7 +28,6 @@ export const TimelinePredictor: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [projection, setProjection] = useState<TimelineProjection | null>(null);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_ORIGIN || 'http://localhost:8000';
 
   const handlePredict = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,16 +46,18 @@ export const TimelinePredictor: React.FC = () => {
         params.append('queue_position', queuePosition);
       }
 
-      const response = await fetch(`${BACKEND_URL}/queue/predict-timeline?${params}`, {
+      const response = await fetch(`${backendUrl('/queue/predict-timeline')}?${params}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to predict timeline');
+      const data = await response.json();
+      if (!response.ok || !data.predicted_energization_date) {
+        throw new Error(
+          data.note || data.detail || 'The official queue file does not state an energization date. No date is estimated.'
+        );
       }
 
-      const data: TimelineProjection = await response.json();
       setProjection(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -75,7 +77,7 @@ export const TimelinePredictor: React.FC = () => {
     <div className="timeline-predictor">
       <div className="predictor-container">
         <h1>Interconnection Timeline Predictor</h1>
-        <p className="subtitle">Predict your project's energization date based on RTO, capacity, and queue position</p>
+        <p className="subtitle">The official queue file does not state an energization date. No date is estimated.</p>
 
         <div className="predictor-content">
           {/* Input Section */}

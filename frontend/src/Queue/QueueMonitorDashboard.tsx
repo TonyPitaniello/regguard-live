@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { backendUrl } from '../env';
 import './queue-monitor-dashboard.css';
 
 interface TrackedProject {
@@ -30,7 +31,7 @@ interface MonitoringForm {
 export const QueueMonitorDashboard: React.FC = () => {
   const [trackedProjects, setTrackedProjects] = useState<TrackedProject[]>([]);
   const [form, setForm] = useState<MonitoringForm>({
-    rto: 'PJM',
+    rto: 'ERCOT',
     queue_id: '',
     project_name: '',
   });
@@ -38,38 +39,9 @@ export const QueueMonitorDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const BACKEND_URL = import.meta.env.VITE_BACKEND_ORIGIN || 'http://localhost:8000';
-
-  // Load tracked projects (mock data for now)
   useEffect(() => {
-    loadTrackedProjects();
+    setTrackedProjects([]);
   }, []);
-
-  const loadTrackedProjects = () => {
-    // Mock data - in production, fetch from backend
-    const mockProjects: TrackedProject[] = [
-      {
-        tracking_id: 'PJM_12345',
-        project_name: 'Acme Solar Farm Phase 1',
-        rto: 'PJM',
-        queue_id: '12345',
-        initial_position: 50,
-        current_phase: 'Phase 1 Study',
-        tracking_started_at: new Date().toISOString(),
-        alerts: [
-          {
-            type: 'deposit_due_soon',
-            priority: 'high',
-            title: 'Study Deposit Due in 7 Days',
-            description: '$100,000 study deposit due on July 5, 2026',
-            due_date: '2026-07-05',
-            amount: 100000,
-          },
-        ],
-      },
-    ];
-    setTrackedProjects(mockProjects);
-  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -86,7 +58,7 @@ export const QueueMonitorDashboard: React.FC = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch(`${BACKEND_URL}/queue/monitor-queue`, {
+      const response = await fetch(backendUrl('/queue/monitor-queue'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -96,9 +68,19 @@ export const QueueMonitorDashboard: React.FC = () => {
         throw new Error('Failed to add project to monitoring');
       }
 
-      const newProject: TrackedProject = await response.json();
+      const body = await response.json();
+      const newProject: TrackedProject = {
+        tracking_id: body.tracking_id,
+        project_name: body.project_name,
+        rto: body.rto,
+        queue_id: form.queue_id,
+        initial_position: body.queue_position ?? undefined,
+        current_phase: body.current_phase,
+        tracking_started_at: new Date().toISOString(),
+        alerts: Array.isArray(body.alerts) ? body.alerts : [],
+      };
       setTrackedProjects(prev => [...prev, newProject]);
-      setForm({ rto: 'PJM', queue_id: '', project_name: '' });
+      setForm({ rto: 'ERCOT', queue_id: '', project_name: '' });
       setSuccess(`Successfully monitoring: ${form.project_name}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -203,7 +185,7 @@ export const QueueMonitorDashboard: React.FC = () => {
                   <div className="project-details">
                     <div className="detail-row">
                       <span className="label">Queue Position:</span>
-                      <span className="value">{project.initial_position || 'Unknown'}</span>
+                      <span className="value">{project.initial_position ?? 'Not stated on the cited file'}</span>
                     </div>
                     <div className="detail-row">
                       <span className="label">Current Phase:</span>

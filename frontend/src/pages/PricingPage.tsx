@@ -386,9 +386,9 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold text-white mb-2">Is the IC Queue / RTO tracker live?</h3>
             <p className="text-gray-400">
-              The paid results screen is live on this page. Open the Contractor Pro or IC sample for
-              9999 Chapin School Road. The counsel ZIP prints the city desk, the utility, and the
-              water reviewer when the cited page names them. It does not print a queue position.
+              The queue lookup is on. It prints a position only when the official queue file states
+              that id. It does not estimate one. The counsel ZIP still does not print a queue
+              position.
             </p>
           </div>
         </div>

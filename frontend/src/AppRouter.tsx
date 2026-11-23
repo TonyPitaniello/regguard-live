@@ -43,7 +43,7 @@ import MoratoriumRadarPage from './pages/MoratoriumRadarPage';
 import InstallAppPage from './pages/InstallAppPage';
 import VoiceCommandSystem from './VoiceCommandSystem';
 import OnboardingSystem from './OnboardingSystem';
-import { backendUrl, isIcDemoEnabled } from './env';
+import { backendUrl } from './env';
 import { setAppNavigate } from './navigationBridge';
 import './router-layout.css';
 
@@ -63,16 +63,11 @@ function IcDemoWatermark({ children }: { children: ReactNode }) {
         className="sticky top-0 z-40 border-b border-amber-500/50 bg-amber-500 text-slate-950 px-4 py-2 text-center text-sm font-bold"
         role="status"
       >
-        DEMO ONLY — NOT LIVE RTO / QUEUE DATA. Do not use for investment or interconnection decisions.
-        {!isIcDemoEnabled() ? ' (Routes disabled in production.)' : ''}
+        A queue position is printed only when the official queue file states that id. This desk does not estimate one.
       </div>
       {children}
     </div>
   );
-}
-
-function IcDemoDisabledPage() {
-  return <Navigate to="/" replace />;
 }
 
 /** Capture ?ref= into sessionStorage and ping affiliate click (once). */
@@ -189,27 +184,11 @@ export function AppRouter() {
           {/* Retired on-site card form — Stripe Checkout only */}
           <Route path="/signup" element={<Navigate to="/pricing" replace />} />
 
-          {/* RegGuard Queue Routes — gated; demo data only when explicitly enabled */}
-          <Route
-            path="/queue"
-            element={isIcDemoEnabled() ? <QueueLandingPage /> : <IcDemoDisabledPage />}
-          />
-          <Route
-            path="/queue/upload"
-            element={isIcDemoEnabled() ? <QueueUploadPage /> : <IcDemoDisabledPage />}
-          />
-          <Route
-            path="/queue/monitor"
-            element={isIcDemoEnabled() ? <QueueMonitorPage /> : <IcDemoDisabledPage />}
-          />
-          <Route
-            path="/queue/translator"
-            element={isIcDemoEnabled() ? <TranslatorPage /> : <IcDemoDisabledPage />}
-          />
-          <Route
-            path="/queue/timeline"
-            element={isIcDemoEnabled() ? <TimelinePage /> : <IcDemoDisabledPage />}
-          />
+          <Route path="/queue" element={<QueueLandingPage />} />
+          <Route path="/queue/upload" element={<QueueUploadPage />} />
+          <Route path="/queue/monitor" element={<QueueMonitorPage />} />
+          <Route path="/queue/translator" element={<TranslatorPage />} />
+          <Route path="/queue/timeline" element={<TimelinePage />} />
 
           {/* Data Center B2B Routes */}
           <Route path="/data-center" element={<DataCenterPage />} />
@@ -283,7 +262,7 @@ function QueueMonitorPage() {
         <div className="page-header">
           <div className="page-title">
             <h1>Queue Monitor</h1>
-            <p>Track your RTO queue position</p>
+            <p>A position prints only when the official queue file states that id</p>
           </div>
         </div>
         <QueueMonitorDashboard />
@@ -315,7 +294,7 @@ function TimelinePage() {
         <div className="page-header">
           <div className="page-title">
             <h1>Timeline Predictor</h1>
-            <p>Estimate your project energization date</p>
+            <p>The official queue file does not state an energization date</p>
           </div>
         </div>
         <TimelinePredictor />

@@ -237,7 +237,7 @@ export default function MethodologyPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>
-                  <span>Live RTO queue positions (demo tools are not product)</span>
+                  <span>An ordinal queue position when the official file does not state one</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>

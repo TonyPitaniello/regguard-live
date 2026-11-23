@@ -195,6 +195,77 @@ def google_reverse_geocode_us_latlng(lat: float, lon: float) -> Tuple[str, str, 
     )
 
 
+def census_geocode_us_address(
+    address: str,
+) -> Tuple[List[dict[str, Any]], str, Optional[float], Optional[float]]:
+    """
+    Forward geocode a U.S. address with the Census Bureau geocoder.
+
+    Used when Google Geocoding has no key or refuses the request. Coordinates
+    come from the matched address, not from a guessed centroid.
+    """
+    raw = (address or "").strip()
+    if not raw:
+        raise ValueError("Address is required.")
+    q = urllib.parse.urlencode(
+        {
+            "address": raw,
+            "benchmark": "Public_AR_Current",
+            "vintage": "Current_Current",
+            "format": "json",
+        }
+    )
+    url = f"https://geocoding.geo.census.gov/geocoder/geographies/onelineaddress?{q}"
+    req = urllib.request.Request(
+        url,
+        headers={"Accept": "application/json", "User-Agent": "RegGuard/1.0"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            if resp.status != 200:
+                raise ValueError("Census geocoder HTTP error.")
+            payload = json.load(resp)
+    except urllib.error.HTTPError as e:
+        raise ValueError(f"Census geocoder request failed: {e.code}") from e
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+        raise ValueError("Could not reach the Census geocoder. Try again.") from e
+
+    matches = ((payload.get("result") or {}).get("addressMatches")) or []
+    if not matches:
+        raise ValueError("Could not resolve that address. Try another selection.")
+    top = matches[0]
+    coords = top.get("coordinates") or {}
+    lat = coords.get("y")
+    lng = coords.get("x")
+    if not isinstance(lat, (int, float)) or not isinstance(lng, (int, float)):
+        raise ValueError("Could not resolve coordinates for that address.")
+
+    parts = top.get("addressComponents") or {}
+    city = str(parts.get("city") or "").strip()
+    if city.isupper():
+        city = city.title()
+    state = str(parts.get("state") or "").strip().upper()[:2]
+    zipc = "".join(ch for ch in str(parts.get("zip") or "") if ch.isdigit())[:5]
+    formatted = str(top.get("matchedAddress") or raw).strip()
+    street = formatted.split(",")[0].strip()
+    counties = ((top.get("geographies") or {}).get("Counties")) or []
+    county = ""
+    if counties and isinstance(counties[0], dict):
+        county = str(counties[0].get("NAME") or counties[0].get("BASENAME") or "").strip()
+    if county and "county" not in county.lower():
+        county = f"{county} County"
+
+    components_out: List[dict[str, Any]] = [
+        {"long_name": street, "short_name": street, "types": ["route"]},
+        {"long_name": city, "short_name": city, "types": ["locality"]},
+        {"long_name": county, "short_name": county, "types": ["administrative_area_level_2"]},
+        {"long_name": state, "short_name": state, "types": ["administrative_area_level_1"]},
+        {"long_name": zipc, "short_name": zipc, "types": ["postal_code"]},
+        {"long_name": "United States", "short_name": "US", "types": ["country"]},
+    ]
+    return components_out, formatted, float(lat), float(lng)
+
+
 def google_geocode_us_address(
     address: str,
     *,

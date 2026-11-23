@@ -61,50 +61,15 @@ async def auto_fill_ferc_form(
     req: FERCAutoFillRequest,
     request: Request,
 ) -> FERCAutoFillResponse:
-    """Auto-fill FERC form from project data."""
-    _require_ic_demo_enabled()
-    try:
-        submission_id = f"queue_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
-        
-        if os.getenv("QUEUE_TEST_MODE") == "true":
-            result = {
-                "form_type": req.form_type,
-                "filled_form": {
-                    "applicant_name": "Acme Solar LLC",
-                    "applicant_email": "contact@acmesolar.com",
-                    "capacity_mw": 10.0,
-                },
-                "accuracy_report": {
-                    "overall_confidence": 0.92,
-                    "ready_for_submission": True
-                },
-                "ready_for_export": True
-            }
-        else:
-            result = auto_fill_form(
-                form_type=req.form_type,
-                project_text=req.project_text,
-                user_overrides=req.user_overrides,
-            )
-        
-        pdf_generator = InterconnectionFormPDF(req.form_type)
-        pdf_bytes = pdf_generator.generate_pdf(result["filled_form"])
-        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-        
-        return FERCAutoFillResponse(
-            submission_id=submission_id,
-            form_type=req.form_type,
-            filled_form=result["filled_form"],
-            accuracy_report=result["accuracy_report"],
-            pdf_url=f"data:application/pdf;base64,{pdf_base64}",
-            pdf_format="FERC Form 556 (December 2020)",
-            ferc_compliant=True,
-            filing_instructions="This PDF is ready for FERC eFiling portal submission",
-            ready_for_export=result["ready_for_export"],
-            created_at=datetime.now().isoformat(),
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Auto-fill failed: {str(e)}")
+    """Draft fields only. Does not invent an applicant, a megawatt, or a queue position."""
+    raise HTTPException(
+        status_code=422,
+        detail=(
+            "No field is filled from this desk. "
+            "A queue position is printed only when the official queue file states that id. "
+            "File on the RTO portal."
+        ),
+    )
 
 @router.get("/history")
 async def get_user_submissions(request: Request, limit: int = 10, offset: int = 0) -> Dict[str, Any]:
@@ -144,35 +109,32 @@ class QueueMonitorResponse(BaseModel):
     project_name: str
     rto: str
     current_phase: str
-    queue_position: int
+    queue_position: Optional[int] = None
+    source_url: str = ""
     alerts: list
 
 @router.post("/monitor-queue", response_model=QueueMonitorResponse)
 async def monitor_queue(req: QueueMonitorRequest, request: Request) -> QueueMonitorResponse:
-    """Track interconnection queue position and alerts. DEMO DATA ONLY."""
-    _require_ic_demo_enabled()
-    try:
-        monitor = create_queue_monitor()
-        tracking_id = f"track_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        return QueueMonitorResponse(
-            tracking_id=tracking_id,
-            project_name=req.project_name,
-            rto=req.rto,
-            current_phase="queue_received",
-            queue_position=42,
-            alerts=[
-                {
-                    "type": "warning",
-                    "title": "DEMO — NOT LIVE RTO DATA",
-                    "description": "Synthetic queue position 42. Do not use for investment decisions.",
-                },
-                {"type": "milestone", "title": "Queue Position Updated", "description": f"Your project is at position 42 in the {req.rto} queue"},
-                {"type": "deadline", "title": "Study Phase", "description": "Expect system impact study results in 45 days"}
-            ]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Look up an id on the official queue page. No ordinal position is invented."""
+    from interconnect.official_queue import cited_queue_lookup
+
+    row = cited_queue_lookup(req.rto, req.queue_id)
+    return QueueMonitorResponse(
+        tracking_id=f"{row['rto']}_{row['queue_id']}",
+        project_name=req.project_name,
+        rto=row["rto"] or req.rto,
+        current_phase=row.get("phase") or "Not on the cited file",
+        queue_position=None,
+        source_url=row.get("source_url") or "",
+        alerts=[
+            {
+                "type": "source",
+                "priority": "low",
+                "title": "Official queue file",
+                "description": row.get("note") or "",
+            }
+        ],
+    )
 
 # ─── Phase 0.2: Study Translator ───────────────────────────────────────────
 
@@ -189,30 +151,14 @@ class StudyTranslatorResponse(BaseModel):
 
 @router.post("/translate-study", response_model=StudyTranslatorResponse)
 async def translate_study(req: StudyTranslatorRequest, request: Request) -> StudyTranslatorResponse:
-    """Parse interconnection study and extract key findings. DEMO DATA ONLY."""
-    _require_ic_demo_enabled()
-    try:
-        translator = create_study_translator()
-        study_id = f"study_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        return StudyTranslatorResponse(
-            study_id=study_id,
-            rto=req.rto,
-            key_findings={
-                "system_impacts": "No significant thermal or voltage violations identified",
-                "upgrades_required": ["Distribution line reconductoring (2 miles)", "Substation transformer upgrade"],
-                "estimated_cost": "$850,000",
-                "timeline": "18-24 months"
-            },
-            summary="System impact study shows feasible interconnection with cost-effective upgrades.",
-            financial_impact={
-                "total_investment": 850000,
-                "payback_period_years": 6.5,
-                "irr_percent": 15.2
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """No study dollar or upgrade is printed unless the attached study states it."""
+    return StudyTranslatorResponse(
+        study_id="",
+        rto=req.rto,
+        key_findings={},
+        summary="No study file was read. No upgrade and no dollar are printed.",
+        financial_impact={},
+    )
 
 # ─── Phase 0.3: Timeline Predictor ───────────────────────────────────────────
 
@@ -224,41 +170,29 @@ class TimelinePredictionRequest(BaseModel):
 class TimelinePredictionResponse(BaseModel):
     prediction_id: str
     rto: str
-    estimated_days: int
-    confidence_percent: float
+    estimated_days: Optional[int] = None
+    confidence_percent: Optional[float] = None
     timeline_phases: list
     comparable_projects: list
+    note: str = ""
+    source_url: str = ""
 
 @router.post("/predict-timeline", response_model=TimelinePredictionResponse)
-async def predict_timeline(req: TimelinePredictionRequest, request: Request) -> TimelinePredictionResponse:
-    """Predict interconnection timeline based on project characteristics. DEMO DATA ONLY."""
-    _require_ic_demo_enabled()
-    try:
-        predictor = create_timeline_predictor()
-        prediction_id = f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        # Simple estimation: 45 days baseline + 15 days per 50 position + 5 days per 10 MW
-        estimated_days = 45 + (req.queue_position // 50) * 15 + int(req.capacity_mw / 10) * 5
-        
-        return TimelinePredictionResponse(
-            prediction_id=prediction_id,
-            rto=req.rto,
-            estimated_days=estimated_days,
-            confidence_percent=78,
-            timeline_phases=[
-                {"phase": "Queue Received", "duration_days": 5},
-                {"phase": "System Impact Study", "duration_days": 45},
-                {"phase": "Facilities Study", "duration_days": 30},
-                {"phase": "Equipment Procurement", "duration_days": 60},
-                {"phase": "Construction & Testing", "duration_days": 45}
-            ],
-            comparable_projects=[
-                {"name": "Sunbelt Solar 15MW", "rto": req.rto, "timeline_days": 215},
-                {"name": "Green Energy 20MW", "rto": req.rto, "timeline_days": 198}
-            ]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+async def predict_timeline(rto: str = "ERCOT") -> TimelinePredictionResponse:
+    """The official file does not state an energization date. No date is estimated."""
+    from interconnect.official_queue import OFFICIAL_QUEUE_PAGES
+
+    url = OFFICIAL_QUEUE_PAGES.get((rto or "").strip().upper(), "")
+    return TimelinePredictionResponse(
+        prediction_id="",
+        rto=rto,
+        estimated_days=None,
+        confidence_percent=None,
+        timeline_phases=[],
+        comparable_projects=[],
+        note="The official queue file does not state an energization date. No date is estimated.",
+        source_url=url,
+    )
 
 # ─── Phase 0.4: Site Compliance Checklist ───────────────────────────────────
 
@@ -272,35 +206,18 @@ class ComplianceChecklistResponse(BaseModel):
     checklist_id: str
     rto: str
     compliance_items: list
-    overall_compliance_percent: float
+    overall_compliance_percent: Optional[float] = None
     critical_items: list
     summary: str
 
 @router.post("/compliance-checklist", response_model=ComplianceChecklistResponse)
 async def generate_compliance_checklist(req: ComplianceChecklistRequest, request: Request) -> ComplianceChecklistResponse:
-    """Generate site compliance checklist for interconnection project. DEMO DATA ONLY."""
-    _require_ic_demo_enabled()
-    try:
-        checker = create_compliance_checker()
-        checklist_id = f"comp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        
-        return ComplianceChecklistResponse(
-            checklist_id=checklist_id,
-            rto=req.rto,
-            compliance_items=[
-                {"item": "Environmental Site Assessment (Phase I)", "status": "pending", "deadline": "2 weeks"},
-                {"item": "Wetlands Delineation", "status": "completed", "deadline": "completed"},
-                {"item": "Interconnection Agreement Signed", "status": "pending", "deadline": "1 week"},
-                {"item": "Equipment Specifications Approved", "status": "completed", "deadline": "completed"},
-                {"item": "Transmission Line Study", "status": "in_progress", "deadline": "3 weeks"},
-                {"item": "Local Utility Coordination", "status": "pending", "deadline": "10 days"}
-            ],
-            overall_compliance_percent=67,
-            critical_items=[
-                "Interconnection Agreement must be signed before construction",
-                "Grid study completion required for final approval"
-            ],
-            summary="Project is 67% compliant. Focus on critical items to maintain timeline."
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """No compliance percent is printed. The official queue file does not state one."""
+    return ComplianceChecklistResponse(
+        checklist_id="",
+        rto=req.rto,
+        compliance_items=[],
+        overall_compliance_percent=None,
+        critical_items=[],
+        summary="No compliance percent is on the cited queue file. No percent is printed.",
+    )
