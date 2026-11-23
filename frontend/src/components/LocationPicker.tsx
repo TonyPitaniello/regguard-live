@@ -979,7 +979,9 @@ export function LocationPicker({
     }, 0);
   };
 
-  const onFieldChange = (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) => {
+  const onFieldChange =
+    (setter: (v: string) => void, key: 'address' | 'city' | 'state' | 'zip') =>
+    (e: ChangeEvent<HTMLInputElement>) => {
     const ae = document.activeElement;
     const focusOnThis = ae === e.currentTarget;
     const focusInSite =
@@ -1004,8 +1006,26 @@ export function LocationPicker({
       }
     }
     settledQueryRef.current = ''; // user edited — allow re-geocode
-    setter(e.target.value);
+    const nextValue = e.target.value;
+    setter(nextValue);
     setLocationConfirmed(false);
+    const next = {
+      address: key === 'address' ? nextValue : address,
+      city: key === 'city' ? nextValue : city,
+      state: key === 'state' ? nextValue : state,
+      zip: key === 'zip' ? nextValue : zip,
+    };
+    const zip5 = next.zip.replace(/\D/g, '').slice(0, 5);
+    if (next.address.trim() && next.city.trim() && next.state.trim() && zip5.length === 5) {
+      onLocationSelect(
+        next.address.trim(),
+        next.city.trim(),
+        next.state.trim(),
+        zip5,
+        lat ?? Number.NaN,
+        lng ?? Number.NaN,
+      );
+    }
   };
 
   const showMapUi = mapVisible && !collapseMap;
@@ -1159,7 +1179,7 @@ export function LocationPicker({
               type="text"
               name={`rg_jobsite_street_${resetKey}`}
               value={address}
-              onChange={onFieldChange(setAddress)}
+              onChange={onFieldChange(setAddress, 'address')}
               onPointerDown={markSiteFieldFocused}
               onFocus={markSiteFieldFocused}
               onBlur={onSiteFieldBlur}
@@ -1186,7 +1206,7 @@ export function LocationPicker({
                 type="text"
                 name={`rg_jobsite_city_${resetKey}`}
                 value={city}
-                onChange={onFieldChange(setCity)}
+                onChange={onFieldChange(setCity, 'city')}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
@@ -1209,7 +1229,7 @@ export function LocationPicker({
                 type="text"
                 name={`rg_jobsite_state_${resetKey}`}
                 value={state}
-                onChange={onFieldChange(setState)}
+                onChange={onFieldChange(setState, 'state')}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
@@ -1232,7 +1252,7 @@ export function LocationPicker({
                 type="text"
                 name={`rg_jobsite_zip_${resetKey}`}
                 value={zip}
-                onChange={onFieldChange(setZip)}
+                onChange={onFieldChange(setZip, 'zip')}
                 onFocus={markSiteFieldFocused}
                 onBlur={onSiteFieldBlur}
                 disabled={disabled || locationConfirmed}
