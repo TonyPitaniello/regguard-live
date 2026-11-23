@@ -41,7 +41,7 @@ class QueueMonitor:
             queue_id=queue_id,
             project_name=row.get("project_name") or "",
             current_phase=row.get("phase") or "Not on the cited file",
-            queue_position=None,
+            queue_position=row.get("queue_position") if isinstance(row.get("queue_position"), int) else None,
             phase_changed_date=None,
             expected_study_start=None,
             expected_study_end=None,

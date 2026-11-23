@@ -6711,20 +6711,20 @@ async def _send_due_campaign_drips() -> Dict[str, Any]:
 
 
 async def _campaign_drip_loop() -> None:
-    """Hourly sender. Holds the queue while the Stripe key is a test key."""
+    """Hourly sender. A live Stripe key does not release the waiting notes."""
     await asyncio.sleep(45)
     while True:
         try:
-            from passive_campaign import cards_are_live
+            from passive_campaign import drip_send_allowed
 
-            if cards_are_live():
+            if drip_send_allowed():
                 result = await _send_due_campaign_drips()
                 print(
                     "Campaign drip sent "
                     f"due={result.get('due')} sent={result.get('sent')} failed={result.get('failed')}"
                 )
             else:
-                print("Campaign drip held: cards are not live")
+                print("Campaign drip held: release flag is off")
         except Exception as ex:
             print(f"Campaign drip skipped: {ex}")
         await asyncio.sleep(3600)
@@ -6737,13 +6737,13 @@ async def cron_nurture_drip(
     """
     Send due free-run drip + quota-paywall emails.
     Schedule daily (or hourly): POST /cron/nurture-drip with X-Cron-Secret.
-    While the Stripe key is a test key, the queue stays held.
+    A live Stripe key does not send these notes. REG_GUARD_DRIP_RELEASE=1 is also required.
     """
     _require_cron_secret(x_cron_secret)
-    from passive_campaign import cards_are_live
+    from passive_campaign import drip_send_allowed
 
-    if not cards_are_live():
-        return {"status": "held", "reason": "cards_not_live", "due": 0, "sent": 0, "failed": 0}
+    if not drip_send_allowed():
+        return {"status": "held", "reason": "drip_not_released", "due": 0, "sent": 0, "failed": 0}
     return await _send_due_campaign_drips()
 
 

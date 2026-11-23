@@ -131,7 +131,13 @@ def drip_desk_status() -> Dict[str, Any]:
             sent = str(item.get("sent_at") or "").strip()
             if sent and (last_sent is None or sent > last_sent):
                 last_sent = sent
-    return {"pending_drip": pending, "last_drip_sent_at": last_sent}
+    try:
+        from passive_campaign import drip_send_allowed
+
+        send = "released" if drip_send_allowed() else "held"
+    except Exception:
+        send = "held"
+    return {"pending_drip": pending, "last_drip_sent_at": last_sent, "drip_send": send}
 
 
 def mark_sent(item_id: str) -> bool:

@@ -203,6 +203,18 @@ def test_opt_out_stops_later_drip(tmp_path, monkeypatch):
     assert out["d5"] is None
 
 
+def test_live_key_does_not_release_waiting_notes(monkeypatch):
+    from passive_campaign import drip_send_allowed
+
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_live_not_a_real_key")
+    monkeypatch.delenv("REG_GUARD_DRIP_RELEASE", raising=False)
+    assert drip_send_allowed() is False
+    monkeypatch.setenv("REG_GUARD_DRIP_RELEASE", "1")
+    assert drip_send_allowed() is True
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "sk_test_not_a_real_key")
+    assert drip_send_allowed() is False
+
+
 def test_share_html_og_tags():
     html = render_share_html(
         {

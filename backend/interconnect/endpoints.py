@@ -124,7 +124,7 @@ async def monitor_queue(req: QueueMonitorRequest, request: Request) -> QueueMoni
         project_name=req.project_name,
         rto=row["rto"] or req.rto,
         current_phase=row.get("phase") or "Not on the cited file",
-        queue_position=None,
+        queue_position=row.get("queue_position") if isinstance(row.get("queue_position"), int) else None,
         source_url=row.get("source_url") or "",
         alerts=[
             {

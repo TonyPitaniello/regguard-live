@@ -38,6 +38,16 @@ def cards_are_live() -> bool:
     """True only for a live Stripe secret. A test key must not sell a charge."""
     return (os.getenv("STRIPE_SECRET_KEY") or "").strip().startswith("sk_live_")
 
+
+def drip_send_allowed() -> bool:
+    """A live Stripe key does not send the waiting notes.
+
+    Both the live key and REG_GUARD_DRIP_RELEASE=1 are required. The release
+    flag is not set, so the notes already queued stay unsent.
+    """
+    released = (os.getenv("REG_GUARD_DRIP_RELEASE") or "").strip() == "1"
+    return bool(released and cards_are_live())
+
 # Personas we write every surface for (never homeowners, never “AI code chat”).
 PERSONAS = [
     {

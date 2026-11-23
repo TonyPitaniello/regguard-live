@@ -81,7 +81,7 @@ export const QueueMonitorDashboard: React.FC = () => {
       };
       setTrackedProjects(prev => [...prev, newProject]);
       setForm({ rto: 'ERCOT', queue_id: '', project_name: '' });
-      setSuccess(`Successfully monitoring: ${form.project_name}`);
+      setSuccess(`Checked ${form.queue_id} on the official queue file.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -104,7 +104,7 @@ export const QueueMonitorDashboard: React.FC = () => {
     <div className="queue-monitor-dashboard">
       <div className="monitor-container">
         <h1>Interconnection Queue Monitor</h1>
-        <p className="subtitle">Track your projects through RTO queues and receive alerts on key milestones</p>
+        <p className="subtitle">A position prints only when the official queue file states that id.</p>
 
         {/* Add Project Form */}
         <div className="add-project-section">
@@ -143,14 +143,14 @@ export const QueueMonitorDashboard: React.FC = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="queue_id">Queue ID/Position *</label>
+                <label htmlFor="queue_id">Queue ID *</label>
                 <input
                   id="queue_id"
                   type="text"
                   name="queue_id"
                   value={form.queue_id}
                   onChange={handleInputChange}
-                  placeholder="e.g., 12345"
+                  placeholder="INR on the GIS report"
                   required
                 />
               </div>
