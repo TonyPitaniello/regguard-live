@@ -98,7 +98,7 @@
       "id": "arlington_tx_trade_type",
       "title": "Confirm trade application type early",
       "checklist": [
-        "Electrical vs general building vs multi-trade path \u2014 confirm with AHJ",
+        "Electrical vs general building vs multi-trade path \u2014 The schedule does not state which path applies, so no dollar is printed.",
         "Wrong application type stalls plan review"
       ],
       "anti_patterns": [

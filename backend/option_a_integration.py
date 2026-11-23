@@ -239,7 +239,7 @@ def format_analysis_for_email(analysis: Dict[str, Any]) -> str:
                 ),
                 honesty.get("labels", {}).get(
                     "cost",
-                    "Cost and timeline figures are unverified estimates — confirm with AHJ.",
+                    "Cost and timeline figures are unverified. A dollar prints only when the cited schedule states it.",
                 ),
                 "",
             ]

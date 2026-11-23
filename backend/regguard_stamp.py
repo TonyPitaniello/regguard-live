@@ -136,48 +136,6 @@ def _drivers_and_grade(analysis: Dict[str, Any]) -> Tuple[str, List[Dict[str, st
             }
         )
 
-    band = analysis.get("contingency_band") or {}
-    mid = band.get("pct_mid")
-    depth = str(analysis.get("research_depth") or analysis.get("depth") or "").lower()
-    hide_band_number = depth in ("free", "instant", "preview", "free_preview") or bool(
-        analysis.get("soft_lock_contingency")
-    )
-    if isinstance(mid, (int, float)) and mid >= 15:
-        fail = True
-        reasons.append(
-            "High contingency band" if hide_band_number else f"Contingency mid {mid}%"
-        )
-        drivers.append(
-            {
-                "severity": "FAIL",
-                "label": (
-                    "High contingency band"
-                    if hide_band_number
-                    else f"High contingency band (mid {mid}%)"
-                ),
-                "detail": "Planning aid — confirm fees/timeline with AHJ before bid.",
-                "source_url": "",
-            }
-        )
-    elif isinstance(mid, (int, float)) and mid >= 10:
-        caution = True
-        reasons.append(
-            "High contingency band" if hide_band_number else f"Contingency mid {mid}%"
-        )
-        if len(drivers) < 3:
-            drivers.append(
-                {
-                    "severity": "CAUTION",
-                    "label": (
-                        "Elevated contingency band"
-                        if hide_band_number
-                        else f"Elevated contingency (mid {mid}%)"
-                    ),
-                    "detail": str(band.get("disclaimer") or "")[:160],
-                    "source_url": "",
-                }
-            )
-
     cov = analysis.get("coverage") or {}
     tier = str(cov.get("tier") or "").lower()
     if tier in ("federal_state", "thin", "unverified"):

@@ -209,7 +209,7 @@ def build_forwardable_result_html(research_data: dict) -> str:
     <p style="margin:8px 0 0 0;font-size:11px;color:#9ca3af;">Paste this link into a bid file or email your GC.</p>
   </td></tr>
   <tr style="background:#f9fafb;"><td style="padding:20px 28px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#9ca3af;">RegGuard © 2026 · Cite or confirm with AHJ before bidding</p>
+    <p style="margin:0;font-size:11px;color:#9ca3af;">RegGuard © 2026 · A dollar prints only when the cited schedule states it.</p>
   </td></tr>
 </table>
 </td></tr></table>

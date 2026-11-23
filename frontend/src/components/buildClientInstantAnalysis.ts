@@ -101,8 +101,8 @@ export function buildClientInstantAnalysis(input: {
       source: 'client',
       labels: {
         risk: 'Environmental risk score unavailable — not verified against parcel GIS data. Do not use for bidding.',
-        cost: 'Unverified estimate — not an AHJ fee quote. Confirm with the local AHJ.',
-        timeline: 'Unverified estimate — confirm with AHJ / utility study track.',
+        cost: 'Unverified estimate — not an AHJ fee quote. A dollar prints only when the cited schedule states it.',
+        timeline: 'Unverified estimate. No schedule states a contingency percent for this address.',
       },
     },
     project_info: {

@@ -79,7 +79,7 @@ def _extract_fees_from_punch(items: List[Dict[str, Any]]) -> List[Dict[str, Any]
             {
                 "label": task[:120],
                 "amount_usd": amt,
-                "detail": "Extracted from punch list — confirm with AHJ",
+                "detail": "Extracted from the punch. A dollar prints only when the cited schedule states it.",
                 "verified": bool(it.get("verified")) and bool(it.get("source_url")),
                 "source_url": it.get("source_url"),
                 "source_label": it.get("source_label") or "Punch list",

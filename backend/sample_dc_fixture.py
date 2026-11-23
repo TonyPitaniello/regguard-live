@@ -55,7 +55,7 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
         "coverage": {
             "badge": "Full city pack",
             "tier": "full_pack",
-            "warning": "SAMPLE — confirm every fee on the live Fort Worth schedule before bid.",
+            "warning": "SAMPLE. A dollar prints only when the cited Fort Worth schedule states it.",
         },
         "share_url": SAMPLE_SHARE,
         "research_id": "rg-sample-chapin-fw",
@@ -79,13 +79,13 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
                 },
                 {
                     "severity": "FAIL",
-                    "label": "High contingency band (mid 23%)",
-                    "detail": "Planning aid — confirm fees/timeline with AHJ before bid.",
+                    "label": "No schedule states a contingency percent for this address.",
+                    "detail": "A dollar prints only when the cited schedule states it.",
                 },
                 {
                     "severity": "CAUTION",
                     "label": "Fee schedule is not a fixed number",
-                    "detail": "Recheck Fort Worth Master Fee Schedule before locking contingency.",
+                    "detail": "The Fort Worth fee PDF is the source. A dollar prints only when that page states it.",
                     "source_url": FW_FEES,
                 },
             ],
@@ -106,7 +106,7 @@ def build_sample_dc_analysis(*, generated_for: str = "SAMPLE buyer") -> Dict[str
             "pct_mid": 23.0,
             "pct_high": 26.0,
             "label": "Suggested contingency (SAMPLE)",
-            "disclaimer": "Planning aid — not a quote or sealed bid; confirm with AHJ",
+            "disclaimer": "No schedule states a contingency percent for this address.",
         },
         "ahj_card": {
             "name": "Fort Worth, TX AHJ",
