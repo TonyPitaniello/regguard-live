@@ -9,7 +9,7 @@ export const HABIT_TIERS = {
     key: 'free' as const,
     name: 'Free Lookups',
     priceLabel: '$0',
-    billing: 'Free lead magnet',
+    billing: 'No card',
     oneLiner:
       'First look before you burn a bid day — bid-or-walk preview, Source or Unverified. No card.',
     features: [

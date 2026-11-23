@@ -305,10 +305,11 @@ export default function PricingPage() {
             <h3 className="text-lg font-bold text-white mb-2">What&apos;s free vs paid?</h3>
             <p className="text-gray-400">{IC_BUNDLE.faqWhatYouGet}</p>
             <p className="text-gray-400 mt-3">
-              Free lookups are the lead magnet. Estimator / Permit Runner ($79/mo) is for permit
-              runners and client-site screening. Contractor Pro ($149/mo) is for weekly bidders who
-              need CSV + city pack. {IC_BUNDLE.productName} ({IC_BUNDLE.priceLabel}/site) is the
-              counsel-ready ZIP. {IC_BUNDLE.deskAndZip}
+              The free lookup is the preview: one address, bid or walk, Source or Unverified,
+              contingency locked. Estimator / Permit Runner ($79/mo) puts the punch on a Receipt
+              the GC can keep. Contractor Pro ($149/mo) is the City Pack, the punch/fee CSV, and
+              the bid packet. {IC_BUNDLE.productName} ({IC_BUNDLE.priceLabel}/site) is the ZIP for
+              one site. {IC_BUNDLE.deskAndZip}
             </p>
           </div>
           <div>

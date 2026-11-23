@@ -75,7 +75,7 @@ function rowText(line: BidDayLine, row: RowResult): string {
   return [
     row.stamp ? `${row.stamp} — ${place}` : place,
     row.risk ? `Top risk: ${row.risk}` : '',
-    row.pct ? `Contingency: ${row.pct}` : 'Clear percent stays on Estimator.',
+    'No schedule states a contingency percent for this address.',
     row.share || 'https://app.regguardagent.com',
   ]
     .filter(Boolean)
@@ -205,11 +205,7 @@ export default function BidDayPage() {
           continue;
         }
         const read = readAnalysis(payload);
-        const frosted = nextDesk === 'free' || read.depth === 'free' || read.depth === 'preview';
-        const pct =
-          frosted || read.band.pct_low == null || read.band.pct_high == null
-            ? ''
-            : `+${read.band.pct_low}% – +${read.band.pct_high}%`;
+        const pct = '';
         const fee =
           nextDesk === 'pro' && read.firstFee && typeof read.firstFee.amount_usd === 'number'
             ? `${read.firstFee.label || 'Fee'} · $${read.firstFee.amount_usd.toLocaleString()}`
@@ -217,7 +213,7 @@ export default function BidDayPage() {
         const result: RowResult = {
           status: 'ready',
           stamp: read.grade || '—',
-          risk: read.risk || 'Confirm the punch with the city.',
+          risk: read.risk || 'Read the punch on the receipt.',
           pct,
           fee,
           share: read.share,
@@ -416,19 +412,21 @@ export default function BidDayPage() {
                     </div>
                     <p className="text-sm text-slate-300">{row.risk || '—'}</p>
                     <p className="text-sm tabular-nums text-slate-200">
-                      {row.status === 'ready' && !row.pct ? (
+                      {row.status === 'ready' ? (
                         <span className="text-slate-300">
-                          {desk === 'free' ? 'Hidden on Free' : 'No band on this run'}
+                          {desk === 'free'
+                            ? 'Hidden on Free. Estimator ($79/mo) puts the punch on a Receipt the GC can keep.'
+                            : 'No schedule states a contingency percent for this address.'}
                         </span>
                       ) : (
-                        row.pct || '—'
+                        '—'
                       )}
                     </p>
                     <p className="text-xs text-slate-400">
                       {row.fee ||
                         (desk === 'pro'
                           ? row.status === 'ready'
-                            ? 'Confirm on the city schedule'
+                            ? 'A dollar prints only when the cited schedule states it.'
                             : '—'
                           : row.status === 'held' && desk === 'free'
                             ? 'Estimator'

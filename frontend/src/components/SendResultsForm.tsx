@@ -73,7 +73,6 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
   }
   const punch = analysis?.punch_list?.punch_list || [];
   const killers = analysis?.margin_killers || [];
-  const band = analysis?.contingency_band;
   const lines = [
     'Reg Guard Bid Risk Receipt',
     summary.preview || unverified ? 'NOTE: Preview / unverified estimates — not AHJ quotes' : '',
@@ -88,15 +87,13 @@ function buildTextBody(summary: ResultsSummaryPayload, analysis?: AnalysisData |
         depth === 'free_preview' ||
         analysis?.soft_lock_contingency === true;
       if (free) return 'Contingency stays on Free. Estimator puts the punch on a Receipt the GC can keep.';
-      return band?.pct_low != null && band?.pct_high != null
-        ? `Contingency (planning aid): +${band.pct_low}% – +${band.pct_high}%`
-        : '';
+      return 'No schedule states a contingency percent for this address.';
     })(),
     'Flood/wetlands: not a 0–100 score',
     summary.timeline
       ? `Timeline: ${summary.timeline}${unverified && !String(summary.timeline).toLowerCase().includes('unverified') ? ' (unverified)' : ''}`
       : '',
-    'Permit total: not stated. Confirm the city valuation or floor-area table.',
+    'Permit total: not stated unless the cited schedule states it.',
     '',
     'TOP RISK FLAGS:',
     ...killers.slice(0, 3).map((k, i) => `${i + 1}. [${k.priority || 'NOTE'}] ${k.title || ''}`),

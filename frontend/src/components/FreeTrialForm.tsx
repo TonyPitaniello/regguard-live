@@ -872,7 +872,7 @@ export default function FreeTrialForm({
           analysis.preview = true;
           analysis.depth_badge = 'Free Lookups — bid-or-walk preview';
           analysis.depth_claim_note =
-            'Free preview — shape of risk only. Estimator / Permit Runner ($79/mo) unlocks the full Bid Risk Receipt, contingency band, and punch list you can forward.';
+            'Free preview — one address, bid or walk. Estimator / Permit Runner ($79/mo) puts the punch on a Receipt the GC can keep. No schedule states a contingency percent for this address.';
           analysis.research_incomplete = false;
           analysis.depth_claim_honest = true;
           (analysis as AnalysisData & { access_tier?: string }).access_tier = 'free';

@@ -163,8 +163,7 @@ export const QueueLanding: React.FC = () => {
           <details className="faq-item">
             <summary>Where do I get a paid diligence report?</summary>
             <p>
-              Use Contractor Pro or the IC Diligence Bundle for citeable site diligence
-              (planning worksheets — confirm fees and filings with the local AHJ).
+              Use Contractor Pro for the City Pack or the IC Diligence Bundle for the ZIP. A dollar prints only when the cited schedule states it.
             </p>
           </details>
         </div>

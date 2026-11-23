@@ -254,7 +254,7 @@ export default function GeoPermitLandingPage() {
 
         {api?.documents && api.documents.length > 0 ? (
           <div className="mt-10">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-2">Typical submittals (confirm with AHJ)</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-400 mb-2">Typical submittals named on the city page</h2>
             <ul className="text-sm text-gray-300 list-disc pl-5 space-y-1">
               {api.documents.map((d) => (
                 <li key={d}>{d}</li>
