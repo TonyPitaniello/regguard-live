@@ -13,7 +13,7 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
     address: '',
     city: '',
     state: 'TX',
-    projected_mw: 100,
+    projected_mw: '' as number | '',
     requester_name: '',
     requester_email: '',
     requester_phone: '',
@@ -38,8 +38,8 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
       setError('City is required');
       return false;
     }
-    if (!formData.projected_mw || formData.projected_mw < 1) {
-      setError('Projected MW must be at least 1');
+    if (formData.projected_mw && formData.projected_mw < 1) {
+      setError('Leave MW blank. The ZIP does not print a megawatt figure.');
       return false;
     }
     if (!formData.requester_name.trim()) {
@@ -200,7 +200,7 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
               </div>
 
               <div className="dc-form-group">
-                <label htmlFor="projected_mw">Projected MW *</label>
+                <label htmlFor="projected_mw">Projected MW (not printed)</label>
                 <input
                   id="projected_mw"
                   name="projected_mw"
@@ -210,7 +210,6 @@ export function DataCenterRequestForm({ onSuccess }: DataCenterRequestFormProps)
                   value={formData.projected_mw}
                   onChange={handleChange}
                   disabled={loading}
-                  required
                 />
               </div>
             </div>

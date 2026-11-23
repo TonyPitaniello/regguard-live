@@ -59,6 +59,8 @@ def build_ic_diligence_bundle_zip(
     from ic_package_composer import compose_ic_package, evidence_index_to_csv
 
     data = dict(analysis or {})
+    data["shaped_ic_zip"] = True
+    data["ic_decision_memo"] = True
     try:
         from delivery_parity import prepare_analysis_for_delivery
         from ic_pdf_enrichment import enrich_analysis_for_ic_pdfs
@@ -88,7 +90,7 @@ def build_ic_diligence_bundle_zip(
         generated_for=generated_for,
         share_url=share,
     )
-    if not boardroom_pdf or boardroom_pdf[:4] != b"%PDF" or len(boardroom_pdf) < 8_000:
+    if not boardroom_pdf or boardroom_pdf[:4] != b"%PDF":
         raise RuntimeError("Boardroom PDF failed — required by Pricing Bundle contract")
 
     docx = generate_ic_boardroom_docx_bytes(
@@ -118,13 +120,18 @@ def build_ic_diligence_bundle_zip(
             amount = f.get("amount_usd")
             if not isinstance(amount, (int, float)):
                 amount = None
+            note = str(f.get("note") or "")
+            if amount is None:
+                from ic_buyer_brief import note_without_unstated_dollars
+
+                note = note_without_unstated_dollars(note).replace("$", "")
             mapped.append(
                 {
                     "label": f.get("name"),
                     "trade": f.get("trade"),
                     "amount_usd": amount,
                     "amount_requires_schedule": amount is None,
-                    "detail": f.get("note") or "",
+                    "detail": note,
                     "source_url": f.get("source_url"),
                     "source_label": f.get("source_label"),
                     "exhibit_id": f.get("exhibit_id"),

@@ -2169,6 +2169,20 @@ async def free_trial(request_body: FreeTrialRequest) -> Dict[str, Any]:
                     from habit_ladder_shape import shape_free_vs_estimator
 
                     analysis = shape_free_vs_estimator(analysis, habit_paid=True)
+                    try:
+                        from site_finder import find_official_sites
+
+                        analysis["site_finder"] = find_official_sites(
+                            address=request_body.address,
+                            city=city,
+                            state=state,
+                            zip_code=zip_code,
+                            county=str(getattr(profile, "county", "") or ""),
+                            rung="estimator",
+                            email=str(email_for_ent or ""),
+                        )
+                    except Exception as find_err:
+                        logger.warning("Estimator site finder failed: %s", find_err)
                 message = (
                     "Estimator / Permit Runner — Bid Risk Receipt habit ready. "
                     "Contractor Pro adds deep scout + City Pack PDF / CSV / bid packet."
@@ -5849,7 +5863,7 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
     Re-run diligence for a Saved Job and return arbitrage diff vs last snapshot.
     """
     from arbitrage_enrichment import diff_arbitrage_snapshots, enrich_analysis_with_arbitrage
-    from entitlement import has_paid_access
+    from entitlement import has_pro_research_access
     from free_pack_confirm import run_free_pack_confirm
     from instant_analysis import build_instant_fallback_analysis
     from jobs_store import get_job, upsert_job
@@ -5864,12 +5878,12 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
         raise HTTPException(status_code=404, detail="Job not found")
 
     prev_snap = ((job.get("summary_snapshot") or {}).get("arbitrage_snapshot")) or {}
-    paid = has_paid_access(body.owner_email)
+    pro_recheck = has_pro_research_access(body.owner_email)
     address = job.get("address") or ""
     analysis: Optional[Dict[str, Any]] = None
     try:
         profile = geocode_profile_from_address(address)
-        if profile and paid:
+        if profile and pro_recheck:
             from pro_deep_analysis import run_pro_deep_analysis
 
             analysis = await asyncio.wait_for(
@@ -5882,6 +5896,7 @@ async def recheck_saved_job(job_id: str, body: RecheckJobRequest) -> Dict[str, A
                     longitude=profile.longitude,
                     project_type=job.get("project_type") or "general",
                     email=body.owner_email or "",
+                    recheck=True,
                 ),
                 timeout=120.0,
             )

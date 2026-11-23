@@ -39,7 +39,14 @@ def _dc_analysis():
     }
 
 
-def test_stamp_attaches_all_cards():
+def test_stamp_attaches_all_cards(monkeypatch):
+    from datetime import datetime, timezone
+
+    import dc_diligence as dd
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    seed = dd.load_moratorium_radar()
+    monkeypatch.setattr(dd, "load_moratorium_radar", lambda: {**seed, "updated": today})
     out = stamp_dc_diligence(_dc_analysis())
     assert out.get("parallel_clocks", {}).get("clocks")
     assert out.get("moratorium_radar", {}).get("high_alert_state") is True

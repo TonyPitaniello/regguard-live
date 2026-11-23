@@ -39,7 +39,7 @@ CONTENT_W = PAGE_W - (MARGIN * 2)
 CYA = (
     "PLANNING AID ONLY - citeable pre-bid diligence, not a quote or sealed bid. "
     "Not an interconnection study, geotech report, or AHJ filing. "
-    "Unverified lines need confirm-with-AHJ before bid."
+    "A dollar on this page is a figure the cited schedule states."
 )
 
 
@@ -273,8 +273,9 @@ class BidRiskReceiptPDF(FPDF):
 
 
 def _write_buyer_memo(data: Dict[str, Any], output_path: Optional[str]) -> str:
-    """One page: stamp, drivers, transcribed fees, three calls. No percent."""
+    """One page: address, HOLD or CLEAR, the sentence, the fee line or the sequence, three desks."""
     from pdf_stamp_helpers import paint_linked_block
+    from ic_buyer_brief import schedule_usd, stated_schedule_amount, three_desks
 
     pi = data.get("project_info") or {}
     address = _ascii(str(pi.get("address") or "Site"))
@@ -284,106 +285,310 @@ def _write_buyer_memo(data: Dict[str, Any], output_path: Optional[str]) -> str:
     site = f"{address}, {city}, {state} {zip_code}".strip()
     pdf = BidRiskReceiptPDF()
     pdf._buyer_memo = True
-    pdf._buyer_footer = site[:110]
+    pdf._buyer_footer = "Calls are open."
     pdf.add_page()
     pdf.set_margins(MARGIN, 10, MARGIN)
-    pdf.set_y(8)
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(*EMERALD_SOFT)
-    pdf.cell(CONTENT_W, 5, "REG GUARD", ln=1)
+    pdf.set_y(10)
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(*WHITE)
-    pdf.multi_cell(CONTENT_W, 5, _ascii(address))
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(*MUTED)
-    pdf.cell(CONTENT_W, 4, _ascii(f"{city}, {state} {zip_code}"), ln=1)
+    pdf.multi_cell(CONTENT_W, 5, _ascii(site))
+
+    grade = str((data.get("regguard_stamp") or {}).get("grade") or "").upper()
+    if grade in ("CLEAR", "PASS"):
+        display = "CLEAR"
+    else:
+        display = "HOLD"
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(*AMBER)
-    pdf.cell(CONTENT_W, 6, "REGGUARD STAMP: HOLD", ln=1)
-    headline = str((data.get("regguard_stamp") or {}).get("headline") or data.get("buyer_headline") or "")
-    if headline:
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 8)
-        pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W, 3.4, _ascii(headline))
+    pdf.set_text_color(*EMERALD_SOFT if display == "CLEAR" else AMBER)
+    pdf.cell(CONTENT_W, 6, f"REGGUARD STAMP: {display}", ln=1)
+    sentence = str(
+        (data.get("regguard_stamp") or {}).get("plain")
+        or (data.get("regguard_stamp") or {}).get("headline")
+        or data.get("buyer_headline")
+        or ""
+    ).strip()
+    if display == "CLEAR":
+        sentence = (
+            "No Critical local killers on the current pack. "
+            "No schedule states a contingency percent for this address."
+        )
+    elif not sentence:
+        sentence = "HOLD until the fee line or the inspection sequence on the cited page is in the file."
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 3.5, _ascii(sentence))
 
-    def _url_line(label: str, url: str) -> None:
-        u = str(url or "").strip()
-        if not u.startswith("http"):
+    def _page(url: str) -> None:
+        clean = _https_url(url)
+        if not clean:
             return
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "", 7)
         pdf.set_text_color(*EMERALD)
-        paint_linked_block(pdf, _ascii(f"{label}: {u}"), u, width=CONTENT_W, line_h=3.0)
+        paint_linked_block(pdf, _ascii(clean), clean, width=CONTENT_W, line_h=3.1)
 
-    pdf.ln(1)
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 4, "DRIVERS", ln=1)
-    for k in (data.get("margin_killers") or [])[:3]:
-        if not isinstance(k, dict):
+    stated_rows = []
+    blank_rows = []
+    for row in ((data.get("fee_card") or {}).get("fees") or []):
+        if not isinstance(row, dict):
             continue
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*AMBER)
-        pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"{k.get('priority') or 'NOTE'}: {k.get('title') or ''}"))
-        pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 7.5)
-        pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W, 3.2, _ascii(str(k.get("detail") or "")))
-        _url_line("Page", str(k.get("source_url") or ""))
-
-    pdf.ln(0.6)
-    pdf.set_x(MARGIN)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 4, "FEE LINES", ln=1)
-    for f in ((data.get("fee_card") or {}).get("fees") or []):
-        if not isinstance(f, dict):
-            continue
-        amt = f.get("amount_usd")
-        if isinstance(amt, (int, float)):
-            shown = f"${amt:,.0f}" if float(amt).is_integer() else f"${amt:,.2f}"
+        if stated_schedule_amount(row) is not None:
+            stated_rows.append(row)
         else:
-            shown = "confirm-on-schedule"
+            blank_rows.append(row)
+    pdf.ln(1)
+    if stated_rows:
+        for row in stated_rows:
+            amount = stated_schedule_amount(row)
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.set_text_color(*WHITE)
+            pdf.multi_cell(
+                CONTENT_W,
+                3.4,
+                _ascii(f"{row.get('label') or 'Fee'} — {schedule_usd(amount)}"),
+            )
+            _page(str(row.get("source_url") or ""))
+    else:
+        from habit_ladder_shape import estimator_forward_punch
+
+        punch = (estimator_forward_punch(data) or [{}])[0] or {}
+        sequence = str(punch.get("task") or "")
+        page = str(punch.get("source_url") or "")
+        if not sequence:
+            steps = ((data.get("inspection_sequence_card") or {}).get("steps") or [])
+            sequence = str(steps[0] if steps else "") or "No fee line is on the cited page."
+            page = str((data.get("ahj_card") or {}).get("fees_url") or (data.get("ahj_card") or {}).get("portal_url") or "")
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"{f.get('label') or 'Fee'} — {shown}"))
-        note = str(f.get("detail") or f.get("note") or "")
-        if shown == "confirm-on-schedule":
-            from ic_buyer_brief import note_without_unstated_dollars
+        pdf.multi_cell(CONTENT_W, 3.4, _ascii(sequence))
+        _page(page)
+    for row in blank_rows:
+        label = str(row.get("label") or "Fee")
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*MUTED)
+        pdf.multi_cell(CONTENT_W, 3.3, _ascii(f"{label} — confirm-on-schedule"))
 
-            note = note_without_unstated_dollars(note)
-        if note:
+    for desk in three_desks(data):
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.4, _ascii(desk))
+
+    if not output_path:
+        out_dir = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data") / "bid_receipts"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        safe = "".join(ch if ch.isalnum() else "_" for ch in address)[:40]
+        output_path = str(out_dir / f"bid_receipt_{safe}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.pdf")
+    pdf.output(output_path)
+    return output_path
+
+
+def _address_line(data: Dict[str, Any]) -> str:
+    pi = data.get("project_info") if isinstance(data.get("project_info"), dict) else {}
+    street = str(pi.get("address") or "Site").strip()
+    city = str(pi.get("city") or "").strip()
+    state = str(pi.get("state") or "").strip()
+    zip_code = str(pi.get("zip") or pi.get("zip_code") or "").strip()
+    place = ", ".join(part for part in (city, state) if part)
+    if zip_code:
+        place = f"{place} {zip_code}".strip()
+    if street and place:
+        return f"{street}, {place}"
+    return street or place or "Site"
+
+
+def _schedule_url(url: str) -> str:
+    """A fee-schedule link is a PDF or an ordinance. A department homepage is not."""
+    clean = str(url or "").strip()
+    if not clean.startswith("https://"):
+        return ""
+    from schedule_transcribe import _is_homepage
+
+    if _is_homepage(clean):
+        return ""
+    low = clean.lower().split("?", 1)[0]
+    last = low.rstrip("/").rsplit("/", 1)[-1]
+    # A department "/fees" page is not the schedule. A hosted fee PDF may omit ".pdf".
+    if last in ("fee", "fees", "pdd", ""):
+        return ""
+    if low.endswith(".pdf") or "ordinance" in low or "/api/assets/" in low or "fee" in last:
+        return clean
+    return ""
+
+
+def _https_url(url: str) -> str:
+    clean = str(url or "").strip()
+    return clean if clean.startswith("https://") else ""
+
+
+def _finder_url(data: Dict[str, Any], job: str) -> str:
+    finder = data.get("site_finder") if isinstance(data.get("site_finder"), dict) else {}
+    for row in finder.get("rows") or []:
+        if not isinstance(row, dict) or row.get("job") != job:
+            continue
+        if str(row.get("status") or "").lower() == "unverified":
+            return ""
+        return _https_url(row.get("url") or "")
+    return ""
+
+
+def _habit_links(data: Dict[str, Any]) -> Dict[str, str]:
+    """Portal, fee schedule, and apply. Beachhead briefs stay in charge."""
+    try:
+        from ic_buyer_brief import apply_cited_desk_links
+
+        data = apply_cited_desk_links(data)
+    except Exception:
+        pass
+    ahj = data.get("ahj_card") if isinstance(data.get("ahj_card"), dict) else {}
+    fee = ""
+    for candidate in (
+        _finder_url(data, "fee_schedule"),
+        _finder_url(data, "ordinance"),
+        str(ahj.get("fees_url") or ""),
+    ):
+        fee = _schedule_url(candidate)
+        if fee:
+            break
+    portal = _https_url(ahj.get("portal_url"))
+    apply_url = _https_url(ahj.get("apply_url")) or _finder_url(data, "permit_application")
+    return {"portal": portal, "fees": fee, "apply": apply_url}
+
+
+def _habit_punch(data: Dict[str, Any]) -> Dict[str, str]:
+    """One sequence. Unverified omits the URL. A homepage is not the source."""
+    from habit_ladder_shape import estimator_forward_punch
+    from ic_buyer_brief import note_without_unstated_dollars
+
+    row = estimator_forward_punch(data)[0]
+    task = note_without_unstated_dollars(str(row.get("task") or "")).strip()
+    url = _https_url(row.get("source_url") or "")
+    sourced = row.get("verified") is True and bool(url)
+    if not sourced:
+        if not task or "$" in str(row.get("task") or ""):
+            pi = data.get("project_info") if isinstance(data.get("project_info"), dict) else {}
+            place = ", ".join(
+                part for part in (str(pi.get("city") or "").strip(), str(pi.get("state") or "").strip()) if part
+            ) or "this address"
+            task = f"No permit sequence is on file for {place}"
+        return {"task": task, "badge": "Unverified", "url": ""}
+    return {"task": task, "badge": "Source", "url": url}
+
+
+def _stamp_for_free(data: Dict[str, Any]) -> tuple:
+    from pdf_stamp_helpers import stamp_display_grade, stamp_plain_text
+    from regguard_stamp import apply_regguard_stamp
+
+    stamped = apply_regguard_stamp(dict(data))
+    rg = stamped.get("regguard_stamp") if isinstance(stamped.get("regguard_stamp"), dict) else {}
+    display = stamp_display_grade(rg.get("grade") or data.get("stamp_grade"))
+    if display not in ("HOLD", "CAUTION", "CLEAR"):
+        display = "HOLD"
+    if display == "CLEAR":
+        body = (
+            "No Critical local killers on the current pack. "
+            "No schedule states a contingency percent for this address."
+        )
+    else:
+        body = stamp_plain_text(rg, grade=display)
+        if "$" in body:
+            body = stamp_plain_text({"grade": display}, grade=display)
+    return display, body
+
+
+def _write_habit_receipt(data: Dict[str, Any], output_path: Optional[str], *, free_preview: bool) -> str:
+    """Free and Estimator share one outline. No extra section."""
+    from habit_ladder_shape import ESTIMATOR_CONTINGENCY_LINE, FREE_CONTINGENCY_LOCK
+
+    pi = data.get("project_info") if isinstance(data.get("project_info"), dict) else {}
+    address = _ascii(str(pi.get("address") or "Site"))
+    title = (
+        f"{_address_line(data)} - BID RISK RECEIPT - "
+        + ("FREE PREVIEW" if free_preview else "ESTIMATOR HABIT")
+    )
+    pdf = BidRiskReceiptPDF()
+    pdf._free_preview = free_preview
+    pdf._estimator_habit = not free_preview
+    try:
+        pdf.set_title(_ascii(title)[:120])
+        pdf.set_author("Reg Guard")
+    except Exception:
+        pass
+    pdf.add_page()
+    pdf.set_margins(MARGIN, MARGIN, MARGIN)
+    pdf.set_y(14)
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 5, _ascii(title))
+    pdf.ln(2)
+
+    if free_preview:
+        grade, body = _stamp_for_free(data)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 13)
+        pdf.set_text_color(*(EMERALD_SOFT if grade == "CLEAR" else AMBER))
+        pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {grade}"), ln=1)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 4.2, _ascii(body))
+        pdf.ln(2)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*AMBER_SOFT)
+        pdf.multi_cell(CONTENT_W, 4.6, _ascii(FREE_CONTINGENCY_LOCK))
+    else:
+        links = _habit_links(dict(data))
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 5, "AHJ LINKS", ln=1)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        for label, url in (
+            ("Portal", links["portal"]),
+            ("Fee schedule", links["fees"]),
+            ("Apply", links["apply"]),
+        ):
+            if not url:
+                continue
             pdf.set_x(MARGIN)
-            pdf.set_font("Helvetica", "", 7)
-            pdf.set_text_color(*MUTED)
-            pdf.multi_cell(CONTENT_W, 3.0, _ascii(note))
-        _url_line("Page", str(f.get("source_url") or ""))
+            pdf.multi_cell(CONTENT_W, 3.6, _ascii(f"{label}: {url}"))
+        pdf.ln(2)
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 4.6, _ascii(ESTIMATOR_CONTINGENCY_LINE))
 
-    pdf.ln(0.6)
+    punch = _habit_punch(data)
+    pdf.ln(2)
     pdf.set_x(MARGIN)
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*EMERALD)
-    pdf.cell(CONTENT_W, 4, "CALLS", ln=1)
-    for c in ((data.get("parallel_clocks") or {}).get("clocks") or [])[:3]:
-        if not isinstance(c, dict):
-            continue
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 4.2, _ascii(punch["task"]))
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(*EMERALD if punch["badge"] == "Source" else AMBER_SOFT)
+    who = f"Permit runner · Before bid · {punch['badge']}" if not free_preview else punch["badge"]
+    pdf.multi_cell(CONTENT_W, 4.2, _ascii(who))
+    if punch["url"]:
         pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "B", 8)
-        pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W, 3.3, _ascii(str(c.get("owner") or c.get("name") or "")))
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*EMERALD)
+        pdf.multi_cell(CONTENT_W, 3.6, _ascii(punch["url"]))
+    if free_preview:
+        pdf.ln(1)
         pdf.set_x(MARGIN)
-        pdf.set_font("Helvetica", "", 7.5)
-        pdf.set_text_color(*MUTED)
-        pdf.multi_cell(CONTENT_W, 3.1, _ascii(str(c.get("detail") or "")))
-        _url_line("Page", str(c.get("url") or ""))
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*AMBER)
+        pdf.cell(CONTENT_W, 5, "LOCKED", ln=1)
 
     if not output_path:
         out_dir = Path(os.getenv("REGGUARD_DATA_DIR") or "/tmp/regguard_data") / "bid_receipts"
@@ -403,8 +608,17 @@ def generate_bid_risk_receipt_pdf(
 ) -> str:
     """Write a branded 1-page forwardable Bid Risk Receipt; return path."""
     data = dict(analysis_data or {})
-    if data.get("ic_buyer_brief"):
+    if data.get("ic_buyer_brief") or data.get("ic_decision_memo"):
         return _write_buyer_memo(data, output_path)
+    from habit_ladder_shape import is_free_preview_receipt
+    from honesty import fee_dollars_unlocked
+
+    if is_free_preview_receipt(data) or not fee_dollars_unlocked(data):
+        return _write_habit_receipt(
+            data,
+            output_path,
+            free_preview=is_free_preview_receipt(data),
+        )
     band = data.get("contingency_band") or {}
     if (
         not band

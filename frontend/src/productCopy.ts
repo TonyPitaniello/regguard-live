@@ -69,7 +69,7 @@ export const PRODUCT_COPY = {
     immediatePunch: 'Immediate Punch Highlights',
     preBidPunchList: 'Pre-Bid Punch List',
     timeline: 'Timeline',
-    estimatedCost: 'Permit total',
+    estimatedCost: 'Fee line',
     bidTimeDownloads: 'Bid-Time Downloads',
     feeTimelineExtract: 'Fee & Timeline Extract',
     localGotchaWatchlist: 'Local Gotcha Watchlist',

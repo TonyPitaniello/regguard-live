@@ -109,15 +109,19 @@ def test_free_preview_shows_one_sequence_and_hides_the_rest():
         )
         text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
         flat = text.replace("\n", "")
-        assert "FREE LOOKUPS PREVIEW" in text
+        assert "BID RISK RECEIPT - FREE PREVIEW" in text
         assert needle in text
         assert url_bit in flat
         assert "default.aspx" not in text
-        assert "Confirm the permit path" not in text
-        assert "unavailable" not in text.lower()
+        assert " / " not in text
+        assert "confirm with the city" not in text.lower()
         assert "Hidden on Free" in text
         assert "LOCKED" in text
-        assert "Text this preview" in text
+        assert "Text this preview" not in text
+        assert "AHJ LINKS" not in text
+        assert "City Pack" not in text
+        assert text.count("$") == 1
+        assert "$79/mo" in text
         assert "$175" not in text
         assert "$291" not in text
         assert "$75" not in text
@@ -154,22 +158,29 @@ def test_estimator_receipt_forwards_one_sourced_punch():
         )
         text = "\n".join((p.extract_text() or "") for p in PdfReader(io.BytesIO(raw)).pages)
         flat = text.replace("\n", "")
-        assert "ESTIMATOR" in text
-        assert "UNLOCKED PUNCH" in text
+        assert "BID RISK RECEIPT - ESTIMATOR HABIT" in text
+        assert "AHJ LINKS" in text
+        assert text.count("Portal:") == 1
+        assert text.count("Fee schedule:") == 1
+        assert text.count("Apply:") == 1
         assert needle in text
         assert url_bit in flat
         assert "Permit runner" in text
         assert "Before bid" in text
-        assert "SOURCE" in text
+        assert "Source" in text
         assert "No schedule states a contingency percent" in text
         assert "default.aspx" not in text
+        assert " / " not in text
+        assert "confirm with the city" not in text.lower()
         assert "confirm on AHJ schedule" not in text.lower()
         assert "FEMA" not in text
         assert "TDLR" not in text
         assert "+2%" not in text
         assert "mid 3%" not in text
-        assert "$175" not in text
-        assert "City Pack" not in text or "Contractor Pro adds City Pack" in text
+        assert "$" not in text
+        assert "City Pack" not in text
+        assert "planning_usd" not in text
+        assert "bid packet" not in text.lower()
 
 
 def test_receipt_pdf_free_and_estimator_differ():
@@ -189,21 +200,18 @@ def test_receipt_pdf_free_and_estimator_differ():
 
     free_t = text(free_pdf)
     partner_t = text(partner_pdf)
-    assert "FREE LOOKUPS PREVIEW" in free_t
-    # Free shows real contingency silhouette (blurred), not +##% placeholders
+    assert "BID RISK RECEIPT - FREE PREVIEW" in free_t
     assert "+##%" not in free_t
-    assert "+21%" in free_t or "Hidden on Free" in free_t
-    assert "LOCKED" in free_t or "Hidden on Free" in free_t
-    assert "ESTIMATOR" in partner_t
+    assert "+21%" not in free_t
+    assert "Hidden on Free" in free_t
+    assert "LOCKED" in free_t
+    assert "BID RISK RECEIPT - ESTIMATOR HABIT" in partner_t
     assert "+21%" not in partner_t
     assert "No schedule states a contingency percent" in partner_t
     assert "confirm on AHJ schedule" not in partner_t
-    assert "UNLOCKED PUNCH" in partner_t
     assert "Permit runner" in partner_t
     assert "Before bid" in partner_t
-    assert "FREE LOOKUPS PREVIEW" not in partner_t
+    assert "BID RISK RECEIPT - FREE PREVIEW" not in partner_t
     assert "FAIL" not in partner_t
-    assert "REGGUARD STAMP: FAIL" not in partner_t
-    # After stamp apply, partner Receipt shows HOLD/CLEAR/CAUTION (never FAIL, never blank dash)
-    assert "REGGUARD STAMP: —" not in partner_t
-    assert any(s in partner_t for s in ("HOLD", "CLEAR", "CAUTION", "REGGUARD STAMP"))
+    assert "AHJ LINKS" in partner_t
+    assert "Not a quote, a permit total, or a filing." in partner_t

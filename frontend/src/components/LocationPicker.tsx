@@ -132,8 +132,8 @@ export function LocationPicker({
   const [mapEpoch, setMapEpoch] = useState(0);
   const mapHealAttemptsRef = useRef(0);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
-  /** Unlock after focus so Chrome cannot autofill jobsite on hard refresh */
-  const [siteFieldsUnlocked, setSiteFieldsUnlocked] = useState(false);
+  /** Typeable before a pin exists. Autofill overwrites are ignored unless the site field is focused. */
+  const [siteFieldsUnlocked, setSiteFieldsUnlocked] = useState(true);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -234,7 +234,7 @@ export function LocationPicker({
     setMapVisible(
       typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
     );
-    setSiteFieldsUnlocked(false);
+    setSiteFieldsUnlocked(true);
     destroyMap();
     setMapEpoch((e) => e + 1);
     // Brief autofill purge — cancel immediately if user focuses site OR contact fields.
@@ -280,7 +280,7 @@ export function LocationPicker({
     setLng(null);
     latLngRef.current = null;
     setLocationConfirmed(false);
-    setSiteFieldsUnlocked(false);
+    setSiteFieldsUnlocked(true);
     setError('');
     setMapVisible(true);
     destroyMap();
@@ -1160,6 +1160,7 @@ export function LocationPicker({
               name={`rg_jobsite_street_${resetKey}`}
               value={address}
               onChange={onFieldChange(setAddress)}
+              onPointerDown={markSiteFieldFocused}
               onFocus={markSiteFieldFocused}
               onBlur={onSiteFieldBlur}
               disabled={disabled || locationConfirmed}

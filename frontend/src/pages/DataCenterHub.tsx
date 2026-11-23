@@ -37,37 +37,37 @@ export function DataCenterHub() {
   const dataCenterCapabilities: DataCenterCapability[] = [
     {
       icon: <Zap className="w-6 h-6" />,
-      title: 'Parallel-clock Bid Risk Receipt',
-      description: 'AHJ vs utility vs FAST-41 tracks on one forwardable receipt — not an interconnect study',
+      title: 'Three clocks on the counsel ZIP',
+      description: 'City permit desk, the utility that serves this address, and the water or drainage reviewer. The phone or email prints only when the cited page states it. Not an interconnection study.',
       status: 'ready',
-      value: '$0'
+      value: 'IC ZIP'
     },
     {
       icon: <MapPin className="w-6 h-6" />,
       title: 'Moratorium / pause radar',
-      description: 'Seeded metro watchlist (VA/OH/GA/OK/NY/TX/AZ/WA/IL) + scout hits — verify with counsel',
-      status: 'ready',
-      value: 'API'
+      description: 'A seeded watchlist. A pause is on the ZIP only when the official page for this address states it.',
+      status: 'beta',
+      value: 'Seed'
     },
     {
       icon: <Clock className="w-6 h-6" />,
-      title: 'Power path honesty pack',
-      description: 'Study-type checklist + surcharge band labeled planning-only — no fake MW available',
-      status: 'ready',
-      value: '$0'
+      title: 'Power path',
+      description: 'The utility clock prints when the cited page names the utility. The ZIP does not print MW or a queue position.',
+      status: 'beta',
+      value: 'IC ZIP'
     },
     {
       icon: <AlertTriangle className="w-6 h-6" />,
-      title: 'Water, opposition & FAST-41 cards',
-      description: 'Cooling constraints, community friction, federal gate clarity on every DC run',
+      title: 'Water desk',
+      description: 'The water or drainage reviewer prints when the cited page names that desk. No gallon figure is added.',
       status: 'ready',
-      value: '$0'
+      value: 'IC ZIP'
     },
     {
       icon: <FileText className="w-6 h-6" />,
       title: 'War-room share + diligence export',
-      description: 'Multiplayer comments on /r/{id} + JSON export for CRM/GIS (regguard.dc_diligence.v1)',
-      status: 'ready',
+      description: 'Comments and a JSON export exist beside the ZIP. They are not the page counsel marks up.',
+      status: 'beta',
       value: 'API'
     },
     {
@@ -83,7 +83,7 @@ export function DataCenterHub() {
   const otherCapabilities = [
     { icon: <Users className="w-5 h-5" />, title: 'Saved jobs', desc: 'Jobs and orders stay in your account so you can reopen a site' },
     { icon: <BookOpen className="w-5 h-5" />, title: 'Regulatory research', desc: 'AHJ and utility screening with Source or Unverified on each line' },
-    { icon: <Gauge className="w-5 h-5" />, title: 'Bid Risk Receipt', desc: 'Forwardable planning aid — confirm fees and clocks with the AHJ' },
+    { icon: <Gauge className="w-5 h-5" />, title: 'Bid Risk Receipt', desc: 'Forwardable planning aid. A dollar prints only when the schedule states it.' },
     { icon: <Workflow className="w-5 h-5" />, title: 'Permit worksheets', desc: 'Draft forms you fill and file — not a sealed bid or interconnection study' },
   ];
 
@@ -152,11 +152,7 @@ export function DataCenterHub() {
             </h1>
             
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              Data center schedules die when AHJ permits, utility interconnection, and
-              FAST-41 / large-load diligence run as separate surprises. Reg Guard is the
-              pre-bid Bid Risk Receipt: contingency band, local gotchas, and Source or
-              Unverified lines you can forward before the bid goes out — strongest citeable
-              coverage today in Dallas / Plano / Austin.
+              The $149 City Pack is the fee sheet for the estimate, and the ZIP is what counsel marks up the day before the letter of intent. For a data-center site the ZIP adds the three clocks and any pause the official page states. It is not an interconnection study.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
@@ -208,9 +204,7 @@ export function DataCenterHub() {
               Why Reg Guard is essential on data center bids
             </h2>
             <p className="text-gray-300 max-w-2xl mx-auto">
-              Large-load schedules fail when city permits, utility interconnection, and
-              federal large-load diligence are treated as one queue. Surface the parallel
-              tracks before bid day — with Source or Unverified honesty.
+              The city permit desk, the utility, and the water reviewer stay on separate clocks. Each one prints only when the cited page names it.
             </p>
             <p className="mt-4">
               <a
@@ -355,7 +349,7 @@ export function DataCenterHub() {
           <div>
             <Shield className="w-8 h-8 text-indigo-400 mx-auto mb-4" />
             <h4 className="font-semibold text-white mb-2">Planning aid</h4>
-            <p className="text-gray-400 text-sm">Not a quote, sealed bid, or interconnection study. Confirm every line with the AHJ.</p>
+            <p className="text-gray-400 text-sm">Not a quote, sealed bid, or interconnection study. A dollar prints only when the cited schedule states it.</p>
           </div>
           <div>
             <Users className="w-8 h-8 text-indigo-400 mx-auto mb-4" />

@@ -564,11 +564,7 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "punch_lines": punch_lines,
         "plan_lines": plan_lines,
         "depth_badge": ascii_safe(data.get("depth_badge") or "", 120),
-        "clock_lines": clock_lines or [
-            "AHJ / building permits: confirm portal + hearings before bid",
-            "Utility interconnection / large-load: parallel clock (not run by RegGuard)",
-            "Federal / FAST-41: counsel-led if scale qualifies",
-        ],
+        "clock_lines": clock_lines,
         "vertical_lines": vertical_lines,
         "source_lines": source_lines,
         "radar_headline": ascii_safe(radar.get("headline") or "", 160),

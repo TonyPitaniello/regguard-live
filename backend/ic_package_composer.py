@@ -16,6 +16,8 @@ PACKAGE_VERSION = 3
 
 def _s(v: Any, limit: int = 2000) -> str:
     t = str(v or "").strip()
+    if t.startswith("https://") or t.startswith("http://"):
+        return t
     return t[:limit]
 
 
@@ -275,7 +277,7 @@ def _killers(analysis: Dict[str, Any], n: int = 5) -> List[Dict[str, str]]:
             continue
         title = _s(k.get("title"), 160)
         src = _sanitize_url(_s(k.get("source_url"), 400), title, ahj_hosts)
-        detail_limit = 2000 if analysis.get("ic_buyer_brief") else 400
+        detail_limit = 8000 if analysis.get("ic_buyer_brief") or analysis.get("shaped_ic_zip") else 400
         out.append(
             {
                 "priority": _s(k.get("priority") or k.get("severity") or "NOTE", 20).upper(),
@@ -365,7 +367,7 @@ def _punch(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, Any]]:
                 "source_url": url,
                 "citation": _s(
                     item.get("citation_label")
-                    or ("Source" if url else "Unverified — confirm with AHJ"),
+                    or ("Source" if url else "Unverified"),
                     80,
                 ),
                 "verified": bool(url and item.get("verified")),
@@ -444,10 +446,10 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
             from ic_buyer_brief import note_without_unstated_dollars
 
             raw_note = note_without_unstated_dollars(raw_note)
-        brief = bool(analysis.get("ic_buyer_brief"))
+        brief = bool(analysis.get("ic_buyer_brief") or analysis.get("shaped_ic_zip"))
         if not raw_note:
             raw_note = "confirm-on-schedule" if brief else "Planning aid — confirm on AHJ schedule"
-        unlabeled = "Unverified" if brief else "Unverified — confirm with AHJ"
+        unlabeled = "Unverified"
         out.append(
             {
                 "name": name,
@@ -810,7 +812,7 @@ def _parallel_clock_rows(
                     c.get("detail") or c.get("note") or c.get("status"),
                     2000 if analysis.get("ic_buyer_brief") else 500,
                 ),
-                "owner": _s(c.get("owner") or c.get("responsible") or "PM", 40),
+                "owner": _s(c.get("owner") or c.get("responsible") or "PM", 80),
                 "track": _s(c.get("track") or "", 40),
                 "url": _s(c.get("url") or c.get("source_url"), 400),
             }
@@ -933,6 +935,8 @@ def build_evidence_binder(
         owner: str = "",
     ) -> None:
         eid = _exhibit_for(url, label, claim_type)
+        if not eid:
+            return
         claims.append(
             {
                 "claim_type": claim_type,
@@ -1327,6 +1331,7 @@ def compose_ic_package(
 
     pkg = {
         "ic_buyer_brief": bool(data.get("ic_buyer_brief")),
+        "shaped_ic_zip": bool(data.get("shaped_ic_zip") or data.get("ic_buyer_brief")),
         "schema": PACKAGE_SCHEMA,
         "version": PACKAGE_VERSION,
         "generated_at": now,
@@ -1464,7 +1469,7 @@ def compose_ic_package(
         if data.get("ic_buyer_brief")
         else [
             "Planning aid only — citeable pre-bid diligence, not a quote or sealed bid.",
-            "Unverified lines and fee dollars require confirm-with-AHJ on the official schedule.",
+            "A dollar is printed only when the cited schedule states it.",
             "NOT an interconnection study, geotech report, power study, or AHJ approval.",
             "Stamp CLEAR / CAUTION / HOLD is a pre-bid risk signal, not a credit rating or AHJ rejection.",
             "Dollar and day figures are planning aids unless marked citeable and still require live confirm.",

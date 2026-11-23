@@ -160,36 +160,71 @@ def radar_for_state(state: str) -> List[Dict[str, Any]]:
     return metros
 
 
+def _https(url: Any) -> str:
+    clean = str(url or "").strip()
+    return clean if clean.startswith("https://") else ""
+
+
+def _finder_row(analysis: Dict[str, Any], job: str) -> Dict[str, Any]:
+    finder = analysis.get("site_finder") if isinstance(analysis.get("site_finder"), dict) else {}
+    for row in finder.get("rows") or []:
+        if isinstance(row, dict) and row.get("job") == job:
+            return row
+    return {}
+
+
 def build_parallel_clocks(analysis: Dict[str, Any]) -> Dict[str, Any]:
-    ahj = analysis.get("ahj_card") or {}
+    """City desk, serving utility, and water reviewer. A desk the page did not name is omitted."""
+    ahj = analysis.get("ahj_card") if isinstance(analysis.get("ahj_card"), dict) else {}
+    clocks: List[Dict[str, Any]] = []
+    portal = _https(ahj.get("portal_url") or ahj.get("apply_url"))
+    if portal:
+        name = str(ahj.get("name") or "City permit desk").strip()
+        clocks.append(
+            {
+                "track": "AHJ",
+                "name": name,
+                "label": name,
+                "owner": name,
+                "detail": "",
+                "url": portal,
+            }
+        )
+    utility = _finder_row(analysis, "electric_utility")
+    utility_url = _https(utility.get("url"))
+    if utility_url and str(utility.get("status") or "").lower() != "unverified":
+        name = str(utility.get("title") or "Serving utility").strip()
+        clocks.append(
+            {
+                "track": "UTILITY",
+                "name": name,
+                "label": name,
+                "owner": name,
+                "detail": "",
+                "url": utility_url,
+            }
+        )
+    water = _finder_row(analysis, "water_desk")
+    water_url = _https(water.get("url"))
+    if water_url and str(water.get("status") or "").lower() != "unverified":
+        name = str(water.get("title") or "Water or drainage reviewer").strip()
+        clocks.append(
+            {
+                "track": "WATER",
+                "name": name,
+                "label": name,
+                "owner": name,
+                "detail": "",
+                "url": water_url,
+            }
+        )
     return {
-        "title": "Parallel clocks — AHJ vs utility / RTO",
-        "headline": "Municipal permits and interconnection often run on separate clocks",
-        "clocks": [
-            {
-                "track": "ahj",
-                "label": "AHJ / building / land use",
-                "owner": ahj.get("name") or "Local AHJ",
-                "status": "Confirm portal + hearings before bid",
-                "url": ahj.get("portal_url") or ahj.get("apply_url") or "",
-            },
-            {
-                "track": "utility",
-                "label": "Utility interconnection / large-load",
-                "owner": "Serving utility / TDSP (confirm)",
-                "status": "Study path is NOT run by RegGuard — flag parallel schedule risk",
-                "url": "",
-            },
-            {
-                "track": "federal",
-                "label": "Federal / FAST-41 (if scale qualifies)",
-                "owner": "Permitting Council / federal agencies",
-                "status": "See FAST-41 card when >100 MW hints present",
-                "url": "https://www.permits.performance.gov/",
-            },
-        ],
+        "title": "Parallel clocks",
+        "headline": "City permit desk, serving utility, and water reviewer",
+        "clocks": clocks[:3],
         "disclaimer": (
-            "Planning aid — does not file AHJ applications or run interconnection studies."
+            "Screening only — not an interconnection study. "
+            "Queue position and MW are not in this pack."
         ),
     }
 
@@ -395,7 +430,17 @@ def stamp_dc_diligence(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "buyer": "IC consultants, electrical PMs, GC bid leads, site selection teams",
         "parallel_clocks": True,
     }
-    out["parallel_clocks"] = build_parallel_clocks(out)
+    prior = out.get("parallel_clocks") if isinstance(out.get("parallel_clocks"), dict) else {}
+    prior_clocks = [c for c in (prior.get("clocks") or []) if isinstance(c, dict)]
+    cited = [
+        c
+        for c in prior_clocks
+        if _https(c.get("url") or c.get("source_url"))
+        or any(ch.isdigit() for ch in str(c.get("owner") or ""))
+    ]
+    out["parallel_clocks"] = (
+        {**prior, "clocks": cited[:3]} if cited else build_parallel_clocks(out)
+    )
     out["moratorium_radar"] = build_moratorium_radar_card(out)
     out["power_path_card"] = build_power_path_card(out)
     out["water_cooling_card"] = build_water_cooling_card(out)

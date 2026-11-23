@@ -246,8 +246,8 @@ function DataCenterPage() {
             Run a TX data-center site lookup
           </h2>
           <p className="text-gray-400 text-sm text-center mb-6">
-            Parallel-track Bid Risk Receipt — AHJ + utility risk before bid. Not an
-            interconnection study or AHJ filing.
+            The ZIP adds the city desk, the utility, and the water reviewer when the cited page names them. Not an
+            interconnection study or a filing.
           </p>
           <FreeTrialForm defaultProjectType="data-center" lockProjectType />
         </div>

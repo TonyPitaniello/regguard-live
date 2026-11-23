@@ -3,7 +3,64 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from typing import Any, Dict
+
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_MONTHS = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+}
+
+
+def _effective_date(fee: Dict[str, Any]) -> str:
+    """The date the cited document states. Empty when the page states none."""
+    status = str(fee.get("status") or "")
+    found = _ISO_DATE.search(status)
+    if found:
+        return found.group(0)
+    version = re.search(r"Ver\.\s*(\d{1,2}/\d{2})\b", status, re.I)
+    if version:
+        return version.group(1)
+    blob = " ".join(str(fee.get(key) or "") for key in ("source_label", "detail", "note"))
+    named = re.search(
+        r"(January|February|March|April|May|June|July|August|September|October|November|December)"
+        r"\s+(\d{1,2}),\s+(\d{4})",
+        blob,
+        re.I,
+    )
+    if named:
+        month = _MONTHS[named.group(1).lower()]
+        return f"{int(named.group(3)):04d}-{month:02d}-{int(named.group(2)):02d}"
+    slash = re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", blob)
+    if slash:
+        return f"{int(slash.group(3)):04d}-{int(slash.group(1)):02d}-{int(slash.group(2)):02d}"
+    return ""
+
+
+def _planning_cell(stated: Any) -> str:
+    if stated is None:
+        return ""
+    value = float(stated)
+    if value.is_integer():
+        return str(int(value))
+    return f"{value:.2f}"
+
+
+def _fee_source_url(url: str) -> str:
+    from bid_risk_receipt_pdf import _schedule_url
+
+    return _schedule_url(url)
 
 
 def _owner_for_punch(item: Dict[str, Any]) -> str:
@@ -175,20 +232,17 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
         if not isinstance(fee, dict):
             continue
         stated = stated_schedule_amount(fee)
-        if stated is None:
-            amt = ""
-        elif float(stated).is_integer():
-            amt = int(stated)
-        else:
-            amt = f"{float(stated):.2f}"
-        note = fee.get("detail") or ""
+        note = str(fee.get("detail") or fee.get("note") or "")
         if stated is None:
             from ic_buyer_brief import note_without_unstated_dollars
 
-            note = note_without_unstated_dollars(note)
+            note = note_without_unstated_dollars(note).replace("$", "")
         label = fee.get("label") or "Fee"
         trade = str(fee.get("trade") or "GENERAL").upper()
-        src = str(fee.get("source_url") or "").strip()
+        src = _fee_source_url(str(fee.get("source_url") or ""))
+        if not src:
+            src = _fee_source_url(str((analysis.get("ahj_card") or {}).get("fees_url") or ""))
+        verified = "confirm-on-schedule" if stated is None else _effective_date(fee)
         w.writerow(
             [
                 "fee",
@@ -201,13 +255,13 @@ def analysis_to_bid_csv(analysis: Dict[str, Any]) -> str:
                 "",
                 "",
                 "",
-                amt,
+                _planning_cell(stated),
                 (analysis.get("fee_card") or {}).get("timeline") or "",
                 _eid(src, fee.get("exhibit_id")),
                 src,
                 fee.get("source_label") or ("Source" if src else "Unverified"),
-                "yes" if fee.get("verified") else "planning",
-                note or "Planning aid. Not a quote, a permit total, or a filing.",
+                verified,
+                note,
                 share,
             ]
         )

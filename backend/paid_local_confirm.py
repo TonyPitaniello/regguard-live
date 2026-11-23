@@ -448,6 +448,7 @@ def run_paid_local_confirm(
     zip_code: str = "",
     email: str = "",
     skip_quota: bool = False,
+    recheck: bool = False,
 ) -> Dict[str, Any]:
     """
     Mutate analysis with bounded paid local AHJ confirm.
@@ -495,10 +496,7 @@ def run_paid_local_confirm(
             "reason": "daily_cap",
             "quota": usage,
             "max_pages": max_pages(),
-            "user_message": (
-                f"Daily paid scrape cap reached ({usage.get('used')}/{usage.get('limit')}). "
-                "Showing the saved city pack. Try again tomorrow. The IC Diligence Bundle is a separate counsel ZIP, not a way around this cap."
-            ),
+            "user_message": "Contractor Pro — daily scrape cap reached",
         }
         _apply_paid_coverage(analysis, resolved, pack, [])
         logger.info("Paid local confirm capped for email=%s used=%s", usage.get("email"), usage.get("used"))
@@ -520,6 +518,18 @@ def run_paid_local_confirm(
             pack["ahj"] = ahj
     except Exception:
         pass
+    finder = analysis.get("site_finder") if isinstance(analysis.get("site_finder"), dict) else {}
+    for row in finder.get("rows") or []:
+        if not isinstance(row, dict) or row.get("job") != "fee_schedule":
+            continue
+        fee_url = str(row.get("url") or "").strip()
+        if fee_url.startswith("https://"):
+            portal = fee_url
+            pack = dict(pack)
+            ahj = dict(pack.get("ahj") or {})
+            ahj["fees_url"] = fee_url
+            pack["ahj"] = ahj
+        break
     pack_urls = [
         str((pack.get("ahj") or {}).get("fees_url") or ""),
         str((pack.get("ahj") or {}).get("portal_url") or ""),
@@ -567,9 +577,10 @@ def run_paid_local_confirm(
     cached = _cache_get(ck)
     if cached:
         fee_rows = list(cached.get("fee_rows") or [])
-        analysis = _merge_fees_into_analysis(
-            analysis, fee_rows, scraped_url=str(cached.get("scraped_url") or portal)
-        )
+        if not recheck:
+            analysis = _merge_fees_into_analysis(
+                analysis, fee_rows, scraped_url=str(cached.get("scraped_url") or portal)
+            )
         analysis["paid_local"] = {
             "status": "ok",
             "method": "result_cache",
@@ -579,8 +590,9 @@ def run_paid_local_confirm(
             "scraped_url": cached.get("scraped_url"),
             "pages_scraped": 0,
             "pages_cap": max_pages(),
-            "fee_rows_extracted": len(fee_rows),
+            "fee_rows_extracted": 0 if recheck else len(fee_rows),
             "quota": usage,
+            "recheck": recheck,
         }
         analysis["smart_confirm"] = {
             "status": "ok",
@@ -599,71 +611,174 @@ def run_paid_local_confirm(
     method = "none"
     mapped: List[str] = []
 
-    # 1) Cheap confirm first (no Firecrawl scrape)
-    try:
-        from cheap_page_confirm import merge_cheap_confirm_into_analysis, run_cheap_page_confirm
+    # 1) Cheap confirm first when this run has no finder shortlist.
+    # A day-7 re-check does not write a new fee.
+    if not recheck and not isinstance(analysis.get("site_finder"), dict):
+        try:
+            from cheap_page_confirm import merge_cheap_confirm_into_analysis, run_cheap_page_confirm
 
-        pdf_schedule = str(portal or "").lower().split("?", 1)[0].endswith(".pdf")
-        cheap = run_cheap_page_confirm(
-            portal,
-            pack_urls=pack_urls,
-            use_llm=not pdf_schedule,
-            deadline_sec=32.0 if pdf_schedule else None,
-        )
-        if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
-            analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
-            fee_rows = list(cheap.get("fees") or [])
-            # Stamp planning-aid on cheap path too (F3)
-            if fee_rows:
-                analysis = _merge_fees_into_analysis(analysis, fee_rows, scraped_url=portal)
-                fee_rows = list((analysis.get("fee_card") or {}).get("fees") or [])[:8]
-            else:
-                fc = dict(analysis.get("fee_card") or {})
-                fc["planning_aid"] = True
-                fc["paid_local_confirm"] = True
-                fc["disclaimer"] = FEE_PLANNING_AID
-                analysis["fee_card"] = fc
-            method = "cheap_page_confirm"
-            analysis["paid_local"] = {
-                "status": "ok",
-                "method": method,
-                "cache_hit": False,
-                "pack_key": pack.get("pack_key"),
-                "portal_url": portal,
-                "scraped_url": portal,
-                "pages_scraped": 0,
-                "pages_cap": pages_cap,
-                "fee_rows_extracted": len(fee_rows),
-                "markdown_chars": cheap.get("markdown_chars") or 0,
-                "quota": usage,
-            }
-            analysis["smart_confirm"] = {
-                "status": "ok",
-                "method": method,
-                "pack_key": pack.get("pack_key"),
-                "portal_url": portal,
-                "scraped_url": portal,
-                "fee_rows_extracted": len(fee_rows),
-                "markdown_chars": cheap.get("markdown_chars") or 0,
-            }
-            _cache_set(
-                ck,
-                {"fee_rows": fee_rows, "scraped_url": portal, "method": method},
+            pdf_schedule = str(portal or "").lower().split("?", 1)[0].endswith(".pdf")
+            cheap = run_cheap_page_confirm(
+                portal,
+                pack_urls=pack_urls,
+                use_llm=not pdf_schedule,
+                deadline_sec=32.0 if pdf_schedule else None,
             )
-            _apply_paid_coverage(analysis, resolved, pack, fee_rows)
+            if cheap.get("status") == "ok" and (cheap.get("fees") or cheap.get("notes")):
+                analysis = merge_cheap_confirm_into_analysis(analysis, cheap)
+                fee_rows = list(cheap.get("fees") or [])
+                # Stamp planning-aid on cheap path too (F3)
+                if fee_rows:
+                    analysis = _merge_fees_into_analysis(analysis, fee_rows, scraped_url=portal)
+                    fee_rows = list((analysis.get("fee_card") or {}).get("fees") or [])[:8]
+                else:
+                    fc = dict(analysis.get("fee_card") or {})
+                    fc["planning_aid"] = True
+                    fc["paid_local_confirm"] = True
+                    fc["disclaimer"] = FEE_PLANNING_AID
+                    analysis["fee_card"] = fc
+                method = "cheap_page_confirm"
+                analysis["paid_local"] = {
+                    "status": "ok",
+                    "method": method,
+                    "cache_hit": False,
+                    "pack_key": pack.get("pack_key"),
+                    "portal_url": portal,
+                    "scraped_url": portal,
+                    "pages_scraped": 0,
+                    "pages_cap": pages_cap,
+                    "fee_rows_extracted": len(fee_rows),
+                    "markdown_chars": cheap.get("markdown_chars") or 0,
+                    "quota": usage,
+                }
+                analysis["smart_confirm"] = {
+                    "status": "ok",
+                    "method": method,
+                    "pack_key": pack.get("pack_key"),
+                    "portal_url": portal,
+                    "scraped_url": portal,
+                    "fee_rows_extracted": len(fee_rows),
+                    "markdown_chars": cheap.get("markdown_chars") or 0,
+                }
+                _cache_set(
+                    ck,
+                    {"fee_rows": fee_rows, "scraped_url": portal, "method": method},
+                )
+                _apply_paid_coverage(analysis, resolved, pack, fee_rows)
+                from cost_tracking import log_api_usage
+
+                log_api_usage(
+                    project_key="paid_local",
+                    route="paid_local_confirm",
+                    model="cheap",
+                    meta={"method": method, "fees": len(fee_rows), "pages": 0},
+                )
+                return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
+        except Exception as e:
+            logger.warning("Paid local cheap confirm failed: %s", e)
+
+    # Finder shortlist: scrape those URLs only. Do not map a new host.
+    if isinstance(analysis.get("site_finder"), dict):
+        from shortlist_scrape import scrape_finder_shortlist
+
+        held_fees = list((analysis.get("fee_card") or {}).get("fees") or []) if recheck else None
+        analysis = scrape_finder_shortlist(
+            analysis,
+            rung="ic" if skip_quota else "pro",
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            recheck=recheck,
+        )
+        if recheck:
+            card = dict(analysis.get("fee_card") or {})
+            card["fees"] = held_fees
+            analysis["fee_card"] = card
+        else:
+            from schedule_transcribe import apply_transcribed_schedule, is_beachhead_city
+
+            if is_beachhead_city(city):
+                fee_rows = []
+            elif apply_transcribed_schedule(analysis, city=city, portal=portal):
+                fee_rows = [
+                    row
+                    for row in ((analysis.get("fee_card") or {}).get("fees") or [])
+                    if isinstance(row, dict)
+                ]
+        credits = analysis.get("firecrawl_credits") if isinstance(analysis.get("firecrawl_credits"), dict) else {}
+        pages_scraped = int(credits.get("scrapes") or 0)
+        scraped_url = next(
+            (
+                str(p.get("url") or "")
+                for p in (analysis.get("shortlist_pages") or [])
+                if isinstance(p, dict) and p.get("markdown")
+            ),
+            portal,
+        )
+        deduped: List[Dict[str, Any]] = []
+        seen_labels: set = set()
+        for row in fee_rows:
+            key = str(row.get("label") or "")[:40]
+            if key in seen_labels:
+                continue
+            seen_labels.add(key)
+            deduped.append(row)
+        fee_rows = deduped[:12]
+        if not recheck:
+            from schedule_transcribe import is_beachhead_city
+
+            if not is_beachhead_city(city):
+                card = dict(analysis.get("fee_card") or {})
+                card["fees"] = fee_rows
+                analysis["fee_card"] = card
+        method = "shortlist" if pages_scraped or credits.get("cache_hits") else "shortlist_cache"
+        analysis["paid_local"] = {
+            "status": "ok" if (fee_rows or analysis.get("shortlist_pages")) else "no_markdown",
+            "method": method,
+            "cache_hit": bool(credits.get("cache_hits")) and pages_scraped == 0,
+            "pack_key": pack.get("pack_key"),
+            "portal_url": portal,
+            "scraped_url": scraped_url,
+            "mapped_urls": [],
+            "pages_scraped": pages_scraped,
+            "pages_cap": pages_cap,
+            "fee_rows_extracted": 0 if recheck else len(fee_rows),
+            "markdown_chars": sum(len(str(p.get("markdown") or "")) for p in analysis.get("shortlist_pages") or [] if isinstance(p, dict)),
+            "quota": usage,
+            "recheck": recheck,
+            "credits": credits,
+        }
+        if not recheck:
+            _cache_set(ck, {"fee_rows": fee_rows, "scraped_url": scraped_url, "method": method})
+        _apply_paid_coverage(analysis, resolved, pack, [] if recheck else fee_rows)
+        try:
             from cost_tracking import log_api_usage
 
             log_api_usage(
                 project_key="paid_local",
-                route="paid_local_confirm",
-                model="cheap",
-                meta={"method": method, "fees": len(fee_rows), "pages": 0},
+                route="shortlist_scrape",
+                model="firecrawl" if pages_scraped else "cache",
+                meta=credits,
             )
-            return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
-    except Exception as e:
-        logger.warning("Paid local cheap confirm failed: %s", e)
+        except Exception:
+            pass
+        return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
 
-    # 2) Map + scrape up to pages_cap (scored; parking rejected)
+    # 2) Map + scrape up to pages_cap when no finder shortlist was attached.
+    # A day-7 re-check does not write a new fee.
+    if recheck:
+        analysis["paid_local"] = {
+            "status": "ok",
+            "method": "recheck",
+            "recheck": True,
+            "pack_key": pack.get("pack_key"),
+            "portal_url": portal,
+            "pages_scraped": 0,
+            "pages_cap": pages_cap,
+            "fee_rows_extracted": 0,
+            "quota": usage,
+        }
+        return _stamp_local_pack(analysis, city=city, state=state, zip_code=zip_code)
     mapped = _map_candidate_urls(portal, limit=pages_cap)
     targets: List[str] = []
     for u in mapped:

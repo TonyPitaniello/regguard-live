@@ -78,7 +78,7 @@ export const IC_BUNDLE = {
       file: '02 · Boardroom PDF',
       label: 'Full boardroom brief',
       detail:
-        'Stamp, contingency, parallel clocks, AHJ/fees/gotchas, full punch list, evidence binder (EX-00N), and source appendix — the diligence document you attach or print.',
+        'The memo again, then the fee rows, the punch, the exhibits, and the three clocks. Every source line is the full https URL.',
     },
     {
       file: '03 · Counsel DOCX',
@@ -156,6 +156,14 @@ export const IC_BUNDLE = {
   ctaDownload: 'Download IC Diligence Bundle (ZIP)',
   ctaUnlock: 'Unlock IC Diligence Bundle',
   ctaGenerate: 'Generate IC Diligence Bundle for this site',
+
+  /** Results screen, beside the ZIP. Not a file inside the ZIP. */
+  forwardLine:
+    'Counsel — ZIP for this address before the letter of intent. Page one is the HOLD and the three desks. The Word file is the one to mark up. The calls are still ours.',
+
+  /** Said to a partner counting unpaid capital sites. N is that count. */
+  partnerLine:
+    'We have N sites left. Ten is a tie. The next one is the expensive way.',
 
   /** Results — paid ready */
   readyHeadline: 'Your IC Diligence Bundle is ready',

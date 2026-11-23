@@ -10,9 +10,13 @@ from zip_watch import seed_dc_watches, watch_health
 
 
 def test_radar_stale_meta_fresh_and_stale():
-    fresh = radar_stale_meta({"updated": "2026-08-27"}, stale_after_days=14)
+    from datetime import datetime, timedelta, timezone
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    old = (datetime.now(timezone.utc).date() - timedelta(days=40)).isoformat()
+    fresh = radar_stale_meta({"updated": today}, stale_after_days=14)
     assert fresh["is_stale"] is False
-    stale = radar_stale_meta({"updated": "2026-01-01"}, stale_after_days=14)
+    stale = radar_stale_meta({"updated": old}, stale_after_days=14)
     assert stale["is_stale"] is True
     assert "do not treat as current law" in (stale.get("stale_banner") or "")
 

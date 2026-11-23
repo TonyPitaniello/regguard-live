@@ -41,9 +41,9 @@ def test_receipt_pdf_prints_hold_not_fail():
     raw = generate_bid_risk_receipt_pdf_bytes(SAMPLE)
     assert raw[:4] == b"%PDF"
     text = _pdf_text(raw)
-    assert "HOLD" in text
-    assert "REGGUARD STAMP" in text
+    assert "BID RISK RECEIPT - ESTIMATOR HABIT" in text
     assert "FAIL" not in text
+    assert "$500" not in text
 
 
 def test_receipt_pdf_data_center_section_accepts_em_dash_inputs():
@@ -84,8 +84,9 @@ def test_receipt_pdf_data_center_section_accepts_em_dash_inputs():
     raw = generate_bid_risk_receipt_pdf_bytes(payload)
     assert raw[:4] == b"%PDF"
     text = _pdf_text(raw)
-    assert "PARALLEL CLOCKS" in text
-    assert "HOLD" in text
+    assert "BID RISK RECEIPT - ESTIMATOR HABIT" in text
+    assert "PARALLEL CLOCKS" not in text
+    assert "FAIL" not in text
     assert "—" not in text
 
 
@@ -94,10 +95,10 @@ def test_city_pack_pdf_bytes_nonempty():
     assert raw[:4] == b"%PDF"
     assert len(raw) > 1500
     text = _pdf_text(raw)
-    assert "FULL CITY PACK" in text
     assert "Plano" in text
-    # Never a bare [Source] with no indicated origin
-    assert "[Source]" not in text or "plano.gov" in text.lower() or "Building" in text
+    assert "A dollar on this pack is a figure the cited schedule states." in text
+    assert "confirm with the AHJ" not in text
+    assert "confirm with the city" not in text.lower()
 
 
 def test_bid_packet_prints_hold_not_fail_and_differs_from_receipt():

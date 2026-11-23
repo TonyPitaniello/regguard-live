@@ -132,6 +132,56 @@ def test_run_paid_local_sets_finops_mode(monkeypatch, tmp_path):
     assert "Planning aid" in (out.get("fee_card", {}).get("disclaimer") or "")
 
 
+def test_recheck_keeps_the_fee_it_already_printed(monkeypatch, tmp_path):
+    monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM", "1")
+    monkeypatch.setenv("PAID_LOCAL_CONFIRM_MAX_PER_DAY", "10")
+
+    import paid_local_confirm as plc
+
+    plc._RESULT_CACHE.clear()
+    from paid_local_confirm import run_paid_local_confirm
+
+    fee_url = "https://www.bendoregon.gov/development/commercial-fee-schedule.pdf"
+
+    def _scrape(analysis, **kwargs):
+        analysis["shortlist_pages"] = [{"url": fee_url, "markdown": "New permit fee $999.00"}]
+        analysis["firecrawl_credits"] = {"scrapes": 1, "cache_hits": 0}
+        return analysis
+
+    monkeypatch.setattr("shortlist_scrape.scrape_finder_shortlist", _scrape)
+    out = run_paid_local_confirm(
+        {
+            "project_info": {
+                "address": "710 NW Wall St",
+                "city": "Bend",
+                "state": "OR",
+                "zip": "97701",
+            },
+            "punch_list": {"punch_list": []},
+            "fee_card": {
+                "fees": [
+                    {
+                        "label": "Trade permit base",
+                        "amount_usd": 18.25,
+                        "verified": True,
+                        "source_url": fee_url,
+                    }
+                ]
+            },
+            "site_finder": {"rows": [{"job": "fee_schedule", "url": fee_url, "verified": "Source"}]},
+        },
+        city="Bend",
+        state="OR",
+        zip_code="97701",
+        email="recheck@example.com",
+        recheck=True,
+    )
+    amounts = [row.get("amount_usd") for row in (out.get("fee_card") or {}).get("fees") or []]
+    assert 18.25 in amounts
+    assert 999 not in amounts and 999.0 not in amounts
+
+
 def test_capped_still_attaches_jurisdiction(monkeypatch, tmp_path):
     monkeypatch.setenv("REGGUARD_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("PAID_LOCAL_CONFIRM", "1")

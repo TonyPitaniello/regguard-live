@@ -353,8 +353,7 @@ export default function SharedReportPage() {
         ) : null}
         {!citeablePack && (
           <p className="text-xs text-amber-100/95 border border-amber-500/35 rounded-md px-3 py-2 bg-amber-500/10">
-            No full city pack is on file for this site. Confirm every line with the AHJ before you
-            treat this as bid-ready.
+            No full city pack is on file for this site. A dollar prints only when the cited schedule states it.
           </p>
         )}
 
@@ -732,9 +731,9 @@ export default function SharedReportPage() {
             <p className="text-lg font-bold text-blue-300">{analysis.summary?.estimated_timeline}</p>
           </div>
           <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-xs text-gray-400 mb-1">Permit total</p>
+            <p className="text-xs text-gray-400 mb-1">Fee line</p>
             <p className="text-sm font-semibold text-emerald-200">
-              No permit total. Confirm the city&apos;s valuation or floor-area table.
+              No permit total. When the city uses a valuation or floor-area table, that line stays blank.
             </p>
           </div>
         </section>

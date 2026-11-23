@@ -1662,7 +1662,7 @@ export default function ResultsViewerModal({
           )),
       '',
       share ? `Full report / PDFs: ${share}` : '',
-      'Planning aid only — confirm with AHJ before bid.',
+      'Planning aid only. Not a quote, a permit total, or a filing.',
     ].filter(Boolean);
     return lines.join('\n');
   };
@@ -2962,6 +2962,7 @@ export default function ResultsViewerModal({
                     {IC_BUNDLE.readyHeadline}
                   </p>
                   <p className="text-gray-300 text-sm mt-1 leading-relaxed">{IC_BUNDLE.readyBody}</p>
+                  <p className="text-emerald-100 text-sm mt-2 leading-relaxed">{IC_BUNDLE.forwardLine}</p>
                 </div>
                 <IcDiligenceBundlePitch variant="inline" className="rounded-xl border border-emerald-500/25 bg-slate-950/40 p-3.5" />
                 <button
@@ -3342,8 +3343,8 @@ export default function ResultsViewerModal({
         <div className="px-5 sm:px-8 py-6 space-y-6">
           <p className="text-xs text-gray-400">
             Every line shows a source link or <span className="text-amber-300 font-semibold">Unverified</span>.
-            Outputs are planning aids — confirm with AHJ before bid. Citeable pre-bid diligence, not a quote
-            or sealed bid. Forward only what you can defend.
+            Outputs are planning aids. A dollar prints only when the cited schedule states it. Not a quote
+            or a sealed bid. Forward only what you can defend.
           </p>
 
           {/* Bid Risk Receipt — forwardable hero */}
@@ -3404,6 +3405,9 @@ export default function ResultsViewerModal({
                   >
                     {allowProDeskDownloads ? 'Punch / fees CSV' : 'CSV — Pro $149'}
                   </button>
+                  <p className="text-xs text-gray-300">
+                    Paste planning_usd into the estimate. That cell is the schedule figure, and the City Pack prints the same number.
+                  </p>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mb-2">
@@ -3737,7 +3741,7 @@ export default function ResultsViewerModal({
                             />
                           ) : (
                             <p className="text-[11px] text-amber-200/80 mt-1">
-                              Unverified — confirm with AHJ
+                              Unverified
                             </p>
                           )}
                         </div>
@@ -3849,14 +3853,13 @@ export default function ResultsViewerModal({
                   <p className="text-xs text-amber-200/90 mt-2">
                     {softLocked
                       ? 'Cost rollup stays locked on Free.'
-                      : 'Fee dollars stay locked until Contractor Pro. Confirm the city schedule.'}
+                      : 'Fee dollars stay locked until Contractor Pro.'}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-sm font-semibold text-amber-100 leading-relaxed">
-                    No permit total. When the city uses a valuation or floor-area table, confirm that
-                    table with the AHJ.
+                    No permit total. When the city uses a valuation or floor-area table, that line stays blank.
                   </p>
                   <CitationBadge verified={false} source_label="Unverified — confirm the city schedule" />
                 </>
@@ -4347,6 +4350,9 @@ export default function ResultsViewerModal({
                     >
                       {allowProDeskDownloads ? 'Bid sheet CSV' : 'CSV — Pro $149'}
                     </button>
+                    <p className="w-full text-xs text-gray-300">
+                      Paste planning_usd into the estimate. That cell is the schedule figure, and the City Pack prints the same number.
+                    </p>
                     <button
                       type="button"
                       onClick={() => void downloadBidPacketFull()}

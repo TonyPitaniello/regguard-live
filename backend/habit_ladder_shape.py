@@ -36,6 +36,30 @@ def estimator_forward_punch(analysis: Dict[str, Any]) -> List[Dict[str, Any]]:
         walk = free_bid_or_walk(city)
     except Exception:
         walk = None
+    if walk is None:
+        try:
+            from schedule_transcribe import sequence_sentence
+
+            found = sequence_sentence(analysis, city=city)
+        except Exception:
+            found = None
+        if found and found.get("task"):
+            return [
+                {
+                    "task": found["task"],
+                    "notes": found["task"],
+                    "detail": found["task"],
+                    "owner": "Permit runner",
+                    "responsible_party": "Permit runner",
+                    "due_window": "Before bid",
+                    "timeline": "Before bid",
+                    "source_url": found.get("source_url") or "",
+                    "source_label": found.get("source_label") or "Source",
+                    "verified": True,
+                    "citation_tier": "verified",
+                    "priority": "HIGH",
+                }
+            ]
     if walk:
         return [
             {

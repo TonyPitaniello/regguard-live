@@ -14,6 +14,29 @@ from typing import Any, Dict, List, Optional
 _UNSTATED_DOLLAR = re.compile(r"\$\s*\d[\d,]*(?:\.\d+)?")
 
 
+_PHONE = re.compile(r"\(?\d{3}\)?[.\-\s]\d{3}[.\-\s]\d{4}")
+_EMAIL = re.compile(r"[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}", re.I)
+
+
+def three_desks(data: Dict[str, Any]) -> List[str]:
+    """City desk, utility, and water reviewer. A desk the page did not name is omitted."""
+    clocks = ((data.get("parallel_clocks") or {}).get("clocks") or [])
+    lines: List[str] = []
+    for clock in clocks:
+        if not isinstance(clock, dict):
+            continue
+        name = " ".join(str(clock.get("name") or "").split())
+        owner = " ".join(str(clock.get("owner") or "").split())
+        line = owner or name
+        if not line:
+            continue
+        if line not in lines:
+            lines.append(line)
+        if len(lines) == 3:
+            break
+    return lines
+
+
 def note_without_unstated_dollars(note: str) -> str:
     """A confirm-on-schedule row prints no number, including inside the note."""
     cleaned = _UNSTATED_DOLLAR.sub("", note or "")

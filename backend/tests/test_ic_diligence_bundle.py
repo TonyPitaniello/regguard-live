@@ -216,9 +216,9 @@ def test_beachhead_memo_is_the_page_they_forward():
         reader = PdfReader(path)
         assert len(reader.pages) == 1, city
         text = reader.pages[0].extract_text() or ""
-        assert "FEE LINES" in text
-        assert "CALLS" in text
+        assert "REGGUARD STAMP: HOLD" in text
         assert "http" in text
+        assert "marked done" not in text.lower()
         assert "stripe" not in text.lower()
         fees = (data.get("fee_card") or {}).get("fees") or []
         assert any(isinstance(f.get("amount_usd"), (int, float)) for f in fees), city

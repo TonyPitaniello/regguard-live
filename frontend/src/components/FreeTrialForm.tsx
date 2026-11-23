@@ -182,7 +182,7 @@ export default function FreeTrialForm({
   const [locationResetKey, setLocationResetKey] = useState(0);
   /** After incomplete-run "Confirm pin", wait for map pin before re-researching */
   const pendingRerunAfterPinRef = useRef(false);
-  const [fieldsUnlocked, setFieldsUnlocked] = useState(false);
+  const [fieldsUnlocked, setFieldsUnlocked] = useState(true);
   /** Delay mounting contact inputs so Chrome cannot autofill a pre-painted email field */
   const [contactFieldsReady, setContactFieldsReady] = useState(false);
   const contactAutofillPurgeUntilRef = useRef(0);
@@ -1542,7 +1542,7 @@ export default function FreeTrialForm({
           </select>
           {lockProjectType && formData.projectType === 'data-center' && (
             <p className="text-xs text-indigo-300 mt-1">
-              Locked to Data Center for parallel-track Bid Risk Receipt (AHJ + utility).
+              Locked to Data Center. The ZIP adds the three clocks when the cited page names them.
             </p>
           )}
         </div>

@@ -246,8 +246,13 @@ _BUYER_SHEET_BANNER = (
 )
 
 
+def _buyer_sheet(analysis: Dict[str, Any]) -> bool:
+    data = analysis or {}
+    return bool(data.get("ic_buyer_brief") or data.get("shaped_ic_zip"))
+
+
 def _sheet_banner(analysis: Dict[str, Any]) -> str:
-    return _BUYER_SHEET_BANNER if (analysis or {}).get("ic_buyer_brief") else ""
+    return _BUYER_SHEET_BANNER if _buyer_sheet(analysis) else ""
 
 
 def _write_sheet(
@@ -401,14 +406,14 @@ def _write_cover(
     ws["B5"] = str(ahj.get("name") or "Local AHJ")
     ws["B5"].font = body
 
-    if analysis.get("ic_buyer_brief"):
+    if _buyer_sheet(analysis):
         ws["A6"] = "Apply"
         ws["B6"] = str(ahj.get("apply_url") or "")
     else:
         ws["A6"] = "Full shareable report"
         ws["B6"] = share or "Re-open results in Reg Guard"
     ws["B6"].font = body
-    apply_link = str(ahj.get("apply_url") or "") if analysis.get("ic_buyer_brief") else ""
+    apply_link = str(ahj.get("apply_url") or "") if _buyer_sheet(analysis) else ""
     link = apply_link if apply_link.startswith("http") else (share if share.startswith("http") else "")
     if link:
         ws["B6"].hyperlink = link
@@ -421,7 +426,7 @@ def _write_cover(
         "1) Cover stamp matches the decision memo. Contingency percent is none. "
         "2) Fees column E is blank exactly where the memo prints no dollar. "
         "3) Punch rows are the calls, with the desk in the owner column."
-        if analysis.get("ic_buyer_brief")
+        if _buyer_sheet(analysis)
         else (
             "1) Open Cover — confirm stamp + contingency match the Bid Risk Receipt PDF. "
             "2) Filter Fees / Punch by Trade or Due window. "
@@ -446,10 +451,10 @@ def _write_cover(
         column=2,
         value=(
             "Fee dollars match the cited page. confirm-on-schedule rows have no dollar."
-            if analysis.get("ic_buyer_brief")
+            if _buyer_sheet(analysis)
             else (
-                "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
-                "interconnection study, geotech, or AHJ filing. Unverified lines need confirm-with-AHJ."
+                "Planning aid. Not a quote, a sealed bid, or a filing. "
+                "A dollar is printed only when the cited schedule states it."
             )
         ),
     ).font = warn
@@ -647,6 +652,7 @@ def analysis_to_evidence_index_xlsx(
         for ex in (binder.get("exhibits") or [])
         if isinstance(ex, dict)
     ]
+    exhibit_ids = {row["exhibit_id"] for row in exhibits if row.get("exhibit_id")}
     claims = [
         {
             "exhibit_id": c.get("exhibit_id") or "",
@@ -661,7 +667,7 @@ def analysis_to_evidence_index_xlsx(
             "site": site_line,
         }
         for c in (binder.get("claims") or [])
-        if isinstance(c, dict)
+        if isinstance(c, dict) and str(c.get("exhibit_id") or "") in exhibit_ids
     ]
     # Combined index (same shape as CSV / Fees workbook Evidence sheet)
     combined = _evidence_rows(binder, site=site_line)

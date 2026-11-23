@@ -83,6 +83,7 @@ class BidPacketPDF(FPDF):
         super().__init__(format="Letter", unit="mm")
         self.set_auto_page_break(auto=True, margin=20)
         self._footer_label = "Reg Guard Bid Packet"
+        self._footer_line = ""
 
     def header(self) -> None:
         # Paint full page background on every page
@@ -93,15 +94,13 @@ class BidPacketPDF(FPDF):
         self.set_y(-14)
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*DIM)
-        self.cell(
-            0,
-            5,
-            _ascii(
+        line = str(getattr(self, "_footer_line", "") or "").strip()
+        if not line:
+            line = (
                 f"{self._footer_label}  |  Planning aid. Not a quote, a permit total, or a filing.  |  "
                 f"Page {self.page_no()}"
-            ),
-            align="C",
-        )
+            )
+        self.cell(0, 5, _ascii(line), align="C")
 
 
 def _section_title(pdf: BidPacketPDF, title: str, y_pad: float = 2.0) -> None:
@@ -346,15 +345,15 @@ def generate_bid_packet_pdf(
     # --- Top 3 risk flags ---
     _section_title(pdf, "Top 3 risk flags")
     if not killers:
-        _muted(pdf, "No high-confidence killers extracted - confirm Critical/High with AHJ.")
+        _muted(pdf, "No high-confidence killers on this packet.")
     for i, k in enumerate(killers[:5], 1):
         if pdf.get_y() > 240:
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         pri = str(k.get("priority") or "NOTE").upper()
         ver, cite_url = citation_badge_and_url(k)
-        title = _ascii(strip_md_bold(str(k.get("title") or "Item")))[:88]
-        detail = _ascii(strip_md_bold(str(k.get("detail") or "")))[:140]
+        title = _ascii(strip_md_bold(str(k.get("title") or "Item")))
+        detail = _ascii(strip_md_bold(str(k.get("detail") or "")))
 
         box_h = 18 + (4 if detail else 0) + (3.5 if cite_url else 0)
         from honesty import sourced_schedule_amounts
@@ -407,7 +406,7 @@ def generate_bid_packet_pdf(
             pdf.set_x(bx)
             pdf.set_font("Helvetica", "", 7)
             pdf.set_text_color(*EMERALD)
-            pdf.multi_cell(CONTENT_W - 12, 3.2, _ascii(cite_url[:110]))
+            pdf.multi_cell(CONTENT_W - 12, 3.2, _ascii(cite_url))
         if schedule_amounts:
             low_amt, high_amt = schedule_amounts
             amount_line = (
@@ -473,7 +472,7 @@ def generate_bid_packet_pdf(
     if phone:
         ahj_lines.append(f"Phone: {phone}")
     if notes:
-        ahj_lines.append(notes[:160])
+        ahj_lines.append(notes)
     _body(pdf, "\n".join(ahj_lines), 9)
 
     # --- Fees ---
@@ -490,7 +489,7 @@ def generate_bid_packet_pdf(
         except Exception:
             fees = []
     if not fees:
-        _muted(pdf, "No fee rows extracted - confirm on AHJ fee schedule (Unverified).")
+        _muted(pdf, "No fee rows in this packet.")
     for row in fees[:14]:
         if not isinstance(row, dict):
             continue
@@ -500,8 +499,12 @@ def generate_bid_packet_pdf(
         stated = stated_schedule_amount(row)
         amt_s = schedule_usd(stated) if stated is not None else ""
         ver, cite_url = citation_badge_and_url(row)
-        label = str(row.get("label") or "Fee")[:70]
-        detail = str(row.get("detail") or "")[:70]
+        label = str(row.get("label") or "Fee")
+        detail = str(row.get("detail") or "")
+        if stated is None:
+            from ic_buyer_brief import note_without_unstated_dollars
+
+            detail = note_without_unstated_dollars(detail).replace("$", "")
         color = EMERALD if ver.startswith("SOURCE") else (PURPLE if cite_url else AMBER_SOFT)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 7)
@@ -541,8 +544,8 @@ def generate_bid_packet_pdf(
             pdf.add_page()
             pdf.set_y(MARGIN + 4)
         pri = str(g.get("priority") or "NOTE").upper()
-        title = str(g.get("title") or "")[:70]
-        detail = str(g.get("detail") or "")[:100]
+        title = str(g.get("title") or "")
+        detail = str(g.get("detail") or "")
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(*AMBER if pri in ("HIGH", "CRITICAL") else MUTED)
@@ -557,7 +560,7 @@ def generate_bid_packet_pdf(
         pdf.set_y(MARGIN + 4)
     _section_title(pdf, "Document / submittal checklist")
     if not docs:
-        _muted(pdf, "Confirm exact submittal list with AHJ for this permit type.")
+        _muted(pdf, "No submittal list is on this packet.")
     for d in docs[:15]:
         if pdf.get_y() > 255:
             pdf.add_page()
@@ -568,7 +571,7 @@ def generate_bid_packet_pdf(
         pdf.set_text_color(*EMERALD_SOFT)
         pdf.cell(6, 4.5, "[ ]", ln=0)
         pdf.set_text_color(*WHITE)
-        pdf.multi_cell(CONTENT_W - 6, 4.5, _ascii(str(task)[:110]))
+        pdf.multi_cell(CONTENT_W - 6, 4.5, _ascii(str(task)))
 
     # --- Punch list ---
     if pdf.get_y() > 220:
@@ -588,14 +591,20 @@ def generate_bid_packet_pdf(
             pdf.set_y(MARGIN + 4)
         if not isinstance(item, dict):
             continue
-        task = strip_md_bold(str(item.get("task") or ""))[:100]
+        task = strip_md_bold(str(item.get("task") or ""))
         pri = str(item.get("priority") or "").upper()
         ver, cite_url = citation_badge_and_url(item)
         owner = str(item.get("owner") or item.get("responsible_party") or "").strip()
         due = str(item.get("due_window") or item.get("timeline") or "").strip()
-        cost = item.get("estimated_cost")
-        cost_s = f" · ${int(cost):,}" if isinstance(cost, (int, float)) and cost > 0 else ""
-        meta = " · ".join(p for p in (owner[:20], due[:16]) if p)
+        stated_cost = stated_schedule_amount(
+            {
+                "amount_usd": item.get("estimated_cost"),
+                "verified": item.get("verified"),
+                "source_url": item.get("source_url"),
+            }
+        )
+        cost_s = f" · {schedule_usd(stated_cost)}" if stated_cost is not None else ""
+        meta = " · ".join(p for p in (owner, due) if p)
         pdf.set_x(MARGIN)
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_text_color(

@@ -84,7 +84,7 @@ class BoardroomPDF(BidPacketPDF):
                 f"{self._footer_label}  |  Page {self.page_no()}"
                 if getattr(self, "_buyer_footer", False)
                 else (
-                    f"{self._footer_label}  |  Planning aid only - confirm with AHJ  |  "
+                    f"{self._footer_label}  |  Not a quote, a permit total, or a filing  |  "
                     f"Page {self.page_no()}"
                 )
             ),
@@ -264,7 +264,149 @@ def _site_card(pdf: BoardroomPDF, site: str, lines: List[str]) -> None:
     pdf.set_y(y0 + h + 1.5)
 
 
+def _render_shaped_boardroom(package: Dict[str, Any], output_path: str) -> str:
+    """Memo, then fee rows, punch, exhibits, and the three clocks. Full URLs."""
+    from ic_buyer_brief import schedule_usd, three_desks
+
+    pdf = BoardroomPDF()
+    pdf.compress = False
+    cover = package.get("cover") or {}
+    site = str(cover.get("site") or "Project site")
+    pdf._buyer_footer = True
+    pdf._footer_label = _ascii(site)
+    pdf._control_line = ""
+    pdf._doc_subtitle = _ascii(site)
+    pdf.add_page()
+    pdf.set_margins(MARGIN, 16, MARGIN)
+    pdf.set_y(16)
+    stamp = (package.get("executive_summary") or {}).get("stamp") or {}
+    display = str(stamp.get("display") or stamp.get("grade") or "HOLD").upper()
+    if display not in ("HOLD", "CLEAR"):
+        display = "HOLD" if display != "PASS" else "CLEAR"
+        if display == "PASS":
+            display = "CLEAR"
+    if display not in ("HOLD", "CLEAR"):
+        display = "HOLD"
+    sentence = str(stamp.get("plain") or stamp.get("headline") or "").replace("FAIL", "HOLD")
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(*WHITE)
+    pdf.multi_cell(CONTENT_W, 5, _ascii(site))
+    pdf.set_x(MARGIN)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(*AMBER if display == "HOLD" else EMERALD_SOFT)
+    pdf.cell(CONTENT_W, 6, _ascii(f"REGGUARD STAMP: {display}"), ln=1)
+    if sentence:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.6, _ascii(sentence))
+    findings = package.get("site_findings") or {}
+    for fee in findings.get("fees") or []:
+        if not isinstance(fee, dict):
+            continue
+        amount = fee.get("amount_usd")
+        label = str(fee.get("name") or "Fee")
+        if isinstance(amount, (int, float)):
+            shown = f"{label} — {schedule_usd(float(amount))}"
+        else:
+            shown = f"{label} — confirm-on-schedule"
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.6, _ascii(shown))
+        url = str(fee.get("source_url") or "")
+        if url.startswith("https://"):
+            _link_line(pdf, "Page", url)
+    for desk in three_desks(
+        {"parallel_clocks": {"clocks": (package.get("parallel_clocks_track") or {}).get("clocks") or findings.get("parallel_clocks") or []}}
+    ):
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.6, _ascii(desk))
+
+    killers = (package.get("executive_summary") or {}).get("top_risks") or []
+    for killer in killers:
+        if not isinstance(killer, dict):
+            continue
+        detail = str(killer.get("detail") or "")
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(f"{killer.get('title') or ''} {detail}".strip()))
+        url = str(killer.get("source_url") or "")
+        if url.startswith("https://"):
+            _link_line(pdf, "Page", url)
+
+    punch = (package.get("punch_list") or {}).get("items") or []
+    for item in punch:
+        if not isinstance(item, dict):
+            continue
+        owner = str(item.get("owner") or item.get("responsible_party") or "").strip()
+        due = str(item.get("timeline") or item.get("due_window") or "").strip()
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(str(item.get("task") or "")))
+        if owner or due:
+            pdf.set_x(MARGIN)
+            pdf.set_font("Helvetica", "B", 8)
+            pdf.multi_cell(CONTENT_W, 3.4, _ascii(" · ".join(bit for bit in (owner, due) if bit)))
+        url = str(item.get("source_url") or "")
+        if url.startswith("https://"):
+            _link_line(pdf, "Page", url)
+
+    for exhibit in (package.get("evidence_binder") or {}).get("exhibits") or []:
+        if not isinstance(exhibit, dict):
+            continue
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(CONTENT_W, 3.5, _ascii(f"{exhibit.get('id') or ''} {exhibit.get('title') or ''}".strip()))
+        url = str(exhibit.get("url") or "")
+        if url.startswith("https://"):
+            _link_line(pdf, "Page", url)
+
+    clocks = (package.get("parallel_clocks_track") or {}).get("clocks") or findings.get("parallel_clocks") or []
+    if clocks:
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*EMERALD)
+        pdf.cell(CONTENT_W, 5, "Parallel clocks", ln=1)
+    for clock in clocks[:3]:
+        if not isinstance(clock, dict):
+            continue
+        pdf.set_x(MARGIN)
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(*WHITE)
+        pdf.multi_cell(
+            CONTENT_W,
+            3.5,
+            _ascii(
+                " ".join(
+                    bit
+                    for bit in (
+                        str(clock.get("name") or ""),
+                        str(clock.get("owner") or ""),
+                        str(clock.get("detail") or ""),
+                    )
+                    if bit
+                )
+            ),
+        )
+        url = str(clock.get("url") or clock.get("source_url") or "")
+        if url.startswith("https://"):
+            _link_line(pdf, "Page", url)
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    pdf.output(output_path)
+    return output_path
+
+
 def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
+    if package.get("shaped_ic_zip") or package.get("ic_buyer_brief"):
+        return _render_shaped_boardroom(package, output_path)
     from artifact_naming import document_display_title
 
     pdf = BoardroomPDF()
@@ -280,7 +422,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     else:
         pdf._control_line = _ascii(
             f"{site}  |  Generated {package.get('generated_at') or '-'}  |  "
-            f"Planning aid - confirm with AHJ"
+            f"Not a quote, a permit total, or a filing"
         )
     try:
         pdf.set_title(title_line[:120])
@@ -667,7 +809,7 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
                 lines.append(f"[ ] {task}" + (f" - {note}" if note else ""))
             else:
                 lines.append(f"[ ] {d}")
-        _accent_card(pdf, "Submittals to confirm with AHJ", lines, accent=EMERALD, title_size=9)
+        _accent_card(pdf, "Submittals on this packet", lines, accent=EMERALD, title_size=9)
 
     cards = findings.get("gotcha_cards") or findings.get("gotchas") or []
     fresh_cards = []

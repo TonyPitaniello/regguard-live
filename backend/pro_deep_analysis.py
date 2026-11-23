@@ -411,6 +411,7 @@ async def run_pro_deep_analysis(
     project_type: str = "commercial",
     email: str = "",
     force_scout: bool = False,
+    recheck: bool = False,
 ) -> Dict[str, Any]:
     """
     Deep path for paid users:
@@ -450,8 +451,24 @@ async def run_pro_deep_analysis(
         timeout=45.0,
     )
 
-    # Paid local confirm FinOps first (bounded, cached, day-capped) — return-ready (F8)
+    # Finder first: one search at most, no scrape. Then paid local confirm and scout.
     # IC (force_scout): never skip local deepen due to Pro daily cap — buyer paid $1.5k.
+    try:
+        from site_finder import find_official_sites
+
+        base["site_finder"] = find_official_sites(
+            address=address,
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            county=str((base.get("jurisdiction") or {}).get("county") or ""),
+            rung="ic" if force_scout else "pro",
+            email=email,
+        )
+    except Exception as find_err:
+        logger.warning("Site finder failed: %s", find_err)
+
+    # Paid local confirm FinOps (bounded, cached, day-capped) — return-ready (F8)
     try:
         loop = asyncio.get_event_loop()
         base = await loop.run_in_executor(
@@ -463,6 +480,7 @@ async def run_pro_deep_analysis(
                 zip_code=zip_code,
                 email=email,
                 skip_quota=bool(force_scout),
+                recheck=bool(recheck),
             ),
         )
     except Exception as sc_err:
