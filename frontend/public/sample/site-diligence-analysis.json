@@ -134,8 +134,8 @@
     },
     {
       "priority": "HIGH",
-      "title": "Confirm trade application type early",
-      "detail": "Wrong application type stalls review \u2014 verify electrical vs general building path",
+      "title": "The application type is not stated on this sample",
+      "detail": "The electrical path and the general building path are different applications.",
       "source_url": "https://aca-prod.accela.com/CFW",
       "verified": true,
       "citation_tier": "link",
@@ -250,7 +250,7 @@
     "punch_list": [
       {
         "priority": "CRITICAL",
-        "task": "Pull live Fort Worth Master Fee Schedule before bid lock",
+        "task": "The Fort Worth fee schedule is the source. This sample does not state a permit total.",
         "owner": "Estimator",
         "due_window": "Week 1",
         "timeline": "Week 1",
