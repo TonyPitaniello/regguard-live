@@ -346,7 +346,7 @@ def _pack_from_ahj_record(rec: Dict[str, Any], *, tier: str, source: str) -> Dic
             "apply_url": rec.get("apply_url") or "",
             "inspections_url": rec.get("inspections_url") or "",
             "phone": "",
-            "notes": "Promoted / curated AHJ pack — still confirm dollars on the official schedule.",
+            "notes": "Promoted / curated AHJ pack. A dollar prints only when the cited schedule states it.",
             "last_verified": rec.get("last_verified") or "",
         },
         "fees": fees,

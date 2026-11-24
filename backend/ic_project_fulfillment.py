@@ -443,7 +443,7 @@ def analysis_for_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         steps = data.get("next_steps") or []
         env["action_plan"] = [str(s) for s in steps[:5]] if steps else [
             "Review citeable punch list and AHJ sources before bid.",
-            "Confirm permit fees and trade registrations with the local AHJ.",
+            "A dollar prints only when the cited schedule states it.",
             "Verify utility capacity and interconnection lead times for this site.",
         ]
     env["action_plan"] = [_ascii_safe(a, 400) for a in (env.get("action_plan") or [])[:8]]

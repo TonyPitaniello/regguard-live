@@ -246,7 +246,7 @@ def _build_inspector_digest_directive(
         consultant_role += (
             " **Empty scout:** there are no trusted `.gov` / Municode rows in this digest—complete **Technical Punch List** "
             "and **Inspection Must-Haves** using **NEC 2023** model knowledge for a **200A** service/panel upgrade, "
-            "with each relevant `- [ ]` line noting verification of adopted edition with the AHJ."
+            "Do not invent a permit total. A dollar prints only when the cited schedule states it."
         )
 
     sp = raw.get("scout_profile") if isinstance(raw.get("scout_profile"), dict) else {}

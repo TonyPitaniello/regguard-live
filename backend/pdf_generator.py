@@ -365,7 +365,7 @@ class PunchListPDF(RegGuardPDF):
             ]
 
             self.add_section_title("Timeline and permit total")
-            timeline = punch_data.get("timeline_summary", "Confirm with the AHJ")
+            timeline = punch_data.get("timeline_summary", "The cited schedule does not state a review window.")
             from honesty import NO_PERMIT_TOTAL
 
             self.add_info_box("Timeline", str(timeline))
@@ -524,7 +524,7 @@ class PermitPackagePDF(RegGuardPDF):
             self.add_section_title("How to file (Reg Guard does not e-file)")
             for instruction in (
                 "Review all pre-filled information for accuracy against the survey/plans",
-                "Confirm fees and trade license requirements with the AHJ clerk or portal",
+                "A dollar prints only when the cited schedule states it.",
                 "Attach drawings and cut sheets the jurisdiction requests",
                 "File and pay only on the official AHJ portal",
             ):
@@ -532,7 +532,7 @@ class PermitPackagePDF(RegGuardPDF):
 
             self.add_muted_note(
                 "IC Permit Package worksheet — not an official permit application and not the Research Memo. "
-                "Confirm every fee and form with the AHJ before bid or submittal."
+                "A dollar prints only when the cited schedule states it."
             )
 
             if output_path is None:

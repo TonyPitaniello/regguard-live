@@ -470,7 +470,7 @@ class PunchListGenerator:
     def _calculate_timeline(self, punch_list: List[PunchListItem]) -> str:
         """Calculate overall project timeline"""
         # Simplified - in production would build dependency graph
-        return "Confirm the review window with the AHJ. This list does not state a city clock."
+        return "The cited schedule does not state a review window."
     
     def _identify_critical_path(self, punch_list: List[PunchListItem]) -> List[Dict[str, Any]]:
         """Identify critical path tasks with citation metadata for the UI."""

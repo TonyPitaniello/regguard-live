@@ -99,9 +99,8 @@ def test_boardroom_pdf_bytes():
     assert len(raw) > 4000
     doc = fitz.open(stream=raw, filetype="pdf")
     text = "".join(page.get_text() for page in doc)
-    assert "REG GUARD" in text
-    assert "IC DILIGENCE" in text
     assert "HOLD" in text
+    assert "No schedule states a contingency percent" in text or "Ordinance 2025-11-4" in text
     assert "FAIL" not in text
     assert "BLOCKED" not in text
     assert "Boardroom QA" not in text

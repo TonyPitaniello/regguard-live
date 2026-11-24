@@ -151,7 +151,7 @@ def generate_ic_boardroom_docx_bytes(
             doc,
             "Counsel-ready diligence package for IC / sponsor / lender review. "
             "Planning aid only — not a quote, sealed bid, interconnection study, geotech report, "
-            "or AHJ filing. Confirm every fee and timeline with the AHJ before bid.",
+            "or AHJ filing. A dollar prints only when the cited schedule states it.",
         )
     deliverable = package.get("deliverable") or {}
     if deliverable.get("primary") and not package.get("ic_buyer_brief"):

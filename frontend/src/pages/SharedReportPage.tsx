@@ -285,7 +285,7 @@ export default function SharedReportPage() {
     <div className="min-h-screen overflow-x-hidden bg-slate-950 text-white">
       <SeoHead
         title={`${riskTitle ? `${riskTitle} — ` : ''}Bid Risk Receipt — ${[street, place].filter(Boolean).join(', ') || 'Reg Guard'}`}
-        description="Forwardable contractor pre-bid diligence. Planning aid — not a quote or sealed bid. Confirm with the AHJ."
+        description="Forwardable contractor pre-bid diligence. Planning aid — not a quote or sealed bid. A dollar prints only when the cited schedule states it."
         canonical={`https://app.regguardagent.com/r/${id}`}
       />
       <div className="max-w-3xl mx-auto px-4 py-4 sm:px-6 sm:py-10 space-y-4 sm:space-y-8 break-words">
@@ -309,7 +309,7 @@ export default function SharedReportPage() {
           <h1 className="text-3xl font-black break-words">{street || 'Bid Risk Receipt'}</h1>
           {place ? <p className="text-gray-300">{place}</p> : null}
           <p className="text-sm text-gray-400">
-            Planning aid for this address — not a quote. Confirm with the AHJ before you bid.
+            Planning aid for this address — not a quote. A dollar prints only when the cited schedule states it.
           </p>
           <Link
             to={`/?utm_source=sharepage&utm_medium=cta&utm_campaign=bid_risk_receipt${storedReferralCode() ? `&ref=${encodeURIComponent(storedReferralCode())}` : ''}#free-trial-form`}
@@ -418,12 +418,12 @@ export default function SharedReportPage() {
             </div>
           ) : band?.pct_low != null && band?.pct_high != null ? (
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
-              <p className="text-xs font-semibold uppercase text-emerald-300">Contingency band</p>
-              <p className="text-2xl font-black text-emerald-400 tracking-tight">
-                +{band.pct_low}% – +{band.pct_high}%
+              <p className="text-xs font-semibold uppercase text-emerald-300">Contingency</p>
+              <p className="text-lg font-black text-white leading-snug">
+                No schedule states a contingency percent for this address.
               </p>
-              <p className="text-xs text-gray-400">
-                Mid {band.pct_mid}% · planning aid — not a quote
+              <p className="text-sm text-emerald-50 mt-1">
+                A dollar prints only when the cited schedule states it.
               </p>
             </div>
           ) : null}
@@ -487,13 +487,13 @@ export default function SharedReportPage() {
         {!freeShare && band?.pct_low != null && band?.pct_high != null ? (
           <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-emerald-300 mb-1">
-              {band.label || 'Suggested bid contingency'}
+              Contingency
             </p>
-            <p className="text-4xl font-black text-emerald-400 tracking-tight">
-              +{band.pct_low}% – +{band.pct_high}%
+            <p className="text-lg font-black text-white leading-snug">
+              No schedule states a contingency percent for this address.
             </p>
             <p className="text-sm text-gray-300 mt-1">
-              mid {band.pct_mid}% · planning aid — not a quote
+              A dollar prints only when the cited schedule states it.
             </p>
             {band.disclaimer && <p className="text-xs text-gray-500 mt-2">{band.disclaimer}</p>}
           </section>
@@ -914,8 +914,7 @@ export default function SharedReportPage() {
         </section>
 
         <footer className="border-t border-slate-800 pt-6 text-sm text-gray-400">
-          Built for forwarding into a bid file. Confirm every fee and timeline with the AHJ before you
-          bid.
+          Built for forwarding into a bid file. No schedule states a contingency percent for this address.
           <div className="mt-3">
             <Link to="/jobs" className="text-emerald-300 hover:text-emerald-200 font-semibold">
               Open saved jobs →

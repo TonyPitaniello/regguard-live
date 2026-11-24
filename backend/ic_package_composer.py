@@ -249,8 +249,8 @@ def _stamp_plain(grade: str) -> Dict[str, str]:
             "display": "CLEAR",
             "label": "REGGUARD STAMP: CLEAR",
             "plain": (
-                "No Critical items on the current local pack. Still confirm fees and portal "
-                "requirements with the AHJ before bid."
+                "No Critical items on the current local pack. "
+                "No schedule states a contingency percent for this address."
             ),
         }
     return {
@@ -780,16 +780,15 @@ def _contingency_block(analysis: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         "pct_low": low,
         "pct_mid": mid,
         "pct_high": high,
-        "label": _s(band.get("label") or "Suggested bid contingency cushion", 120),
+        "label": "No schedule states a contingency percent for this address.",
         "plain": (
-            f"Plan a {low}%–{high}% cushion on your base estimate for local fees, "
-            f"review timing, and site risk (midpoint {mid}%). "
-            "This is a planning aid — not a quote or guarantee. Confirm final dollars with the AHJ."
+            "No schedule states a contingency percent for this address. "
+            "A dollar prints only when the cited schedule states it."
         ),
         "drivers": drivers,
         "driver_table": table,
         "disclaimer": _s(
-            band.get("disclaimer") or "Confirm dollars on the official AHJ schedule before bid.",
+            band.get("disclaimer") or "No schedule states a contingency percent for this address.",
             300,
         ),
     }
@@ -1298,8 +1297,8 @@ def compose_ic_package(
         )
     else:
         headline = (
-            f"{site_line}: review the contingency band and priority items below, "
-            f"then confirm dollars on the {ahj_name} fee schedule before bid."
+            f"{site_line} is {stamp.get('display') or 'CLEAR'} under {ahj_name}. "
+            "A dollar prints only when the cited schedule states it."
         )
 
     top3 = killers[:3]
@@ -1316,12 +1315,8 @@ def compose_ic_package(
         ],
         "headline": headline,
         "recommendation": (
-            f"REGGUARD STAMP: {stamp.get('display') or grade or 'UNKNOWN'}"
-            + (
-                f" — carry +{contingency.get('pct_low')}% to +{contingency.get('pct_high')}% contingency"
-                if contingency and contingency.get("pct_low") is not None
-                else ""
-            )
+            f"REGGUARD STAMP: {stamp.get('display') or grade or 'UNKNOWN'}. "
+            "No schedule states a contingency percent for this address."
         ),
     }
 

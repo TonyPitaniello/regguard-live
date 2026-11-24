@@ -69,7 +69,9 @@ def build_research_result_html(research_data: dict) -> str:
     cost_line = html_lib.escape(
         permit_total_line(summary, research_data.get("honesty") or {})
     )
-    timeline = html_lib.escape(str(summary.get("estimated_timeline") or "Confirm with the AHJ"))
+    timeline = html_lib.escape(
+        str(summary.get("estimated_timeline") or "The cited schedule does not state a review window.")
+    )
     total_items = int(summary.get("total_punch_list_items") or len(punch) or 0)
 
     share = str(research_data.get("share_url") or "").strip()
@@ -151,8 +153,8 @@ def build_research_result_html(research_data: dict) -> str:
         )
     elif band.get("pct_low") is not None and band.get("pct_high") is not None:
         band_html = (
-            f'<p style="margin:12px 0 0 0;font-size:14px;color:#047857;font-weight:600;">'
-            f'Contingency (planning aid): +{band.get("pct_low")}% – +{band.get("pct_high")}%</p>'
+            '<p style="margin:12px 0 0 0;font-size:14px;color:#047857;font-weight:600;">'
+            "No schedule states a contingency percent for this address.</p>"
         )
 
     return f"""
@@ -582,7 +584,7 @@ class EmailService:
     {site_line}
     <p style="color:#94a3b8;font-size:14px;line-height:1.5;">
       Order #{short_id} is the counsel ZIP: decision memo, boardroom PDF, Word, and Excel.
-      Planning diligence only — confirm fees and filings with the local AHJ before bid or submittal.
+      Planning diligence only. A dollar prints only when the cited schedule states it.
     </p>
     {links}
     {share_block}

@@ -37,7 +37,10 @@ _QUOTE_BANNED = re.compile(
     r")\b",
     re.I,
 )
-_PLANNING_AID = re.compile(r"planning\s+aid|not\s+a\s+quote|confirm\s+with\s+(?:the\s+)?ahj", re.I)
+_PLANNING_AID = re.compile(
+    r"planning\s+aid|not\s+a\s+quote|cited schedule states|no schedule states a contingency",
+    re.I,
+)
 
 _LARGE_LOAD = re.compile(
     r"data[\s-]?center|large[\s-]?load|interconnect|mission[\s-]?critical|"
@@ -102,7 +105,7 @@ def _contingency_not_a_quote(package: Dict[str, Any]) -> Tuple[bool, str]:
     if _QUOTE_BANNED.search(blob):
         return False, "Contingency language sounds like a firm quote"
     if not _PLANNING_AID.search(blob):
-        return False, "Missing planning-aid / not-a-quote / confirm-with-AHJ language"
+        return False, "Missing the planning-aid or cited-schedule sentence"
     if not (band.get("driver_table") or {}).get("rows"):
         return False, "Contingency driver table missing"
     return True, "ok"

@@ -56,10 +56,7 @@
   },
   "stamp_grade": "FAIL",
   "contingency_band": {
-    "pct_low": 21.0,
-    "pct_mid": 23.0,
-    "pct_high": 26.0,
-    "label": "Suggested contingency (SAMPLE)",
+    "label": "No schedule states a contingency percent for this address.",
     "disclaimer": "No schedule states a contingency percent for this address."
   },
   "ahj_card": {

@@ -176,7 +176,7 @@ async def run_option_a_analysis(
                 if not risk_verified
                 else "1. Review GIS-verified flood/wetlands findings against your site plan",
                 "2. Contact your local Authority Having Jurisdiction (AHJ) with your punch list",
-                "3. Confirm every dollar and day estimate with the AHJ / utility before bidding",
+                "3. A dollar prints only when the cited schedule states it.",
                 "4. Forward the Bid Risk Receipt before bid day — or open My Orders for IC PDFs if purchased",
             ],
         }
@@ -384,7 +384,7 @@ def format_analysis_for_html(analysis: Dict[str, Any]) -> str:
         <section class="punch-list-preview">
             <h2>Your Action Plan</h2>
             <p>Total Action Items: {count}</p>
-            <p>Estimated Timeline: {timeline} (confirm with the AHJ)</p>
+            <p>Estimated Timeline: {timeline}. The cited schedule does not state a review window.</p>
             <p>{cost_line}</p>
             <div class="critical-path">
                 <h3>Critical Path (Top Priority):</h3>

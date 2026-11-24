@@ -46,7 +46,7 @@ export function buildClientInstantAnalysis(input: {
       description: 'Instant preview estimate. Full diligence may refine timeline and cost. Figures are unverified.',
       action_items: [
         'Budget 30–180 days depending on utility track',
-        'Confirm every fee with the AHJ before bidding',
+        'A dollar prints only when the cited schedule states it.',
       ],
       data_sources: ['RegGuard Instant Preview'],
       research_cost_usd: 0,
@@ -157,7 +157,7 @@ export function buildClientInstantAnalysis(input: {
     },
     next_steps: [
       'Treat this as a punch list. Flood and wetlands stay Unverified until a mapper page is attached.',
-      'Confirm every dollar and day estimate with the AHJ before bidding',
+      'A dollar prints only when the cited schedule states it.',
       'Run the address again. Estimator ($79/mo) is the Receipt the GC can keep.',
     ],
   };

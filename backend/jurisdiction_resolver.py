@@ -200,8 +200,8 @@ def resolve_jurisdiction(
         coverage_note = "Citeable local pack + federal/state layers."
     elif portal_only:
         coverage_note = (
-            "Metro portal seed + federal/state layers — confirm fees on the official AHJ schedule "
-            "(not a full curated fee/gotcha pack)."
+            "Metro portal seed + federal/state layers. "
+            "A fee line stays blank until that city's schedule states the dollar."
         )
     elif state_pack.get("citeable"):
         coverage_note = (

@@ -104,7 +104,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
       'Source or Unverified on every punch line',
       'Planning aid — not a sealed bid',
     ],
-    feeNote: 'Open the current Planning and Development Services fee schedule before you lock contingency. This page does not state a permit total.',
+    feeNote: 'This page does not state a permit total. No schedule states a contingency percent for this address.',
   },
   {
     slug: 'irving',

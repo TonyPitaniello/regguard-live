@@ -138,7 +138,9 @@ def build_forwardable_result_html(research_data: dict) -> str:
     state = escape(str(project.get("state") or ""))
     zip_code = escape(str(project.get("zip") or ""))
 
-    timeline = escape(str(summary.get("estimated_timeline") or "Confirm with the AHJ"))
+    timeline = escape(
+        str(summary.get("estimated_timeline") or "The cited schedule does not state a review window.")
+    )
     cost_line = escape(permit_total_line(summary, honesty))
     total_items = int(summary.get("total_punch_list_items") or len(
         (research_data.get("punch_list") or {}).get("punch_list") or []
@@ -228,7 +230,7 @@ def build_forwardable_plaintext(research_data: dict) -> str:
         f"{project.get('city', '')}, {project.get('state', '')} {project.get('zip', '')}",
         "",
         "Planning aid for DFW–Austin commercial–industrial work. Not a quote, sealed bid, Phase I ESA, interconnection study, or AHJ filing.",
-        f"Timeline: {summary.get('estimated_timeline', 'Confirm with the AHJ')}",
+        f"Timeline: {summary.get('estimated_timeline', 'The cited schedule does not state a review window.')}",
         permit_total_line(summary, research_data.get("honesty") or {}),
         "",
         "PUNCH LIST:",

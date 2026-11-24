@@ -490,12 +490,12 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
     )
 
     if band.get("pct_low") is not None:
-        _section_title(pdf, "Contingency band (screenshot this)")
+        _section_title(pdf, "Contingency")
         _hero_metric(
             pdf,
-            "Suggested bid contingency",
-            f"+{band.get('pct_low')}%  -  +{band.get('pct_high')}%   (mid {band.get('pct_mid')}%)",
-            str(band.get("plain") or "Planning aid - not a quote. Confirm dollars with the AHJ.")[:220],
+            "Contingency",
+            "No schedule states a contingency percent for this address.",
+            "A dollar prints only when the cited schedule states it.",
         )
 
     killers = list(ex.get("top_risks") or [])[:5]
@@ -626,8 +626,8 @@ def render_boardroom_pdf(package: Dict[str, Any], output_path: str) -> str:
         _hero_metric(
             pdf,
             "Contingency",
-            f"+{rband.get('pct_low')}%  -  +{rband.get('pct_high')}%   (mid {rband.get('pct_mid')}%)",
-            str(rband.get("plain") or "")[:220],
+            "No schedule states a contingency percent for this address.",
+            "A dollar prints only when the cited schedule states it.",
         )
 
     _section_title(pdf, "Risk flags", y_pad=1.0)

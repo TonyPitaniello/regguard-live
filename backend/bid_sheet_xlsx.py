@@ -238,7 +238,7 @@ def _style_header(ws, row: int, cols: int) -> None:
 
 _SHEET_BANNER = (
     "Planning aid — citeable pre-bid diligence. Not a quote, sealed bid, "
-    "interconnection study, or AHJ filing. Confirm fees with the AHJ."
+    "interconnection study, or AHJ filing. A dollar prints only when the cited schedule states it."
 )
 _BUYER_SHEET_BANNER = (
     "Planning aid. Not a quote, sealed bid, interconnection study, or AHJ filing. "
@@ -395,10 +395,9 @@ def _write_cover(
     ws["B3"] = stamp
     ws["B3"].font = accent
 
-    ws["A4"] = "Contingency percent"
+    ws["A4"] = "Contingency"
     ws["A4"].font = label_font
-    brief = bool(analysis.get("ic_buyer_brief") or band.get("suppress_percent"))
-    ws["B4"] = "none" if brief or not contingency else contingency
+    ws["B4"] = "No schedule states a contingency percent for this address."
     ws["B4"].font = accent
 
     ws["A5"] = "AHJ"

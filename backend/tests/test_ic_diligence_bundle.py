@@ -69,7 +69,7 @@ def test_bare_beachhead_site_fills_the_diligence_brief():
     assert "STAMP: CLEAR" not in memo_text
     assert "FAIL" not in memo_text
     if band.get("pct_low") is not None:
-        assert str(band["pct_low"]).rstrip("0").rstrip(".") in memo_text.replace(" ", "")
+        assert f"+{band['pct_low']}" not in memo_text
 
 
 def test_evidence_binder_maps_claims_to_exhibits():

@@ -734,7 +734,6 @@ def generate_bid_risk_receipt_pdf(
     # HOLD/CLEAR stamp up front (counsel density) — never print FAIL
     from pdf_stamp_helpers import (
         citation_badge_and_url,
-        draw_frosted_contingency,
         stamp_display_grade,
         stamp_plain_text,
     )
@@ -904,22 +903,7 @@ def generate_bid_risk_receipt_pdf(
     pdf.set_draw_color(*(AMBER if free_preview else EMERALD))
     pdf.rect(MARGIN, y1, CONTENT_W, 26 if free_preview else 24, "DF")
     pdf.set_xy(MARGIN + 4, y1 + 3)
-    if free_preview and low_s and high_s:
-        # Real % silhouette, frosted — not +##% placeholders
-        draw_frosted_contingency(
-            pdf,
-            x=MARGIN + 4,
-            y=y1 + 3,
-            w=CONTENT_W - 8,
-            h=14,
-            low_s=low_s,
-            high_s=high_s,
-            mid_s=mid_s,
-            card_rgb=CARD,
-            amber_soft=AMBER_SOFT,
-            muted=MUTED,
-        )
-    elif free_preview:
+    if free_preview:
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_text_color(*AMBER_SOFT)
         pdf.multi_cell(

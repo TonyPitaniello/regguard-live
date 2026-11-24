@@ -797,9 +797,7 @@ def _research_action_plan_fallback_markdown(
         )
 
     fee_fallback = (
-        f"- [ ] **If scout results do not state a permit fee:** Verify exact fee with {city} Building Department."
-        if city
-        else "- [ ] **If scout results do not state a permit fee:** Verify exact fee with the local Building Department / AHJ."
+        "- [ ] **If the cited schedule does not state a permit fee:** A dollar prints only when the cited schedule states it."
     )
 
     permit_block = [

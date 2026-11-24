@@ -163,7 +163,7 @@ def _offer_free_next(ptype: str) -> Dict[str, Any]:
         "next_label": "Estimator / Permit Runner — forwardable Receipt · full punch · Saved Jobs",
         "primary_once": True,
         "honesty_note": (
-            "Planning aid — confirm fees on the official AHJ schedule before you bid."
+            "A dollar prints only when the cited schedule states it."
         ),
     }
 

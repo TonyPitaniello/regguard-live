@@ -22,8 +22,7 @@ RISK_LABEL = (
     "This is not a 0–100 score. Do not bid from it."
 )
 COST_LABEL = (
-    "No permit total. When the city uses a valuation or floor-area table, "
-    "confirm that table with the AHJ."
+    "No permit total. A dollar prints only when the cited schedule states it."
 )
 TIMELINE_LABEL = "Timeline is Unverified. This is not a filing date."
 NO_PERMIT_TOTAL = COST_LABEL

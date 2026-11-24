@@ -152,7 +152,7 @@ export function DataCenterHub() {
             </h1>
             
             <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-              The $149 City Pack is the fee sheet for the estimate, and the ZIP is what counsel marks up the day before the letter of intent. For a data-center site the ZIP adds the three clocks and any pause the official page states. It is not an interconnection study.
+              The $149 City Pack is the fee sheet for the estimate, and the ZIP is what the lawyer marks up the day before the letter of intent, so someone pricing a bid still needs the pack and someone walking into that meeting needs the ZIP. For a data-center site the ZIP adds the three clocks and any pause the official page states. It is not an interconnection study.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">

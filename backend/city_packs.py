@@ -1391,7 +1391,7 @@ def generic_thin_pack(city: str = "", state: str = "", county: str = "") -> Dict
             "phone": "",
             "notes": (
                 "No curated city pack or metro portal seed for this locality. "
-                "Federal + state layers still apply. Confirm local fees and amendments with the AHJ."
+                "A fee line stays blank until that city's schedule states the dollar."
             ),
         },
         "fees": [],
@@ -1402,5 +1402,5 @@ def generic_thin_pack(city: str = "", state: str = "", county: str = "") -> Dict
             "Cut sheets",
             "Contractor license / registration",
         ],
-        "timeline_hint": "Confirm plan review and inspection windows with the local AHJ",
+        "timeline_hint": "The cited schedule does not state a review window.",
     }

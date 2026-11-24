@@ -368,24 +368,19 @@ def _build_contingency(
     if is_dc:
         drivers["data_center_parallel_track"] = True
     disclaimer = (
-        "Planning aid only — not a quote. Based on Critical/High/Unverified "
-        "punch counts. Confirm fees and scope with the AHJ before bid. "
-        "Search snippets do not move this percent."
+        "Planning aid only — not a quote. "
+        "No schedule states a contingency percent for this address. "
+        "A dollar prints only when the cited schedule states it."
     )
     if is_dc:
         disclaimer = (
-            "Planning aid only — not a quote. Data-center / large-load sites often "
-            "run AHJ + utility/ERCOT + federal diligence on parallel clocks. "
-            "Percent band is schedule-risk planning; confirm interconnect exposure "
-            "with utility/RTO before bid. Dollar rollup may understate large-load costs. "
-            "Search snippets do not move this percent."
+            "Planning aid only — not a quote. Data-center and large-load sites keep "
+            "the city permit, the serving utility, and water on separate clocks. "
+            "No schedule states a contingency percent for this address. "
+            "A dollar prints only when the cited schedule states it."
         )
     return {
-        "label": (
-            "Suggested bid contingency band (parallel-track)"
-            if is_dc
-            else "Suggested bid contingency band"
-        ),
+        "label": "No schedule states a contingency percent for this address.",
         "pct_low": round(low_pct, 1),
         "pct_mid": round(pct, 1),
         "pct_high": round(high_pct, 1),

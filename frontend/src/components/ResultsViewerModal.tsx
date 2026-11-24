@@ -537,7 +537,7 @@ function resolveCoverage(view: AnalysisData): {
     tier: 'federal_state',
     badge: 'Federal / state only',
     warning:
-      'No curated local AHJ pack. Federal (+ state when curated) only — confirm local requirements with the AHJ.',
+      'No curated local AHJ pack. Federal and state layers only. A fee line stays blank until that city\'s schedule states the dollar.',
     note: j?.coverage_note || view.free_confirm?.coverage_note || '',
     feesAllowed: false,
   };
@@ -901,7 +901,7 @@ function buildShareText(analysis: AnalysisData, generatedFor?: string, researchI
       : null,
     '',
     `Prepared for ${who}`,
-    'Confirm with the AHJ before bid or filing. Not a sealed bid or official filing.',
+    'No schedule states a contingency percent for this address. Not a sealed bid or official filing.',
     'Next site: open the link, then tap Run my address — 60 seconds, no card.',
     link || 'Open your Reg Guard results to copy the receipt link.',
   ]
@@ -3241,7 +3241,7 @@ export default function ResultsViewerModal({
               <span className="text-gray-300 font-semibold">Lock stamp</span> freezes grade + fingerprint
               on this shared report so war-room edits cannot rewrite what was stamped — dispute-record
               integrity for you and the recipient. It is not a liability shield for Reg Guard. Seller
-              protection lives in Terms: planning aid only, Unverified / confirm-with-AHJ labels, no
+              protection lives in Terms: planning aid only, Unverified lines, no
               invented fees, no sealed-bid / interconnection / geotech completeness claims, Stripe-handled
               payments (no cards stored in Reg Guard), and citeable pre-bid diligence — not a quote.
             </p>

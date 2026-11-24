@@ -9,8 +9,8 @@ import { isRiskScoreHidden } from './honesty';
 
 const DEFAULT_LABELS: NonNullable<HonestyMeta['labels']> = {
   risk: 'Flood and wetlands stay Unverified until a FEMA or NWI page is attached. This is not a 0–100 score.',
-  cost: 'No permit total. When the city uses a valuation or floor-area table, confirm that table with the AHJ.',
-  timeline: 'Timeline is Unverified. Confirm with the AHJ. This is not a filing date.',
+  cost: 'No permit total. A dollar prints only when the cited schedule states it.',
+  timeline: 'Timeline is Unverified. The cited schedule does not state a review window. This is not a filing date.',
 };
 
 export function ensureClientHonesty(analysis: AnalysisData): AnalysisData {

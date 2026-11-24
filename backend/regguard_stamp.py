@@ -248,7 +248,7 @@ def _drivers_and_grade(analysis: Dict[str, Any]) -> Tuple[str, List[Dict[str, st
                 {
                     "severity": "PASS",
                     "label": "No Critical killers on current pack",
-                    "detail": "Still confirm fees on the official AHJ schedule before bid.",
+                    "detail": "No schedule states a contingency percent for this address.",
                     "source_url": str((analysis.get("ahj_card") or {}).get("fees_url") or ""),
                 }
             ]

@@ -515,7 +515,7 @@ def build_free_pack_confirm_analysis(
                 )
             ahj_upd["notes"] = (
                 str(ahj_upd.get("notes") or "")
-                + " Portal discovered via filtered .gov search — confirm fees on the official schedule."
+                + " Portal discovered via filtered .gov search. A fee line stays blank until that schedule states the dollar."
             ).strip()
             pack["ahj"] = ahj_upd
             pack["serp_discovered_portal"] = True
