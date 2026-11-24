@@ -91,7 +91,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
       'Do not assume Austin Design Criteria',
       'Forwardable Bid Risk Receipt for the GC file',
     ],
-    feeNote: 'Confirm the valuation bracket on the Round Rock Planning & Development Fees Summary before bid.',
+    feeNote: 'The permit follows the valuation bracket on the Round Rock Planning & Development Fees Summary. This page does not state a permit total.',
   },
   {
     slug: 'arlington',
@@ -130,7 +130,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
       'Source or Unverified labels',
       'Forward to GC before you submit the number',
     ],
-    feeNote: 'Confirm the valuation bracket on the City of Garland Building Permit page before bid.',
+    feeNote: 'The permit follows the valuation bracket on the City of Garland Building Permit page. This page does not state a permit total.',
   },
   {
     slug: 'mckinney',
@@ -182,7 +182,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
       'Pasadena, Sugar Land, and The Woodlands are different schedules',
       'Next step is Estimator ($79/mo). Forwarding this page does not unlock the punch',
     ],
-    feeNote: 'City of Houston only. Confirm the valuation bracket on the 2026 Houston Permitting Center schedule before bid.',
+    feeNote: 'City of Houston only. The permit follows the valuation bracket on the 2026 Houston Permitting Center schedule. This page does not state a permit total.',
   },
   {
     slug: 'san-antonio',
@@ -195,7 +195,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
       'Do not use the residential square-foot table on a commercial bid',
       'Next step is Estimator ($79/mo). The $1,500 bundle is for one capital site, not this page',
     ],
-    feeNote: 'Confirm the valuation bracket on the FY 2027 Development Fee Schedule before bid. SAWS fees are a separate section.',
+    feeNote: 'The commercial permit follows the valuation tables in the FY 2027 Development Fee Schedule. This page does not state a permit total. SAWS fees are a separate section.',
   },
 ];
 

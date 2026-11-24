@@ -51,7 +51,7 @@ export const IC_BUNDLE = {
 
   /** Who it’s for */
   forWhom:
-    'Built for IC consultants, owner’s reps, sponsors, and lenders screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin.',
+    'Built for IC consultants, owner’s reps, sponsors, and lenders screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin · San Antonio.',
 
   /**
    * What’s in the ZIP — benefit-led.
