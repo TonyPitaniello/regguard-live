@@ -122,7 +122,7 @@
     {
       "priority": "CRITICAL",
       "title": "Fee schedule is not a fixed number \u2014 recheck before bid",
-      "detail": "Fort Worth fee pages are planning aids. Confirm on the official Master Fee Schedule before locking contingency.",
+      "detail": "Fort Worth fee pages are planning aids. A dollar prints only when the cited schedule states it. No schedule states a contingency percent for this address.",
       "source_url": "https://www.fortworthtexas.gov/files/assets/public/v/9/development-services/documents/resources-applications-forms-videos/f/development-fees-schedule.pdf",
       "verified": true,
       "citation_tier": "verified",
@@ -219,7 +219,7 @@
       {
         "priority": "CRITICAL",
         "title": "Do not use Dallas/Plano fees for Fort Worth",
-        "detail": "Confirm trade fees on Fort Worth official schedule only",
+        "detail": "A dollar prints only when the cited Fort Worth schedule states it.",
         "source_url": "https://www.fortworthtexas.gov/departments/development-services",
         "owner": "Estimator",
         "due_window": "Pre-bid",
@@ -272,7 +272,7 @@
       },
       {
         "priority": "HIGH",
-        "task": "Confirm Accela application type (electrical vs general building)",
+        "task": "The electrical path and the general building path are different Accela applications. This sample does not state which one.",
         "owner": "Permit runner",
         "due_window": "Week 1",
         "timeline": "Week 1",
@@ -447,7 +447,7 @@
       {
         "id": "ahj_portal",
         "priority": "CRITICAL",
-        "task": "Confirm Accela CFW application type and portal path",
+        "task": "The Accela application type is not stated on this sample.",
         "status": "cited",
         "detail": "Citeable Accela CFW path included in AHJ card."
       },
@@ -502,7 +502,7 @@
       "Paid local confirm + light Universal Scout passes",
       "Parcel GIS flood + wetlands verified at pin",
       "City pack fees / gotchas + Bid Risk Receipt desk downloads",
-      "Zoning / land-use checklist as Cite or Confirm"
+      "Zoning / land-use checklist, Source or Unverified"
     ],
     "pages_scraped": 6,
     "fee_rows": 4,

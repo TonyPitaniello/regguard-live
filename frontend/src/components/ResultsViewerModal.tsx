@@ -4548,7 +4548,7 @@ export default function ResultsViewerModal({
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h4 className="text-sm font-bold tracking-wide text-cyan-200">
-                      {view.vertical_playbook.label || PRODUCT_COPY.sections.verticalPlaybook} — Cite or Confirm
+                      {view.vertical_playbook.label || PRODUCT_COPY.sections.verticalPlaybook} — Source or Unverified
                     </h4>
                     <p className="text-xs text-cyan-100/90">
                       Checklist completeness:{' '}
