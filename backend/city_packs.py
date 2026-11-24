@@ -955,24 +955,85 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             "fees_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
             "phone": "",
             "notes": (
-                "Confirm the job against the FY 2027 Development Fee Schedule. "
+                "The FY 2027 Development Fee Schedule, revised October 2026, is the source. "
                 "Do not copy an Austin fee line onto a San Antonio bid."
             ),
         },
         "fees": [
             {
-                "label": "Commercial plan review and permit — valuation tables",
+                "label": "Commercial permit total",
                 "amount_usd": None,
                 "detail": (
                     "FY 2027 Development Fee Schedule, revised October 2026. "
                     "Commercial plan review and commercial permit fees follow valuation tables. "
-                    "Unless a line says otherwise, fees are subject to a 4% technological improvement surcharge "
-                    "and a 4% Development Services surcharge. This page does not state a permit total."
+                    "The page states a 4% technological improvement surcharge and a 4% Development Services surcharge. "
+                    "This row does not add them. A blank line has no dollar."
                 ),
                 "verified": False,
+                "amount_requires_schedule": True,
                 "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
                 "source_label": "San Antonio FY 2027 Development Fee Schedule",
-            }
+            },
+            {
+                "label": "Electrical - Permit Base Fee",
+                "amount_usd": 57.50,
+                "detail": "Commercial and existing residential. Electrical inspection fee and limited service repair permits.",
+                "verified": True,
+                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+                "source_label": "San Antonio FY 2027 Development Fee Schedule",
+            },
+            {
+                "label": "Mechanical - Permit Base Fee",
+                "amount_usd": 57.50,
+                "detail": "Commercial and existing residential. Mechanical inspection fee and limited service repair permits.",
+                "verified": True,
+                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+                "source_label": "San Antonio FY 2027 Development Fee Schedule",
+            },
+            {
+                "label": "Commercial Certificate of Occupancy - No Construction Fee",
+                "amount_usd": 230.00,
+                "detail": "C of O - Commercial.",
+                "verified": True,
+                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+                "source_label": "San Antonio FY 2027 Development Fee Schedule",
+            },
+            {
+                "label": "Re-inspection Fee",
+                "amount_usd": 57.50,
+                "detail": "Re-inspection Fee, all trades, on the miscellaneous building development fees page.",
+                "verified": True,
+                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+                "source_label": "San Antonio FY 2027 Development Fee Schedule",
+            },
+            {
+                "label": "Flood Plan Development Permit",
+                "amount_usd": 50.00,
+                "detail": "San Antonio Water Systems section. Not subject to surcharges.",
+                "verified": True,
+                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+                "source_label": "San Antonio FY 2027 Development Fee Schedule",
+            },
+        ],
+        "desks": [
+            {
+                "track": "AHJ",
+                "name": "City of San Antonio Development Services",
+                "owner": "City of San Antonio Development Services",
+                "url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+            },
+            {
+                "track": "UTILITY",
+                "name": "CPS Energy",
+                "owner": "CPS Energy business desk 210-353-3333",
+                "url": "https://www.cpsenergy.com/en/customer-support/contact-us.html",
+            },
+            {
+                "track": "WATER",
+                "name": "San Antonio Water Systems",
+                "owner": "San Antonio Water Systems",
+                "url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
+            },
         ],
         "gotchas": [
             {
@@ -993,7 +1054,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "documents": ["Single-line diagram", "Load calculations", "Contractor registration"],
-        "timeline_hint": "Confirm San Antonio review windows before bid",
+        "timeline_hint": "The FY 2027 schedule does not state a review window.",
         "inspection_sequence": [
             "Permit application / plan intake",
             "Rough MEP inspections",

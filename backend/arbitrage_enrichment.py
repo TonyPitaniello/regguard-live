@@ -674,7 +674,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
         "disclaimer": (
             "Sum of cited schedule lines on the top killers. "
             "A blank total means the schedule did not state those amounts. "
-            "Not a quote. Confirm with the AHJ."
+            "Not a quote."
         ),
         "data_center_mode": _project_is_data_center(out),
     }
@@ -728,7 +728,7 @@ def enrich_analysis_with_arbitrage(analysis: Dict[str, Any]) -> Dict[str, Any]:
             "disclaimer": (
                 "Sum of cited schedule lines on the top killers. "
                 "A blank total means the schedule did not state those amounts. "
-                "Not a quote. Confirm with the AHJ."
+                "Not a quote."
             ),
             "data_center_mode": is_dc,
         }

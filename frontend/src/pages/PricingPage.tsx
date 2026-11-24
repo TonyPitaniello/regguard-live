@@ -139,7 +139,7 @@ export default function PricingPage() {
             Free Bid Risk Receipt preview → Estimator / Permit Runner or Contractor Pro for bid-week
             habit →{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
-            counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth.
+            counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth / San Antonio.
             Fourteen city pages are live. A permit total is not printed when the schedule uses
             valuation or floor area.
           </p>
@@ -366,6 +366,14 @@ export default function PricingPage() {
                 onClick={() => navigate('/fort-worth-permit-fees')}
               >
                 Fort Worth
+              </button>
+              , and{' '}
+              <button
+                type="button"
+                className="text-purple-300 hover:text-white underline"
+                onClick={() => navigate('/san-antonio-permit-fees')}
+              >
+                San Antonio
               </button>
               . Outside those AHJs, expect more Unverified lines.
             </p>

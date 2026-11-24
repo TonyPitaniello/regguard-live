@@ -465,6 +465,7 @@ def _fees(analysis: Dict[str, Any], n: int = 20) -> List[Dict[str, str]]:
                     2000 if brief else 700,
                 ),
                 "amount_usd": amt if isinstance(amt, (int, float)) else None,
+                "verified": f.get("verified") is True,
                 "status": _s(f.get("status") or "", 80),
                 "owner": _s(f.get("owner") or "", 80),
             }

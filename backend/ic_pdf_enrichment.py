@@ -248,6 +248,17 @@ def _attach_beachhead_depth(data: Dict[str, Any], pack: Dict[str, Any]) -> None:
         data["gotcha_watchlist"] = {**watch, "items": _overlay_gotchas(watch.get("items") or [], library_gotchas)}
     elif gotchas and not watch.get("items"):
         data["gotcha_watchlist"] = {"items": gotchas}
+    desks = [row for row in (pack.get("desks") or []) if isinstance(row, dict) and str(row.get("url") or "").startswith("https://")]
+    prior_clocks = data.get("parallel_clocks") if isinstance(data.get("parallel_clocks"), dict) else {}
+    if desks and not prior_clocks.get("clocks"):
+        data["parallel_clocks"] = {
+            "clocks": desks[:3],
+            "disclaimer": (
+                "Screening only — not an interconnection study. "
+                "Queue position and MW are not in this pack."
+            ),
+        }
+
     watch_items = (data.get("gotcha_watchlist") or {}).get("items") or gotchas
     if not isinstance(watch_items, list):
         watch_items = []
@@ -342,7 +353,7 @@ def _attach_beachhead_depth(data: Dict[str, Any], pack: Dict[str, Any]) -> None:
     doc_items = list(docs.get("items") or [])
     if not doc_items:
         raw_docs = (data.get("local_pack") or {}).get("documents") or pack.get("documents") or []
-        doc_items = [{"task": str(d), "note": "Confirm the exact list with the AHJ"} for d in raw_docs[:8] if str(d).strip()]
+        doc_items = [{"task": str(d), "note": "The cited page does not name this document."} for d in raw_docs[:8] if str(d).strip()]
         if doc_items:
             data["document_checklist"] = {"items": doc_items}
 
@@ -590,4 +601,27 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
         data = apply_ic_buyer_brief(data)
     except Exception:
         pass
+    pi_now = data.get("project_info") if isinstance(data.get("project_info"), dict) else {}
+    if (
+        "san antonio" in str(pi_now.get("city") or "").lower()
+        and not data.get("ic_buyer_brief")
+    ):
+        headline = (
+            "HOLD until the commercial permit stays on the valuation table "
+            "and $57.50 is only the electrical permit base fee."
+        )
+        data["buyer_headline"] = headline
+        data["regguard_stamp"] = {
+            "grade": "HOLD",
+            "headline": headline,
+            "plain": headline,
+            "drivers": [],
+        }
+    card = data.get("fee_card") if isinstance(data.get("fee_card"), dict) else {}
+    if fees and not card.get("fees"):
+        data["fee_card"] = {
+            "fees": fees,
+            "timeline": "Before the letter of intent",
+            "disclaimer": "A dollar on this card is a figure the cited schedule states. A blank line has no dollar.",
+        }
     return data

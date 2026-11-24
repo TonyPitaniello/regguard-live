@@ -137,7 +137,7 @@ def build_ic_diligence_bundle_zip(
                     "exhibit_id": f.get("exhibit_id"),
                     "owner": f.get("owner") or "",
                     "status": f.get("status") or "",
-                    "verified": f.get("status") or "",
+                    "verified": True if f.get("verified") is True else (f.get("status") or ""),
                 }
             )
         data_for_sheet["fee_card"] = {**fee_card, "fees": mapped or fee_card.get("fees") or []}
