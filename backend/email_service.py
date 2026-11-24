@@ -379,7 +379,7 @@ class EmailService:
     <p style="color:#555;font-size:14px;line-height:1.5;">
       <strong>{name}</strong> is active on this email. Run the address again with the <em>same email</em>
       so the receipt opens the lines you paid for. Save every site you bid this week.
-      Citeable coverage is strongest in Dallas, Plano, Austin, Fort Worth, and San Antonio.
+      Citeable coverage is strongest in Dallas, Plano, Austin, Fort Worth, San Antonio, Phoenix, Mesa, Atlanta, Loudoun County, Prince William County, New Albany, Columbus, and Hillsboro.
     </p>
     <p style="margin:20px 0;">
       <a href="{app_url}/?unlock=1" style="display:inline-block;background:#059669;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;">

@@ -1151,7 +1151,7 @@ def build_order_from_checkout_session(session: Dict[str, Any]) -> Dict[str, Any]
         if normalize_tier(tier) in ("ic_project", "ic_annual", "ic_consultant")
         else "n/a",
         "coverage_note": (
-            "Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth / San Antonio. "
+            "Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro. "
             "Outside those AHJs, items may show as Unverified — confirm with the local AHJ."
             if normalize_tier(tier)
             in ("ic_project", "ic_annual", "ic_consultant", "contractor_pro", "partner")

@@ -36,7 +36,7 @@ export const PRODUCT_COPY = {
   /** Home hero — citeable DFW–Austin diligence, not “AI knows all regs nationwide.” */
   heroHeadline: 'Send the GC a HOLD they can open on a phone',
   heroSubhead:
-    'Citeable pre-bid / pre-LOI diligence for Dallas, Plano, Austin, Fort Worth, and San Antonio commercial and industrial work. Source or Unverified on every line. The free lookup is the preview. Estimator ($79/mo) is the Receipt the GC can keep. No schedule states a contingency percent. No card to try it.',
+    'Citeable pre-bid / pre-LOI diligence for Dallas, Plano, Austin, Fort Worth, San Antonio, Phoenix, Mesa, Atlanta, Loudoun County, Prince William County, New Albany, Columbus, and Hillsboro commercial and industrial work. Source or Unverified on every line. The free lookup is the preview. Estimator ($79/mo) is the Receipt the GC can keep. No schedule states a contingency percent. No card to try it.',
   seoTitle: 'Reg Guard — HOLD or walk before you price the site',
   seoDescription:
     'Citeable pre-bid / pre-LOI site diligence for DFW–Austin commercial–industrial and DC-adjacent work. Bid Risk Receipt with Source or Unverified. Not an ESA, interconnect study, or filing.',

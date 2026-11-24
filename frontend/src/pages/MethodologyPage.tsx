@@ -32,7 +32,7 @@ export default function MethodologyPage() {
             Estimator / Permit Runner or Contractor Pro for bid-week habit, or the{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> — a
             counsel-ready ZIP (memo + DOCX + CSVs), not a longer PDF stack. Strongest citeable local
-            depth today is Dallas, Plano, Austin, Fort Worth, and San Antonio.
+            depth today is Dallas, Plano, Austin, Fort Worth, San Antonio, Phoenix, Mesa, Atlanta, Loudoun County, Prince William County, New Albany, Columbus, and Hillsboro.
           </p>
         </div>
       </section>
@@ -233,7 +233,7 @@ export default function MethodologyPage() {
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>
-                  <span>Full-pack depth outside Dallas, Plano, Austin, Fort Worth, and San Antonio</span>
+                  <span>Full-pack depth outside Dallas, Plano, Austin, Fort Worth, San Antonio, Phoenix, Mesa, Atlanta, Loudoun County, Prince William County, New Albany, Columbus, and Hillsboro</span>
                 </li>
                 <li className="flex gap-2">
                   <span className="text-red-400 font-bold">✕</span>

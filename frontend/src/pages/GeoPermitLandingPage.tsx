@@ -36,8 +36,19 @@ function honestFeeLines(lines: string[] | undefined): string[] {
 }
 
 function shelfLabel(slug: string): string {
-  if (slug === 'houston') return 'City of Houston';
-  if (slug === 'san-antonio') return 'City of San Antonio';
+  const named: Record<string, string> = {
+    houston: 'City of Houston',
+    'san-antonio': 'City of San Antonio',
+    phoenix: 'City of Phoenix',
+    mesa: 'City of Mesa',
+    atlanta: 'City of Atlanta',
+    'loudoun-county': 'Loudoun County',
+    'prince-william-county': 'Prince William County',
+    'new-albany': 'City of New Albany',
+    columbus: 'City of Columbus',
+    hillsboro: 'City of Hillsboro',
+  };
+  if (named[slug]) return named[slug];
   if (slug === 'austin' || slug === 'round-rock') return 'Austin area';
   return 'Dallas–Fort Worth';
 }
@@ -52,8 +63,8 @@ function MetroHub() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <SeoHead
-        title="Texas permit fees by city | Reg Guard"
-        description="Pre-bid permit pages for Dallas, Plano, Austin, Fort Worth, Houston, and San Antonio. A permit total is not printed when the fee depends on valuation or floor area."
+        title="Permit fees by city | Reg Guard"
+        description="Pre-bid permit pages for the cited-fee cities. A permit total is not printed when the fee depends on valuation, floor area, or a rate."
         canonical="https://app.regguardagent.com/permit-fees"
       />
       <header className="bg-slate-900/80 backdrop-blur border-b border-purple-500/20">
@@ -69,7 +80,7 @@ function MetroHub() {
         </div>
       </header>
       <section className="px-4 py-14 max-w-3xl mx-auto">
-        <p className="text-emerald-400 text-sm font-semibold mb-2">Fourteen city pages · no permit total from a valuation table</p>
+        <p className="text-emerald-400 text-sm font-semibold mb-2">Twenty-two city pages · no permit total from a valuation table</p>
         <h1 className="text-4xl font-black text-white mb-4">Permit fees &amp; bid-day gotchas by city</h1>
         <p className="text-lg text-gray-300 mb-8">
           Built for estimators and permit runners. Run an address, forward the Bid Risk Receipt.

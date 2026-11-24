@@ -10,7 +10,17 @@ from typing import Any, Dict, List, Optional
 
 def _norm_city_state(city: str = "", state: str = "", zip_code: str = "") -> str:
     c = (city or "").strip().lower()
-    s = (state or "").strip().lower().replace("texas", "tx")
+    s = (state or "").strip().lower()
+    for full, abbr in (
+        ("texas", "tx"),
+        ("arizona", "az"),
+        ("georgia", "ga"),
+        ("virginia", "va"),
+        ("ohio", "oh"),
+        ("oregon", "or"),
+        ("illinois", "il"),
+    ):
+        s = s.replace(full, abbr)
     z = (zip_code or "").strip()
     text = f"{c}, {s}" if s else c
     text = text.replace("texas", "tx")
@@ -69,6 +79,79 @@ def _norm_city_state(city: str = "", state: str = "", zip_code: str = "") -> str
     if (z.startswith("752") or z.startswith("751")) and not c:
         return "dallas, tx"
     return text.strip(", ")
+
+
+def _dc_pack(
+    *,
+    city: str,
+    state: str,
+    ahj_name: str,
+    phone: str,
+    fees_url: str,
+    source_label: str,
+    blank_detail: str,
+    stated: List[tuple],
+) -> Dict[str, Any]:
+    """A cited-fee pack. The commercial permit total stays blank."""
+    fees: List[Dict[str, Any]] = [
+        {
+            "label": "Commercial permit total",
+            "amount_usd": None,
+            "detail": blank_detail,
+            "verified": False,
+            "amount_requires_schedule": True,
+            "source_url": fees_url,
+            "source_label": source_label,
+        }
+    ]
+    for label, amount, detail in stated:
+        fees.append(
+            {
+                "label": label,
+                "amount_usd": amount,
+                "detail": detail,
+                "verified": True,
+                "source_url": fees_url,
+                "source_label": source_label,
+            }
+        )
+    desks = [
+        {
+            "track": "AHJ",
+            "name": ahj_name,
+            "owner": f"{ahj_name} {phone}".strip(),
+            "url": fees_url,
+        }
+    ]
+    return {
+        "city": city,
+        "state": state,
+        "ahj": {
+            "name": ahj_name,
+            "portal_url": fees_url,
+            "fees_url": fees_url,
+            "phone": phone,
+            "notes": blank_detail,
+        },
+        "fees": fees,
+        "desks": desks,
+        "gotchas": [
+            {
+                "id": f"{city.lower().replace(' ', '_')}_permit_total",
+                "title": "The commercial permit total is not on a flat line",
+                "detail": blank_detail,
+                "priority": "CRITICAL",
+                "source_url": fees_url,
+                "source_label": source_label,
+            }
+        ],
+        "documents": [],
+        "timeline_hint": "The cited schedule does not state a review window.",
+        "inspection_sequence": [
+            "Permit application / plan intake",
+            "Inspections named on the fee schedule",
+        ],
+    }
 
 
 CITY_PACKS: Dict[str, Dict[str, Any]] = {
@@ -1061,6 +1144,214 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             "Final building / electrical inspection",
         ],
     },
+    "phoenix, az": _dc_pack(
+        city="Phoenix",
+        state="AZ",
+        ahj_name="City of Phoenix Planning & Development",
+        phone="(602) 262-7811",
+        fees_url="https://www.phoenix.gov/content/dam/phoenix/pddsite/documents/impact-fees/fee-schedule.pdf",
+        source_label="Phoenix PDD fee schedule, Ordinance G-7465, effective January 20, 2026",
+        blank_detail=(
+            "Ordinance G-7465, effective January 20, 2026. "
+            "New construction, additions, and remodel permits follow Table A, the valuation-based permit fee. "
+            "This row does not print a Table A bracket as the permit."
+        ),
+        stated=[
+            (
+                "Re-inspection Fee for All Construction Permits",
+                195.00,
+                "Building safety inspection fees. $195 each when the inspection was called before the work was ready, access was not available, or a second re-inspection is required. The first re-inspection to verify corrections is included with the permit fee.",
+            ),
+            (
+                "Temporary Certificate of Occupancy",
+                780.00,
+                "Per request, for up to 180 days, not to exceed the permit expiration. No renewals or extensions.",
+            ),
+        ],
+    ),
+    "mesa, az": _dc_pack(
+        city="Mesa",
+        state="AZ",
+        ahj_name="City of Mesa Development Services",
+        phone="480-644-4273",
+        fees_url="https://www.mesaaz.gov/files/assets/public/v/7/government/omb/fees-charges/development-services-fees.pdf",
+        source_label="Mesa Development Services schedule of fees, updated July 2026",
+        blank_detail=(
+            "The commercial rate table prices the building permit from valuation. "
+            "The page states a four percent technology improvement fee and this row does not add it."
+        ),
+        stated=[
+            (
+                "Commercial factory-built building site review fee",
+                263.00,
+                "Zoning clearance, per unit. Not the building permit.",
+            ),
+            (
+                "Permit deposit for civil engineering fees",
+                390.00,
+                "Per sheet. Not the building permit.",
+            ),
+        ],
+    ),
+    "atlanta, ga": _dc_pack(
+        city="Atlanta",
+        state="GA",
+        ahj_name="City of Atlanta Department of City Planning",
+        phone="",
+        fees_url="https://www.atlantaga.gov/government/departments/city-planning/zoning-development-permitting-services/getting-started-with-our-zd-p-services",
+        source_label="Atlanta zoning, development, and permitting fee tables",
+        blank_detail=(
+            "The building permit row is $7 per $1,000 of cost of construction. "
+            "This row does not turn that rate into a permit total."
+        ),
+        stated=[
+            (
+                "Building permit minimum",
+                150.00,
+                "Minimum fee amount on the building permit row. The fee itself is $7 per $1,000 of cost of construction.",
+            ),
+            (
+                "Technology Fee",
+                25.00,
+                "Per permit.",
+            ),
+            (
+                "Demolition: Commercial Buildings",
+                1860.00,
+                "Each. Not the building permit.",
+            ),
+        ],
+    ),
+    "loudoun county, va": _dc_pack(
+        city="Loudoun County",
+        state="VA",
+        ahj_name="Loudoun County Building and Development",
+        phone="",
+        fees_url="https://www.loudoun.gov/DocumentCenter/View/170206/Fee-Schedule_2022-Update",
+        source_label="Loudoun County building and development fee schedule, effective July 1, 2022",
+        blank_detail=(
+            "Effective July 1, 2022. New buildings and commercial additions are priced from the building valuation data formula. "
+            "This row does not print that formula as a permit total."
+        ),
+        stated=[
+            (
+                "Minimum permit fee",
+                65.00,
+                "The minimum permit fee for any permit.",
+            ),
+            (
+                "Re-inspection",
+                65.00,
+                "Building and trade permits.",
+            ),
+            (
+                "Commercial Occupancy permit",
+                70.00,
+                "Commercial occupancy permit.",
+            ),
+        ],
+    ),
+    "prince william county, va": _dc_pack(
+        city="Prince William County",
+        state="VA",
+        ahj_name="Prince William County Building Development Division",
+        phone="(703) 792-6930",
+        fees_url="https://www.pwcva.gov/assets/2021-04/12288.pdf",
+        source_label="Prince William County adopted building development fee schedule, effective July 1, 2026",
+        blank_detail=(
+            "Effective July 1, 2026. New nonresidential construction is priced per square foot of gross floor area. "
+            "This row does not print that rate as a permit total."
+        ),
+        stated=[
+            (
+                "Nonresidential minimum fee per structure or tenant space",
+                368.45,
+                "New construction and additions. The table states this total fee.",
+            ),
+        ],
+    ),
+    "new albany, oh": _dc_pack(
+        city="New Albany",
+        state="OH",
+        ahj_name="City of New Albany Community Development",
+        phone="614.939.2254",
+        fees_url="https://newalbanyohio.org/wp-content/uploads/2026/10/Commercial-Fees-Schedule.pdf",
+        source_label="New Albany commercial fees schedule",
+        blank_detail=(
+            "The commercial new-building inspection fee is priced per square foot. "
+            "The page states a state fee of 3 percent of the fees above it, and this row does not add that percent."
+        ),
+        stated=[
+            (
+                "Commercial new building structure base fee",
+                250.00,
+                "Structure base fee. The inspection fee is a separate per-square-foot line.",
+            ),
+            (
+                "Commercial new building occupancy fee",
+                75.00,
+                "Occupancy fee on the commercial new building fee.",
+            ),
+            (
+                "Commercial new building zoning fee",
+                30.00,
+                "Zoning fee on the commercial new building fee.",
+            ),
+        ],
+    ),
+    "columbus, oh": _dc_pack(
+        city="Columbus",
+        state="OH",
+        ahj_name="City of Columbus Building and Zoning Services",
+        phone="614-645-7433",
+        fees_url="https://www.columbus.gov/files/sharedassets/city/v/13/building-and-zoning/fee-schedule/2026-combined-development-related-fee-schedule.pdf",
+        source_label="Columbus 2026 combined development fee schedule",
+        blank_detail=(
+            "Commercial new construction, additions, alterations, and accessory structures are a base plus an amount for each 10 gross square feet over 1,000. "
+            "This row does not compute that permit."
+        ),
+        stated=[
+            (
+                "Commercial single inspection permit",
+                550.00,
+                "Requires Building section approval.",
+            ),
+            (
+                "Additional inspection trip",
+                225.00,
+                "Miscellaneous building fees.",
+            ),
+            (
+                "Certificate of Occupancy for an existing commercial building not associated with a building permit",
+                700.00,
+                "Commercial and multi-family, four or more dwelling units. Not the new-construction permit.",
+            ),
+        ],
+    ),
+    "hillsboro, or": _dc_pack(
+        city="Hillsboro",
+        state="OR",
+        ahj_name="City of Hillsboro Building Division",
+        phone="503-681-6144",
+        fees_url="https://www.hillsboro-oregon.gov/home/showpublisheddocument/30163/638378997346170000",
+        source_label="Hillsboro Building Division fee schedule",
+        blank_detail=(
+            "Building permits follow the valuation table. "
+            "This row does not print a valuation bracket as the permit."
+        ),
+        stated=[
+            (
+                "Reinspection",
+                64.90,
+                "Assessed under Section 108.8.",
+            ),
+            (
+                "Temporary Certificate of Occupancy Fee",
+                150.00,
+                "Temporary certificate of occupancy.",
+            ),
+        ],
+    ),
 }
 
 

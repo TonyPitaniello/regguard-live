@@ -602,14 +602,23 @@ def enrich_analysis_for_ic_pdfs(analysis: Dict[str, Any]) -> Dict[str, Any]:
     except Exception:
         pass
     pi_now = data.get("project_info") if isinstance(data.get("project_info"), dict) else {}
-    if (
-        "san antonio" in str(pi_now.get("city") or "").lower()
-        and not data.get("ic_buyer_brief")
-    ):
-        headline = (
+    city_now = " ".join(str(pi_now.get("city") or "").lower().split())
+    headlines = {
+        "san antonio": (
             "HOLD until the commercial permit stays on the valuation table "
             "and $57.50 is only the electrical permit base fee."
-        )
+        ),
+        "phoenix": "HOLD until the building permit stays on Table A and $195 is only the re-inspection.",
+        "mesa": "HOLD until the commercial permit stays on the valuation table and $263 is only the factory-built site review.",
+        "atlanta": "HOLD until $150 is only the building-permit minimum and the permit stays on the $7 per $1,000 row.",
+        "loudoun county": "HOLD until $65 is the minimum permit fee and the new-building permit stays on the valuation formula.",
+        "prince william county": "HOLD until $368.45 is the nonresidential minimum per structure and the permit stays on the per-square-foot row.",
+        "new albany": "HOLD until $250 is only the structure base fee and the inspection stays on the per-square-foot line.",
+        "columbus": "HOLD until $550 is the single-inspection permit and the new-construction permit stays on the area line.",
+        "hillsboro": "HOLD until the building permit stays on the valuation table and $64.90 is only the reinspection.",
+    }
+    if city_now in headlines and not data.get("ic_buyer_brief"):
+        headline = headlines[city_now]
         data["buyer_headline"] = headline
         data["regguard_stamp"] = {
             "grade": "HOLD",

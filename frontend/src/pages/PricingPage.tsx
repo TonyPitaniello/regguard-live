@@ -139,7 +139,7 @@ export default function PricingPage() {
             Free Bid Risk Receipt preview → Estimator / Permit Runner or Contractor Pro for bid-week
             habit →{' '}
             <span className="text-emerald-200 font-semibold">{IC_BUNDLE.productName}</span> for
-            counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth / San Antonio.
+            counsel-ready site packages. Strongest coverage: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro.
             Fourteen city pages are live. A permit total is not printed when the schedule uses
             valuation or floor area.
           </p>
@@ -375,7 +375,23 @@ export default function PricingPage() {
               >
                 San Antonio
               </button>
-              . Outside those AHJs, expect more Unverified lines.
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/phoenix-permit-fees')}>Phoenix</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/mesa-permit-fees')}>Mesa</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/atlanta-permit-fees')}>Atlanta</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/loudoun-county-permit-fees')}>Loudoun County</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/prince-william-county-permit-fees')}>Prince William County</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/new-albany-permit-fees')}>New Albany</button>
+              ,{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/columbus-permit-fees')}>Columbus</button>
+              , and{' '}
+              <button type="button" className="text-purple-300 hover:text-white underline" onClick={() => navigate('/hillsboro-permit-fees')}>Hillsboro</button>
+              . Outside those AHJs, expect more Unverified lines. Elk Grove Village stays off this line until its own fee file states a dollar.
             </p>
           </div>
           <div>

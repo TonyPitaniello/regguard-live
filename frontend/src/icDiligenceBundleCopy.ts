@@ -51,7 +51,7 @@ export const IC_BUNDLE = {
 
   /** Who it’s for */
   forWhom:
-    'Built for IC consultants, owner’s reps, sponsors, and lenders screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin · San Antonio.',
+    'Built for IC consultants, owner’s reps, sponsors, and lenders screening commercial–industrial and data-center-adjacent sites — especially Dallas · Plano · Fort Worth · Austin · San Antonio · Phoenix · Mesa · Atlanta · Loudoun County · Prince William County · New Albany · Columbus · Hillsboro.',
 
   /**
    * What’s in the ZIP — benefit-led.
@@ -122,7 +122,7 @@ export const IC_BUNDLE = {
     'Evidence index Excel: Exhibits · Claims · Index — every claim mapped to a numbered exhibit',
     'Optional CSV paste exports of the same schedule + evidence index',
     'Data-center parallel clocks: AHJ · interconnect · water/NPDES',
-    'Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth / San Antonio',
+    'Strongest citeable coverage today: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro',
   ] as const,
 
   /**
@@ -140,7 +140,7 @@ export const IC_BUNDLE = {
     'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less',
     'Count capital addresses you have not paid for yet. Earlier checkouts are not refunded',
     'Each site still needs its own three calls. This does not include Contractor Pro lookups',
-    'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio',
+    'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro',
     'Email support via support@regguardagent.com',
   ] as const,
   /** Results / capped-scrape — quality pace; no scrape counter, no firehose invite */

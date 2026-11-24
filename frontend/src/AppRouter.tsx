@@ -138,6 +138,14 @@ export function AppRouter() {
           <Route path="/carrollton-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/houston-permit-fees" element={<GeoPermitLandingPage />} />
           <Route path="/san-antonio-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/phoenix-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/mesa-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/atlanta-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/loudoun-county-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/prince-william-county-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/new-albany-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/columbus-permit-fees" element={<GeoPermitLandingPage />} />
+          <Route path="/hillsboro-permit-fees" element={<GeoPermitLandingPage />} />
 
           {/* Methodology & Trust */}
           <Route path="/methodology" element={<MethodologyPage />} />

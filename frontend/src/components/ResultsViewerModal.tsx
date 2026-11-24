@@ -2061,7 +2061,7 @@ export default function ResultsViewerModal({
       }
       showToast(
         coverage.tier === 'federal_state' || coverage.tier === 'portal_seed'
-          ? 'No city pack for this ZIP yet. Outside Dallas, Plano, Austin, Fort Worth, and San Antonio, a fee line stays blank until the schedule states it.'
+          ? 'No city pack for this ZIP yet. Outside Dallas, Plano, Austin, Fort Worth, San Antonio, Phoenix, Mesa, Atlanta, Loudoun County, Prince William County, New Albany, Columbus, and Hillsboro, a fee line stays blank until the schedule states it.'
           : 'City pack section is not on this results view — expand punch list or re-run with a pin.'
       );
     };

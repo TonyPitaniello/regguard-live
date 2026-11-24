@@ -39,7 +39,7 @@ export const HABIT_TIERS = {
       'Saved Jobs + weekly email reminders for client pipeline',
       'AHJ names and portal links in the app — Full City Pack PDF stays on Contractor Pro',
       'More monthly lookups than Free (habit quota)',
-      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio',
+      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro',
     ] as const,
     notIncluded: [
       'Fee / punch CSV (that is Contractor Pro)',
@@ -61,7 +61,7 @@ export const HABIT_TIERS = {
       'Punch/fee CSV — fee rows only when a citeable pack or the official schedule states an amount',
       'Full City Pack PDF + bid sheet PDF + bid packet',
       'Day-7 re-check habit for live bids',
-      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio',
+      'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro',
     ] as const,
     notIncluded: [
       'Counsel DOCX + evidence binder Excel (IC Diligence Bundle)',
