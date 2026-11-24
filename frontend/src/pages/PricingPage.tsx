@@ -367,7 +367,7 @@ export default function PricingPage() {
               >
                 Fort Worth
               </button>
-              , and{' '}
+              ,{' '}
               <button
                 type="button"
                 className="text-purple-300 hover:text-white underline"
