@@ -288,15 +288,30 @@ async def create_checkout_session(
             "automatic_tax": {"enabled": True},
             "tax_id_collection": {"enabled": True},
         }
-        if mode == "payment":
-            # Subscriptions already get an invoice. The one-time bundle needs one too.
-            create_kwargs["invoice_creation"] = {"enabled": True}
-        # Tie the Stripe subscription or charge to this email and tier so a
-        # later cancel, failed renewal, or refund can end this seat only.
-        if billing_meta and mode == "subscription":
-            create_kwargs["subscription_data"] = {"metadata": billing_meta}
-        elif billing_meta:
-            create_kwargs["payment_intent_data"] = {"metadata": billing_meta}
+        # Every paid plan gets a numbered Stripe invoice.
+        # Subscriptions (Estimator, Contractor Pro, IC Annual, Sponsor) are
+        # invoiced by Billing on the first charge and each renewal.
+        # The one-time IC Diligence Bundle is a payment, so it needs
+        # invoice_creation or Stripe only sends a receipt.
+        product_name = tier_config["name"]
+        if mode == "subscription":
+            create_kwargs["subscription_data"] = {
+                "description": product_name,
+                "metadata": billing_meta,
+            }
+        else:
+            create_kwargs["invoice_creation"] = {
+                "enabled": True,
+                "invoice_data": {
+                    "description": product_name,
+                    "metadata": billing_meta,
+                },
+            }
+            if billing_meta:
+                create_kwargs["payment_intent_data"] = {
+                    "metadata": billing_meta,
+                    "description": product_name,
+                }
 
         customer_id = _find_or_create_stripe_customer(email_clean, name) if email_clean else None
         if customer_id:

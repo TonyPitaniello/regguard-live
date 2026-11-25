@@ -208,7 +208,42 @@ async def test_subscription_checkout_carries_tier_and_no_password(monkeypatch):
     assert captured["mode"] == "subscription"
     assert captured["subscription_data"]["metadata"]["tier"] == "contractor_pro"
     assert captured["subscription_data"]["metadata"]["email"] == "buyer@example.com"
+    assert captured["subscription_data"]["description"] == "Contractor Pro"
+    assert "invoice_creation" not in captured
     assert "password" not in str(captured)
+
+
+@pytest.mark.asyncio
+async def test_every_paid_tier_requests_a_numbered_invoice(monkeypatch):
+    monkeypatch.setattr("stripe_service.is_stripe_configured", lambda: True)
+    monkeypatch.setattr("stripe_service._find_or_create_stripe_customer", lambda *args, **kwargs: None)
+    from stripe_service import TIER_PRICING, create_checkout_session
+
+    class Session:
+        id = "cs_test_1"
+        url = "https://checkout.stripe.com/c/pay/cs_test_1"
+
+    for tier, config in TIER_PRICING.items():
+        if not config.get("mode"):
+            continue
+        captured = {}
+
+        def create(**kwargs):
+            captured.update(kwargs)
+            return Session()
+
+        monkeypatch.setattr("stripe_service.stripe.checkout.Session.create", create)
+        await create_checkout_session(user_id="u1", tier=tier, email="buyer@example.com")
+        if config["mode"] == "subscription":
+            assert captured["mode"] == "subscription"
+            assert captured["subscription_data"]["description"] == config["name"]
+            assert captured["subscription_data"]["metadata"]["tier"] == tier
+            assert "invoice_creation" not in captured
+        else:
+            assert captured["mode"] == "payment"
+            assert captured["invoice_creation"]["enabled"] is True
+            assert captured["invoice_creation"]["invoice_data"]["description"] == config["name"]
+            assert captured["invoice_creation"]["invoice_data"]["metadata"]["tier"] == tier
 
 
 def test_legacy_signup_module_has_no_password():
