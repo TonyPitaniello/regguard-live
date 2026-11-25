@@ -137,9 +137,9 @@ export const IC_BUNDLE = {
   annualFeatures: [
     'Same Diligence Bundle ZIP for each new bound capital site on this purchase email',
     'Memo · boardroom PDF · counsel Word · Excel exhibits — every address',
-    'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less',
-    'Count capital addresses you have not paid for yet. Earlier checkouts are not refunded',
-    'Each site still needs its own three calls. This does not include Contractor Pro lookups',
+    'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less.',
+    'Count capital addresses you have not paid for yet. Earlier checkouts are not refunded.',
+    'Each site still needs its own three calls. This does not include Contractor Pro lookups.',
     'Strongest citeable coverage: Dallas / Plano / Austin / Fort Worth / San Antonio / Phoenix / Mesa / Atlanta / Loudoun County / Prince William County / New Albany / Columbus / Hillsboro',
     'Email support via support@regguardagent.com',
   ] as const,

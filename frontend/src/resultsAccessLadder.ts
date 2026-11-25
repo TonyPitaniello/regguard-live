@@ -136,7 +136,7 @@ const UPSELL_PACK: Record<
     features: [
       'Diligence Bundle ZIP for each new bound capital site on this email',
       'Memo, boardroom, Word, and Excel — same shape, new address',
-      'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less',
+      'Ten sites at $1,500 equal $15,000. The 11th address is where the year costs less.',
       'Built for IC, owner’s rep, sponsor, and lender packages',
     ],
     notThis:
