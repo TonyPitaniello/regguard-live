@@ -193,6 +193,12 @@ async def create_checkout_session(
             except Exception as e:
                 logger.warning("account credit apply failed: %s", e)
 
+        # SaaS sold to businesses. Tax sits on top of the page price.
+        product_data = {
+            "name": tier_config["name"],
+            "description": tier_config.get("description") or tier_config["name"],
+            "tax_code": "txcd_10103001",
+        }
         if price_id:
             line_items = [{"price": price_id, "quantity": 1}]
         elif mode == "subscription":
@@ -202,13 +208,11 @@ async def create_checkout_session(
                     "price_data": {
                         "currency": "usd",
                         "unit_amount": amount_cents,
+                        "tax_behavior": "exclusive",
                         "recurring": {
                             "interval": tier_config.get("interval") or "month",
                         },
-                        "product_data": {
-                            "name": tier_config["name"],
-                            "description": tier_config.get("description") or tier_config["name"],
-                        },
+                        "product_data": product_data,
                     },
                     "quantity": 1,
                 }
@@ -219,10 +223,8 @@ async def create_checkout_session(
                     "price_data": {
                         "currency": "usd",
                         "unit_amount": amount_cents,
-                        "product_data": {
-                            "name": tier_config["name"],
-                            "description": tier_config.get("description") or tier_config["name"],
-                        },
+                        "tax_behavior": "exclusive",
+                        "product_data": product_data,
                     },
                     "quantity": 1,
                 }
@@ -281,7 +283,14 @@ async def create_checkout_session(
             "metadata": metadata,
             # Present USD. Adaptive pricing was quoting lira to non-US browsers.
             "adaptive_pricing": {"enabled": False},
+            # Stripe Tax needs the billing address. The company tax ID is optional.
+            "billing_address_collection": "required",
+            "automatic_tax": {"enabled": True},
+            "tax_id_collection": {"enabled": True},
         }
+        if mode == "payment":
+            # Subscriptions already get an invoice. The one-time bundle needs one too.
+            create_kwargs["invoice_creation"] = {"enabled": True}
         # Tie the Stripe subscription or charge to this email and tier so a
         # later cancel, failed renewal, or refund can end this seat only.
         if billing_meta and mode == "subscription":
@@ -292,6 +301,8 @@ async def create_checkout_session(
         customer_id = _find_or_create_stripe_customer(email_clean, name) if email_clean else None
         if customer_id:
             create_kwargs["customer"] = customer_id
+            # Checkout writes the address and name the buyer confirms onto this customer.
+            create_kwargs["customer_update"] = {"address": "auto", "name": "auto"}
             # Returning buyers: show saved cards; first-time: offer to save for next run
             create_kwargs["saved_payment_method_options"] = {
                 "payment_method_save": "enabled",
@@ -302,11 +313,17 @@ async def create_checkout_session(
         try:
             session = stripe.checkout.Session.create(**create_kwargs)
         except stripe.error.InvalidRequestError as e:
-            # Older Stripe accounts / API versions may reject saved_payment_method_options
-            logger.warning("Checkout create with saved PM options failed (%s); retrying plain", e)
+            # Older Stripe accounts may reject saved cards, or tax until a
+            # registration is active. Keep the charge path working.
+            logger.warning("Checkout create failed (%s); retrying a plainer session", e)
+            message = str(e).lower()
             create_kwargs.pop("adaptive_pricing", None)
             create_kwargs.pop("saved_payment_method_options", None)
             create_kwargs.pop("payment_method_collection", None)
+            if "tax" in message or "customer_update" in message:
+                create_kwargs.pop("automatic_tax", None)
+                create_kwargs.pop("tax_id_collection", None)
+                create_kwargs.pop("customer_update", None)
             session = stripe.checkout.Session.create(**create_kwargs)
 
         logger.info(

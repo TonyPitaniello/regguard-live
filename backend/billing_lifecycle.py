@@ -395,6 +395,10 @@ def create_billing_portal_url(email: str) -> str:
             features={
                 "invoice_history": {"enabled": True},
                 "payment_method_update": {"enabled": True},
+                "customer_update": {
+                    "enabled": True,
+                    "allowed_updates": ["name", "email", "address", "tax_id"],
+                },
                 "subscription_cancel": {
                     "enabled": True,
                     "mode": "at_period_end",
