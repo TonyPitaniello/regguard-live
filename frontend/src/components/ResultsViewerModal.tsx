@@ -4551,14 +4551,12 @@ export default function ResultsViewerModal({
                       {view.vertical_playbook.label || PRODUCT_COPY.sections.verticalPlaybook} — Source or Unverified
                     </h4>
                     <p className="text-xs text-cyan-100/90">
-                      Checklist completeness:{' '}
                       <span className="font-bold text-white">
-                        {view.vertical_playbook.stats?.completeness_pct ?? 0}%
+                        {view.vertical_playbook.stats?.cited ?? 0} cited
                       </span>
                       <span className="text-gray-400">
                         {' '}
-                        ({view.vertical_playbook.stats?.cited ?? 0} cited ·{' '}
-                        {view.vertical_playbook.stats?.confirm ?? 0} confirm)
+                        · {view.vertical_playbook.stats?.confirm ?? 0} confirm
                       </span>
                     </p>
                   </div>
@@ -4752,8 +4750,8 @@ export default function ResultsViewerModal({
                   <p className="text-sm text-gray-300">{view.power_path_card.headline}</p>
                   <p className="text-xs text-gray-400">
                     {typeof view.power_path_card.mw_hint === 'number'
-                      ? `Load named in the notes: ${view.power_path_card.mw_hint} MW. Not feeder capacity.`
-                      : 'No MW named in the notes. Reg Guard does not estimate capacity.'}
+                      ? 'The notes name a load. Reg Guard does not estimate feeder capacity.'
+                      : 'The notes do not name a load. Reg Guard does not estimate capacity.'}
                     {view.power_path_card.fast41_candidate ? ' · FAST-41 candidate' : ''}
                   </p>
                   <ul className="list-disc pl-5 text-xs text-gray-300 space-y-1">
