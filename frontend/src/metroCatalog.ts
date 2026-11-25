@@ -231,7 +231,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     headline: 'Bid-day sheet for Atlanta City Planning',
     bullets: [
       'The building permit is $7 per $1,000 of cost of construction, with a $150 minimum.',
-      'The technology fee is $25 per permit. Commercial demolition is $1,860 each.',
+      'The technology fee is $25 per permit.',
       'The rate is not printed as a permit total.',
     ],
     feeNote: 'The building permit stays on the $7 per $1,000 row. $150 is the minimum. $25 is the technology fee. This page does not state a permit total.',
@@ -244,9 +244,9 @@ export const METRO_LANDINGS: MetroLanding[] = [
     headline: 'Bid-day sheet for Loudoun County Building and Development',
     bullets: [
       'The fee schedule effective July 1, 2022 prices a new building from the valuation formula.',
-      'The minimum permit fee is $65. Re-inspection is $65. The commercial occupancy permit is $70.',
+      'The minimum permit fee is $65. The new-building permit stays on the valuation formula.',
     ],
-    feeNote: 'The new-building permit stays on the valuation formula. $65 is the minimum and the re-inspection. $70 is the commercial occupancy permit.',
+    feeNote: 'The new-building permit stays on the valuation formula. $65 is the minimum permit fee.',
   },
   {
     slug: 'prince-william-county',
@@ -267,10 +267,10 @@ export const METRO_LANDINGS: MetroLanding[] = [
     title: 'New Albany OH permit fees & pre-bid gotchas',
     headline: 'Bid-day sheet for New Albany Community Development',
     bullets: [
-      'The commercial new-building structure base fee is $250. Occupancy is $75. Zoning is $30.',
+      'The commercial new-building structure base fee is $250. The inspection fee stays on the per-square-foot line.',
       'The inspection fee is per square foot. The 3 percent state fee is not added on this page.',
     ],
-    feeNote: 'The inspection stays on the per-square-foot line. $250, $75, and $30 are the stated flat lines. This page does not state a permit total.',
+    feeNote: 'The inspection stays on the per-square-foot line. $250 is the structure base fee. This page does not state a permit total.',
   },
   {
     slug: 'columbus',
@@ -280,7 +280,7 @@ export const METRO_LANDINGS: MetroLanding[] = [
     headline: 'Bid-day sheet for Columbus Building and Zoning Services',
     bullets: [
       'The 2026 schedule prices commercial new construction as a base plus an amount for each 10 gross square feet over 1,000.',
-      'A single-inspection permit is $550. An additional inspection trip is $225.',
+      'A single-inspection permit is $550. The new-construction permit stays on the area line.',
     ],
     feeNote: 'The new-construction permit stays on the area line. $550 is the single-inspection permit. This page does not state a permit total.',
   },

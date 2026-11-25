@@ -334,20 +334,12 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             "portal_url": "https://www.austintexas.gov/development-services/commercial-plan-review",
             "fees_url": "https://austin.widen.net/s/jwhpzhhrnp/fees_commercial",
             "phone": "",
-            "notes": "Commercial fee schedule updated 10/12/2026, effective 10/01/2026. The bases below are not a permit total. A permit total needs an official building area.",
+            "notes": "Commercial fee schedule updated 10/12/2026, effective 10/01/2026. Application processing is $145.89. A permit total needs an official building area.",
         },
         "fees": [
             {
                 "label": "Application processing",
                 "amount_usd": 145.89,
-                "detail": "Commercial fee schedule, effective 10/01/2026. Not the permit total.",
-                "verified": True,
-                "source_url": "https://austin.widen.net/s/jwhpzhhrnp/fees_commercial",
-                "source_label": "Austin commercial fees, effective 10/01/2026",
-            },
-            {
-                "label": "Fire building permit review",
-                "amount_usd": 250,
                 "detail": "Commercial fee schedule, effective 10/01/2026. Not the permit total.",
                 "verified": True,
                 "source_url": "https://austin.widen.net/s/jwhpzhhrnp/fees_commercial",
@@ -382,7 +374,7 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
             {
                 "id": "austin_fee_schedule_recheck",
                 "title": "The commercial fee schedule does not state a permit total without an official building area",
-                "detail": "Application processing is $145.89. New-construction building base is $247.77 before area. Those lines are not a permit total.",
+                "detail": "Application processing is $145.89. The schedule does not state a permit total without an official building area.",
                 "severity": "CRITICAL",
                 "source_url": "https://austin.widen.net/s/jwhpzhhrnp/fees_commercial",
                 "source_label": "Austin commercial fees, effective 10/01/2026",
@@ -1065,38 +1057,6 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
                 "source_label": "San Antonio FY 2027 Development Fee Schedule",
             },
-            {
-                "label": "Mechanical - Permit Base Fee",
-                "amount_usd": 57.50,
-                "detail": "Commercial and existing residential. Mechanical inspection fee and limited service repair permits.",
-                "verified": True,
-                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
-                "source_label": "San Antonio FY 2027 Development Fee Schedule",
-            },
-            {
-                "label": "Commercial Certificate of Occupancy - No Construction Fee",
-                "amount_usd": 230.00,
-                "detail": "C of O - Commercial.",
-                "verified": True,
-                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
-                "source_label": "San Antonio FY 2027 Development Fee Schedule",
-            },
-            {
-                "label": "Re-inspection Fee",
-                "amount_usd": 57.50,
-                "detail": "Re-inspection Fee, all trades, on the miscellaneous building development fees page.",
-                "verified": True,
-                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
-                "source_label": "San Antonio FY 2027 Development Fee Schedule",
-            },
-            {
-                "label": "Flood Plan Development Permit",
-                "amount_usd": 50.00,
-                "detail": "San Antonio Water Systems section. Not subject to surcharges.",
-                "verified": True,
-                "source_url": "https://docsonline.sanantonio.gov/DSDUploads/CurrentFeeSchedule.pdf",
-                "source_label": "San Antonio FY 2027 Development Fee Schedule",
-            },
         ],
         "desks": [
             {
@@ -1215,11 +1175,6 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 25.00,
                 "Per permit.",
             ),
-            (
-                "Demolition: Commercial Buildings",
-                1860.00,
-                "Each. Not the building permit.",
-            ),
         ],
     ),
     "loudoun county, va": _dc_pack(
@@ -1238,16 +1193,6 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "Minimum permit fee",
                 65.00,
                 "The minimum permit fee for any permit.",
-            ),
-            (
-                "Re-inspection",
-                65.00,
-                "Building and trade permits.",
-            ),
-            (
-                "Commercial Occupancy permit",
-                70.00,
-                "Commercial occupancy permit.",
             ),
         ],
     ),
@@ -1287,16 +1232,6 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 250.00,
                 "Structure base fee. The inspection fee is a separate per-square-foot line.",
             ),
-            (
-                "Commercial new building occupancy fee",
-                75.00,
-                "Occupancy fee on the commercial new building fee.",
-            ),
-            (
-                "Commercial new building zoning fee",
-                30.00,
-                "Zoning fee on the commercial new building fee.",
-            ),
         ],
     ),
     "columbus, oh": _dc_pack(
@@ -1315,16 +1250,6 @@ CITY_PACKS: Dict[str, Dict[str, Any]] = {
                 "Commercial single inspection permit",
                 550.00,
                 "Requires Building section approval.",
-            ),
-            (
-                "Additional inspection trip",
-                225.00,
-                "Miscellaneous building fees.",
-            ),
-            (
-                "Certificate of Occupancy for an existing commercial building not associated with a building permit",
-                700.00,
-                "Commercial and multi-family, four or more dwelling units. Not the new-construction permit.",
             ),
         ],
     ),

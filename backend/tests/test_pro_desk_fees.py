@@ -39,7 +39,7 @@ def test_beachhead_pack_and_csv_share_stated_dollars():
     sites = [
         ("1950 N Stemmons Fwy", "Dallas", "75207", ["$175", "$125"], ["175", "125"], "feesummary_725.pdf"),
         ("6565 Headquarters Dr", "Plano", "75024", ["$75", "$130"], ["75", "130"], "civicplus.com"),
-        ("9020 Metric Blvd", "Austin", "78758", ["$145.89", "$247.77", "$3,204.30"], ["145.89", "247.77", "3204.3"], "fees_commercial"),
+        ("9020 Metric Blvd", "Austin", "78758", ["$145.89"], ["145.89"], "fees_commercial"),
         ("13600 Heritage Pkwy", "Fort Worth", "76177", ["$291", "$33.08", "$19,026.04"], ["291", "33.08", "19026.04"], "fee-schedule-oct-2026.pdf"),
     ]
     for address, city, zip_code, pack_bits, csv_bits, url_bit in sites:
@@ -59,6 +59,9 @@ def test_beachhead_pack_and_csv_share_stated_dollars():
         assert "2.0%-6.0%" not in csv_text
         assert "default.aspx" not in pack and "default.aspx" not in csv_text
         assert "$167" not in pack and "1406" not in csv_text and "$289" not in pack
+        if city == "Austin":
+            for bit in ("$250", "$247.77", "$3,204.30", "$339.52", "$276.16", "$378.11", "$70.98"):
+                assert bit not in pack and bit not in sheet and bit not in csv_text
         if city != "Fort Worth":
             blank = [
                 line

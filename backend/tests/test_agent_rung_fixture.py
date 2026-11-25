@@ -450,8 +450,9 @@ def test_beachhead_free_estimator_pro_and_ic_keep_the_schedule():
                 assert bit in csv_text
             assert _csv_planning(csv_text, "Electrical permit total") == ""
         elif city == "Austin":
-            for bit in ("$145.89", "$250", "$3,204.30", "$247.77", "$339.52", "$276.16", "$378.11", "$70.98"):
-                assert bit in pack, bit
+            assert "$145.89" in pack
+            for bit in ("$250", "$3,204.30", "$247.77", "$339.52", "$276.16", "$378.11", "$70.98"):
+                assert bit not in pack, bit
             assert _csv_planning(csv_text, "Commercial permit total") == ""
         else:
             for bit in ("$291", "$113", "$33.08", "$16.87", "$19,026.04"):
@@ -483,8 +484,9 @@ def test_beachhead_free_estimator_pro_and_ic_keep_the_schedule():
             for bit in ("$70", "$90", "$110", "$130", "$75"):
                 assert bit in ic_text, bit
         elif city == "Austin":
-            for bit in ("$145.89", "$247.77", "$3,204.30"):
-                assert bit in ic_text, bit
+            assert "$145.89" in ic_text
+            for bit in ("$247.77", "$3,204.30", "$250", "$339.52"):
+                assert bit not in ic_text, bit
         else:
             for bit in ("$291", "$113", "$33.08", "$16.87", "$19,026.04"):
                 assert bit in ic_text, bit

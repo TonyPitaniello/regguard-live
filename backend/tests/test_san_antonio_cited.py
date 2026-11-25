@@ -46,9 +46,9 @@ def test_stated_flat_lines_match_on_the_pack_and_the_csv():
     pack = _pdf(generate_city_pack_pdf_bytes(data)).replace("\n", "")
     assert "CurrentFeeSchedule.pdf" in pack
     assert "$57.50" in pack
-    assert "$230" in pack or "$230.00" in pack
+    assert "$230" not in pack and "$230.00" not in pack
     assert "57.5" in csv_text
-    assert "230" in csv_text
+    assert "230" not in csv_text
     blank = [line for line in csv_text.splitlines() if "Commercial permit total" in line]
     assert blank
     for line in blank:
@@ -65,13 +65,12 @@ def test_a_valuation_bracket_is_not_the_permit_and_a_homepage_is_empty():
             "Commercial and existing residential building plan review and permit fees are based on valuation.",
             "Valuation $0 to $1,000 is $115.00",
             "Electrical - Permit Base Fee $57.50",
-            "Commercial Certificate of Occupancy - No Construction Fee $230.00",
         ]
     )
     rows = transcribe_page(text, SA_PDF, city="San Antonio")
     amounts = [row["amount_usd"] for row in rows]
     assert 57.50 in amounts
-    assert 230.00 in amounts
+    assert 230.00 not in amounts
     assert 115.00 not in amounts
     blank = [row for row in rows if row["amount_usd"] is None]
     assert blank

@@ -654,117 +654,12 @@ def _austin() -> Dict[str, Any]:
             owner="Austin Development Services",
         ),
         _fee(
-            label="Fire building permit review, all occupancy groups",
-            trade="fire",
-            amount=250,
-            note=(
-                "Page 1. Fire Building Permit Review $250. Notation B applies this fee to all "
-                "occupancy groups. This is not the building permit."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 1",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="Plan review base fee, occupancy A B E F I M R S or U",
-            trade="building",
-            amount=3204.30,
-            note=(
-                "Page 2. Initial submittal base fee $3,204.30 for occupancy A, B, E, F, I, M, R, S, or U. "
-                "The area bands on that page add a per-square-foot amount. This is the base, not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 2",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="New construction building base fee",
-            trade="building",
-            amount=247.77,
-            note=(
-                "Page 3. Occupancy groups A, B, E, F, H, I, M, S, and U. Building base fee $247.77. "
-                "The area bands on that page add a per-square-foot amount. Payable at permit issuance. "
-                "Not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 3",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="New construction electrical base fee",
-            trade="electrical",
-            amount=339.52,
-            note=(
-                "Page 3. Same occupancy groups. Electrical base fee $339.52 before the area band. "
-                "Not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 3",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="New construction mechanical base fee",
-            trade="mechanical",
-            amount=276.16,
-            note=(
-                "Page 3. Same occupancy groups. Mechanical base fee $276.16 before the area band. "
-                "Not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 3",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="New construction plumbing base fee",
-            trade="plumbing",
-            amount=378.11,
-            note=(
-                "Page 3. Same occupancy groups. Plumbing base fee $378.11 before the area band. "
-                "Not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 3",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="New construction energy base fee",
-            trade="energy",
-            amount=70.98,
-            note=(
-                "Page 3. Same occupancy groups. Energy base fee $70.98 before the area band. "
-                "Not the permit total."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 3",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
-            label="Reinspection fee, per inspection",
-            trade="inspection",
-            amount=70.98,
-            note=(
-                "Page 6. Reinspection fee per inspection $70.98. Notation C charges it for an "
-                "additional scheduled inspection. Not the permit."
-            ),
-            url=AUSTIN_FEE_PDF,
-            source_label="Austin commercial fee schedule, page 6",
-            status="effective 2026-10-01",
-            owner="Austin Development Services",
-        ),
-        _fee(
             label="Commercial permit total",
             trade="building",
             amount=None,
             note=(
-                "Pages 2 and 3 price the permit by occupancy and square footage above the base lines "
-                "already transcribed. The city address layer returns no point for 9020 Metric Blvd, so no "
+                "Pages 2 and 3 price the permit by occupancy and square footage. "
+                "The city address layer returns no point for 9020 Metric Blvd, so no "
                 "building area is applied. confirm-on-schedule. "
                 "https://maps.austintexas.gov/arcgis/rest/services/Shared/Property/MapServer/0/query?"
                 "where=ADDRESS+%3D+9020+AND+STREET_NAME+%3D+%27METRIC%27&outFields=FULL_STREET_NAME"
@@ -782,9 +677,7 @@ def _austin() -> Dict[str, Any]:
             "Application processing is $145.89, not the building permit",
             (
                 "Page 1 states the commercial plan review application processing fee is $145.89. "
-                "Page 3 states the new-construction building base fee is $247.77 before area, for "
-                "occupancy groups A, B, E, F, H, I, M, S, and U. Page 2 states the plan-review base "
-                "fee is $3,204.30 before area, for occupancy A, B, E, F, I, M, R, S, or U. "
+                "The permit total needs an official building area. "
                 "Clears when $145.89 is only the application processing line. "
                 "Desk: Austin Development Services commercial plan review."
             ),

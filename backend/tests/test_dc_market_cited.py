@@ -58,6 +58,14 @@ def test_each_market_prints_its_own_stated_dollar_and_a_blank_permit():
             assert _DOLLAR.search(line) is None, (city, line)
         assert "175" not in csv_text or city == "Atlanta"
         assert "57.50" not in csv_text
+        if city == "Atlanta":
+            assert "1860" not in csv_text and "1,860" not in pack
+        if city == "Loudoun County":
+            assert "$70" not in csv_text and "$70" not in pack
+        if city == "New Albany":
+            assert "$75" not in csv_text and "$30" not in csv_text
+        if city == "Columbus":
+            assert "225" not in csv_text and "700" not in csv_text
 
 
 def test_elk_grove_village_stays_off_the_cited_packs():
